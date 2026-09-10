@@ -169,8 +169,8 @@
     transition: width 0.18s linear;
   }
 
-  #aideLangue { text-align: right; margin: -2px 0 8px; }
-  #langBtn {
+  #aideLangue { display: flex; gap: 6px; justify-content: flex-end; margin: -2px 0 10px; }
+  #timbreBtn, #langBtn {
     background: none;
     border: 1px solid var(--ph-dim);
     border-radius: 4px;
@@ -400,7 +400,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.53</button>
+  <button id="versionBtn">v0.54</button>
 </div>
 
 <div id="bottombar">
@@ -445,7 +445,10 @@
 </div>
 
 <div id="aide" hidden>
-  <div id="aideLangue"><button id="langBtn">ENGLISH</button></div>
+  <div id="aideLangue">
+    <button id="timbreBtn" data-en="ENGINE: CLEAR">MOTEUR : CLAIR</button>
+    <button id="langBtn">ENGLISH</button>
+  </div>
   <div id="aideFR">
   <h2>PILOTER</h2>
   <p>Pose le doigt n'importe où : un manche apparaît sous lui, et l'avion suit.
@@ -725,6 +728,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.54</b> — on vise là où la cible sera, pas où elle est : le viseur, le magnétisme et les balles suivent le point de déflexion, marqué d'un losange. Arriver de travers sur la piste ne fait plus partir la caméra en vrille. La mort sonne comme un moteur qui a des hoquets et cale, et un second timbre de moteur, plus grave et plus gras, s'offre dans l'aide.</div>
   <div><b>v0.53</b> — au tonneau, la caméra a enfin sa propre course : elle part avec l'avion, se laisse distancer au milieu, et se recale exactement sur la nouvelle parallèle. Elle reste à plat.</div>
   <div><b>v0.52</b> — le jeu se donne en anglais si le téléphone n'est pas en français, et l'aide se bascule d'un bouton. Le bandeau du soleil dans le dos, perdu en route, est de retour.</div>
   <div><b>v0.51</b> — la surchauffe : chaque appareil abattu rallonge de trois secondes un état où les canons tirent deux fois plus vite et où le cadran tremble. Enchaîner devient plus facile que commencer.</div>
@@ -1084,7 +1088,24 @@ function jalonVague(n) {
 // l'utilisateur — il est donc créé au clic sur DÉCOLLER.
 // ---------------------------------------------------------------------------
 let actx = null, master = null, bruitBuf = null, moteur = null, moteurG = null;
-let reverbe = null, loinG = null;
+let reverbe = null, loinG = null, moteurLP = null, sousG = null;
+// 'clair' est celui d'origine ; 'profond' est plus grave et plus gras
+let timbre = 'clair';
+try { timbre = localStorage.getItem('fod_timbre') || 'clair'; } catch (e) {}
+
+const TIMBRES = {
+  clair:   { base: 70,  ecart: 1.7, coupe: 420,  sous: 0,    gain: 0.050 },
+  profond: { base: 47,  ecart: 3.1, coupe: 640,  sous: 0.52, gain: 0.062 }
+};
+
+function appliqueTimbre() {
+  if (!moteur || !moteurLP) return;
+  const T = TIMBRES[timbre] || TIMBRES.clair;
+  moteurLP.frequency.value = T.coupe;
+  // la troisième voix, une octave en dessous, est ce qui fait le gras : elle
+  // est muette sur le timbre clair, c'est elle seule qui distingue les deux
+  if (sousG) sousG.gain.value = T.sous;
+}
 let muet = localStorage.getItem('fod_muet') === '1';
 
 function audioDemarre() {
@@ -1101,20 +1122,29 @@ function audioDemarre() {
   const d = bruitBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 
-  // moteur : deux dents de scie légèrement désaccordées, dont la hauteur suit
-  // la vitesse. C'est ce qui fait entendre le piqué.
+  // LE MOTEUR : deux dents de scie légèrement désaccordées, dont la hauteur
+  // suit la vitesse. C'est ce qui fait entendre le piqué. Le battement entre
+  // les deux — la différence de leurs fréquences — donne le tremblement d'un
+  // moteur à pistons ; sans lui on entendrait une sirène.
+  //
+  // Deux timbres au choix. Le PROFOND descend d'une quinte, désaccorde
+  // davantage et laisse passer plus d'harmoniques : un gros moteur qui tourne
+  // lentement plutôt qu'un petit qui s'affole.
   moteurG = actx.createGain();
   moteurG.gain.value = 0.05;
-  const lp = actx.createBiquadFilter();
-  lp.type = 'lowpass'; lp.frequency.value = 420;
-  moteur = [actx.createOscillator(), actx.createOscillator()];
+  moteurLP = actx.createBiquadFilter();
+  moteurLP.type = 'lowpass';
+  sousG = actx.createGain();
+  sousG.gain.value = 0;
+  sousG.connect(moteurG);
+  moteur = [actx.createOscillator(), actx.createOscillator(), actx.createOscillator()];
   moteur.forEach((o, i) => {
-    o.type = 'sawtooth';
-    o.frequency.value = 70 + i * 1.7;
-    o.connect(moteurG);
+    o.type = i === 2 ? 'triangle' : 'sawtooth';
+    o.connect(i === 2 ? sousG : moteurG);
     o.start();
   });
-  moteurG.connect(lp).connect(master);
+  moteurG.connect(moteurLP).connect(master);
+  appliqueTimbre();
 
   // RÉVERBÉRATION. Une réponse impulsionnelle synthétisée : du bruit qui
   // s'éteint en exponentielle, ce qui suffit à donner l'espace. Elle ne sert
@@ -1255,11 +1285,33 @@ const SFX = {
   // et longue : le moteur qui meurt, un grondement sous le reste, un souffle
   // qui s'éteint. La dent de scie est gardée à mi-grave plutôt qu'un pur sous-
   // grave, qu'un haut-parleur de téléphone ne restituerait pas du tout.
+  // LA MORT, C'EST LE MOTEUR QUI LÂCHE. Une descente continue sonnait comme
+  // un élastique qui tombe — un glissando, pas une panne. Un moteur qui rend
+  // l'âme a des HOQUETS : il repart, cale, repart plus bas, cale encore, et
+  // chaque reprise est plus grave et plus courte que la précédente jusqu'à ce
+  // qu'il n'y ait plus rien. Ce sont ces silences entre les tentatives qui
+  // font entendre la panne.
   fin:          () => {
-    souffle(1.7, 520, 45, 0.7, 0.30);
-    ton(150, 30, 1.9, 'sawtooth', 0.22);
-    ton(88, 26, 2.2, 'sine', 0.18);
-    setTimeout(() => ton(66, 33, 1.5, 'triangle', 0.11), 280);
+    const base = 118;
+    let t = 0;
+    for (let i = 0; i < 5; i++) {
+      const f = base * Math.pow(0.72, i);        // chaque hoquet plus grave
+      const dur = 0.34 * Math.pow(0.86, i);      // et plus court
+      const vol = 0.26 * Math.pow(0.88, i);
+      setTimeout(() => {
+        // un hoquet : le régime remonte un peu, puis retombe et cale
+        ton(f * 0.82, f * 1.14, dur * 0.42, 'sawtooth', vol);
+        setTimeout(() => ton(f * 1.14, f * 0.55, dur * 0.58, 'sawtooth', vol * 0.9),
+                   dur * 420);
+        souffle(dur * 0.9, f * 5, f * 1.6, 1.1, vol * 0.5);
+      }, t * 1000);
+      t += dur + 0.13 + i * 0.035;               // et les silences s'allongent
+    }
+    // ce qui reste : la cellule qui tombe, sans moteur
+    setTimeout(() => {
+      souffle(1.9, 420, 38, 0.6, 0.26);
+      ton(52, 22, 2.1, 'sine', 0.16);
+    }, t * 1000);
   }
 };
 
@@ -3723,6 +3775,50 @@ function damagePlayer(amount, source) {
 // ---------------------------------------------------------------------------
 // seuil angulaire d'une cible : sa demi-envergure vue à cette distance, plus
 // la marge. C'est ce qui rend la visée honnête à toute distance.
+// ---------------------------------------------------------------------------
+// LE POINT DE DÉFLEXION. On ne tire pas sur un avion, on tire là où il sera
+// quand la balle arrivera. C'est ce que fait tout chasseur depuis 1915, et
+// c'est aussi ce qui explique la courbe qu'on croit voir aux traçantes : elles
+// vont droit, c'est la cible qui se déplace pendant leur trajet.
+//
+// Le point se trouve en résolvant l'équation du second degré du rendez-vous.
+// Si d est le vecteur qui va du canon à la cible, v la vitesse de celle-ci et
+// s celle de la balle, il faut un temps t tel que |d + v t| = s t, soit
+//
+//     (v·v − s²) t² + 2 (d·v) t + d·d = 0
+//
+// dont on garde la plus petite racine positive. C'est exactement l'équation que
+// résout déjà l'INTERCEPTEUR pour venir nous chercher : elle sert ici dans
+// l'autre sens.
+const _pv = new THREE.Vector3();
+function pointVise(e, depuis, out) {
+  out.copy(e.pos);
+  if (!e.speed || !e.forward) return out;
+  _pv.copy(e.forward).multiplyScalar(e.speed);
+  _seg.subVectors(e.pos, depuis);
+  const a = _pv.lengthSq() - BULLET_SPEED * BULLET_SPEED;
+  const b = 2 * _seg.dot(_pv);
+  const c = _seg.lengthSq();
+  let t;
+  if (Math.abs(a) < 1e-4) {
+    if (Math.abs(b) < 1e-6) return out;
+    t = -c / b;
+  } else {
+    const disc = b * b - 4 * a * c;
+    if (disc < 0) return out;                 // trop rapide pour être rattrapée
+    const r = Math.sqrt(disc);
+    const t1 = (-b - r) / (2 * a), t2 = (-b + r) / (2 * a);
+    t = Math.min(t1 > 0 ? t1 : Infinity, t2 > 0 ? t2 : Infinity);
+    if (!isFinite(t)) return out;
+  }
+  // au-delà de deux secondes de vol la prédiction ne vaut plus rien : une
+  // cible qui manœuvre aura changé d'avis bien avant
+  t = Math.min(t, 2);
+  return out.addScaledVector(_pv, t);
+}
+
+const _vise = new THREE.Vector3();
+
 function seuilLock(e, d) {
   return Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE * (1 - 0.55 * eblouissement());
 }
@@ -3747,9 +3843,15 @@ function eblouissement() {
 function updateLock(dt) {
   let best = null, bestEcart = Infinity;
   for (const e of state.enemies) {
-    _v.subVectors(e.pos, state.pos);
+    // C'est le POINT DE DÉFLEXION qu'on cherche à tenir dans le viseur, pas la
+    // cible : viser l'avion revenait à tirer systématiquement derrière lui dès
+    // qu'il traversait, et il fallait compenser à l'oeil sans savoir de combien.
+    pointVise(e, state.pos, _vise);
+    e.vise = e.vise || new THREE.Vector3();
+    e.vise.copy(_vise);
+    _v.subVectors(_vise, state.pos);
     const d = _v.length();
-    if (d > LOCK_RANGE) continue;
+    if (e.pos.distanceTo(state.pos) > LOCK_RANGE) continue;
     _v.divideScalar(d || 1);
     const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
     const ecart = ang - seuilLock(e, d);
@@ -3812,7 +3914,8 @@ function updateLock(dt) {
     for (const g of [GUN_L, GUN_R]) {
       const p = new THREE.Vector3(g.x, g.y, g.z)
         .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
-      const d = new THREE.Vector3().subVectors(best.pos, p).normalize();
+      const d = new THREE.Vector3()
+        .subVectors(pointVise(best, p, _vise), p).normalize();
       state.shots.push({ pos: p, dir: d, t: 0 });
     }
     SFX.tir();
@@ -3874,15 +3977,18 @@ function step(now) {
   else if (!state.running) auRalenti(dt);
   if (moteurG && moteur) {
     // le moteur tourne aussi au sol, plus bas et plus doux
-    moteurG.gain.value = state.paused ? 0 : (state.running ? 0.05 : (state.auSol ? 0.03 : 0));
+    const TG = (TIMBRES[timbre] || TIMBRES.clair).gain;
+    moteurG.gain.value = state.paused ? 0 : (state.running ? TG : (state.auSol ? TG * 0.6 : 0));
     // remonté trop haut à la version précédente : on redescend sous la valeur
     // d'origine, qui était déjà à la limite du criard
     // au sol, le régime tient lieu de vitesse : le moteur s'entend monter
     // avant que l'appareil ne s'ébranle
     const vSon = Math.max(state.speed, state.regime * 62);
-    const f = 36 + THREE.MathUtils.clamp(vSon, 0, SPEED_MAX) / SPEED_MAX * 44;
+    const T = TIMBRES[timbre] || TIMBRES.clair;
+    const f = (T.base * 0.51) + THREE.MathUtils.clamp(vSon, 0, SPEED_MAX) / SPEED_MAX * T.base * 0.63;
     moteur[0].frequency.value = f;
-    moteur[1].frequency.value = f * 1.02;
+    moteur[1].frequency.value = f + T.ecart * 0.012 * f;
+    moteur[2].frequency.value = f * 0.5;
   }
   renderer.render(scene, camera);
   drawHud(dt);
@@ -3914,7 +4020,12 @@ function simulate(dt) {
   const yawRate   = -dx * gain * MAX_YAW;
   const pitchRate = -dy * gain * MAX_PITCH;
 
-  state.yaw   += yawRate * dt;
+  // Le lacet est ramené dans un tour à chaque image. Laissé libre il dérive
+  // indéfiniment, et tout ce qui l'interpole — l'alignement sur la piste, la
+  // reprise après une figure — se met à rembobiner des tours entiers.
+  state.yaw += yawRate * dt;
+  if (state.yaw > Math.PI) state.yaw -= Math.PI * 2;
+  else if (state.yaw < -Math.PI) state.yaw += Math.PI * 2;
   state.pitch = THREE.MathUtils.clamp(state.pitch + pitchRate * dt, -PITCH_LIMIT, PITCH_LIMIT);
 
   // sans cette remise à plat, le tangage est une consigne de vitesse qui ne
@@ -4012,9 +4123,21 @@ function simulate(dt) {
     const lisse = x => x * x * (3 - 2 * x);
     // l'assiette part de ce qu'elle valait et passe par un léger cabré d'arrondi
     state.pitch = A.p0 * (1 - lisse(u)) + 0.10 * Math.sin(Math.PI * u);
-    // on se réaligne sur l'axe de la piste, dans le sens où l'on arrive
+    // ON SE RÉALIGNE PAR LE CHEMIN COURT. Le lacet s'accumule sans jamais
+    // être ramené dans un tour : après quelques virages il vaut vingt radians,
+    // et interpoler linéairement de vingt à zéro faisait rembobiner trois
+    // tours complets pendant l'arrondi — la caméra partait en vrille autour de
+    // l'appareil. On ramène donc l'écart dans plus ou moins un demi-tour avant
+    // de le résorber, ce qui ne fait jamais parcourir plus de cent quatre-vingts
+    // degrés quel qu'ait été le vol.
     const yawCible = A.sens < 0 ? 0 : Math.PI;
-    state.yaw = yawCible + (A.yaw0 - yawCible) * (1 - lisse(u));
+    if (A.dYaw === undefined) {
+      let d = (A.yaw0 - yawCible) % (Math.PI * 2);
+      if (d > Math.PI) d -= Math.PI * 2;
+      if (d < -Math.PI) d += Math.PI * 2;
+      A.dYaw = d;
+    }
+    state.yaw = yawCible + A.dYaw * (1 - lisse(u));
     // la hauteur se rend à la piste sur la même courbe, sans jamais la traverser
     state.pos.y = SOL_Y + (A.y0 - SOL_Y) * (1 - lisse(u));
     state.speed = A.v0 * (1 - lisse(u)) * 0.92 + 4 * (1 - u);
@@ -4370,9 +4493,13 @@ function simulate(dt) {
   if (!state.fig) {
     let cible = null, cAng = 0, cSeuil = 0;
     for (const e of state.enemies) {
-      _v.subVectors(e.pos, state.pos);
+      // le magnétisme tient le POINT DE DÉFLEXION, pas l'avion : c'est là
+      // qu'il faut être pour que les balles arrivent, et c'est donc là qu'une
+      // aide doit aider
+      pointVise(e, state.pos, _vise);
+      _v.subVectors(_vise, state.pos);
       const d = _v.length();
-      if (d > LOCK_RANGE) continue;
+      if (e.pos.distanceTo(state.pos) > LOCK_RANGE) continue;
       _v.divideScalar(d || 1);
       const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
       const seuil = seuilLock(e, d) * ASSIST_ETENDUE;
@@ -4382,7 +4509,7 @@ function simulate(dt) {
     }
     if (cible) {
       // écart exprimé dans le repère de l'avion : le nez regarde vers -Z
-      _los.subVectors(cible.pos, state.pos).normalize()
+      _los.subVectors(cible.vise || cible.pos, state.pos).normalize()
         .applyQuaternion(_qa.copy(state.quat).invert());
       const errLacet = -Math.atan2(_los.x, -_los.z);
       const errTangage = Math.atan2(_los.y, Math.hypot(_los.x, _los.z));
@@ -5385,6 +5512,27 @@ function drawHud() {
     } else {
       bracket(p.x, p.y, size, 0.3);
     }
+
+    // LE POINT DE DÉFLEXION, marqué d'un petit losange relié à l'appareil.
+    // C'est là qu'il faut mettre la croix, et le trait dit de combien on
+    // anticipe : plus la cible traverse vite et plus il s'écarte d'elle.
+    if (e.vise && locked) {
+      const pv = project(e.vise);
+      if (pv.front && Math.hypot(pv.x - p.x, pv.y - p.y) > 4) {
+        hctx.save();
+        hctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        hctx.setLineDash([3, 4]);
+        hctx.beginPath(); hctx.moveTo(p.x, p.y); hctx.lineTo(pv.x, pv.y); hctx.stroke();
+        hctx.setLineDash([]);
+        hctx.lineWidth = 1.4;
+        hctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        hctx.beginPath();
+        hctx.moveTo(pv.x, pv.y - 5); hctx.lineTo(pv.x + 5, pv.y);
+        hctx.lineTo(pv.x, pv.y + 5); hctx.lineTo(pv.x - 5, pv.y);
+        hctx.closePath(); hctx.stroke();
+        hctx.restore();
+      }
+    }
   }
 
   // Une flèche par ennemi, sur un anneau autour du centre. Sa taille dit la
@@ -5656,6 +5804,7 @@ function appliqueLangue() {
   if (fr && en) { fr.hidden = langue === 'en'; en.hidden = langue !== 'en'; }
   const lb = document.getElementById('langBtn');
   if (lb) lb.textContent = langue === 'en' ? 'FRANÇAIS' : 'ENGLISH';
+  if (typeof majTimbreBtn === 'function') majTimbreBtn();
   document.documentElement.lang = langue;
 }
 
@@ -5845,6 +5994,22 @@ function ouvrirAide(ouvert) {
   majPause();
 }
 aideBtn.addEventListener('click', e => { e.stopPropagation(); ouvrirAide(); });
+
+const timbreBtn = document.getElementById('timbreBtn');
+function majTimbreBtn() {
+  const nomFr = timbre === 'profond' ? 'MOTEUR : PROFOND' : 'MOTEUR : CLAIR';
+  const nomEn = timbre === 'profond' ? 'ENGINE: DEEP' : 'ENGINE: CLEAR';
+  timbreBtn.dataset.fr = nomFr;
+  timbreBtn.dataset.en = nomEn;
+  timbreBtn.textContent = langue === 'en' ? nomEn : nomFr;
+}
+timbreBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  timbre = timbre === 'clair' ? 'profond' : 'clair';
+  try { localStorage.setItem('fod_timbre', timbre); } catch (err) {}
+  appliqueTimbre();
+  majTimbreBtn();
+});
 
 document.getElementById('langBtn').addEventListener('click', e => {
   e.stopPropagation();
