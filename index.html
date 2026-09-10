@@ -223,7 +223,7 @@
   <span class="spacer"></span>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.21</button>
+  <button id="versionBtn">v0.23</button>
 </div>
 
 <div id="bottombar">
@@ -265,9 +265,15 @@
   remet la montée à zéro.</p>
   <p>Le verrouillage tient dans un produit scalaire. On compare la direction du
   nez à la direction de la cible, toutes deux ramenées à une longueur de 1 :
-  leur produit scalaire vaut le cosinus de l'angle entre elles. Au-delà du
-  cosinus de 9 degrés, c'est dans le viseur. Aucun arc cosinus n'est calculé,
-  on compare directement les cosinus.</p>
+  leur produit scalaire vaut le cosinus de l'angle entre elles.</p>
+  <p>Le seuil n'est pas une constante : c'est la <b>taille apparente</b> de la
+  cible, plus une marge de 1,2 degré. Un chasseur de 11 mètres vu à 400 mètres
+  n'occupe que 0,8 degré de ciel — il faut donc vraiment lui mettre la croix
+  dessus, et d'autant plus qu'il est loin.</p>
+  <p>Un magnétisme très léger t'aide à l'y garder. Il est nul quand la croix
+  est pile dessus, nul au bord de sa zone, et plafonné à un neuvième de
+  l'autorité du manche : il ne peut jamais prendre la main ni t'emmener sur
+  une cible que tu ne vises pas.</p>
 
   <h2>EN FACE</h2>
   <p>Quatre adversaires, quatre silhouettes, quatre manières de poursuivre.
@@ -317,6 +323,8 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.23</b> — la visée devient exigeante. Le cône de verrouillage n'est plus une constante de 9 degrés, qui laissait tirer largement à côté : il vaut la taille apparente de la cible plus 1,2 degré de marge. Un chasseur de 11 m à 400 m n'occupe que 0,8 degré, il faut donc vraiment lui mettre la croix dessus. En échange, un magnétisme très léger aide à l'y garder — nul au centre, nul au bord de sa zone, plafonné à un neuvième de l'autorité du manche.</div>
+  <div><b>v0.22</b> — le moteur continuait de tourner après avoir quitté la page. Sa coupure était pilotée dans la boucle de rendu, mais un onglet en arrière-plan ne rend plus : la boucle s'arrêtait, la dernière valeur de gain restait, et le son survivait. Le contexte audio est maintenant suspendu sur les événements du cycle de vie de la page, qui eux continuent d'être émis.</div>
   <div><b>v0.21</b> — commandes bien plus vives, l'avion réagit comme un appareil de voltige. Le vrai coupable n'était pas l'autorité mais la courbe de commande : elle était en carré pur, donc à mi-manche on n'obtenait qu'un quart de la réponse. Elle est maintenant linéaire sur le premier tiers puis progressive. Lacet porté de 66 à 112 degrés par seconde, tangage de 54 à 97, roulis qui s'établit deux fois plus vite, course du manche raccourcie, retour au neutre plus franc, figures raccourcies, et la caméra suit d'autant.</div>
   <div><b>v0.20</b> — corrige le décalage de l'écran sur iPhone après une figure. touch-action n'est pas une propriété héritée : posée sur html et body, elle ne protégeait pas les canvas, et deux appuis rapprochés déclenchaient le zoom-au-double-tap d'iOS — exactement le geste qui sert à faire une figure. Le refus est maintenant posé sur tous les éléments, les gestes de pincement sont interceptés, et la fenêtre visuelle est surveillée pour les replis de barres du navigateur.</div>
   <div><b>v0.19</b> — les avions passent aux dimensions réelles, une unité valant un mètre. Le joueur mesurait 14,4 m d'envergure contre 4,4 à 7,8 à ses adversaires : il écrasait tout. Chaque appareil déclare maintenant son envergure et sa maquette s'y plie — 8,5 m pour le biplan comme un Sopwith Camel, 11,2 m pour le chasseur comme un Spitfire, 7,5 m pour l'intercepteur à aile courte, 6 m pour le drone, 12 m pour le joueur. La caméra se rapproche d'autant pour que le cadrage ne bouge pas, et les rayons de collision reviennent à des tailles d'avion.</div>
@@ -393,7 +401,14 @@ const MAX_PITCH     = 1.7;    // rad/s, autorité en tangage
 const PITCH_LIMIT   = 68 * Math.PI / 180; // jamais la verticale : au-delà l'orientation devient ambiguë
 const PITCH_TRIM    = 0.95;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
 const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
-const LOCK_COS      = Math.cos(9 * Math.PI / 180); // cône du viseur : produit scalaire plutôt qu'arc cosinus
+// Viser, maintenant, veut dire viser. Le cône n'est plus une constante : il
+// vaut la taille apparente de la cible plus une marge fixe. Un chasseur de
+// 11 m à 400 m occupe 0,8 degré ; avec la marge, il faut mettre la croix
+// dessus. Un cône fixe de 9 degrés laissait tirer à côté.
+const LOCK_MARGE    = 1.2 * Math.PI / 180;
+const ASSIST_ETENDUE = 1.8;   // le magnétisme agit jusqu'à 1,8 fois le seuil
+const ASSIST_GAIN   = 9;      // rad/s par radian d'écart
+const ASSIST_MAX    = 0.22;   // plafond : un neuvième de l'autorité du joueur
 const LOCK_RANGE    = 1250;
 const DPS_MIN       = 15;     // dégâts par seconde à l'accroche
 const DPS_MAX       = 72;     // ...et une fois le tir bien calé sur la cible
@@ -468,6 +483,28 @@ function audioDemarre() {
   });
   moteurG.connect(lp).connect(master);
 }
+
+// Le moteur est un oscillateur continu, et sa coupure est pilotée dans la
+// boucle de rendu. Or un onglet en arrière-plan ne rend plus : la boucle
+// s'arrête, la dernière valeur de gain reste, et le moteur continue de
+// tourner alors qu'on a quitté la page. Il faut donc suspendre le contexte
+// sur les événements du cycle de vie de la page, seuls à être encore émis.
+function audioPause() {
+  if (moteurG) moteurG.gain.value = 0;
+  if (actx && actx.state === 'running') actx.suspend();
+}
+
+function audioReprend() {
+  if (actx && actx.state === 'suspended' && !document.hidden && state.running) actx.resume();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) audioPause(); else audioReprend();
+});
+window.addEventListener('pagehide', audioPause);
+window.addEventListener('pageshow', audioReprend);
+window.addEventListener('blur', audioPause);
+window.addEventListener('focus', audioReprend);
 
 function ton(f0, f1, dur, type, vol) {
   if (!actx || muet) return;
@@ -1311,15 +1348,22 @@ function damagePlayer(amount) {
 // ---------------------------------------------------------------------------
 // verrouillage : tout tient dans un produit scalaire
 // ---------------------------------------------------------------------------
+// seuil angulaire d'une cible : sa demi-envergure vue à cette distance, plus
+// la marge. C'est ce qui rend la visée honnête à toute distance.
+function seuilLock(e, d) {
+  return Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE;
+}
+
 function updateLock(dt) {
-  let best = null, bestDot = LOCK_COS;
+  let best = null, bestEcart = Infinity;
   for (const e of state.enemies) {
     _v.subVectors(e.pos, state.pos);
     const d = _v.length();
     if (d > LOCK_RANGE) continue;
     _v.divideScalar(d || 1);
-    const dot = state.forward.dot(_v); // cosinus de l'angle nez-cible
-    if (dot > bestDot) { bestDot = dot; best = e; }
+    const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
+    const ecart = ang - seuilLock(e, d);
+    if (ecart < 0 && ecart < bestEcart) { bestEcart = ecart; best = e; }
   }
 
   if (best !== state.lock) {
@@ -1542,6 +1586,37 @@ function simulate(dt) {
     spinRoll = -state.spinSide * Math.PI * 2 * ease;
     _right.crossVectors(state.forward, _up).normalize();
     state.pos.addScaledVector(_right, state.spinSide * SPIN_DODGE * Math.sin(Math.PI * t) * dt);
+  }
+
+  // Magnétisme de visée. Il ne t'emmène pas sur une cible : il t'aide à y
+  // rester. Nul quand la croix est pile dessus, nul au bord de sa zone, et
+  // plafonné à un sixième de l'autorité du manche — il ne peut donc jamais
+  // prendre la main.
+  if (!state.fig) {
+    let cible = null, cAng = 0, cSeuil = 0;
+    for (const e of state.enemies) {
+      _v.subVectors(e.pos, state.pos);
+      const d = _v.length();
+      if (d > LOCK_RANGE) continue;
+      _v.divideScalar(d || 1);
+      const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
+      const seuil = seuilLock(e, d) * ASSIST_ETENDUE;
+      if (ang < seuil && (!cible || ang / seuil < cAng / cSeuil)) {
+        cible = e; cAng = ang; cSeuil = seuil;
+      }
+    }
+    if (cible) {
+      // écart exprimé dans le repère de l'avion : le nez regarde vers -Z
+      _los.subVectors(cible.pos, state.pos).normalize()
+        .applyQuaternion(_qa.copy(state.quat).invert());
+      const errLacet = -Math.atan2(_los.x, -_los.z);
+      const errTangage = Math.atan2(_los.y, Math.hypot(_los.x, _los.z));
+      const fondu = 1 - cAng / cSeuil;   // plein au centre, nul au bord
+      const cl = v => THREE.MathUtils.clamp(v * ASSIST_GAIN, -ASSIST_MAX, ASSIST_MAX);
+      state.yaw   += cl(errLacet) * fondu * dt;
+      state.pitch = THREE.MathUtils.clamp(state.pitch + cl(errTangage) * fondu * dt,
+                                         -PITCH_LIMIT, PITCH_LIMIT);
+    }
   }
 
   euler.set(state.pitch, state.yaw, state.roll + spinRoll);
