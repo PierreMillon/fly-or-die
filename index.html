@@ -74,7 +74,11 @@
      pousser le bouton de version hors de l'écran */
   #topbar > *, #bottombar > * { flex-shrink: 1; min-width: 0; white-space: nowrap; }
 
+  /* au-dessus du menu : sans ça les boutons du haut étaient couverts par
+     l'écran de titre, donc inaccessibles au moment précis où l'on veut
+     choisir son viseur */
   #topbar {
+    z-index: 40;
     top: 0;
     padding: calc(7px + env(safe-area-inset-top)) 10px 7px;
   }
@@ -86,6 +90,18 @@
 
   .spacer { flex: 1; }
   .dim { color: var(--ph-dim); }
+
+  #viseurBtn {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 5px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    flex-shrink: 0;
+  }
 
   #sonBtn {
     background: none;
@@ -137,7 +153,8 @@
     transition: width 0.18s linear;
   }
 
-  #changelog, #aide {
+  #changelog, #aide, #viseurs {
+    /* et les panneaux par-dessus tout */
     position: fixed;
     top: calc(38px + env(safe-area-inset-top));
     right: 8px;
@@ -146,7 +163,7 @@
     margin-left: auto;
     max-height: 62vh;
     overflow-y: auto;
-    z-index: 20;
+    z-index: 45;
     background: var(--ph-chrome);
     border: 1px solid var(--ph-dim);
     border-radius: 6px;
@@ -154,7 +171,35 @@
     font-size: 12px;
     line-height: 1.5;
   }
-  #changelog[hidden], #aide[hidden] { display: none; }
+  #changelog[hidden], #aide[hidden], #viseurs[hidden] { display: none; }
+  #viseurs .grille {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+  }
+  #viseurs .item {
+    border: 1px solid var(--ph-dim);
+    border-radius: 6px;
+    padding: 6px 4px 5px;
+    text-align: center;
+  }
+  #viseurs .item.actif { border-color: var(--ph-line); background: var(--ph-fill); }
+  #viseurs .item canvas { display: block; margin: 0 auto 3px; }
+  #viseurs .item .n { font-size: 9px; letter-spacing: 0.1em; color: var(--ph-text); }
+  #viseurs .item.verrou .n { color: var(--ph-dim); }
+  #viseurs .item button {
+    margin-top: 4px;
+    width: 100%;
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 4px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    padding: 3px 0;
+  }
+  #viseurs .aide { color: var(--ph-dim); font-size: 11px; margin: 0 0 10px; line-height: 1.6; }
   #changelog div, #aide p { margin: 0 0 8px; }
   #changelog div:last-child, #aide p:last-child { margin-bottom: 0; }
   #changelog b, #aide b { color: var(--ph-line); }
@@ -241,14 +286,21 @@
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span id="chronoLbl" class="dim"></span>
   <span class="spacer"></span>
+  <button id="viseurBtn">VISEURS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.30</button>
+  <button id="versionBtn">v0.31</button>
 </div>
 
 <div id="bottombar">
   <span><span class="dim">LIFE</span> <span id="gauge"><span id="gaugeFill"></span></span> <span id="structLbl">100%</span></span>
   <span class="spacer"></span>
+</div>
+
+<div id="viseurs" hidden>
+  <p class="aide">Le viseur choisi s'applique tout de suite. Certains s'offrent en
+  progressant : les équerres à la cinquième vague, la cible à la centième.</p>
+  <div class="grille" id="grilleViseurs"></div>
 </div>
 
 <div id="aide" hidden>
@@ -342,6 +394,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.31</b> — l'avion du joueur ralentit de 92 à 78 mètres par seconde et les adversaires avec lui : on les dépassait si vite qu'ils tournaient autour sans qu'on puisse jamais recoller. Le rayon de virage vaut la vitesse divisée par le taux de virage, donc moins vite on tourne plus court. Le magnétisme gagne encore la moitié de sa force et porte plus loin. franchir une arche rend 10 % de vie et rapporte des points, une seule fois par vague — sinon il suffirait de faire des allers-retours sous la même. Elles sont deux fois plus nombreuses, six au lieu de trois. La barre du haut passe au-dessus du menu : ses boutons étaient couverts par l'écran de titre, donc inaccessibles au moment précis où l'on veut choisir son viseur. douze viseurs interchangeables, un bouton VISEURS en haut pour les essayer. Deux sont offerts d'emblée, les équerres s'ouvrent à la cinquième vague et la cible à la centième, les huit autres demandent une vidéo. Ni régie ni paiement ne sont branchés : le bouton le dit et débloque quand même, le temps d'éprouver la boucle. Le choix est retenu d'une partie à l'autre.</div>
   <div><b>v0.30</b> — les balles ennemies ne traversent plus l'avion sans le toucher : on teste tout le segment parcouru dans l'image et non le seul point d'arrivée. À 300 mètres par seconde, une balle avance de dix mètres par image quand la cadence tombe à trente, soit plus que le rayon de la cellule — le coup passait au travers, défaut invisible sur une machine rapide. les coups se voient du côté d'où ils viennent : un dégradé monte du bord touché et retombe en une demi-seconde, dessous quand on racle le sol, à gauche ou à droite quand on frotte une tour. Pas d'éclair plein cadre, moins lisible et risqué pour qui craint les flashs. Nettoyer une vague rend maintenant quelque chose, selon la manière : dans le chrono, la vie repart à plein ; sans une égratignure, un bouclier de dix impacts s'allume autour de l'avion ; les deux à la fois donnent tout. Et sur l'écran de fin, un bouton propose de reprendre contre une vidéo — la régie viendra plus tard, en attendant il le dit et offre la reprise.</div>
   <div><b>v0.29</b> — des arches apparaissent dans le paysage, en U renversé à la manière de la Grande Arche : 96 mètres de passage sur 74 de hauteur sous poutre, de quoi les traverser à huit envergures près. Le vide en est vraiment un — l'arche est trois volumes solides distincts, deux piles et une poutre, et le passage n'en fait pas partie. Elles s'orientent au quart de tour pour qu'on les aborde de face ou de profil.</div>
   <div><b>v0.28</b> — l'écart de taille entre les flèches de désignation passe de un à quatre à un à huit : la menace immédiate se distingue enfin du lointain d'un seul coup d'oeil.</div>
@@ -413,12 +466,12 @@ import * as THREE from 'three';
 // ---------------------------------------------------------------------------
 // constantes de vol et de combat
 // ---------------------------------------------------------------------------
-const CRUISE        = 92;     // vitesse d'équilibre en palier
-const SPEED_MIN     = 52;     // sous cette valeur l'aile ne porte plus vraiment
-const SPEED_MAX     = 168;
+const CRUISE        = 78;     // vitesse d'équilibre en palier
+const SPEED_MIN     = 46;     // sous cette valeur l'aile ne porte plus vraiment
+const SPEED_MAX     = 148;
 const GRAV          = 48;     // ce que la pesanteur donne ou reprend selon l'assiette
 const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
-const STALL         = 66;     // en dessous, le nez retombe malgré la consigne
+const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
 const SOL_Y         = 3;      // hauteur de l'avion posé, train sous le fuselage
 const ALT_DEPART    = 165;    // altitude atteinte au bout du décollage
 const ROULAGE       = 1.0;    // secondes de course au sol
@@ -437,9 +490,9 @@ const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sa
 // 11 m à 400 m occupe 0,8 degré ; avec la marge, il faut mettre la croix
 // dessus. Un cône fixe de 9 degrés laissait tirer à côté.
 const LOCK_MARGE    = 1.2 * Math.PI / 180;
-const ASSIST_ETENDUE = 2.1;   // le magnétisme agit jusqu'à 2,1 fois le seuil
-const ASSIST_GAIN   = 14;     // rad/s par radian d'écart
-const ASSIST_MAX    = 0.34;   // plafond : un sixième de l'autorité du joueur
+const ASSIST_ETENDUE = 2.5;   // le magnétisme agit jusqu'à 2,5 fois le seuil
+const ASSIST_GAIN   = 20;     // rad/s par radian d'écart
+const ASSIST_MAX    = 0.5;    // plafond : un quart de l'autorité du joueur
 const LOCK_RANGE    = 1250;
 const DPS_MIN       = 15;     // dégâts par seconde à l'accroche
 const DPS_MAX       = 72;     // ...et une fois le tir bien calé sur la cible
@@ -476,6 +529,98 @@ const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
 const COL_LOCK      = 0xffffff;
 const COL_BG        = 0x04070a;
+
+// ---------------------------------------------------------------------------
+// VISEURS. Un catalogue de croix de visée interchangeables. Chacune se dessine
+// en fonction d'une seule valeur, la charge du tir : au repos elle est large
+// et verte, calée elle se resserre et blanchit. Le reste de l'habillage — la
+// vibration, les arcs qui tournent — est commun à toutes.
+//
+// Le déblocage suit trois voies. Certaines sont offertes, d'autres s'ouvrent
+// en progressant, les dernières demandent une vidéo ou un achat. Les boutons
+// de paiement ne sont pas branchés : ils le disent et débloquent quand même,
+// le temps que la boucle soit éprouvée.
+// ---------------------------------------------------------------------------
+const TAU = Math.PI * 2;
+const _cx_ = {
+  croix: (x, r, gap, lw) => { x.lineWidth = lw || x.lineWidth; x.beginPath();
+    x.moveTo(-r,0); x.lineTo(-gap,0); x.moveTo(gap,0); x.lineTo(r,0);
+    x.moveTo(0,-r); x.lineTo(0,-gap); x.moveTo(0,gap); x.lineTo(0,r); x.stroke(); },
+  cercle: (x, r) => { x.beginPath(); x.arc(0,0,r,0,TAU); x.stroke(); },
+  disque: (x, r) => { x.beginPath(); x.arc(0,0,r,0,TAU); x.fill(); },
+  coins: (x, r, a) => { x.beginPath();
+    x.moveTo(-r,-r+a); x.lineTo(-r,-r); x.lineTo(-r+a,-r);
+    x.moveTo(r-a,-r); x.lineTo(r,-r); x.lineTo(r,-r+a);
+    x.moveTo(r,r-a); x.lineTo(r,r); x.lineTo(r-a,r);
+    x.moveTo(-r+a,r); x.lineTo(-r,r); x.lineTo(-r,r-a); x.stroke(); },
+  poly: (x, r, n, rot) => { x.beginPath();
+    for (let i=0;i<n;i++){ const a=rot+i*TAU/n, px=Math.cos(a)*r, py=Math.sin(a)*r;
+      i?x.lineTo(px,py):x.moveTo(px,py);} x.closePath(); x.stroke(); },
+  dards: (x, r0, r1, n, rot) => { for(let i=0;i<n;i++){ const a=rot+i*TAU/n;
+    x.beginPath(); x.moveTo(Math.cos(a)*r0,Math.sin(a)*r0);
+    x.lineTo(Math.cos(a)*r1,Math.sin(a)*r1); x.stroke(); } },
+  chevrons: (x, r, n, rot, l) => { for(let i=0;i<n;i++){ const a=rot+i*TAU/n;
+    x.save(); x.rotate(a); x.translate(r,0); x.beginPath();
+    x.moveTo(-l,-l); x.lineTo(0,0); x.lineTo(-l,l); x.stroke(); x.restore(); } },
+  echelle: (x, r, n, l) => { for(let i=1;i<=n;i++){ const y=i*r/n;
+    x.beginPath(); x.moveTo(-l,y); x.lineTo(l,y); x.moveTo(-l,-y); x.lineTo(l,-y); x.stroke(); } }
+};
+
+const VISEURS = [
+  { id:'croix',   nom:'CROIX',        acces:'libre',
+    dessin:(x,c)=>_cx_.croix(x, 13-2*c, 4+c) },
+  { id:'anneau',  nom:'ANNEAU',       acces:'libre',
+    dessin:(x,c)=>{_cx_.cercle(x,12-3*c); _cx_.croix(x,19-3*c,14-3*c);} },
+  { id:'coins',   nom:'ÉQUERRES',     acces:'vague5',
+    dessin:(x,c)=>_cx_.coins(x,13-3*c,5) },
+  { id:'cible',   nom:'CIBLE',        acces:'vague100',
+    dessin:(x,c)=>{_cx_.cercle(x,14-4*c);_cx_.cercle(x,9-3*c);if(c>0.6)_cx_.disque(x,2);} },
+  { id:'chevrons',nom:'CHEVRONS',     acces:'video',
+    dessin:(x,c)=>_cx_.chevrons(x,14-3*c,4,0,4) },
+  { id:'losange', nom:'LOSANGE',      acces:'video',
+    dessin:(x,c)=>{_cx_.poly(x,13-3*c,4,-Math.PI/2); if(c>0.6)_cx_.disque(x,2);} },
+  { id:'tetard',  nom:'TÊTARD',       acces:'video',
+    dessin:(x,c)=>{const r=9-2*c;_cx_.cercle(x,r);x.beginPath();x.moveTo(0,r);x.lineTo(0,r+11-3*c);x.stroke();
+                   if(c>0.6)_cx_.disque(x,1.8);} },
+  { id:'graduee', nom:'GRADUÉE',      acces:'video',
+    dessin:(x,c)=>{_cx_.croix(x,15-3*c,4);_cx_.echelle(x,13-2*c,3,3+c*1.5);} },
+  { id:'hexa',    nom:'HEXAGONE',     acces:'video',
+    dessin:(x,c)=>_cx_.poly(x,13-4*c,6,0) },
+  { id:'encoche', nom:'ENCOCHES',     acces:'video',
+    dessin:(x,c)=>{const r=13-4*c;_cx_.cercle(x,r);_cx_.dards(x,r,r+5,4,c>0.5?Math.PI/4:0);} },
+  { id:'etoile',  nom:'ÉTOILE',       acces:'video',
+    dessin:(x,c)=>{_cx_.poly(x,13-4*c,4,-Math.PI/2);_cx_.poly(x,7-2*c,4,0);} },
+  { id:'carre',   nom:'CARRÉ TOURNÉ', acces:'video',
+    dessin:(x,c)=>{_cx_.croix(x,16-4*c,7-2*c);_cx_.poly(x,7-2*c,4,c>0.5?Math.PI/4:0);} }
+];
+
+let debloques, viseurChoisi;
+try { debloques = new Set(JSON.parse(localStorage.getItem('fod_viseurs') || '[]')); }
+catch (e) { debloques = new Set(); }
+for (const v of VISEURS) if (v.acces === 'libre') debloques.add(v.id);
+viseurChoisi = localStorage.getItem('fod_viseur') || 'croix';
+if (!debloques.has(viseurChoisi)) viseurChoisi = 'croix';
+
+function sauveViseurs() {
+  try {
+    localStorage.setItem('fod_viseurs', JSON.stringify([...debloques]));
+    localStorage.setItem('fod_viseur', viseurChoisi);
+  } catch (e) { /* navigation privée : on joue quand même */ }
+}
+
+// débloquages offerts par la progression
+function jalonVague(n) {
+  const dus = VISEURS.filter(v =>
+    (v.acces === 'vague5' && n >= 5) || (v.acces === 'vague100' && n >= 100));
+  for (const v of dus) {
+    if (!debloques.has(v.id)) {
+      debloques.add(v.id);
+      sauveViseurs();
+      announce('VISEUR DÉBLOQUÉ  ·  ' + v.nom);
+      SFX.bouclierOn();
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Son. Tout est synthétisé à la volée : aucun fichier à charger, le jeu reste
@@ -1168,7 +1313,7 @@ const KINDS = [
     ],
     tris: [0,1,2, 0,2,3,  4,5,6, 4,6,7,  8,9,10, 8,10,11,  12,13,14,  9,15,10],
     envergure: 8.5,   // Sopwith Camel : 8,53 m
-    vitesse: [74, 84], virage: 0.75, vie: 70, recharge: [2.3, 3.9],
+    vitesse: [64, 72], virage: 0.8, vie: 70, recharge: [2.3, 3.9],
     cone: Math.cos(12 * Math.PI / 180), portee: 520, rafale: 2
   },
   {
@@ -1180,7 +1325,7 @@ const KINDS = [
     ],
     tris: [0,1,3, 0,3,2, 1,4,3, 2,3,5],
     envergure: 11.2,  // Spitfire Mk I : 11,23 m
-    vitesse: [82, 94], virage: 1.25, vie: 100, recharge: [0.9, 1.8],
+    vitesse: [70, 80], virage: 1.25, vie: 100, recharge: [0.9, 1.8],
     cone: Math.cos(15 * Math.PI / 180), portee: 900, rafale: 3
   },
   {
@@ -1193,7 +1338,7 @@ const KINDS = [
     ],
     tris: [0,1,3, 0,3,2, 3,4,5, 6,3,7],
     envergure: 7.5,   // aile courte, comme tout intercepteur supersonique
-    vitesse: [94, 106], virage: 0.95, vie: 90, recharge: [1.0, 2.0],
+    vitesse: [80, 90], virage: 0.95, vie: 90, recharge: [1.0, 2.0],
     cone: Math.cos(12 * Math.PI / 180), portee: 1050, rafale: 3
   },
   {
@@ -1206,7 +1351,7 @@ const KINDS = [
     ],
     tris: [0,1,2, 0,2,3,  3,0,4,  0,1,5,  1,2,6,  2,3,7,  0,8,2],
     envergure: 6.0,   // engin compact, plus petit que tout ce qui est piloté
-    vitesse: [96, 112], virage: 1.75, vie: 80, recharge: [0.7, 1.4],
+    vitesse: [82, 94], virage: 1.75, vie: 80, recharge: [0.7, 1.4],
     cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
   }
 ];
@@ -1339,7 +1484,8 @@ const edgesPile = new THREE.EdgesGeometry(geomPile, 20);
 const edgesPoutre = new THREE.EdgesGeometry(geomPoutre, 20);
 
 const arches = [];
-for (let i = 0; i < 3; i++) {
+const ARCHE_PRIME = 10;   // pour cent de vie rendus, une seule fois par vague
+for (let i = 0; i < 6; i++) {
   const g = new THREE.Group();
   const demi = (ARCHE.ouvertureL + ARCHE.pile) / 2;
   const pg = solidWire(geomPile, edgesPile, matArche); pg.position.x = -demi;
@@ -1347,7 +1493,7 @@ for (let i = 0; i < 3; i++) {
   g.add(pg, pd, solidWire(geomPoutre, edgesPoutre, matArche));
   g.frustumCulled = false;
   scene.add(g);
-  arches.push({ g, boites: [] });
+  arches.push({ g, boites: [], passage: null });
 }
 
 // Les trois volumes solides, exprimés en coordonnées du monde : deux piles et
@@ -1371,6 +1517,8 @@ function placeArche(a, initial) {
     b( demi, 0, E, P, 0, ARCHE.ouvertureH),
     b(0, 0, L, P, ARCHE.ouvertureH, ARCHE.hauteur)
   ];
+  // le vide entre les piles et sous la poutre : c'est lui qui rapporte
+  a.passage = b(0, 0, ARCHE.ouvertureL / 2, P, 4, ARCHE.ouvertureH);
 }
 for (let i = 0; i < 34; i++) {
   const t = solidWire(towerGeom, towerEdges, matTower);
@@ -1464,6 +1612,7 @@ const state = {
   takeoff: null,
   auSol: true,
   scrapeT: 0,
+  archePassee: false,
   fig: null,      // renversement en cours
   screenX: 0,
   screenY: 0
@@ -1538,6 +1687,7 @@ function resetGame() {
   state.spinT = 0;
   state.fig = null;
   state.scrapeT = 0;
+  state.archePassee = false;
   state.paused = false;
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
@@ -1638,9 +1788,11 @@ function spawnWave() {
   // le nom de l'escadrille dit tout de suite à quoi on a affaire
   state.vagueTouche = false;
   state.vagueT = 0;
+  state.archePassee = false;
   state.vagueLimite = LIMITE_BASE + LIMITE_PAR * n;
   announce('VAGUE ' + state.wave + '  ·  ' + [...vus].join(' + '));
   SFX.vague();
+  jalonVague(state.wave);
 }
 
 const _m4 = new THREE.Matrix4();
@@ -2415,6 +2567,17 @@ function scrape(dt) {
         return;
       }
     }
+    // Traverser rapporte de la vie, mais une seule fois par vague : sinon il
+    // suffirait de faire des allers-retours sous la même arche.
+    const p = a.passage;
+    if (p && !state.archePassee &&
+        heurte(p.x, p.z, p.hx, p.hz, p.y0, p.y1)) {
+      state.archePassee = true;
+      state.structure = Math.min(100, state.structure + ARCHE_PRIME);
+      state.score += 150;
+      announce('ARCHE FRANCHIE  ·  +' + ARCHE_PRIME);
+      SFX.vagueNette();
+    }
   }
 }
 
@@ -2487,20 +2650,17 @@ function drawHud() {
     const ch = state.lock ? state.lockCharge : 0;
     const jit = () => (Math.random() - 0.5) * 2.4 * ch;
     const cx = nose.x + jit(), cy = nose.y + jit();
-    const br = 13 - 3 * ch;   // longueur des bras
-    const gp = 4 + 2 * ch;    // trou central, qui s'ouvre en se calant
-
     hctx.strokeStyle = ch > 0
       ? 'rgba(' + Math.round(143 + 112 * ch) + ', 255, ' + Math.round(196 + 59 * ch) + ', '
         + (0.85 + 0.15 * ch).toFixed(2) + ')'
       : 'rgba(143,252,196,0.85)';
+    hctx.fillStyle = hctx.strokeStyle;
     hctx.lineWidth = 1.5 + ch;
-    hctx.beginPath();
-    hctx.moveTo(cx - br, cy); hctx.lineTo(cx - gp, cy);
-    hctx.moveTo(cx + gp, cy); hctx.lineTo(cx + br, cy);
-    hctx.moveTo(cx, cy - br); hctx.lineTo(cx, cy - gp);
-    hctx.moveTo(cx, cy + gp); hctx.lineTo(cx, cy + br);
-    hctx.stroke();
+    // la forme vient du viseur choisi ; tout le reste de l'habillage est commun
+    hctx.save();
+    hctx.translate(cx, cy);
+    (VISEURS.find(v => v.id === viseurChoisi) || VISEURS[0]).dessin(hctx, ch);
+    hctx.restore();
 
     if (ch > 0) {
       const spin = performance.now() / 1000 * (0.8 + 5.5 * ch);
@@ -2739,8 +2899,84 @@ versionBtn.addEventListener('click', e => {
   e.stopPropagation();
   changelog.hidden = !changelog.hidden;
   aide.hidden = true;
+  panViseurs.hidden = true;
   majPause();
 });
+// ---- panneau des viseurs
+const panViseurs = document.getElementById('viseurs');
+const grilleViseurs = document.getElementById('grilleViseurs');
+const viseurBtn = document.getElementById('viseurBtn');
+
+const LIB_ACCES = { libre: '', vague5: 'VAGUE 5', vague100: 'VAGUE 100', video: '' };
+
+function vignette(v) {
+  const c = document.createElement('canvas');
+  c.width = 68; c.height = 68; c.style.width = '34px'; c.style.height = '34px';
+  const x = c.getContext('2d');
+  x.scale(2, 2); x.translate(17, 17); x.scale(0.72, 0.72);
+  x.lineWidth = 2; x.lineJoin = 'round';
+  const ouvert = debloques.has(v.id);
+  x.strokeStyle = ouvert ? '#8ffcc4' : 'rgba(70,255,160,0.35)';
+  x.fillStyle = x.strokeStyle;
+  v.dessin(x, 0);
+  return c;
+}
+
+function majViseurs() {
+  grilleViseurs.innerHTML = '';
+  for (const v of VISEURS) {
+    const ouvert = debloques.has(v.id);
+    const d = document.createElement('div');
+    d.className = 'item' + (ouvert ? '' : ' verrou') + (v.id === viseurChoisi ? ' actif' : '');
+    d.appendChild(vignette(v));
+    const n = document.createElement('div');
+    n.className = 'n';
+    n.textContent = v.nom;
+    d.appendChild(n);
+
+    const b = document.createElement('button');
+    if (ouvert) {
+      b.textContent = v.id === viseurChoisi ? 'EN PLACE' : 'CHOISIR';
+      b.disabled = v.id === viseurChoisi;
+      b.onclick = e => {
+        e.stopPropagation();
+        viseurChoisi = v.id;
+        sauveViseurs();
+        majViseurs();
+      };
+    } else if (v.acces === 'video') {
+      b.textContent = 'VIDÉO';
+      b.onclick = e => {
+        e.stopPropagation();
+        // ni régie ni paiement branchés : on le dit, et on ouvre quand même
+        b.textContent = 'INDISPONIBLE · OFFERT';
+        setTimeout(() => {
+          debloques.add(v.id);
+          viseurChoisi = v.id;
+          sauveViseurs();
+          majViseurs();
+          SFX.bouclierOn();
+        }, 700);
+      };
+    } else {
+      b.textContent = LIB_ACCES[v.acces];
+      b.disabled = true;
+    }
+    d.appendChild(b);
+    grilleViseurs.appendChild(d);
+  }
+}
+
+viseurBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  audioDemarre();
+  panViseurs.hidden = !panViseurs.hidden;
+  aide.hidden = true;
+  changelog.hidden = true;
+  if (!panViseurs.hidden) majViseurs();
+  majPause();
+});
+
 const sonBtn = document.getElementById('sonBtn');
 sonBtn.classList.toggle('off', muet);
 sonBtn.addEventListener('click', e => {
@@ -2757,11 +2993,12 @@ aideBtn.addEventListener('click', e => {
   e.stopPropagation();
   aide.hidden = !aide.hidden;
   changelog.hidden = true;
+  panViseurs.hidden = true;
   majPause();
 });
 
 function majPause() {
-  state.paused = !aide.hidden || !changelog.hidden;
+  state.paused = !aide.hidden || !changelog.hidden || !panViseurs.hidden;
 }
 
 document.addEventListener('pointerdown', e => {
@@ -2770,6 +3007,9 @@ document.addEventListener('pointerdown', e => {
   }
   if (!aide.hidden && !aide.contains(e.target) && e.target !== aideBtn) {
     aide.hidden = true;
+  }
+  if (!panViseurs.hidden && !panViseurs.contains(e.target) && e.target !== viseurBtn) {
+    panViseurs.hidden = true;
   }
   majPause();
 });
@@ -2925,7 +3165,7 @@ window.addEventListener('pointerdown', e => {
   // e.target n'est pas toujours un Element (événement synthétique visé sur
   // window, par exemple) : closest() n'existerait pas et la boucle casserait
   const el = e.target instanceof Element ? e.target : null;
-  if (el && el.closest('#topbar, #bottombar, #overlay, #changelog, #aide')) return;
+  if (el && el.closest('#topbar, #bottombar, #overlay, #changelog, #aide, #viseurs')) return;
 
   // Deux appuis rapprochés déclenchent une figure. Laquelle dépend de l'endroit
   // visé par rapport à l'avion : au-dessus de lui, c'est un renversement ; à
