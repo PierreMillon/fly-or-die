@@ -349,7 +349,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.43</button>
+  <button id="versionBtn">v0.44</button>
 </div>
 
 <div id="bottombar">
@@ -517,6 +517,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.44</b> — le saut après le décollage est corrigé. La caméra ne suivait pas la séquence, elle la poursuivait : un ressort traîne toujours un peu, et la place idéale balaie vingt unités quand le nez revient à plat. L'avion montait puis redescendait de 139 pixels à l'écran ; il n'en bouge plus que de 40, et reste rigoureusement fixe pendant toute la montée. la boussole gagne deux étages : un triangle par adversaire, une astérisque par arche et par tour encore à prendre, un rectangle pour la piste. On peut se poser dans les deux sens, tant qu'on touche avant la moitié, et une jauge POSÉ dit à quel point on y est. La surface de la piste est pleine et noire, elle masque la grille dessous ; il ne reste que l'axe et les caps, tracés en trait épais. Se frôler ne fait plus de bruit et ne coûte rien : c'est lui qui s'écarte, jamais nous. Biplan et chasseur accélérés, on les doublait sans le vouloir. POURSUITE devient BOOST.</div>
   <div><b>v0.43</b> — un avion abattu part en vrille, traîne sa fumée et s'ouvre au sol. Le coup au but jette cinq à dix boules de tailles très différentes. Les roquettes orphelines ne s'évaporent plus : elles piquent et explosent où elles finissent. Un anneau se referme sur la cible à mesure qu'elles arrivent, et bat au canon d'où elles sont parties. Le ressort de caméra reste raide jusqu'au bout du décollage : il se détendait pile quand le nez revient à plat, l'avion sautait de 7 pixels, il n'en fait plus que 5.</div>
   <div><b>v0.42</b> — une piste, avec son axe et ses caps peints. On décolle toujours de là, et le décor ne s'y pose plus. Trois mécaniciens s'affairent autour du moteur et détalent au départ. Passer bas et dans l'axe suffit à se poser : la vie remonte de 17 points par seconde, l'avion repart au bout de dix secondes. les panneaux défilent où qu'on pose le doigt. Un adversaire hors champ retrouve sa flèche : le cône fixe de la v0.39 était plus large que l'écran d'un téléphone, et les cibles latérales disparaissaient. Les traits de vitesse s'éteignent en fondu au lieu d'un bloc — c'était le saut qui restait après le décollage. L'accueil ne garde que le titre et le bouton ; l'écran de mort propose les explications, qu'on peut faire taire.</div>
   <div><b>v0.41</b> — le cadran d'assiette laisse place à une échelle de tangage dessinée dans le monde, à sa vraie place. Elle n'apparaît qu'au-delà de douze degrés. Bande de cap en haut.</div>
@@ -1570,7 +1571,7 @@ const KINDS = [
     ],
     tris: [0,1,2, 0,2,3,  4,5,6, 4,6,7,  8,9,10, 8,10,11,  12,13,14,  9,15,10],
     envergure: 8.5,   // Sopwith Camel : 8,53 m
-    vitesse: [64, 72], virage: 0.8, vie: 70, recharge: [2.3, 3.9],
+    vitesse: [72, 80], virage: 0.8, vie: 70, recharge: [2.3, 3.9],
     cone: Math.cos(12 * Math.PI / 180), portee: 520, rafale: 2
   },
   {
@@ -1582,7 +1583,7 @@ const KINDS = [
     ],
     tris: [0,1,3, 0,3,2, 1,4,3, 2,3,5],
     envergure: 11.2,  // Spitfire Mk I : 11,23 m
-    vitesse: [70, 80], virage: 1.25, vie: 100, recharge: [0.9, 1.8],
+    vitesse: [75, 84], virage: 1.25, vie: 100, recharge: [0.9, 1.8],
     cone: Math.cos(15 * Math.PI / 180), portee: 900, rafale: 3
   },
   {
@@ -2156,42 +2157,56 @@ const CHIFFRES = {
 };
 
 (function poserPiste() {
-  const p = [], y = PISTE.y, L = PISTE.demiL;
-  const seg = (x0, z0, x1, z1) => p.push(x0, y, z0, x1, y, z1);
-  // le contour
-  seg(-L, PISTE.z0, L, PISTE.z0);
-  seg(-L, PISTE.z1, L, PISTE.z1);
-  seg(-L, PISTE.z0, -L, PISTE.z1);
-  seg(L, PISTE.z0, L, PISTE.z1);
-  // l'axe pointillé, un trait de 30 tous les 60
+  // LA SURFACE EST PLEINE ET NOIRE. C'est le même procédé que pour les
+  // bâtiments : une face peinte dans la couleur exacte du fond, invisible mais
+  // opaque, qui masque la grille du sol dessous. La piste devient donc une
+  // vraie découpe dans le quadrillage, et non un rectangle posé par-dessus. Il
+  // ne reste ensuite que ce qui dit quelque chose : l'axe, et les caps.
+  const L = PISTE.demiL, y = PISTE.y;
+  const dalle = new THREE.PlaneGeometry(L * 2, PISTE.z0 - PISTE.z1)
+    .rotateX(-Math.PI / 2)
+    .translate(0, y, (PISTE.z0 + PISTE.z1) / 2);
+  const m = new THREE.Mesh(dalle, solidMat);
+  m.frustumCulled = false;
+  scene.add(m);
+
+  const p = [];
+  const seg = (x0, z0, x1, z1) => p.push(x0, y + 0.05, z0, x1, y + 0.05, z1);
+  // l'axe pointillé, seul trait conservé
   for (let z = PISTE.z0 - 40; z > PISTE.z1 + 40; z -= 60) seg(0, z, 0, z - 30);
-  // les barres de seuil, en peigne à chaque bout
-  for (let i = -3; i <= 3; i++) {
-    if (!i) continue;
-    const x = i * 5.5;
-    seg(x, PISTE.z0 - 4, x, PISTE.z0 - 34);
-    seg(x, PISTE.z1 + 4, x, PISTE.z1 + 34);
-  }
-  // les nombres de cap, lisibles depuis l'axe d'approche de chaque seuil
-  // sens = +1 : le nombre se lit en venant du sud, donc en volant vers -Z.
-  // sens = -1 : il se lit en venant du nord. Le miroir sur les deux axes suffit,
-  // c'est une rotation d'un demi-tour dans le plan du sol.
+
+  // LES CAPS, tracés en trait épais : chaque segment est doublé de part et
+  // d'autre, ce qui donne un chiffre plein plutôt qu'un fil. Peint au sol, un
+  // trait d'un pixel ne se lit pas — un vrai marquage de piste fait des
+  // mètres de large.
+  const EP = 2.2;
+  const gras = (x0, z0, x1, z1) => {
+    const dx = x1 - x0, dz = z1 - z0, L2 = Math.hypot(dx, dz) || 1;
+    const nx = -dz / L2 * EP, nz = dx / L2 * EP;
+    for (const k of [-1, -0.34, 0.34, 1]) {
+      seg(x0 + nx * k, z0 + nz * k, x1 + nx * k, z1 + nz * k);
+    }
+    // et les deux bouts, pour fermer le trait
+    seg(x0 - nx, z0 - nz, x0 + nx, z0 + nz);
+    seg(x1 - nx, z1 - nz, x1 + nx, z1 + nz);
+  };
   const nombre = (txt, cz, sens) => {
-    const h = 30, l = 14, ecart = 8;
+    const hh = 34, l = 15, ecart = 11;
     const large = txt.length * l + (txt.length - 1) * ecart;
     for (let k = 0; k < txt.length; k++) {
       const x0 = -large / 2 + k * (l + ecart);
       for (const [ax, ay, bx, by] of CHIFFRES[txt[k]]) {
-        seg(sens * (x0 + ax * l), cz - sens * ay * h / 2,
-            sens * (x0 + bx * l), cz - sens * by * h / 2);
+        gras(sens * (x0 + ax * l), cz - sens * ay * hh / 2,
+             sens * (x0 + bx * l), cz - sens * by * hh / 2);
       }
     }
   };
-  nombre('36', PISTE.z0 - 90, 1);
-  nombre('18', PISTE.z1 + 90, -1);
-  const m = new THREE.LineSegments(segGeom(p), lineMat(COL_LINE, 0.8));
-  m.frustumCulled = false;
-  scene.add(m);
+  nombre('36', PISTE.z0 - 70, 1);
+  nombre('18', PISTE.z1 + 70, -1);
+
+  const li = new THREE.LineSegments(segGeom(p), lineMat(COL_LINE, 0.85));
+  li.frustumCulled = false;
+  scene.add(li);
 })();
 
 // vrai tant qu'un point tombe dans le couloir réservé à la piste
@@ -2582,6 +2597,7 @@ const state = {
   auSol: true,
   atterro: null,
   pose: null,
+  approche: 0,
   scrapeT: 0,
   fig: null,      // renversement en cours
   screenX: 0,
@@ -2648,8 +2664,9 @@ function redecoller() {
   state.pose = null;
   redecoBtn.hidden = true;
   chasserMecanos();
+  // on repart dans le sens où l'on s'est posé
   state.pos.set(0, SOL_Y, state.pos.z);
-  state.yaw = 0; state.pitch = 0; state.roll = 0;
+  state.pitch = 0; state.roll = 0;
   state.takeoff = { t: 0 };
   state.speed = 0;
   state.boost = 0;
@@ -3046,18 +3063,15 @@ function updateEnemies(dt) {
       e.burstT = 0;
     }
 
-    // Frôlement. Ni dégâts, ni destruction : se rentrer dedans ne doit rien
-    // rapporter, sinon le meilleur moyen d'abattre quelqu'un serait de lui
-    // foncer dessus, et le jeu récompenserait exactement ce qu'un pilote ne
-    // fait jamais. On se croise, ça souffle, chacun continue.
-    e.frolT -= dt;
+    // FRÔLEMENT. Ni dégâts, ni destruction, ni bruit : se rentrer dedans ne
+    // doit rien rapporter — sinon le meilleur moyen d'abattre quelqu'un serait
+    // de lui foncer dessus — et ne doit rien coûter non plus. C'est lui seul
+    // qui s'écarte, jamais nous : notre trajectoire est ce qu'on a demandé, et
+    // rien ne doit la corriger dans notre dos. L'écart est le plus discret
+    // possible, juste de quoi ne pas se traverser à l'écran, et il se fait
+    // progressivement plutôt que d'un bloc.
     if (dist < RAM_DIST) {
-      if (e.frolT <= 0) {
-        SFX.frolement();
-        e.frolT = 0.6;
-      }
-      // on s'écarte juste assez pour ne pas se traverser à l'écran
-      e.pos.addScaledVector(_v, -(RAM_DIST - dist) - 0.5);
+      e.pos.addScaledVector(_v, -(RAM_DIST - dist) * Math.min(1, 7 * dt) - 0.05);
     }
   }
 }
@@ -3531,20 +3545,32 @@ function simulate(dt) {
   // pas trop haut : les quatre conditions réunies déclenchent la pose. Aucune
   // n'est un hasard — on ne se pose pas par accident en passant par là, il faut
   // avoir descendu, ralenti l'idée et aligné l'appareil.
+  // APPROCHE. Les deux sens sont acceptés — une piste se prend dans le sens
+  // qu'on veut — pourvu qu'il reste du bitume devant : on doit toucher avant
+  // la moitié. Le compte se fait en quatre parts allant chacune de zéro à un,
+  // et c'est la plus mauvaise qui décide. Il en sort une jauge continue plutôt
+  // qu'un déclic : on voit sa pose venir, on sait ce qui manque, on peut
+  // renoncer jusqu'au dernier instant.
+  state.approche = 0;
   if (!state.atterro && !state.pose && !state.takeoff && !state.fig
-      && state.spinT <= 0 && state.running
-      && state.pos.y < ATT_PLAFOND
-      && Math.abs(state.pos.x) < PISTE.demiL * 2.2
-      && state.pos.z < PISTE.z0 - 120 && state.pos.z > PISTE.z1 + 320
-      && state.forward.z < 0
-      && -state.forward.z > ATT_CONE * Math.hypot(state.forward.x, state.forward.z)
-      && Math.abs(state.forward.x) < 0.30
-      && state.forward.y < 0.16) {
-    state.atterro = { t: 0, y0: state.pos.y, x0: state.pos.x,
-                      p0: state.pitch, yaw0: state.yaw, v0: state.speed };
-    state.lock = null;
-    state.lockCharge = 0;
-    announce('POSÉ EN COURS');
+      && state.spinT <= 0 && state.running) {
+    const mid = (PISTE.z0 + PISTE.z1) / 2;
+    const sens = state.forward.z < 0 ? -1 : 1;
+    const reste = sens < 0 ? state.pos.z - mid : mid - state.pos.z;
+    const q = [
+      1 - state.pos.y / ATT_PLAFOND,
+      1 - Math.abs(state.pos.x) / (PISTE.demiL * 2.6),
+      reste / 260,
+      (Math.abs(state.forward.z) - ATT_CONE) / (1 - ATT_CONE)
+    ].map(v => THREE.MathUtils.clamp(v, 0, 1));
+    state.approche = Math.min(...q)
+                   * THREE.MathUtils.clamp(1 - state.forward.y * 5, 0, 1);
+    if (state.approche >= 0.999) {
+      state.atterro = { t: 0, y0: state.pos.y, x0: state.pos.x, sens,
+                        p0: state.pitch, yaw0: state.yaw, v0: state.speed };
+      state.lock = null;
+      state.lockCharge = 0;
+    }
   }
 
   // la poursuite ne change pas la poussée, elle change la vitesse visée :
@@ -3569,12 +3595,14 @@ function simulate(dt) {
     const lisse = x => x * x * (3 - 2 * x);
     // l'assiette part de ce qu'elle valait et passe par un léger cabré d'arrondi
     state.pitch = A.p0 * (1 - lisse(u)) + 0.10 * Math.sin(Math.PI * u);
-    state.yaw = A.yaw0 * (1 - lisse(u));
+    // on se réaligne sur l'axe de la piste, dans le sens où l'on arrive
+    const yawCible = A.sens < 0 ? 0 : Math.PI;
+    state.yaw = yawCible + (A.yaw0 - yawCible) * (1 - lisse(u));
     // la hauteur se rend à la piste sur la même courbe, sans jamais la traverser
     state.pos.y = SOL_Y + (A.y0 - SOL_Y) * (1 - lisse(u));
     state.speed = A.v0 * (1 - lisse(u)) * 0.92 + 4 * (1 - u);
     state.pos.x = A.x0 * (1 - lisse(u));
-    state.pos.z -= state.speed * dt;
+    state.pos.z += A.sens * state.speed * dt;
 
     euler.set(state.pitch, state.yaw, 0);
     state.quat.setFromEuler(euler);
@@ -3697,14 +3725,19 @@ function simulate(dt) {
     // Le ressort se détend pendant l'arrondi jusqu'aux valeurs du vol libre :
     // au décollage on veut un suivi collé, en l'air le flottement fait la
     // vie de l'image. Passer de l'un à l'autre d'un seul coup se voyait.
-    // LE RESSORT RESTE RAIDE JUSQU'AU BOUT. Il se détendait sur le dernier
-    // tiers de la vague, c'est-à-dire précisément quand le nez revient à plat
-    // et que la place idéale de la caméra balaie le plus vite : on relâchait
-    // l'attache à l'instant où elle servait le plus, et l'avion partait de
-    // sept pixels en une image. À raideur constante, l'erreur du ressort reste
-    // négligeable, la vitesse est continue à la bascule, et le changement de
-    // raideur ne se voit pas puisqu'il n'y a alors plus d'écart à rattraper.
-    springCamera(_v, dt, 150, 24, _cd);
+    // PAS DE RESSORT PENDANT LA SÉQUENCE. Le décollage est une figure écrite
+    // d'avance, pas un vol : la caméra se pose exactement à sa place, image
+    // par image. Un ressort, si raide soit-il, traîne d'un écart valant
+    // amortissement x vitesse / raideur — et la place idéale balaie ici vingt
+    // unités en une demi-seconde quand le nez revient à plat. Six unités de
+    // retard sur dix-huit de distance font vingt degrés, soit deux cents
+    // pixels : l'avion montait puis redescendait de cent trente-neuf pixels à
+    // l'écran, et c'était tout le saut qu'on voyait « une fois stabilisé ».
+    // La vague étant sans à-coup, une caméra qui la suit à la lettre l'est
+    // aussi. On lui laisse en partant la vraie vitesse de l'avion, si bien que
+    // le ressort du vol libre reprend sans écart ni élan à rattraper.
+    camera.position.copy(_v);
+    camVel.copy(_cd);
     majFov(dt);
     updateTraits(dt);
     if (camera.position.y < 2.5) camera.position.y = 2.5;
@@ -4124,6 +4157,48 @@ function drawHud() {
   state.screenX = pSelf.x;
   state.screenY = pSelf.y;
 
+  // APPROCHE DE LA PISTE. Une jauge qui se remplit et le mot qui monte avec
+  // elle : on voit sa pose venir au lieu de la subir, et l'on sait ce qui
+  // manque encore.
+  if (state.approche > 0.06) {
+    const q = state.approche, ay = h * 0.30, aw = Math.min(w, h) * 0.19;
+    hctx.save();
+    hctx.strokeStyle = 'rgba(70,255,160,0.20)';
+    hctx.beginPath(); hctx.moveTo(w/2 - aw, ay); hctx.lineTo(w/2 + aw, ay); hctx.stroke();
+    hctx.strokeStyle = 'rgba(190,255,220,' + (0.35 + 0.6 * q).toFixed(2) + ')';
+    hctx.lineWidth = 2 + 2 * q;
+    hctx.beginPath(); hctx.moveTo(w/2 - aw * q, ay); hctx.lineTo(w/2 + aw * q, ay); hctx.stroke();
+    hctx.lineWidth = 1.5;
+    hctx.font = '12px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.fillStyle = 'rgba(190,255,220,' + (0.25 + 0.7 * q).toFixed(2) + ')';
+    hctx.fillText('POSÉ', w / 2, ay - 12);
+    hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.restore();
+  }
+
+  // BOOST. L'attente se voit avant de pousser : un arc se remplit sous le
+  // viseur pendant les deux secondes et demie, puis le mot. Sans cela la
+  // poussée arriverait sans prévenir et on ne saurait ni ce qui l'a
+  // déclenchée, ni comment la retrouver.
+  if (state.boostT > 0.25) {
+    const q = Math.min(1, state.boostT / BOOST_ATTENTE);
+    const by = h * 0.66, bw = Math.min(w, h) * 0.16;
+    hctx.save();
+    hctx.strokeStyle = 'rgba(70,255,160,0.22)';
+    hctx.beginPath(); hctx.moveTo(w/2 - bw, by); hctx.lineTo(w/2 + bw, by); hctx.stroke();
+    hctx.strokeStyle = 'rgba(190,255,220,' + (0.45 + 0.5 * q).toFixed(2) + ')';
+    hctx.lineWidth = 2 + 1.5 * state.boost;
+    hctx.beginPath();
+    hctx.moveTo(w/2 - bw * q, by); hctx.lineTo(w/2 + bw * q, by); hctx.stroke();
+    hctx.lineWidth = 1.5;
+    if (state.boost > 0.05) {
+      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillStyle = 'rgba(190,255,220,' + (0.4 + 0.55 * state.boost).toFixed(2) + ')';
+      hctx.fillText('BOOST', w / 2, by + 15);
+    }
+    hctx.restore();
+  }
+
   // SOLEIL DANS LE DOS. Tant que la condition tient, un halo doux s'allume
   // autour de l'avion et un bandeau le dit en clair. Ce n'est pas un effet :
   // c'est l'affichage d'un état qui existait déjà dans le calcul depuis la
@@ -4300,82 +4375,97 @@ function drawHud() {
     }
   }
 
-  // BANDE DE CAP. Le jeu n'avait aucun moyen de dire où l'on va : les étoiles
-  // le disent, mais il faut les connaître. Une graduation tous les dix degrés,
-  // trente degrés de part et d'autre du cap, chiffrée de trente en trente.
+  // BANDE DE CAP. Trois étages, parce que trois familles de choses méritent
+  // d'être situées et qu'elles se marcheraient dessus sur une seule ligne :
+  // la graduation et la piste en haut — le rectangle est large, il a la place —
+  // puis les adversaires, puis les points où l'on reprend de la vie. Chacun
+  // sait ainsi d'un coup d'oeil où tourner pour trouver ce qu'il cherche.
   {
     const cap = (Math.atan2(-Math.sin(state.camYaw), -Math.cos(state.camYaw))
                  * 180 / Math.PI + 360) % 360;
-    const by = h * 0.075, demi = Math.min(w * 0.34, 150), ech = demi / 30;
+    const by = h * 0.062, demi = Math.min(w * 0.36, 155), ech = demi / 60;
+    const L_ENN = by + 20, L_VIE = by + 32;
     hctx.save();
     hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
     hctx.textAlign = 'center';
     hctx.strokeStyle = 'rgba(70,255,160,0.20)';
     hctx.beginPath(); hctx.moveTo(w/2 - demi, by); hctx.lineTo(w/2 + demi, by); hctx.stroke();
-    for (let d = -30; d <= 30; d += 10) {
+
+    // écart signé entre un cap absolu et le nôtre, ramené dans -180..180
+    const dc = v => { let d = (v - cap) % 360; if (d > 180) d -= 360;
+                      if (d < -180) d += 360; return d; };
+    // et sa place sur la bande, bornée aux extrémités : ce qui est loin
+    // derrière se tasse au bord au lieu de disparaître
+    const px = d => w/2 + THREE.MathUtils.clamp(d, -60, 60) * ech;
+    const bord = d => Math.abs(d) >= 59.5;
+    // cap d'un point du monde, vu d'où l'on est
+    const capDe = v => (Math.atan2(state.pos.x - v.x, state.pos.z - v.z)
+                        * 180 / Math.PI + 360) % 360;
+
+    for (let d = -60; d <= 60; d += 10) {
       const v = Math.round((cap + d) / 10) * 10;
-      const x = w/2 + (v - cap) * ech;
+      const x = w/2 + dc(v) * ech;
       if (Math.abs(x - w/2) > demi) continue;
       const gros = v % 30 === 0;
-      hctx.strokeStyle = 'rgba(70,255,160,' + (gros ? 0.5 : 0.3) + ')';
+      hctx.strokeStyle = 'rgba(70,255,160,' + (gros ? 0.5 : 0.28) + ')';
       hctx.beginPath(); hctx.moveTo(x, by); hctx.lineTo(x, by + (gros ? 7 : 4)); hctx.stroke();
       if (gros) {
-        hctx.fillStyle = 'rgba(70,255,160,0.55)';
-        hctx.fillText(String(((v % 360) + 360) % 360 / 10 | 0).padStart(2, '0'), x, by + 15);
+        hctx.fillStyle = 'rgba(70,255,160,0.5)';
+        hctx.fillText(String((((v % 360) + 360) % 360) / 10 | 0).padStart(2, '0'), x, by - 8);
       }
     }
+
+    // LA PISTE — un rectangle, sur la ligne de la graduation
+    {
+      const d = dc(capDe(_v.set(0, 0, (PISTE.z0 + PISTE.z1) / 2)));
+      const x = px(d);
+      hctx.strokeStyle = bord(d) ? 'rgba(143,252,196,0.35)' : 'rgba(143,252,196,0.85)';
+      hctx.lineWidth = 1.4;
+      hctx.strokeRect(x - 8, by + 3, 16, 7);
+      hctx.lineWidth = 1.5;
+    }
+
+    // LES ADVERSAIRES — un triangle chacun, sur leur propre ligne
+    for (const e of state.enemies) {
+      const d = dc(capDe(e.pos));
+      const x = px(d);
+      hctx.fillStyle = state.lock === e ? '#ffffff'
+                     : bord(d) ? 'rgba(70,255,160,0.4)' : 'rgba(70,255,160,0.9)';
+      hctx.beginPath();
+      hctx.moveTo(x, L_ENN - 5); hctx.lineTo(x - 4, L_ENN + 2); hctx.lineTo(x + 4, L_ENN + 2);
+      hctx.closePath(); hctx.fill();
+    }
+
+    // LES POINTS DE VIE — une astérisque par arche et par tour encore à prendre
+    const etoile = (x, y, r, a) => {
+      hctx.strokeStyle = 'rgba(190,255,220,' + a + ')';
+      hctx.beginPath();
+      for (let k = 0; k < 3; k++) {
+        const t = k * Math.PI / 3 + Math.PI / 2;
+        hctx.moveTo(x - Math.cos(t) * r, y - Math.sin(t) * r);
+        hctx.lineTo(x + Math.cos(t) * r, y + Math.sin(t) * r);
+      }
+      hctx.stroke();
+    };
+    for (const a of arches) {
+      if (a.prise) continue;
+      const d = dc(capDe(a.g.position));
+      etoile(px(d), L_VIE, 4, bord(d) ? '0.3' : '0.7');
+    }
+    for (const t of tours) {
+      if (t.prise) continue;
+      const d = dc(capDe(t.g.position));
+      etoile(px(d), L_VIE, 5.5, bord(d) ? '0.35' : '0.95');
+    }
+
+    // le repère du cap courant, au-dessus de tout
     hctx.fillStyle = 'rgba(143,252,196,0.95)';
     hctx.beginPath();
-    hctx.moveTo(w/2, by - 6); hctx.lineTo(w/2 - 4, by - 12); hctx.lineTo(w/2 + 4, by - 12);
+    hctx.moveTo(w/2, by - 1); hctx.lineTo(w/2 - 4, by - 7); hctx.lineTo(w/2 + 4, by - 7);
     hctx.closePath(); hctx.fill();
     hctx.restore();
     hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
     hctx.textAlign = 'center';
-  }
-
-  // le manche flottant, dessiné là où le doigt s'est posé : c'est lui, au doigt,
-  // qui montre la commande — plus besoin d'un curseur pour ça
-  if (joy.on) {
-    const R = joyRadius();
-    hctx.strokeStyle = 'rgba(70,255,160,0.22)';
-    hctx.beginPath(); hctx.arc(joy.ox, joy.oy, R, 0, Math.PI * 2); hctx.stroke();
-    hctx.strokeStyle = 'rgba(70,255,160,0.5)';
-    hctx.beginPath(); hctx.arc(joy.x, joy.y, 15, 0, Math.PI * 2); hctx.stroke();
-    hctx.beginPath();
-    hctx.moveTo(joy.ox, joy.oy); hctx.lineTo(joy.x, joy.y); hctx.stroke();
-  }
-
-  // POURSUITE. L'attente se voit avant de pousser : un arc qui se remplit
-  // sous le viseur pendant les deux secondes et demie, puis le mot. Sans
-  // cela la poussée arriverait sans prévenir et on ne saurait pas ce qui
-  // l'a déclenchée, ni comment la retrouver.
-  if (state.boostT > 0.25) {
-    const q = Math.min(1, state.boostT / BOOST_ATTENTE);
-    const by = h * 0.66, bw = Math.min(w, h) * 0.16;
-    hctx.save();
-    hctx.strokeStyle = 'rgba(70,255,160,0.22)';
-    hctx.beginPath(); hctx.moveTo(w/2 - bw, by); hctx.lineTo(w/2 + bw, by); hctx.stroke();
-    hctx.strokeStyle = 'rgba(190,255,220,' + (0.45 + 0.5 * q).toFixed(2) + ')';
-    hctx.lineWidth = 2 + 1.5 * state.boost;
-    hctx.beginPath();
-    hctx.moveTo(w/2 - bw * q, by); hctx.lineTo(w/2 + bw * q, by); hctx.stroke();
-    hctx.lineWidth = 1.5;
-    if (state.boost > 0.05) {
-      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
-      hctx.fillStyle = 'rgba(190,255,220,' + (0.4 + 0.55 * state.boost).toFixed(2) + ')';
-      hctx.fillText('POURSUITE', w / 2, by + 15);
-      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
-    }
-    hctx.restore();
-  }
-
-  if (dos > 0.02) {
-    hctx.save();
-    hctx.font = '12px "IBM Plex Mono", ui-monospace, monospace';
-    hctx.fillStyle = 'rgba(190,255,220,' + (0.55 + 0.4 * dos).toFixed(2) + ')';
-    // sous le cadran d'assiette, qui occupe le coin haut gauche
-    hctx.fillText('SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS', w / 2, h * 0.215);
-    hctx.restore();
   }
 
   // ROQUETTES EN ROUTE. Un anneau large se referme sur la cible à mesure
