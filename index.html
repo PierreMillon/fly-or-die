@@ -200,7 +200,7 @@
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.16</button>
+  <button id="versionBtn">v0.17</button>
 </div>
 
 <div id="bottombar">
@@ -241,6 +241,26 @@
   cosinus de 9 degrés, c'est dans le viseur. Aucun arc cosinus n'est calculé,
   on compare directement les cosinus.</p>
 
+  <h2>EN FACE</h2>
+  <p>Quatre adversaires, quatre silhouettes, quatre manières de poursuivre.
+  Les vagues traversent le siècle : les anciens ne disparaissent pas, ils
+  deviennent minoritaires.</p>
+  <p><b>BIPLAN</b> — poursuite pure. Il pointe son nez sur toi et rien
+  d'autre. C'est la courbe du chien : il arrive toujours dans ton sillage,
+  toujours en retard. Lent, fragile, il doit venir tout près pour tirer.</p>
+  <p><b>CHASSEUR</b> — il ne te vise pas, il vise un point cent quatre-vingt-dix
+  mètres derrière toi. Se coller dans tes six heures et y rester est son
+  métier. C'est contre lui que le renversement sert.</p>
+  <p><b>INTERCEPTEUR</b> — poursuite anticipée. Il résout à chaque image
+  l'équation du second degré du point de rencontre et fonce droit dessus.
+  Trajectoire tendue, très rapide. Sa faiblesse est écrite dans sa méthode :
+  elle suppose que tu continues tout droit. Vire, et il passe à côté.</p>
+  <p><b>DRONE</b> — navigation proportionnelle, celle des missiles. Il ne
+  vise aucun point : il annule la rotation de la ligne de visée. Tant qu'elle
+  ne tourne plus, la collision est acquise quoi que tu fasses. Il braque trois
+  fois plus vite que cette ligne ne pivote. C'est le seul qu'on ne sème pas
+  en virant.</p>
+
   <h2>LES COURBES DE POURSUITE</h2>
   <p>Suivre un avion qui manœuvre ne trace pas une droite. Ça trace une
   <b>courbe de poursuite</b>, qu'on appelle aussi <b>radiodrome</b> — du latin
@@ -269,6 +289,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.17</b> — quatre adversaires au lieu d'un, chacun avec sa silhouette et sa manière de poursuivre : le biplan en poursuite pure, la courbe du chien de Bouguer ; le chasseur qui se colle dans les six heures ; l'intercepteur en poursuite anticipée, qui résout l'équation du second degré du point de rencontre ; le drone en navigation proportionnelle, celle des missiles, qui braque trois fois plus vite que ne pivote la ligne de visée. Les vagues traversent le siècle : biplans seuls au début, drones à la fin, et les anciens restent en minorité.</div>
   <div><b>v0.16</b> — le jeu se met en pause quand un panneau est ouvert : lire l'aide ne coûte plus la partie. une flèche par ennemi désormais, et sa taille dit la distance : la plus grosse est la plus proche. L'altitude passe d'un chiffre à un curseur entre plancher et plafond. Le décor n'arrête plus l'avion, il l'érafle : on rebondit sur le sol et sur les pylônes en perdant un peu de vie, donc le Split-S bas et le rase-mottes deviennent possibles au lieu d'être refusés. Un bouton d'aide explique le pilotage, le verrouillage et la théorie des courbes de poursuite.</div>
   <div><b>v0.15</b> — l'avion du joueur fait deux fois sa taille, envergure portée de 7,2 à 14,4. Les bouches de canon suivent, et les rayons de collision sont recalés : une cellule deux fois plus large se fait toucher de plus loin.</div>
   <div><b>v0.14</b> — les traçantes partent des deux mitrailleuses d'aile, relevées sur le modèle, et convergent sur la cible comme des armes harmonisées ; ce sont de vraies balles qui filent et finissent leur course, plus un rayon instantané. La caméra n'est plus collée à sa place : un ressort amorti l'y rappelle et elle garde sa propre vitesse, comme un second avion qui tient la formation.</div>
@@ -347,13 +368,6 @@ const DPS_MAX       = 72;     // ...et une fois le tir bien calé sur la cible
 const LOCK_SPOOL    = 1.8;    // secondes pour monter de l'un à l'autre
 const FLOOR         = 26;     // plancher : on rase le sol sans le traverser
 const CEILING       = 480;    // plafond bas volontaire : la grille au sol est le seul repère de vitesse
-const ENEMY_HP      = 100;
-const ENEMY_SPEED   = [72, 94];
-const ENEMY_TURN    = 1.2;    // rad/s
-const ENEMY_RANGE   = 900;
-const ENEMY_CONE    = Math.cos(15 * Math.PI / 180);
-const ENEMY_RELOAD  = [0.8, 1.7];
-const ENEMY_BURST   = 3;      // rafale plutôt qu'un coup sec
 const BURST_GAP     = 0.1;
 const BULLET_SPEED  = 300;
 const BULLET_LIFE   = 3.2;
@@ -657,18 +671,69 @@ const PROP_TRIS = [
   28, 33, 29, 29, 33, 32, 29, 32, 30, 30, 32, 31
 ];
 
-// l'ennemi : une aile volante, silhouette franchement différente — c'est elle
-// qui distingue ami et ennemi, pas la couleur (tout est vert). Décrite en
-// triangles et non en traits, pour être opaque comme le reste.
-const ENEMY_VERTS = [
-   0,    0,    -2.7,   // 0 nez
-  -3.9,  0,     1.3,   // 1 bout d'aile gauche
-   3.9,  0,     1.3,   // 2 bout d'aile droit
-   0,    0,     0.5,   // 3 échancrure arrière
-  -3.6,  0.95,  1.7,   // 4 winglet gauche
-   3.6,  0.95,  1.7    // 5 winglet droit
+// Quatre adversaires, quatre silhouettes, quatre manières de poursuivre.
+// Chacune est une vraie stratégie, pas une nuance de réglage — et elles
+// arrivent dans l'ordre où l'aviation les a inventées.
+const KINDS = [
+  {
+    nom: 'BIPLAN', tactique: 'pure',
+    // deux ailes superposées, fuselage plat : la silhouette de 14-18
+    verts: [
+      -3.0, 0.75, -0.7,   3.0, 0.75, -0.7,   3.0, 0.75, 0.5,  -3.0, 0.75, 0.5,
+      -2.7, -0.35, -0.5,  2.7, -0.35, -0.5,  2.7, -0.35, 0.7, -2.7, -0.35, 0.7,
+       0.0, 0.35, -2.2,   0.0, 0.35, 2.4,    0.0, -0.25, 2.4,  0.0, -0.25, -2.2,
+      -1.2, 0.2, 2.0,     1.2, 0.2, 2.0,     0.0, 0.2, 2.5,
+       0.0, 1.0, 2.2
+    ],
+    tris: [0,1,2, 0,2,3,  4,5,6, 4,6,7,  8,9,10, 8,10,11,  12,13,14,  9,15,10],
+    vitesse: [56, 70], virage: 0.75, vie: 70, recharge: [2.3, 3.9],
+    cone: Math.cos(12 * Math.PI / 180), portee: 520, rafale: 2
+  },
+  {
+    nom: 'CHASSEUR', tactique: 'queue',
+    // l'aile volante d'origine
+    verts: [
+       0, 0, -2.7,  -3.9, 0, 1.3,   3.9, 0, 1.3,
+       0, 0, 0.5,   -3.6, 0.95, 1.7, 3.6, 0.95, 1.7
+    ],
+    tris: [0,1,3, 0,3,2, 1,4,3, 2,3,5],
+    vitesse: [74, 90], virage: 1.25, vie: 100, recharge: [0.9, 1.8],
+    cone: Math.cos(15 * Math.PI / 180), portee: 900, rafale: 3
+  },
+  {
+    nom: 'INTERCEPTEUR', tactique: 'anticipee',
+    // dard fin, long nez : fait pour aller vite en ligne droite
+    verts: [
+       0, 0, -3.6,  -2.2, 0, 1.5,   2.2, 0, 1.5,
+       0, 0, 0.6,    0, 0.95, 1.9,  0, 0, 2.3,
+      -0.9, 0, 2.2,  0.9, 0, 2.2
+    ],
+    tris: [0,1,3, 0,3,2, 3,4,5, 6,3,7],
+    vitesse: [92, 108], virage: 0.95, vie: 90, recharge: [1.0, 2.0],
+    cone: Math.cos(12 * Math.PI / 180), portee: 1050, rafale: 3
+  },
+  {
+    nom: 'DRONE', tactique: 'proportionnelle',
+    // quatre bras en croix : plus un avion, une machine
+    verts: [
+       0, 0, -0.6,   0.6, 0, 0,    0, 0, 0.6,   -0.6, 0, 0,
+      -2.6, 0, -2.6,  2.6, 0, -2.6, 2.6, 0, 2.6, -2.6, 0, 2.6,
+       0, 0.8, 0.2
+    ],
+    tris: [0,1,2, 0,2,3,  3,0,4,  0,1,5,  1,2,6,  2,3,7,  0,8,2],
+    vitesse: [98, 116], virage: 1.75, vie: 80, recharge: [0.7, 1.4],
+    cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
+  }
 ];
-const ENEMY_TRIS = [0, 1, 3,  0, 3, 2,  1, 4, 3,  2, 3, 5];
+
+// Composition des vagues : on traverse un siècle d'aviation. Biplans seuls au
+// début, puis chaque tactique nouvelle s'ajoute au lot sans faire disparaître
+// les précédentes — les vieux coucous restent, en minorité.
+const VAGUES = [
+  [0], [0], [0, 0, 1], [0, 1, 1], [0, 1, 1, 2],
+  [0, 1, 2, 2], [1, 1, 2, 2, 3], [1, 2, 2, 3, 3], [1, 2, 3, 3, 3], [2, 2, 3, 3, 3, 3]
+];
+const PN_GAIN = 3.2;   // constante de navigation proportionnelle
 
 const matPlayer  = lineMat(COL_TEXT);
 const matEnemy   = lineMat(COL_LINE);
@@ -676,8 +741,10 @@ const matLocked  = lineMat(COL_LOCK);
 
 const planeGeom = idxGeom(PLANE_VERTS, PLANE_TRIS);
 const planeEdges = new THREE.EdgesGeometry(planeGeom, 20);
-const enemyGeom = idxGeom(ENEMY_VERTS, ENEMY_TRIS);
-const enemyEdges = new THREE.EdgesGeometry(enemyGeom, 20);
+for (const k of KINDS) {
+  k.geom = idxGeom(k.verts, k.tris);
+  k.edges = new THREE.EdgesGeometry(k.geom, 20);
+}
 
 const playerMesh = solidWire(planeGeom, planeEdges, matPlayer);
 playerMesh.scale.setScalar(PLANE_SCALE);
@@ -804,6 +871,7 @@ let touchMode = window.matchMedia('(pointer: coarse)').matches;
 // crochet de mise au point : `__fod` donne l'état complet depuis la console
 // du navigateur (positions, ennemis, verrouillage) sans instrumenter le code
 window.__fod = state;
+window.__kinds = KINDS;   // pour éprouver une tactique isolément depuis la console
 const euler = new THREE.Euler(0, 0, 0, 'YXZ'); // lacet d'abord, puis tangage : jamais de tonneau subi
 
 function resetGame() {
@@ -848,12 +916,17 @@ function placeTower(t, initial) {
 function spawnWave() {
   state.wave++;
   const n = Math.min(3 + state.wave, 12);
+  const pool = VAGUES[Math.min(state.wave - 1, VAGUES.length - 1)];
+  const vus = new Set();
   for (let i = 0; i < n; i++) {
+    const k = KINDS[pool[Math.floor(Math.random() * pool.length)]];
+    vus.add(k.nom);
     const a = Math.random() * Math.PI * 2;
     const d = 520 + Math.random() * 420;
-    const mesh = solidWire(enemyGeom, enemyEdges, matEnemy);
+    const mesh = solidWire(k.geom, k.edges, matEnemy);
     scene.add(mesh);
     state.enemies.push({
+      kind: k,
       mesh,
       pos: new THREE.Vector3(
         state.pos.x + Math.cos(a) * d,
@@ -862,16 +935,21 @@ function spawnWave() {
       ),
       quat: new THREE.Quaternion(),
       forward: new THREE.Vector3(0, 0, -1),
-      speed: ENEMY_SPEED[0] + Math.random() * (ENEMY_SPEED[1] - ENEMY_SPEED[0]) + state.wave * 1.6,
-      hp: ENEMY_HP,
+      los: new THREE.Vector3(),
+      losOk: false,
+      speed: k.vitesse[0] + Math.random() * (k.vitesse[1] - k.vitesse[0]) + state.wave * 1.2,
+      hp: k.vie,
+      hpMax: k.vie,
       goal: new THREE.Vector3(),
+      cote: Math.random() < 0.5 ? -1 : 1,
       goalT: 0,
       reload: 0.6 + Math.random() * 1.1,
       burst: 0,
       burstT: 0
     });
   }
-  announce('VAGUE ' + state.wave);
+  // le nom de l'escadrille dit tout de suite à quoi on a affaire
+  announce('VAGUE ' + state.wave + '  ·  ' + [...vus].join(' + '));
 }
 
 const _m4 = new THREE.Matrix4();
@@ -884,45 +962,108 @@ const _ax = new THREE.Vector3(1, 0, 0);
 const _az = new THREE.Vector3(0, 0, 1);
 const _anchor = new THREE.Vector3();
 const _right = new THREE.Vector3();
+const _los = new THREE.Vector3();
+const _pn = new THREE.Vector3();
 
 function updateEnemies(dt) {
-  // La zone de combat est ancrée un peu DEVANT le joueur, pas sur lui.
-  // Sans cette avance, les ennemis finissaient tous collés dans son dos
-  // (produit scalaire mesuré à -0.99) : ils le mitraillaient de l'arrière
-  // sans jamais repasser dans le viseur, et le combat n'existait pas.
-  _anchor.copy(state.forward).multiplyScalar(340).add(state.pos);
   _right.crossVectors(state.forward, _up).normalize();
 
   for (let i = state.enemies.length - 1; i >= 0; i--) {
     const e = state.enemies[i];
+    const K = e.kind;
 
     _v.subVectors(e.pos, state.pos);
     const dist = _v.length() || 1;
     const bearing = state.forward.dot(_v) / dist; // >0 devant, <0 derrière
 
-    // décrochée ou passée derrière : elle vire large et revient en face.
-    // C'est l'abstraction arcade d'un nouveau passage — l'avion du joueur
-    // avance sans arrêt, une IA honnête ne le rattraperait jamais.
-    if (dist > 1250 || (bearing < -0.2 && dist > 420)) {
+    // Décrocher trop loin, c'est sortir du combat : on revient en face pour un
+    // nouveau passage. L'avion du joueur avance sans arrêt, une poursuite
+    // honnête ne le rattraperait jamais. Le chasseur en queue fait exception —
+    // se coller derrière est précisément son métier.
+    const limite = K.tactique === 'queue' ? 1350 : 1250;
+    const lache = K.tactique === 'queue' ? -1.1 : -0.2;
+    if (dist > limite || (bearing < lache && dist > 480)) {
       reenter(e);
       continue;
     }
 
-    // point de rendez-vous renouvelé régulièrement autour de l'ancre
-    e.goalT -= dt;
-    if (e.goalT <= 0) {
-      e.goalT = 0.9 + Math.random() * 1.3;
-      const a = Math.random() * Math.PI * 2;
-      const r = 95 + Math.random() * 260;
-      e.goal.copy(_anchor)
-        .addScaledVector(_right, Math.cos(a) * r)
-        .addScaledVector(_up, Math.sin(a) * r * 0.55);
-      e.goal.y = THREE.MathUtils.clamp(e.goal.y, 80, CEILING);
+    // ---- le point visé dépend de la tactique, et c'est là que tout se joue
+    if (K.tactique === 'proportionnelle') {
+      // Navigation proportionnelle, celle des missiles : on ne vise pas un
+      // point, on annule la rotation de la ligne de visée. Tant qu'elle ne
+      // tourne plus, la collision est certaine quoi que fasse la cible. Le
+      // drone braque N fois plus vite que cette ligne ne pivote.
+      _los.subVectors(state.pos, e.pos).divideScalar(dist);
+      if (e.losOk) {
+        _pn.crossVectors(e.los, _los);
+        const sn = _pn.length();
+        if (sn > 1e-6) {
+          _pn.divideScalar(sn);
+          const rate = Math.asin(Math.min(1, sn)) / Math.max(dt, 1e-4);
+          _qa.setFromAxisAngle(_pn, Math.min(PN_GAIN * rate * dt, K.virage * dt * 1.8));
+          e.quat.premultiply(_qa);
+        }
+      }
+      e.los.copy(_los);
+      e.losOk = true;
+      // rappel doux vers la cible, sinon la moindre erreur s'accumule
+      _m4.lookAt(e.pos, state.pos, _up);
+      _q.setFromRotationMatrix(_m4);
+      e.quat.rotateTowards(_q, K.virage * 0.35 * dt);
+
+    } else {
+      if (K.tactique === 'pure') {
+        // Poursuite pure : le nez toujours sur la cible, jamais devant. C'est
+        // la courbe du chien de Bouguer — on arrive systématiquement dans le
+        // sillage, et le chemin parcouru est plus long que nécessaire.
+        e.goal.copy(state.pos);
+
+      } else if (K.tactique === 'queue') {
+        // Se placer dans les six heures et y rester. Il ne vise pas l'avion,
+        // il vise un point derrière lui.
+        e.goal.copy(state.pos).addScaledVector(state.forward, -190);
+        e.goal.y = Math.max(70, e.goal.y);
+
+      } else {
+        // Poursuite anticipée : on vise où la cible SERA. Le temps d'impact
+        // est la racine positive de |R + V t| = S t, une simple équation du
+        // second degré. Trajectoire tendue, interception plus courte.
+        const rx = state.pos.x - e.pos.x, ry = state.pos.y - e.pos.y, rz = state.pos.z - e.pos.z;
+        const vx = state.forward.x * state.speed,
+              vy = state.forward.y * state.speed,
+              vz = state.forward.z * state.speed;
+        const qa = vx * vx + vy * vy + vz * vz - e.speed * e.speed;
+        const qb = 2 * (rx * vx + ry * vy + rz * vz);
+        const qc = rx * rx + ry * ry + rz * rz;
+        let t = null;
+        if (Math.abs(qa) < 1e-4) {
+          if (Math.abs(qb) > 1e-6) t = -qc / qb;
+        } else {
+          const disc = qb * qb - 4 * qa * qc;
+          if (disc >= 0) {
+            const r = Math.sqrt(disc);
+            const t1 = (-qb + r) / (2 * qa), t2 = (-qb - r) / (2 * qa);
+            const bons = [t1, t2].filter(x => x > 0 && isFinite(x));
+            if (bons.length) t = Math.min(...bons);
+          }
+        }
+        if (t === null || t > 12) {
+          e.goal.copy(state.pos);            // pas de solution : on retombe sur la poursuite pure
+        } else {
+          e.goal.set(state.pos.x + vx * t, state.pos.y + vy * t, state.pos.z + vz * t);
+        }
+      }
+      // Personne ne se jette volontairement sur l'autre : à courte distance,
+      // un pilote fait sa passe et dégage sur le côté. Sans ce réflexe, les
+      // biplans en poursuite pure devenaient des kamikazes, puisque viser le
+      // joueur et le percuter sont la même chose.
+      if (dist < 140) e.goal.addScaledVector(_right, e.cote * 110);
+      e.goal.y = THREE.MathUtils.clamp(e.goal.y, 70, CEILING);
+      _m4.lookAt(e.pos, e.goal, _up);
+      _q.setFromRotationMatrix(_m4);
+      e.quat.rotateTowards(_q, K.virage * dt);
     }
 
-    _m4.lookAt(e.pos, e.goal, _up);
-    _q.setFromRotationMatrix(_m4);
-    e.quat.rotateTowards(_q, ENEMY_TURN * dt);
     e.forward.set(0, 0, -1).applyQuaternion(e.quat);
     e.pos.addScaledVector(e.forward, e.speed * dt);
     if (e.pos.y < 60) e.pos.y = 60;
@@ -931,30 +1072,28 @@ function updateEnemies(dt) {
     e.mesh.quaternion.copy(e.quat);
     e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
 
-    // tir ennemi : même test de cône que le joueur, en plus large
+    // tir ennemi : même test de cône que le joueur, plus ou moins large selon
+    // l'engin — le biplan doit venir tout près, le drone tire de loin
     _v.multiplyScalar(-1 / dist); // direction ennemi -> joueur
     const tirer = () => {
-      // légère anticipation, sinon les tirs arrivent toujours dans le dos
       const lead = state.forward.clone().multiplyScalar(state.speed * (dist / BULLET_SPEED) * 0.8);
       const dir = _v.clone().multiplyScalar(dist).add(lead).normalize();
       state.bullets.push({ pos: e.pos.clone(), dir, t: 0 });
     };
     e.reload -= dt;
     if (e.burst > 0) {
-      // une rafale part en trois coups : on peut passer entre, mais rester
-      // aligné devant un ennemi coûte cher
       e.burstT -= dt;
       if (e.burstT <= 0) { tirer(); e.burst--; e.burstT = BURST_GAP; }
-    } else if (e.reload <= 0 && dist < ENEMY_RANGE && e.forward.dot(_v) > ENEMY_CONE) {
-      e.reload = ENEMY_RELOAD[0] + Math.random() * (ENEMY_RELOAD[1] - ENEMY_RELOAD[0]);
-      e.burst = ENEMY_BURST;
+    } else if (e.reload <= 0 && dist < K.portee && e.forward.dot(_v) > K.cone) {
+      e.reload = K.recharge[0] + Math.random() * (K.recharge[1] - K.recharge[0]);
+      e.burst = K.rafale;
       e.burstT = 0;
     }
 
     // collision : se rentrer dedans coûte cher aux deux
     if (dist < RAM_DIST) {
       spawnBurst(e.pos, 9);
-      damagePlayer(20);
+      damagePlayer(14);
       scene.remove(e.mesh);
       state.enemies.splice(i, 1);
     }
@@ -973,6 +1112,7 @@ function reenter(e) {
   e.goalT = 0;
   e.reload = Math.max(e.reload, 0.5);
   e.burst = 0;
+  e.losOk = false;
   _m4.lookAt(e.pos, state.pos, _up);
   e.quat.setFromRotationMatrix(_m4);
   e.mesh.position.copy(e.pos);
@@ -1467,7 +1607,9 @@ function drawHud() {
       bracket(p.x + j(), p.y + j(), size, 0.42);
       hctx.lineWidth = 1.5;
       hctx.fillStyle = '#ffffff';
-      hctx.fillText(Math.round(Math.max(0, e.hp)) + '%', p.x, p.y - size - 12);
+      hctx.fillText(Math.round(Math.max(0, e.hp / e.hpMax * 100)) + '%', p.x, p.y - size - 12);
+      hctx.fillStyle = 'rgba(255,255,255,0.65)';
+      hctx.fillText(e.kind.nom, p.x, p.y + size + 13);
       // anneau de charge : il se referme et se resserre sur la cible
       const r = size * (1.95 - 0.6 * ch);
       hctx.strokeStyle = 'rgba(255,255,255,' + (0.35 + 0.5 * ch).toFixed(2) + ')';
