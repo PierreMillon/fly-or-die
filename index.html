@@ -349,7 +349,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.42</button>
+  <button id="versionBtn">v0.43</button>
 </div>
 
 <div id="bottombar">
@@ -517,6 +517,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.43</b> — un avion abattu part en vrille, traîne sa fumée et s'ouvre au sol. Le coup au but jette cinq à dix boules de tailles très différentes. Les roquettes orphelines ne s'évaporent plus : elles piquent et explosent où elles finissent. Un anneau se referme sur la cible à mesure qu'elles arrivent, et bat au canon d'où elles sont parties. Le ressort de caméra reste raide jusqu'au bout du décollage : il se détendait pile quand le nez revient à plat, l'avion sautait de 7 pixels, il n'en fait plus que 5.</div>
   <div><b>v0.42</b> — une piste, avec son axe et ses caps peints. On décolle toujours de là, et le décor ne s'y pose plus. Trois mécaniciens s'affairent autour du moteur et détalent au départ. Passer bas et dans l'axe suffit à se poser : la vie remonte de 17 points par seconde, l'avion repart au bout de dix secondes. les panneaux défilent où qu'on pose le doigt. Un adversaire hors champ retrouve sa flèche : le cône fixe de la v0.39 était plus large que l'écran d'un téléphone, et les cibles latérales disparaissaient. Les traits de vitesse s'éteignent en fondu au lieu d'un bloc — c'était le saut qui restait après le décollage. L'accueil ne garde que le titre et le bouton ; l'écran de mort propose les explications, qu'on peut faire taire.</div>
   <div><b>v0.41</b> — le cadran d'assiette laisse place à une échelle de tangage dessinée dans le monde, à sa vraie place. Elle n'apparaît qu'au-delà de douze degrés. Bande de cap en haut.</div>
   <div><b>v0.40</b> — la poursuite : tenir dans l'axe une cible trop loin pour être accrochée finit par pousser, 78 à 121 m/s. Le glissement ne s'interrompt plus sur les bandeaux. Trente-quatre viseurs.</div>
@@ -2570,6 +2571,7 @@ const state = {
   shots: [],
   gunT: 0,
   roquettes: [],
+  chutes: [],
   fumees: [],
   roqT: 0,
   lockCharge: 0,
@@ -2692,6 +2694,8 @@ function resetGame() {
   state.bullets.length = 0;
   state.shots.length = 0;
   state.roquettes.length = 0;
+  state.chutes.forEach(c => scene.remove(c.mesh));
+  state.chutes.length = 0;
   state.fumees.length = 0;
   state.boost = 0;
   state.boostT = 0;
@@ -3058,6 +3062,84 @@ function updateEnemies(dt) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// LA CHUTE. Un avion abattu ne s'évapore pas. Il part en vrille, traîne sa
+// fumée, et va s'ouvrir au sol. La destruction est donc immédiate pour tout
+// ce qui compte — le score, la vague, le verrouillage : l'appareil quitte la
+// liste des adversaires à la seconde où sa structure tombe. Ce qui reste est
+// un décor qui tombe, et qui ne peut plus ni tirer ni être visé.
+// ---------------------------------------------------------------------------
+const CHUTE_VIE = 6.5;
+const CHUTE_GRAV = 34;
+
+function abattre(e) {
+  const i = state.enemies.indexOf(e);
+  if (i < 0) return;
+  state.enemies.splice(i, 1);
+  if (state.lock === e) { state.lock = null; state.lockCharge = 0; }
+  state.score += 100 + state.wave * 10;
+  SFX.detruit();
+
+  // la bouffée du coup au but : entre cinq et dix boules de tailles très
+  // différentes, jetées autour du point d'impact. Une seule sphère nette se
+  // lisait comme un objet ; un essaim irrégulier se lit comme une explosion.
+  const n = 5 + Math.floor(Math.random() * 6);
+  for (let k = 0; k < n; k++) {
+    _seg.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+    const f = semerFumee(e.pos.clone().addScaledVector(_seg, Math.random() * 9), _seg);
+    if (f) f.r0 *= 1.4 + Math.random() * 4.2;
+  }
+  spawnBurst(e.pos, 8);
+
+  state.chutes.push({
+    mesh: e.mesh, pos: e.pos.clone(), quat: e.quat.clone(),
+    vit: e.forward.clone().multiplyScalar(e.vitesse || 60),
+    vrille: (Math.random() < 0.5 ? -1 : 1) * (3.4 + Math.random() * 2.6),
+    tangage: 0.8 + Math.random() * 1.1,
+    t: 0, fum: 0
+  });
+}
+
+const _qc = new THREE.Quaternion();
+function updateChutes(dt) {
+  for (let i = state.chutes.length - 1; i >= 0; i--) {
+    const c = state.chutes[i];
+    c.t += dt;
+    c.vit.y -= CHUTE_GRAV * dt;
+    c.pos.addScaledVector(c.vit, dt);
+    // vrille autour de l'axe de l'appareil, plus un tangage à piquer : c'est
+    // la figure d'un avion qui ne vole plus, pas d'un avion qui manœuvre
+    _qc.setFromAxisAngle(_az, c.vrille * dt);
+    c.quat.multiply(_qc);
+    _qc.setFromAxisAngle(_ax, -c.tangage * dt);
+    c.quat.multiply(_qc);
+    c.mesh.position.copy(c.pos);
+    c.mesh.quaternion.copy(c.quat);
+
+    c.fum -= dt;
+    while (c.fum <= 0) {
+      _seg.copy(c.vit).normalize();
+      const f = semerFumee(c.pos.clone(), _seg);
+      if (f) f.r0 *= 2.2 + Math.random() * 1.4;
+      c.fum += 0.055;
+    }
+
+    if (c.pos.y <= 5 || c.t > CHUTE_VIE) {
+      // l'ouverture au sol : une grosse boule et une gerbe basse
+      spawnBurst(c.pos, 16);
+      for (let k = 0; k < 9; k++) {
+        _seg.set((Math.random() - 0.5) * 2, Math.random() * 0.8, (Math.random() - 0.5) * 2)
+            .normalize();
+        const f = semerFumee(c.pos.clone().addScaledVector(_seg, Math.random() * 16), _seg);
+        if (f) f.r0 *= 3 + Math.random() * 5;
+      }
+      SFX.roquetteImpact();
+      scene.remove(c.mesh);
+      state.chutes.splice(i, 1);
+    }
+  }
+}
+
 // remise en piste devant le joueur, décalée sur le côté pour que la cible
 // arrive de biais plutôt que pile dans l'axe
 function reenter(e) {
@@ -3102,7 +3184,22 @@ function updateRoquettes(dt) {
     const r = state.roquettes[i];
     r.t += dt;
     const morte = !r.cible || r.cible.hp <= 0 || state.enemies.indexOf(r.cible) < 0;
-    if (r.t > ROQ_VIE) { state.roquettes.splice(i, 1); continue; }
+    // ORPHELINE. Sa cible est tombée avant elle : elle ne s'évapore pas pour
+    // autant. Elle continue tout droit, pique doucement, et s'ouvre là où elle
+    // finit — au sol ou au bout de sa vie. Une roquette qui disparaît en plein
+    // ciel ne veut rien dire ; une roquette qui va au bout, si.
+    if (morte) r.dir.y -= 0.16 * dt;
+    if (r.t > ROQ_VIE || r.pos.y <= 3) {
+      spawnBurst(r.pos, 11);
+      for (let k = 0; k < 6; k++) {
+        _seg.set((Math.random() - 0.5) * 2, Math.random(), (Math.random() - 0.5) * 2).normalize();
+        const f = semerFumee(r.pos.clone().addScaledVector(_seg, Math.random() * 10), _seg);
+        if (f) f.r0 *= 2.4 + Math.random() * 3.4;
+      }
+      SFX.roquetteImpact();
+      state.roquettes.splice(i, 1);
+      continue;
+    }
     if (!morte) {
       _seg.subVectors(r.cible.pos, r.pos).normalize();
       // on tourne vers la cible sans dépasser le taux de virage
@@ -3128,6 +3225,7 @@ function updateRoquettes(dt) {
 
     if (!morte && r.pos.distanceTo(r.cible.pos) < 14) {
       r.cible.hp -= ROQ_DEGATS;
+      const tombe = r.cible.hp <= 0 ? r.cible : null;
       spawnBurst(r.pos, 6);
       spawnBurst(r.pos, 13);
       // la boule de fumée de l'impact : quelques anneaux lâchés d'un coup,
@@ -3139,6 +3237,7 @@ function updateRoquettes(dt) {
       }
       SFX.roquetteImpact();
       state.roquettes.splice(i, 1);
+      if (tombe) abattre(tombe);
       continue;
     }
     // corps puis traînée
@@ -3299,8 +3398,10 @@ function updateLock(dt) {
     for (const g of [GUN_L, GUN_R]) {
       const p = new THREE.Vector3(g.x, g.y, g.z)
         .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
+      const gauche = g === GUN_L;
       const dir0 = new THREE.Vector3().subVectors(best.pos, p).normalize();
-      state.roquettes.push({ pos: p, dir: dir0, cible: best, t: 0, fum: 0 });
+      state.roquettes.push({ pos: p, dir: dir0, cible: best, t: 0, fum: 0,
+                             gauche, d0: p.distanceTo(best.pos) });
       // la bouffée d'allumage, lâchée sous l'aile au moment du départ
       for (let k = 0; k < 3; k++) {
         semerFumee(p.clone().addScaledVector(dir0, -6 - k * 7), dir0);
@@ -3322,14 +3423,7 @@ function updateLock(dt) {
     SFX.tir();
   }
 
-  if (best.hp <= 0) {
-    SFX.detruit();
-    spawnBurst(best.pos, 10);
-    scene.remove(best.mesh);
-    state.enemies.splice(state.enemies.indexOf(best), 1);
-    state.score += 100 + state.wave * 10;
-    state.lock = null;
-  }
+  if (best.hp <= 0) abattre(best);
 }
 
 // ---------------------------------------------------------------------------
@@ -3603,9 +3697,14 @@ function simulate(dt) {
     // Le ressort se détend pendant l'arrondi jusqu'aux valeurs du vol libre :
     // au décollage on veut un suivi collé, en l'air le flottement fait la
     // vie de l'image. Passer de l'un à l'autre d'un seul coup se voyait.
-    // le ressort se détend sur le dernier tiers de la vague
-    const relache = THREE.MathUtils.clamp((u - 0.66) / 0.34, 0, 1);
-    springCamera(_v, dt, 150 + (44 - 150) * relache, 24 + (10.2 - 24) * relache, _cd);
+    // LE RESSORT RESTE RAIDE JUSQU'AU BOUT. Il se détendait sur le dernier
+    // tiers de la vague, c'est-à-dire précisément quand le nez revient à plat
+    // et que la place idéale de la caméra balaie le plus vite : on relâchait
+    // l'attache à l'instant où elle servait le plus, et l'avion partait de
+    // sept pixels en une image. À raideur constante, l'erreur du ressort reste
+    // négligeable, la vitesse est continue à la bascule, et le changement de
+    // raideur ne se voit pas puisqu'il n'y a alors plus d'écart à rattraper.
+    springCamera(_v, dt, 150, 24, _cd);
     majFov(dt);
     updateTraits(dt);
     if (camera.position.y < 2.5) camera.position.y = 2.5;
@@ -3834,6 +3933,7 @@ function simulate(dt) {
   updateLock(dt);
   updateShots(dt);
   updateRoquettes(dt);
+  updateChutes(dt);
   scrape(dt);
 
   // --- vagues et bilan
@@ -4276,6 +4376,41 @@ function drawHud() {
     // sous le cadran d'assiette, qui occupe le coin haut gauche
     hctx.fillText('SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS', w / 2, h * 0.215);
     hctx.restore();
+  }
+
+  // ROQUETTES EN ROUTE. Un anneau large se referme sur la cible à mesure
+  // qu'elles s'en approchent : on sait qu'elles arrivent, on sait dans combien
+  // de temps, et on peut décider de garder la cible ou d'aller ailleurs. Le
+  // même anneau, en petit, bat au départ de chaque canon — c'est de là
+  // qu'elles sont parties.
+  for (const r of state.roquettes) {
+    if (!r.cible || state.enemies.indexOf(r.cible) < 0) continue;
+    const reste = r.pos.distanceTo(r.cible.pos);
+    const q = THREE.MathUtils.clamp(1 - reste / Math.max(1, r.d0), 0, 1);
+    const pc = project(r.cible.pos);
+    if (!pc.front) continue;
+    const rr = Math.min(w, h) * (0.30 - 0.255 * q);
+    hctx.save();
+    hctx.strokeStyle = 'rgba(255,255,255,' + (0.20 + 0.62 * q).toFixed(2) + ')';
+    hctx.lineWidth = 1 + 1.6 * q;
+    for (let k = 0; k < 4; k++) {
+      const a0 = k * Math.PI / 2 + Math.PI / 4 + q * 1.4;
+      hctx.beginPath(); hctx.arc(pc.x, pc.y, rr, a0 - 0.34, a0 + 0.34); hctx.stroke();
+    }
+    hctx.restore();
+
+    // et la marque au canon d'où elle est partie
+    const g = r.gauche ? GUN_L : GUN_R;
+    const pg = project(_v.set(g.x, g.y, g.z).multiplyScalar(PLANE_SCALE)
+                         .applyQuaternion(state.quat).add(state.pos));
+    if (pg.front) {
+      hctx.save();
+      hctx.strokeStyle = 'rgba(255,255,255,' + (0.5 - 0.34 * q).toFixed(2) + ')';
+      hctx.beginPath();
+      hctx.arc(pg.x, pg.y, 5 + 9 * (1 - q), 0, Math.PI * 2);
+      hctx.stroke();
+      hctx.restore();
+    }
   }
 
   // cadres de désignation, et flèche vers la cible la plus proche hors champ
