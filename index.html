@@ -173,7 +173,7 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
-  <button id="versionBtn">v0.3</button>
+  <button id="versionBtn">v0.4</button>
 </div>
 
 <div id="bottombar">
@@ -184,6 +184,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.4</b> — l'avion du joueur vient du modèle STL fourni : arêtes vives extraites au seuil de 20 degrés, orientation et échelle recalées, hélice détachée qui tourne. Le bonhomme d'échelle SketchUp livré dans le fichier a été écarté.</div>
   <div><b>v0.3</b> — le tir monte en puissance tant que la cible reste dans le viseur : faible à l'accroche, il se cale en moins de deux secondes et frappe près de cinq fois plus fort. Un anneau se referme autour de la cible, les cadres vibrent de plus en plus et les traçantes passent du clignotement au trait continu. Changer de cible remet la montée à zéro.</div>
   <div><b>v0.2</b> — la souris garde la main quand elle s'arrête de bouger (le retour du viseur au centre ne concerne plus que le doigt qui se lève), ligne d'horizon retirée, et le monde n'a plus de bord visible : grille bien plus large que la portée du brouillard, pylônes qui naissent dans la brume au lieu de surgir</div>
   <div><b>v0.1</b> — premier vol : avion filaire, pilotage à un doigt (tangage et lacet seuls, roulis purement visuel), verrouillage automatique dans le cône du viseur, vagues d'intercepteurs, grille au sol et pylônes pour la sensation de vitesse, jauge de structure</div>
@@ -297,22 +298,69 @@ function segGeom(points) {
 // silhouettes filaires — le nez pointe vers -Z, comme la caméra
 // ---------------------------------------------------------------------------
 
-// le joueur : une flèche, delta net et lisible de dos
+// Le joueur vient d'un modèle fourni en STL (SketchUp). Seules les arêtes
+// vives sont gardées — pli de plus de 20 degrés entre deux faces, ou bordure
+// libre : afficher tout le maillage donnerait une bouillie de triangles au
+// lieu d'un dessin. Le repère du modèle (nez vers -Y, haut vers +Z) est
+// converti dans celui du jeu (nez vers -Z, haut vers +Y), recentré sur le
+// fuselage et mis à l'échelle sur une envergure de 7,2.
 const PLAYER_SHAPE = [
-   0,  0, -3.4,   -3.5, 0.6, 1.9,     // bord d'attaque gauche (dièdre : les bouts d'aile remontent)
-   0,  0, -3.4,    3.5, 0.6, 1.9,     // bord d'attaque droit
-  -3.5, 0.6, 1.9, -0.9, 0,  3.0,      // bord de fuite gauche
-   3.5, 0.6, 1.9,  0.9, 0,  3.0,
-  -0.9, 0,  3.0,   0.9, 0,  3.0,
-  -3.5, 0.6, 1.9, -3.3, 1.15, 2.1,    // saumons
-   3.5, 0.6, 1.9,  3.3, 1.15, 2.1,
-   0,  0, -3.4,    0,   0,  3.0,      // fuselage
-   0,  0,  2.3,    0,   1.7, 2.7,     // dérive
-   0,  1.7, 2.7,   0,   0,  3.0,
-   0,  0, -3.4,    0,   0.55, -0.7,   // verrière
-   0,  0.55, -0.7, 0,   0,   1.1,
-  -0.8, 0, -0.3,   0,   0.55, -0.7,
-   0.8, 0, -0.3,   0,   0.55, -0.7
+
+  -3.6, -0.008, -0.515, -0.287, -0.008, -1.918, -0.287, -0.008, -1.918, -0.287, -0.008, -0.515,
+  -3.6, -0.008, -0.515, -0.287, -0.008, -0.515, 0.009, 0.588, 2.228, 0.009, -0.008, 2.228,
+  0.009, -0.008, 2.228, 0.009, -0.008, 1.519, 0.009, 0.588, 2.228, 0.009, -0.008, 1.519,
+  0.287, 0.083, -0.006, 0.287, 0.083, -0.515, 0.287, 0.083, -0.515, 0.287, -0.008, -0.515,
+  0.287, -0.008, -0.515, 0.287, -0.008, 2.228, 0.287, 0.083, -0.006, 0.287, 0.083, 2.228,
+  0.287, -0.008, 2.228, 0.287, 0.083, 2.228, -0.287, -0.008, -0.515, -0.287, 0.083, -0.515,
+  -0.287, -0.008, -0.515, -0.287, -0.008, 2.228, -0.287, 0.083, -0.515, -0.287, 0.083, -0.006,
+  -0.287, -0.008, 2.228, -0.287, 0.083, 2.228, -0.287, 0.083, -0.006, -0.287, 0.083, 2.228,
+  -0.287, -0.008, 2.228, -0.009, -0.008, 2.228, -0.287, 0.083, 2.228, -0.009, 0.083, 2.228,
+  0.009, -0.008, 2.228, 0.287, -0.008, 2.228, 0.009, -0.008, 2.228, -0.009, -0.008, 2.228,
+  0.287, 0.083, 2.228, -0.009, 0.083, 2.228, 0.287, 0.083, -0.515, 0.287, 0.083, -1.918,
+  0.287, 0.083, -0.515, 3.6, 0.083, -0.515, 0.287, 0.083, -1.918, 3.6, 0.083, -0.515,
+  3.6, -0.008, -0.515, 0.287, -0.008, -1.918, 0.287, 0.083, -1.918, 0.287, -0.008, -1.918,
+  3.6, 0.083, -0.515, 3.6, -0.008, -0.515, 0.287, -0.008, -0.515, 3.6, -0.008, -0.515,
+  0.287, 0.083, -1.918, 0.287, 0.083, -1.338, 0.287, 0.083, -1.918, 0.287, 0.083, -2.21,
+  -0.287, 0.083, -2.21, 0.287, 0.083, -2.21, -0.287, 0.083, -2.21, -0.287, 0.083, -1.918,
+  -0.287, 0.083, -2.21, -0.287, -0.008, -2.21, -0.287, -0.008, -1.918, -0.287, -0.008, -2.21,
+  -0.287, -0.008, -1.918, -0.287, 0.083, -1.918, 0.287, 0.083, -2.21, 0.287, -0.008, -2.21,
+  0.287, -0.008, -1.918, 0.287, -0.008, -2.21, -0.287, -0.008, -2.21, 0.287, -0.008, -2.21,
+  -0.287, 0.083, -1.918, -3.6, 0.083, -0.515, -0.287, 0.083, -0.515, -3.6, 0.083, -0.515,
+  -3.6, -0.008, -0.515, -3.6, 0.083, -0.515, -0.009, -0.008, 2.228, -0.009, 0.588, 2.228,
+  -0.009, 0.588, 2.228, -0.009, -0.008, 1.519, -0.009, -0.008, 2.228, -0.009, -0.008, 1.519,
+  0.009, -0.008, 1.519, -0.009, -0.008, 1.519, 0.009, 0.588, 2.228, -0.009, 0.588, 2.228,
+  0.009, 0.083, 2.228, -0.009, 0.083, 2.228, 0.009, 0.588, 2.228, 0.009, 0.083, 2.228,
+  -0.009, 0.083, 2.228, -0.009, 0.588, 2.228, 0.009, 0.083, 2.228, 0.287, 0.083, 2.228,
+  0.287, 0.083, -0.515, 0.287, 0.083, -1.338
+];
+
+// l'hélice est un morceau séparé du même fichier : elle tourne
+const PROP_SHAPE = [
+
+  -0.15, -0.568, -2.21, -0, -0.588, -2.21, 0.15, -0.568, -2.21, -0, -0.588, -2.21,
+  0.15, -0.568, -2.21, 0.29, -0.51, -2.21, -0.15, -0.568, -2.21, -0.29, -0.51, -2.21,
+  0.29, -0.51, -2.21, 0.41, -0.418, -2.21, -0.29, -0.51, -2.21, -0.41, -0.418, -2.21,
+  0.41, -0.418, -2.21, 0.502, -0.298, -2.21, -0.41, -0.418, -2.21, -0.502, -0.298, -2.21,
+  0.502, -0.298, -2.21, 0.56, -0.158, -2.21, -0.502, -0.298, -2.21, -0.56, -0.158, -2.21,
+  0.56, -0.158, -2.21, 0.58, -0.008, -2.21, -0.56, -0.158, -2.21, -0.58, -0.008, -2.21,
+  0.58, -0.008, -2.21, 0.56, 0.142, -2.21, -0.58, -0.008, -2.21, -0.56, 0.142, -2.21,
+  0.56, 0.142, -2.21, 0.502, 0.282, -2.21, -0.56, 0.142, -2.21, -0.502, 0.282, -2.21,
+  0.502, 0.282, -2.21, 0.41, 0.402, -2.21, -0.502, 0.282, -2.21, -0.41, 0.402, -2.21,
+  0.41, 0.402, -2.21, 0.29, 0.494, -2.21, -0.41, 0.402, -2.21, -0.29, 0.494, -2.21,
+  0.29, 0.494, -2.21, 0.15, 0.552, -2.21, -0.29, 0.494, -2.21, -0.15, 0.552, -2.21,
+  0.15, 0.552, -2.21, -0, 0.572, -2.21, -0.15, 0.552, -2.21, -0, 0.572, -2.21,
+  0.15, -0.568, -2.228, -0, -0.588, -2.228, -0.15, -0.568, -2.228, -0, -0.588, -2.228,
+  0.15, -0.568, -2.228, 0.29, -0.51, -2.228, -0.15, -0.568, -2.228, -0.29, -0.51, -2.228,
+  0.29, -0.51, -2.228, 0.41, -0.418, -2.228, -0.29, -0.51, -2.228, -0.41, -0.418, -2.228,
+  0.41, -0.418, -2.228, 0.502, -0.298, -2.228, -0.41, -0.418, -2.228, -0.502, -0.298, -2.228,
+  0.502, -0.298, -2.228, 0.56, -0.158, -2.228, -0.502, -0.298, -2.228, -0.56, -0.158, -2.228,
+  0.56, -0.158, -2.228, 0.58, -0.008, -2.228, -0.56, -0.158, -2.228, -0.58, -0.008, -2.228,
+  0.58, -0.008, -2.228, 0.56, 0.142, -2.228, -0.58, -0.008, -2.228, -0.56, 0.142, -2.228,
+  0.56, 0.142, -2.228, 0.502, 0.282, -2.228, -0.56, 0.142, -2.228, -0.502, 0.282, -2.228,
+  0.502, 0.282, -2.228, 0.41, 0.402, -2.228, -0.502, 0.282, -2.228, -0.41, 0.402, -2.228,
+  0.41, 0.402, -2.228, 0.29, 0.494, -2.228, -0.41, 0.402, -2.228, -0.29, 0.494, -2.228,
+  0.29, 0.494, -2.228, 0.15, 0.552, -2.228, -0.29, 0.494, -2.228, -0.15, 0.552, -2.228,
+  -0.15, 0.552, -2.228, -0, 0.572, -2.228, 0.15, 0.552, -2.228, -0, 0.572, -2.228
 ];
 
 // l'ennemi : une aile volante, silhouette franchement différente —
@@ -337,6 +385,12 @@ const matLocked  = lineMat(COL_LOCK, 3.0);
 const playerMesh = new LineSegments2(playerGeom, matPlayer);
 playerMesh.frustumCulled = false;
 scene.add(playerMesh);
+
+// enfant de l'avion : l'axe Z local est celui du fuselage, donc une simple
+// rotation autour de Z fait tourner l'hélice là où il faut
+const propMesh = new LineSegments2(segGeom(PROP_SHAPE), lineMat(COL_TEXT, 1.8, 0.65));
+propMesh.frustumCulled = false;
+playerMesh.add(propMesh);
 
 // ---------------------------------------------------------------------------
 // décor : grille au sol et pylônes, seuls repères de vitesse
@@ -684,7 +738,9 @@ function updateLock(dt) {
 // ---------------------------------------------------------------------------
 // boucle
 // ---------------------------------------------------------------------------
-const camOffset = new THREE.Vector3(0, 3.4, 17.5);
+// le modèle est un avion à panneaux plats : vu strictement de derrière il
+// se réduit à un trait. La caméra le surplombe un peu pour montrer la voilure.
+const camOffset = new THREE.Vector3(0, 5.0, 16.0);
 let last = performance.now();
 
 function step(now) {
@@ -739,6 +795,7 @@ function simulate(dt) {
 
   playerMesh.position.copy(state.pos);
   playerMesh.quaternion.copy(state.quat);
+  propMesh.rotation.z += 16 * dt;
 
   // --- caméra : elle traîne derrière et ne prend qu'une part du roulis,
   // sinon l'horizon bascule trop et on perd ses repères
