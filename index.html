@@ -77,6 +77,15 @@
   /* au-dessus du menu : sans ça les boutons du haut étaient couverts par
      l'écran de titre, donc inaccessibles au moment précis où l'on veut
      choisir son viseur */
+  /* LES BANDEAUX NE PRENNENT PLUS LE DOIGT. Ce sont deux bandes pleine
+     largeur : celle du bas ne porte que la jauge de vie, et c'est exactement
+     là qu'un pouce se pose. Tout contact qui y atterrissait était rejeté
+     comme un appui sur un bouton, et le manche ne démarrait pas — un
+     glissement sur deux qui ne prenait pas. Seuls les boutons restent
+     sensibles ; le reste laisse passer. */
+  #topbar, #bottombar { pointer-events: none; }
+  #topbar button { pointer-events: auto; }
+
   #topbar {
     z-index: 40;
     top: 0;
@@ -290,7 +299,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.39</button>
+  <button id="versionBtn">v0.40</button>
 </div>
 
 <div id="bottombar">
@@ -395,6 +404,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.40</b> — la poursuite. Tenir dans l'axe un adversaire trop loin pour être accroché finit par pousser : au bout de deux secondes et demie le moteur monte en régime et la vitesse visée passe de 78 à 121 mètres par seconde. C'était la seule situation où le jeu ne donnait rien à faire — voir la cible, la garder devant soi, attendre. Un arc se remplit sous le viseur pendant l'attente, puis le mot s'affiche ; rompre l'alignement coupe tout, et trois fois plus vite que ça ne s'était accumulé. Les traits de vitesse répondent maintenant à trois choses dont la plus forte l'emporte : le régime, le nez qui pique — visible avant même que la vitesse ait monté, ce qui est tout l'intérêt — et la poursuite. Le glissement du doigt ne s'interrompt plus. Les deux bandeaux sont pleine largeur, et celui du bas ne porte que la jauge de vie, c'est-à-dire exactement l'endroit où un pouce se pose : tout contact qui y atterrissait était rejeté comme un appui sur un bouton et le manche ne démarrait pas. Seuls les boutons restent sensibles, le reste laisse passer. Et le catalogue des viseurs passe de douze à trente-quatre, avec des paliers lus dans les données plutôt qu'énumérés dans le code : vagues 3, 5, 10, 25, 50 et 100.</div>
   <div><b>v0.39</b> — les flèches de désignation disent enfin de combien il faut virer. Elles vivaient toutes sur un anneau fixe : on savait d'où venait la menace, jamais à quelle distance angulaire. On tournait donc trop, on dépassait, et il fallait revenir. Le rayon porte maintenant l'écart à l'axe — collée au cockpit quand la cible est sur le point d'entrer dans le champ, au bord de l'écran quand elle est pile dans le dos, et rien du tout tant qu'elle est dans le cône de 26 degrés où son cadre suffit. La taille continue de dire la distance : deux informations, deux grandeurs, qui ne se marchent plus dessus. Le dernier saut de caméra du décollage disparaît : la focale suit la vitesse mais n'était pas calculée pendant la séquence, si bien qu'elle passait de 70 à 73 degrés en une image une fois l'avion stabilisé. Elle est maintenant amortie et calculée partout. Le décollage tombe à 2,8 secondes contre 4,4, sommet d'assiette à 74 degrés, plein gaz à 145 mètres par seconde. Des traits de vitesse apparaissent au-delà de 88 mètres par seconde, semés en couronne dans un tube ancré dans le monde — en disque, ils se projetaient en points, un segment aligné sur l'axe du regard n'ayant aucune longueur à l'écran. Le liseré plein qui cerclait l'écran à chaque coup encaissé disparaît au profit des seuls dégradés, qui eux portent la direction. Et les roquettes doublent, de 100 à 200 mètres par seconde.</div>
   <div><b>v0.38</b> — la caméra reste à plat pendant un tonneau. Elle en prenait un tiers et tournait donc avec l'avion, ce qui fait perdre l'horizon pour rien : c'est l'appareil qui fait la figure, pas le joueur. Le déport, lui, est réel — mesuré, l'avion sort de 27 unités et l'image le rejoint sur 21, avec son retard. Le tonneau lui-même passe au lissage du second ordre : lent, vite, lent, dérivée et courbure nulles aux deux bouts. Et les sorties de figure ne claquent plus : la déclinaison de la caméra était appliquée deux fois en une seule image, comme en fin de décollage. Mesuré à la sortie, le tonneau tombe de 490 à 93 degrés par seconde, l'Immelmann de 766 à 149, le Split-S de 620 à 10. Les adversaires doivent maintenant viser eux aussi : une demi-seconde d'alignement tenu avant d'ouvrir le feu, entièrement reperdue dès qu'on leur sort du cône, et 0,7 seconde pour les pièces au sol qui tournent un tube. Le face-à-face était perdu d'avance depuis que le joueur attend que son viseur se referme. Les flèches de désignation creusent enfin l'écart : un pour quinze au lieu d'un pour huit, et surtout une décroissance franche — à mi-portée il ne reste que 27 % de la taille au lieu de 56. Les roquettes ralentissent à 100 mètres par seconde, trois fois moins qu'une balle : téléguidées, elles ne ratent pas, et leur lenteur est ce qui les rend lisibles.</div>
   <div><b>v0.37</b> — les panneaux défilent enfin au doigt. L'historique des versions et la planche des viseurs s'arrêtaient à la ligne de flottaison : le touch-action posé sur eux autorisait bien le défilement, mais la ligne qui empêche la page de rebondir sous le jeu annulait tous les balayages, y compris les leurs. Le décollage devient une seule vague au lieu de trois temps. Un cosinus relevé n'a aucune couture : dérivée nulle au départ, nulle au sommet, nulle à l'arrivée, jamais nulle entre les deux. Le palier disparaît, donc le milieu ne traîne plus, et le décollage se fait plein gaz — 114 mètres par seconde au sommet contre 83 — ce qui le ramène à 4,4 secondes pour un sommet d'assiette à 57 degrés. La commande gagne en finesse là où on en manquait : la part quartique remplace la quadratique, l'autorité à mi-course tombe de 21 à 11 pour cent, soit 14 degrés par seconde au lieu de 26. C'est exactement la zone où l'on suit un adversaire qui tourne autour de vous. Le centre reste aussi fin, le plein manche donne toujours tout. Le plafond double, de 480 à 960 mètres. Et la fumée des roquettes passe au calibre de l'engin : à quatorze mètres les deux traînées se rejoignaient en un seul gros tube, à trois chacune garde son fil.</div>
@@ -598,7 +608,17 @@ const _cx_ = {
     x.save(); x.rotate(a); x.translate(r,0); x.beginPath();
     x.moveTo(-l,-l); x.lineTo(0,0); x.lineTo(-l,l); x.stroke(); x.restore(); } },
   echelle: (x, r, n, l) => { for(let i=1;i<=n;i++){ const y=i*r/n;
-    x.beginPath(); x.moveTo(-l,y); x.lineTo(l,y); x.moveTo(-l,-y); x.lineTo(l,-y); x.stroke(); } }
+    x.beginPath(); x.moveTo(-l,y); x.lineTo(l,y); x.moveTo(-l,-y); x.lineTo(l,-y); x.stroke(); } },
+  arcs: (x, r, n, ouv, rot) => { for(let i=0;i<n;i++){ const a=rot+i*TAU/n;
+    x.beginPath(); x.arc(0,0,r,a-ouv/2,a+ouv/2); x.stroke(); } },
+  barres: (x, r, ep) => { x.beginPath();
+    x.moveTo(-r,-ep); x.lineTo(-r,ep); x.moveTo(r,-ep); x.lineTo(r,ep);
+    x.moveTo(-ep,-r); x.lineTo(ep,-r); x.moveTo(-ep,r); x.lineTo(ep,r); x.stroke(); },
+  te: (x, r, l) => { x.beginPath();
+    x.moveTo(-r,0); x.lineTo(r,0); x.moveTo(0,0); x.lineTo(0,l); x.stroke(); },
+  vé: (x, r, ouv) => { x.beginPath();
+    x.moveTo(-r*Math.cos(ouv), -r*Math.sin(ouv)); x.lineTo(0,0);
+    x.lineTo(r*Math.cos(ouv), -r*Math.sin(ouv)); x.stroke(); }
 };
 
 const VISEURS = [
@@ -626,7 +646,57 @@ const VISEURS = [
   { id:'etoile',  nom:'ÉTOILE',       acces:'video',
     dessin:(x,c)=>{_cx_.poly(x,13-4*c,4,-Math.PI/2);_cx_.poly(x,7-2*c,4,0);} },
   { id:'carre',   nom:'CARRÉ TOURNÉ', acces:'video',
-    dessin:(x,c)=>{_cx_.croix(x,16-4*c,7-2*c);_cx_.poly(x,7-2*c,4,c>0.5?Math.PI/4:0);} }
+    dessin:(x,c)=>{_cx_.croix(x,16-4*c,7-2*c);_cx_.poly(x,7-2*c,4,c>0.5?Math.PI/4:0);} },
+  { id:'point',   nom:'POINT SEUL',   acces:'libre',
+    dessin:(x,c)=>{_cx_.disque(x,2+1.5*c); if(c>0.5)_cx_.cercle(x,9-2*c);} },
+  { id:'barres',  nom:'BARRES',       acces:'libre',
+    dessin:(x,c)=>_cx_.barres(x,14-3*c,4-c) },
+  { id:'te',      nom:'TÉ',           acces:'vague3',
+    dessin:(x,c)=>{_cx_.te(x,15-3*c,11-3*c); if(c>0.6)_cx_.disque(x,1.8);} },
+  { id:'ve',      nom:'VÉ',           acces:'vague3',
+    dessin:(x,c)=>{_cx_.vé(x,16-4*c,0.7); if(c>0.6)_cx_.disque(x,1.8);} },
+  { id:'arcs',    nom:'QUATRE ARCS',  acces:'vague10',
+    dessin:(x,c)=>{_cx_.arcs(x,13-3*c,4,0.7+0.4*c,Math.PI/4);_cx_.disque(x,1.4+c);} },
+  { id:'triple',  nom:'TRIPLE ANNEAU',acces:'vague10',
+    dessin:(x,c)=>{_cx_.cercle(x,15-4*c);_cx_.cercle(x,10-3*c);_cx_.cercle(x,5-1.5*c);} },
+  { id:'triangle',nom:'TRIANGLE',     acces:'vague25',
+    dessin:(x,c)=>{_cx_.poly(x,14-4*c,3,-Math.PI/2);_cx_.disque(x,1.5+c);} },
+  { id:'sablier', nom:'SABLIER',      acces:'vague25',
+    dessin:(x,c)=>{const r=14-4*c;x.beginPath();
+      x.moveTo(-r,-r);x.lineTo(r,-r);x.lineTo(-r,r);x.lineTo(r,r);x.closePath();x.stroke();} },
+  { id:'radar',   nom:'RADAR',        acces:'vague50',
+    dessin:(x,c)=>{_cx_.cercle(x,14-3*c);_cx_.dards(x,0,14-3*c,3,-Math.PI/2+c*2);} },
+  { id:'reticule',nom:'RÉTICULE',     acces:'vague50',
+    dessin:(x,c)=>{_cx_.cercle(x,13-3*c);_cx_.croix(x,20-4*c,0);_cx_.echelle(x,10-2*c,3,2.5);} },
+  { id:'griffes', nom:'GRIFFES',      acces:'video',
+    dessin:(x,c)=>_cx_.chevrons(x,15-4*c,3,-Math.PI/2,5-c) },
+  { id:'octo',    nom:'OCTOGONE',     acces:'video',
+    dessin:(x,c)=>{_cx_.poly(x,13-3*c,8,0); if(c>0.6)_cx_.poly(x,5,8,Math.PI/8);} },
+  { id:'croixdb', nom:'DOUBLE CROIX', acces:'video',
+    dessin:(x,c)=>{_cx_.croix(x,15-3*c,5);_cx_.croix(x,9-2*c,0);} },
+  { id:'ancre',   nom:'ANCRE',        acces:'video',
+    dessin:(x,c)=>{_cx_.cercle(x,7-2*c);_cx_.dards(x,9-2*c,16-4*c,2,0);
+                   _cx_.dards(x,9-2*c,13-3*c,2,Math.PI/2);} },
+  { id:'aile',    nom:'AILE',         acces:'video',
+    dessin:(x,c)=>{const r=15-4*c;x.beginPath();
+      x.moveTo(-r,3);x.lineTo(-r*0.35,-3);x.lineTo(r*0.35,-3);x.lineTo(r,3);x.stroke();
+      _cx_.disque(x,1.5+c);} },
+  { id:'orbite',  nom:'ORBITE',       acces:'video',
+    dessin:(x,c)=>{_cx_.disque(x,2+c);_cx_.arcs(x,12-3*c,2,2.2,Math.PI/2);
+                   _cx_.arcs(x,17-4*c,2,1.1,0);} },
+  { id:'quadri',  nom:'QUADRILLE',    acces:'video',
+    dessin:(x,c)=>{const r=13-3*c;_cx_.poly(x,r,4,Math.PI/4);_cx_.croix(x,r,0);} },
+  { id:'trepied', nom:'TRÉPIED',      acces:'video',
+    dessin:(x,c)=>{_cx_.dards(x,4+c,15-4*c,3,-Math.PI/2);_cx_.cercle(x,4+c);} },
+  { id:'fenetre', nom:'FENÊTRE',      acces:'video',
+    dessin:(x,c)=>{const r=15-4*c;_cx_.poly(x,r,4,Math.PI/4);_cx_.coins(x,r*0.55,r*0.3);} },
+  { id:'comete',  nom:'COMÈTE',       acces:'video',
+    dessin:(x,c)=>{_cx_.disque(x,2.5+c);x.beginPath();
+      for(let i=0;i<3;i++){const y=6+i*4;x.moveTo(-4+i,y);x.lineTo(4-i,y);}x.stroke();} },
+  { id:'prisme',  nom:'PRISME',       acces:'video',
+    dessin:(x,c)=>{_cx_.poly(x,14-4*c,3,-Math.PI/2);_cx_.poly(x,14-4*c,3,Math.PI/2);} },
+  { id:'nul',     nom:'AUCUN',        acces:'libre',
+    dessin:(x,c)=>{ if(c>0.35)_cx_.disque(x,1.2+1.4*c); } }
 ];
 
 // records gardés sur l'appareil, comme les viseurs
@@ -651,10 +721,12 @@ function sauveViseurs() {
   } catch (e) { /* navigation privée : on joue quand même */ }
 }
 
-// débloquages offerts par la progression
+// Débloquages offerts par la progression. Le palier est lu dans le nom de
+// l'accès plutôt qu'énuméré : ajouter un viseur à la vague 40 ne demande donc
+// aucune modification ici — la liste ci-dessus suffit.
+const PALIER = a => /^vague(\d+)$/.test(a) ? +a.slice(5) : Infinity;
 function jalonVague(n) {
-  const dus = VISEURS.filter(v =>
-    (v.acces === 'vague5' && n >= 5) || (v.acces === 'vague100' && n >= 100));
+  const dus = VISEURS.filter(v => n >= PALIER(v.acces));
   for (const v of dus) {
     if (!debloques.has(v.id)) {
       debloques.add(v.id);
@@ -770,6 +842,8 @@ const SFX = {
   accroche:     () => ton(680, 1320, 0.11, 'sine', 0.13),
   cale:         () => ton(1320, 1760, 0.08, 'sine', 0.09),
   arme:         () => { ton(440, 660, 0.07, 'square', 0.07); souffle(0.05, 1400, 700, 5, 0.04); },
+  // la poursuite qui s'enclenche : un souffle qui monte, et rien de percussif
+  poursuite:    () => { souffle(0.85, 240, 1900, 1.1, 0.16); ton(150, 420, 0.7, 'sawtooth', 0.06); },
   touche:       () => { ton(150, 62, 0.22, 'square', 0.19); souffle(0.16, 500, 160, 1.2, 0.14); },
   detruit:      () => { souffle(0.55, 900, 90, 0.9, 0.34); ton(190, 48, 0.45, 'sawtooth', 0.16); },
   eraflure:     () => souffle(0.3, 1400, 300, 1.4, 0.22),
@@ -1812,6 +1886,15 @@ function bloc(lx, ly, lz, cx, cy) {
 // l'appareil et ancrés dans le monde : ils défilent donc vraiment, et pivotent
 // quand on tourne au lieu de rester collés au pare-brise. Rien n'apparaît en
 // croisière — c'est l'accélération qui les fait naître, pas la vitesse.
+// POURSUITE. Tenir dans l'axe un adversaire trop loin pour être accroché
+// finit par pousser : au bout de deux secondes et demie le moteur monte en
+// régime et l'on va le chercher. C'est la réponse à la seule situation où le
+// jeu ne donnait rien à faire — voir la cible, la garder devant soi, et
+// attendre. Rompre l'alignement ou l'accrocher coupe la poussée.
+const BOOST_ATTENTE = 2.5;    // secondes d'alignement tenu avant que ça pousse
+const BOOST_COS = Math.cos(13 * Math.PI / 180);
+const BOOST_GAIN = 1.55;      // ce que devient la vitesse de croisière visée
+
 const VIT_SEUIL = 88;         // m/s : en dessous, l'air est invisible
 const VIT_PLEIN = 150;        // m/s : au-dessus, l'effet est à son maximum
 const N_TRAITS = 170;
@@ -1856,9 +1939,32 @@ function semerTousLesTraits() {
   for (let i = 0; i < N_TRAITS; i++) semerTrait(i, false);
 }
 
+function updateBoost(dt) {
+  let vise = false;
+  if (!state.lock && !state.fig && !state.takeoff) {
+    for (const e of state.enemies) {
+      _v.subVectors(e.pos, state.pos);
+      const d = _v.length();
+      if (d < 1) continue;
+      if (state.forward.dot(_v.divideScalar(d)) > BOOST_COS) { vise = true; break; }
+    }
+  }
+  // l'attente s'accumule doucement et se perd trois fois plus vite : la
+  // poursuite se mérite, elle ne se récupère pas d'un coup d'oeil
+  state.boostT = vise ? state.boostT + dt : Math.max(0, state.boostT - dt * 3);
+  const cible = state.boostT >= BOOST_ATTENTE ? 1 : 0;
+  state.boost = THREE.MathUtils.damp(state.boost, cible, cible ? 1.4 : 3.4, dt);
+  if (cible && state.boost < 0.05) SFX.poursuite();
+}
+
 function updateTraits(dt) {
+  // Trois sources, dont la plus forte l'emporte : le régime, le nez qui pique
+  // — visible avant même que la vitesse ait eu le temps de monter, ce qui est
+  // tout l'intérêt — et la poursuite.
+  const kv = (state.speed - VIT_SEUIL) / (VIT_PLEIN - VIT_SEUIL);
+  const kp = -state.forward.y * 1.7 - 0.12;
   const k = THREE.MathUtils.clamp(
-    (state.speed - VIT_SEUIL) / (VIT_PLEIN - VIT_SEUIL), 0, 1);
+    Math.max(kv, kp, state.boost * 0.95), 0, 1);
   if (k <= 0.001) { traitsLayer.visible = false; return; }
   const n = Math.round(N_TRAITS * k);
   const lg = 12 + 62 * k;                      // le trait s'allonge avec le régime
@@ -2165,6 +2271,8 @@ const state = {
   announce: '',
   announceT: 0,
   hitFlash: 0,
+  boost: 0,
+  boostT: 0,
   recordBattu: null,
   impacts: [],
   bouclier: 0,
@@ -2272,6 +2380,8 @@ function resetGame() {
   state.shots.length = 0;
   state.roquettes.length = 0;
   state.fumees.length = 0;
+  state.boost = 0;
+  state.boostT = 0;
   semerTousLesTraits();
   state.roqT = 0;
   state.gunT = 0;
@@ -3004,7 +3114,10 @@ function simulate(dt) {
   // c'est la pesanteur qui travaille pour ou contre, et le moteur qui ramène
   // doucement vers la croisière. Piquer pour reprendre de l'énergie avant de
   // remonter devient une vraie manœuvre.
-  state.speed += (-state.forward.y * GRAV + (CRUISE - state.speed) * THRUST) * dt;
+  // la poursuite ne change pas la poussée, elle change la vitesse visée :
+  // l'avion y monte donc par le même chemin que d'habitude, sans à-coup
+  const croisiere = CRUISE * (1 + (BOOST_GAIN - 1) * state.boost);
+  state.speed += (-state.forward.y * GRAV + (croisiere - state.speed) * THRUST) * dt;
   state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_MAX);
 
   // trop lent : le nez retombe tout seul, quoi que demande le doigt
@@ -3285,6 +3398,7 @@ function simulate(dt) {
   majFov(dt);
   _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
   springCamera(_v, dt, 44, 10.2, _cv.copy(state.forward).multiplyScalar(state.speed));
+  updateBoost(dt);
   updateTraits(dt);
 
   updateDecor(dt);
@@ -3643,6 +3757,30 @@ function drawHud() {
     hctx.moveTo(joy.ox, joy.oy); hctx.lineTo(joy.x, joy.y); hctx.stroke();
   }
 
+  // POURSUITE. L'attente se voit avant de pousser : un arc qui se remplit
+  // sous le viseur pendant les deux secondes et demie, puis le mot. Sans
+  // cela la poussée arriverait sans prévenir et on ne saurait pas ce qui
+  // l'a déclenchée, ni comment la retrouver.
+  if (state.boostT > 0.25) {
+    const q = Math.min(1, state.boostT / BOOST_ATTENTE);
+    const by = h * 0.66, bw = Math.min(w, h) * 0.16;
+    hctx.save();
+    hctx.strokeStyle = 'rgba(70,255,160,0.22)';
+    hctx.beginPath(); hctx.moveTo(w/2 - bw, by); hctx.lineTo(w/2 + bw, by); hctx.stroke();
+    hctx.strokeStyle = 'rgba(190,255,220,' + (0.45 + 0.5 * q).toFixed(2) + ')';
+    hctx.lineWidth = 2 + 1.5 * state.boost;
+    hctx.beginPath();
+    hctx.moveTo(w/2 - bw * q, by); hctx.lineTo(w/2 + bw * q, by); hctx.stroke();
+    hctx.lineWidth = 1.5;
+    if (state.boost > 0.05) {
+      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillStyle = 'rgba(190,255,220,' + (0.4 + 0.55 * state.boost).toFixed(2) + ')';
+      hctx.fillText('POURSUITE', w / 2, by + 15);
+      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+    }
+    hctx.restore();
+  }
+
   if (dos > 0.02) {
     hctx.save();
     hctx.font = '12px "IBM Plex Mono", ui-monospace, monospace';
@@ -3860,7 +3998,7 @@ const panViseurs = document.getElementById('viseurs');
 const grilleViseurs = document.getElementById('grilleViseurs');
 const viseurBtn = document.getElementById('viseurBtn');
 
-const LIB_ACCES = { libre: '', vague5: 'VAGUE 5', vague100: 'VAGUE 100', video: '' };
+const libAcces = a => PALIER(a) === Infinity ? '' : 'VAGUE ' + PALIER(a);
 
 function vignette(v) {
   const c = document.createElement('canvas');
@@ -3912,7 +4050,7 @@ function majViseurs() {
         }, 700);
       };
     } else {
-      b.textContent = LIB_ACCES[v.acces];
+      b.textContent = libAcces(v.acces);
       b.disabled = true;
     }
     d.appendChild(b);
@@ -4131,7 +4269,12 @@ window.addEventListener('pointerdown', e => {
   // e.target n'est pas toujours un Element (événement synthétique visé sur
   // window, par exemple) : closest() n'existerait pas et la boucle casserait
   const el = e.target instanceof Element ? e.target : null;
-  if (el && el.closest('#topbar, #bottombar, #overlay, #changelog, #aide, #viseurs')) return;
+  if (el && el.closest('#overlay, #changelog, #aide, #viseurs, button')) return;
+
+  // On s'approprie le pointeur : le doigt garde la main jusqu'à ce qu'il se
+  // lève, même s'il passe au-dessus d'un élément qui disparaît ou change
+  // sous lui. Sans cela un glissement pouvait se terminer en route.
+  try { if (e.pointerId !== undefined) window.__pid = e.pointerId; } catch (err) {}
 
   // Deux appuis rapprochés déclenchent une figure. Laquelle dépend de l'endroit
   // visé par rapport à l'avion : au-dessus de lui, c'est un renversement ; à
