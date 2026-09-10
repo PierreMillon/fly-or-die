@@ -142,6 +142,14 @@ sol ne soit plus un plan parfait.
 Les roquettes doivent pouvoir les prendre pour cible. Et les tanks doivent
 pouvoir se déplacer, parfois vite.
 
+## Vecteur vitesse au collimateur
+
+Le petit cercle ailé qui marque où l'avion va vraiment, et non où il pointe.
+Impossible tel quel : le modèle de vol n'a pas d'incidence, l'appareil se
+déplace exactement le long de son nez. Le vecteur vitesse tomberait donc pile
+sur le viseur et ne dirait rien. Suppose d'abord de donner une incidence au
+modèle — l'aile portant à un angle différent de celui du fuselage.
+
 ## Questions restées ouvertes
 
 - Le chrono en haut à gauche ne sert à rien. Score au temps, ou décor.

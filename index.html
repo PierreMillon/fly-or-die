@@ -299,7 +299,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.40</button>
+  <button id="versionBtn">v0.41</button>
 </div>
 
 <div id="bottombar">
@@ -404,6 +404,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.41</b> — le cadran d'assiette a sauté. Un vrai collimateur de chasse n'a pas d'instrument dans un coin : il annote le monde lui-même, à sa vraie place. Chaque barreau de l'échelle de tangage est maintenant une direction réelle — cap courant, tangage donné — projetée comme n'importe quel objet de la scène. La ligne d'horizon est donc l'horizon, et non sa représentation : elle descend quand le nez monte parce qu'elle est vraiment là. Convention de cockpit gardée telle quelle, barreau plein au-dessus, tireté en dessous : on sait si l'on monte avant même d'avoir lu le chiffre, lequel penche avec son barreau. Et l'échelle n'apparaît que lorsqu'elle sert — rien avant douze degrés d'assiette, pleine à trente. Le seuil se lit sur l'angle de la caméra à l'horizontale et non sur la position de l'horizon à l'écran : la caméra plonge de douze degrés en permanence, si bien que l'horizon n'est jamais au centre de l'image et qu'un seuil mesuré depuis ce centre s'ouvrait déjà en palier. une bande de cap en haut, graduée tous les dix degrés sur soixante de large, chiffrée de trente en trente à la manière des collimateurs — 18 pour cent quatre-vingts. Le jeu n'avait aucun moyen de dire où l'on va : les étoiles le disent, mais il faut les connaître.</div>
   <div><b>v0.40</b> — la poursuite. Tenir dans l'axe un adversaire trop loin pour être accroché finit par pousser : au bout de deux secondes et demie le moteur monte en régime et la vitesse visée passe de 78 à 121 mètres par seconde. C'était la seule situation où le jeu ne donnait rien à faire — voir la cible, la garder devant soi, attendre. Un arc se remplit sous le viseur pendant l'attente, puis le mot s'affiche ; rompre l'alignement coupe tout, et trois fois plus vite que ça ne s'était accumulé. Les traits de vitesse répondent maintenant à trois choses dont la plus forte l'emporte : le régime, le nez qui pique — visible avant même que la vitesse ait monté, ce qui est tout l'intérêt — et la poursuite. Le glissement du doigt ne s'interrompt plus. Les deux bandeaux sont pleine largeur, et celui du bas ne porte que la jauge de vie, c'est-à-dire exactement l'endroit où un pouce se pose : tout contact qui y atterrissait était rejeté comme un appui sur un bouton et le manche ne démarrait pas. Seuls les boutons restent sensibles, le reste laisse passer. Et le catalogue des viseurs passe de douze à trente-quatre, avec des paliers lus dans les données plutôt qu'énumérés dans le code : vagues 3, 5, 10, 25, 50 et 100.</div>
   <div><b>v0.39</b> — les flèches de désignation disent enfin de combien il faut virer. Elles vivaient toutes sur un anneau fixe : on savait d'où venait la menace, jamais à quelle distance angulaire. On tournait donc trop, on dépassait, et il fallait revenir. Le rayon porte maintenant l'écart à l'axe — collée au cockpit quand la cible est sur le point d'entrer dans le champ, au bord de l'écran quand elle est pile dans le dos, et rien du tout tant qu'elle est dans le cône de 26 degrés où son cadre suffit. La taille continue de dire la distance : deux informations, deux grandeurs, qui ne se marchent plus dessus. Le dernier saut de caméra du décollage disparaît : la focale suit la vitesse mais n'était pas calculée pendant la séquence, si bien qu'elle passait de 70 à 73 degrés en une image une fois l'avion stabilisé. Elle est maintenant amortie et calculée partout. Le décollage tombe à 2,8 secondes contre 4,4, sommet d'assiette à 74 degrés, plein gaz à 145 mètres par seconde. Des traits de vitesse apparaissent au-delà de 88 mètres par seconde, semés en couronne dans un tube ancré dans le monde — en disque, ils se projetaient en points, un segment aligné sur l'axe du regard n'ayant aucune longueur à l'écran. Le liseré plein qui cerclait l'écran à chaque coup encaissé disparaît au profit des seuls dégradés, qui eux portent la direction. Et les roquettes doublent, de 100 à 200 mètres par seconde.</div>
   <div><b>v0.38</b> — la caméra reste à plat pendant un tonneau. Elle en prenait un tiers et tournait donc avec l'avion, ce qui fait perdre l'horizon pour rien : c'est l'appareil qui fait la figure, pas le joueur. Le déport, lui, est réel — mesuré, l'avion sort de 27 unités et l'image le rejoint sur 21, avec son retard. Le tonneau lui-même passe au lissage du second ordre : lent, vite, lent, dérivée et courbure nulles aux deux bouts. Et les sorties de figure ne claquent plus : la déclinaison de la caméra était appliquée deux fois en une seule image, comme en fin de décollage. Mesuré à la sortie, le tonneau tombe de 490 à 93 degrés par seconde, l'Immelmann de 766 à 149, le Split-S de 620 à 10. Les adversaires doivent maintenant viser eux aussi : une demi-seconde d'alignement tenu avant d'ouvrir le feu, entièrement reperdue dès qu'on leur sort du cône, et 0,7 seconde pour les pièces au sol qui tournent un tube. Le face-à-face était perdu d'avance depuis que le joueur attend que son viseur se referme. Les flèches de désignation creusent enfin l'écart : un pour quinze au lieu d'un pour huit, et surtout une décroissance franche — à mi-portée il ne reste que 27 % de la taille au lieu de 56. Les roquettes ralentissent à 100 mètres par seconde, trois fois moins qu'une balle : téléguidées, elles ne ratent pas, et leur lenteur est ce qui les rend lisibles.</div>
@@ -3700,49 +3701,112 @@ function drawHud() {
     hctx.lineWidth = 1.5;
   }
 
-  // HORIZON ARTIFICIEL. En l'air, quand on ne voit plus que du ciel, rien ne
-  // dit si l'on monte ou si l'on descend. C'est exactement le rôle de cet
-  // instrument dans un vrai cockpit : la ligne d'horizon descend quand le nez
-  // monte, et s'incline en sens inverse du virage. Le symbole de l'avion, lui,
-  // ne bouge jamais — c'est le monde qui tourne autour.
+  // ÉCHELLE DE TANGAGE CONFORME. Le cadran d'assiette a sauté. Un vrai HUD de
+  // chasse n'a pas d'instrument dans un coin : il annote le monde lui-même, à
+  // sa vraie place. Chaque barreau est ici une direction réelle — cap courant,
+  // tangage donné — projetée comme n'importe quel objet de la scène. La ligne
+  // d'horizon est donc l'horizon, pas sa représentation : elle descend quand
+  // le nez monte parce qu'elle est vraiment là.
+  //
+  // Convention de cockpit, gardée telle quelle : barreau plein au-dessus de
+  // l'horizon, tireté en dessous. On sait si l'on monte ou si l'on descend
+  // avant même d'avoir lu le chiffre.
+  //
+  // Et elle n'apparaît que lorsqu'elle sert. Tant que l'horizon tient dans le
+  // cadre, on le voit, c'est suffisant, et l'écran reste net. Dès qu'il s'en
+  // approche l'échelle monte, et elle est pleine quand il est sorti.
   {
-    const R = 30, ox = 48, oy = 104;
-    const ech = R / (30 * Math.PI / 180);   // le rayon vaut 30 degrés d'assiette
+    // L'ÉCHELLE MONTE AVEC L'ASSIETTE, et non avec la position de l'horizon à
+    // l'écran : la caméra plonge de douze degrés en permanence, si bien que
+    // l'horizon n'est jamais au centre de l'image et qu'un seuil mesuré
+    // depuis ce centre s'ouvrait déjà en palier. L'angle de la caméra à
+    // l'horizontale, lui, vaut zéro quand on vole à plat, quoi qu'il arrive.
+    // Rien avant douze degrés, plein à trente.
+    const aide = THREE.MathUtils.clamp(
+      (Math.abs(state.camPitch) * 180 / Math.PI - 12) / 18, 0, 1);
+    if (aide > 0.01) {
+      hctx.save();
+      hctx.lineWidth = 1.5;
+      hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.textBaseline = 'middle';
+      const cosY = Math.cos(state.camYaw), sinY = Math.sin(state.camYaw);
+      // deux points de part et d'autre du cap, au même tangage : le segment
+      // qui les joint prend tout seul l'inclinaison qu'il doit avoir à l'écran
+      const bout = (d, e) => {
+        const t = d * Math.PI / 180, ct = Math.cos(t);
+        const ce = Math.cos(e), se = Math.sin(e);
+        return project(_v.set(-(sinY * ce + cosY * se) * ct,
+                              Math.sin(t),
+                              -(cosY * ce - sinY * se) * ct)
+                         .multiplyScalar(HUD_LOIN).add(camera.position));
+      };
+      for (let d = -80; d <= 80; d += 10) {
+        const demi = d === 0 ? HUD_LARGE * 1.9 : HUD_LARGE * (d % 30 === 0 ? 1 : 0.62);
+        const g = bout(d, demi), dr = bout(d, -demi);
+        if (!g.front || !dr.front) continue;
+        if (Math.max(g.y, dr.y) < -60 || Math.min(g.y, dr.y) > h + 60) continue;
+        const a = aide * (d === 0 ? 0.9 : d % 30 === 0 ? 0.62 : 0.42);
+        hctx.strokeStyle = 'rgba(70,255,160,' + a.toFixed(3) + ')';
+        // le trou du milieu laisse le viseur respirer
+        const mx = (g.x + dr.x) / 2, my = (g.y + dr.y) / 2;
+        const k = d === 0 ? 0.14 : 0.30;
+        hctx.setLineDash(d < 0 ? [5, 5] : []);
+        hctx.beginPath();
+        hctx.moveTo(g.x, g.y); hctx.lineTo(mx + (g.x - mx) * k, my + (g.y - my) * k);
+        hctx.moveTo(dr.x, dr.y); hctx.lineTo(mx + (dr.x - mx) * k, my + (dr.y - my) * k);
+        hctx.stroke();
+        hctx.setLineDash([]);
+        if (d !== 0) {
+          // le chiffre penche avec son barreau, comme dans un vrai collimateur
+          hctx.fillStyle = 'rgba(143,252,196,' + (a * 1.15).toFixed(3) + ')';
+          for (const p of [g, dr]) {
+            hctx.save();
+            hctx.translate(p.x, p.y);
+            hctx.rotate(Math.atan2(dr.y - g.y, dr.x - g.x));
+            hctx.textAlign = p === g ? 'right' : 'left';
+            hctx.fillText(Math.abs(d), p === g ? -5 : 5, 0);
+            hctx.restore();
+          }
+        }
+      }
+      hctx.restore();
+      hctx.textAlign = 'center';
+      hctx.textBaseline = 'middle';
+      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+    }
+  }
+
+  // BANDE DE CAP. Le jeu n'avait aucun moyen de dire où l'on va : les étoiles
+  // le disent, mais il faut les connaître. Une graduation tous les dix degrés,
+  // trente degrés de part et d'autre du cap, chiffrée de trente en trente.
+  {
+    const cap = (Math.atan2(-Math.sin(state.camYaw), -Math.cos(state.camYaw))
+                 * 180 / Math.PI + 360) % 360;
+    const by = h * 0.075, demi = Math.min(w * 0.34, 150), ech = demi / 30;
     hctx.save();
-    hctx.beginPath(); hctx.arc(ox, oy, R, 0, Math.PI * 2); hctx.clip();
-    hctx.translate(ox, oy);
-    hctx.rotate(state.roll);
-    const py = state.pitch * ech;
-    // L'échelle de tangage court d'un pôle à l'autre : en montée franche la
-    // ligne d'horizon sort du cadran, et sans graduations au-delà l'instrument
-    // ne disait plus rien. Les barreaux longs marquent les trentaines.
-    for (let d = -90; d <= 90; d += 10) {
-      const yy = py - d * Math.PI / 180 * ech;
-      if (Math.abs(yy) > R + 2) continue;
-      if (d === 0) {
-        hctx.strokeStyle = 'rgba(70,255,160,0.8)';
-        hctx.beginPath(); hctx.moveTo(-R * 1.7, yy); hctx.lineTo(R * 1.7, yy); hctx.stroke();
-      } else {
-        hctx.strokeStyle = 'rgba(70,255,160,' + (d % 30 === 0 ? '0.45' : '0.28') + ')';
-        const l = d % 30 === 0 ? 12 : 6;
-        hctx.beginPath(); hctx.moveTo(-l, yy); hctx.lineTo(l, yy); hctx.stroke();
+    hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.textAlign = 'center';
+    hctx.strokeStyle = 'rgba(70,255,160,0.20)';
+    hctx.beginPath(); hctx.moveTo(w/2 - demi, by); hctx.lineTo(w/2 + demi, by); hctx.stroke();
+    for (let d = -30; d <= 30; d += 10) {
+      const v = Math.round((cap + d) / 10) * 10;
+      const x = w/2 + (v - cap) * ech;
+      if (Math.abs(x - w/2) > demi) continue;
+      const gros = v % 30 === 0;
+      hctx.strokeStyle = 'rgba(70,255,160,' + (gros ? 0.5 : 0.3) + ')';
+      hctx.beginPath(); hctx.moveTo(x, by); hctx.lineTo(x, by + (gros ? 7 : 4)); hctx.stroke();
+      if (gros) {
+        hctx.fillStyle = 'rgba(70,255,160,0.55)';
+        hctx.fillText(String(((v % 360) + 360) % 360 / 10 | 0).padStart(2, '0'), x, by + 15);
       }
     }
-    hctx.restore();
-
-    hctx.strokeStyle = 'rgba(70,255,160,0.45)';
-    hctx.beginPath(); hctx.arc(ox, oy, R, 0, Math.PI * 2); hctx.stroke();
-    // symbole de l'avion, fixe au centre
-    hctx.strokeStyle = 'rgba(143,252,196,0.95)';
+    hctx.fillStyle = 'rgba(143,252,196,0.95)';
     hctx.beginPath();
-    hctx.moveTo(ox - 13, oy); hctx.lineTo(ox - 5, oy); hctx.lineTo(ox, oy + 4);
-    hctx.lineTo(ox + 5, oy); hctx.lineTo(ox + 13, oy);
-    hctx.stroke();
-
-    hctx.fillStyle = 'rgba(143,252,196,0.8)';
+    hctx.moveTo(w/2, by - 6); hctx.lineTo(w/2 - 4, by - 12); hctx.lineTo(w/2 + 4, by - 12);
+    hctx.closePath(); hctx.fill();
+    hctx.restore();
+    hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
     hctx.textAlign = 'center';
-    hctx.fillText((state.pitch >= 0 ? '+' : '') + Math.round(state.pitch * 180 / Math.PI) + '°',
-                  ox, oy + R + 13);
   }
 
   // le manche flottant, dessiné là où le doigt s'est posé : c'est lui, au doigt,
@@ -3917,6 +3981,11 @@ function bracket(x, y, s, arm) {
 }
 
 const ARROW_NEAR = 120, ARROW_FAR = 1300;
+// Distance à laquelle l'échelle de tangage est projetée. Assez loin pour que
+// la parallaxe soit nulle — un horizon doit être à l'infini — assez près pour
+// rester dans le volume de vue.
+const HUD_LOIN = 3000;
+const HUD_LARGE = 0.155;   // demi-largeur d'un barreau, en radians de cap
 
 // À quel angle de l'axe la flèche commence à s'afficher. En deçà, la cible
 // est dans le champ et porte déjà son cadre : deux repères pour la même chose
