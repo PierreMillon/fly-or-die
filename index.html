@@ -178,13 +178,19 @@
     position: fixed;
     inset: 0;
     z-index: 30;
-    background: rgba(4, 7, 10, 0.94);
+    /* dégradé plutôt qu'un voile plein : le texte reste lisible en haut,
+       et l'avion posé au sol se voit en bas */
+    background: linear-gradient(to bottom,
+      rgba(4, 7, 10, 0.96) 0%,
+      rgba(4, 7, 10, 0.9) 42%,
+      rgba(4, 7, 10, 0.45) 62%,
+      rgba(4, 7, 10, 0.1) 80%);
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 18px;
-    padding: 24px;
+    padding: 16vh 24px 24px;
     text-align: center;
   }
   #overlay[hidden] { display: none; }
@@ -223,7 +229,7 @@
   <span class="spacer"></span>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.23</button>
+  <button id="versionBtn">v0.24</button>
 </div>
 
 <div id="bottombar">
@@ -323,6 +329,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.24</b> — le jeu commence au sol. Derrière le menu, l'avion est posé, hélice au ralenti, visible à travers un dégradé au lieu d'un voile plein. Au clic, le moteur prend ses tours, l'appareil roule une seconde, cabre, décolle et se retrouve à 165 mètres — la même altitude de départ qu'avant, mais on sait maintenant comment on y est arrivé. Le son démarre au premier contact et non plus au bouton, pour qu'on entende le ralenti avant de partir.</div>
   <div><b>v0.23</b> — la visée devient exigeante. Le cône de verrouillage n'est plus une constante de 9 degrés, qui laissait tirer largement à côté : il vaut la taille apparente de la cible plus 1,2 degré de marge. Un chasseur de 11 m à 400 m n'occupe que 0,8 degré, il faut donc vraiment lui mettre la croix dessus. En échange, un magnétisme très léger aide à l'y garder — nul au centre, nul au bord de sa zone, plafonné à un neuvième de l'autorité du manche.</div>
   <div><b>v0.22</b> — le moteur continuait de tourner après avoir quitté la page. Sa coupure était pilotée dans la boucle de rendu, mais un onglet en arrière-plan ne rend plus : la boucle s'arrêtait, la dernière valeur de gain restait, et le son survivait. Le contexte audio est maintenant suspendu sur les événements du cycle de vie de la page, qui eux continuent d'être émis.</div>
   <div><b>v0.21</b> — commandes bien plus vives, l'avion réagit comme un appareil de voltige. Le vrai coupable n'était pas l'autorité mais la courbe de commande : elle était en carré pur, donc à mi-manche on n'obtenait qu'un quart de la réponse. Elle est maintenant linéaire sur le premier tiers puis progressive. Lacet porté de 66 à 112 degrés par seconde, tangage de 54 à 97, roulis qui s'établit deux fois plus vite, course du manche raccourcie, retour au neutre plus franc, figures raccourcies, et la caméra suit d'autant.</div>
@@ -392,6 +399,10 @@ const SPEED_MAX     = 168;
 const GRAV          = 48;     // ce que la pesanteur donne ou reprend selon l'assiette
 const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 66;     // en dessous, le nez retombe malgré la consigne
+const SOL_Y         = 3;      // hauteur de l'avion posé, train sous le fuselage
+const ALT_DEPART    = 165;    // altitude atteinte au bout du décollage
+const ROULAGE       = 1.0;    // secondes de course au sol
+const MONTEE        = 2.0;    // secondes de rotation et de montée
 const SPIN_TIME     = 0.42;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
@@ -1030,6 +1041,8 @@ const state = {
   lockCharge: 0,
   spinT: 0,
   spinSide: 0,
+  takeoff: null,
+  auSol: true,
   scrapeT: 0,
   fig: null,      // renversement en cours
   screenX: 0,
@@ -1047,15 +1060,50 @@ window.__fod = state;
 window.__kinds = KINDS;   // pour éprouver une tactique isolément depuis la console
 const euler = new THREE.Euler(0, 0, 0, 'YXZ'); // lacet d'abord, puis tangage : jamais de tonneau subi
 
-function resetGame() {
-  state.pos.set(0, 165, 0);
+// L'avion est posé, moteur au ralenti, tant qu'on n'a pas décollé. C'est
+// aussi l'état affiché derrière le menu : on voit l'appareil au sol avant
+// même de commencer.
+function poseAuSol() {
+  state.auSol = true;
+  state.pos.set(0, SOL_Y, 0);
   state.yaw = 0; state.pitch = 0; state.roll = 0;
   state.camYaw = 0; state.camPitch = 0; state.camRoll = 0;
-  state.speed = CRUISE;
+  state.speed = 0;
+  state.takeoff = null;
+  state.lock = null;
+  state.lockCharge = 0;
+  state.enemies.forEach(e => scene.remove(e.mesh));
+  state.enemies.length = 0;
+  state.bullets.length = 0;
+  state.shots.length = 0;
+  playerMesh.position.copy(state.pos);
+  playerMesh.quaternion.identity();
+  euler.set(0, 0, 0);
+  camera.quaternion.setFromEuler(euler);
+  camera.position.copy(camOffset).add(state.pos);
+  camVel.set(0, 0, 0);
+  for (const t of towers) placeTower(t, true);
+  updateDecor();
+  feedTracers(playerTracers, []);
+  feedTracers(enemyTracers, []);
+}
+
+// tourne tant qu'aucune partie n'est lancée : l'hélice brasse au ralenti et
+// la scène vit un peu, sans que rien ne se joue
+function auRalenti(dt) {
+  propMesh.rotation.z += 3.4 * dt;
+  state.screenX = window.innerWidth / 2;
+  state.screenY = window.innerHeight * 0.62;
+}
+
+function resetGame() {
+  poseAuSol();
+  state.takeoff = { t: 0 };
+  state.auSol = false;
   state.structure = 100;
   state.score = 0;
   state.wave = 0;
-  state.waveTimer = 1.2;
+  state.waveTimer = ROULAGE + MONTEE + 1.0;   // pas d'ennemis avant d'être en l'air
   state.hitFlash = 0;
   state.lock = null;
   state.lockT = 0;
@@ -1069,10 +1117,8 @@ function resetGame() {
   state.bullets.length = 0;
   state.shots.length = 0;
   state.gunT = 0;
-  camVel.set(0, 0, 0);
   aim.x = 0; aim.y = 0; aim.active = false;
-  for (const t of towers) placeTower(t, true);
-  announce('VAGUE 1');
+  announce('DÉCOLLAGE');
 }
 
 function announce(txt) { state.announce = txt; state.announceT = 2.2; }
@@ -1451,7 +1497,14 @@ function step(now) {
 
   // panneau ouvert : le vol s'arrête. Lire l'aide ne doit pas coûter la partie.
   if (state.running && !state.paused) simulate(dt);
-  if (moteurG) moteurG.gain.value = (state.running && !state.paused) ? 0.05 : 0;
+  else if (!state.running) auRalenti(dt);
+  if (moteurG && moteur) {
+    // le moteur tourne aussi au sol, plus bas et plus doux
+    moteurG.gain.value = state.paused ? 0 : (state.running ? 0.05 : (state.auSol ? 0.03 : 0));
+    const f = 55 + THREE.MathUtils.clamp(state.speed, 0, SPEED_MAX) / SPEED_MAX * 75;
+    moteur[0].frequency.value = f;
+    moteur[1].frequency.value = f * 1.02;
+  }
   renderer.render(scene, camera);
   drawHud(dt);
 }
@@ -1494,6 +1547,52 @@ function simulate(dt) {
   // trop lent : le nez retombe tout seul, quoi que demande le doigt
   if (state.speed < STALL && state.pitch > 0) {
     state.pitch = THREE.MathUtils.damp(state.pitch, 0, 2.2 * (STALL - state.speed) / 14, dt);
+  }
+
+  // DÉCOLLAGE. Une séquence jouée d'un bloc, sans commande : le moteur monte
+  // en puissance, l'avion roule, cabre, décolle, et se retrouve à l'altitude
+  // de départ. Le vol commençait auparavant à 165 mètres sans explication.
+  if (state.takeoff) {
+    const T = state.takeoff;
+    T.t += dt;
+    // le moteur prend ses tours : c'est lui qu'on entend d'abord
+    state.speed = THREE.MathUtils.damp(state.speed, CRUISE * 1.06, 1.5, dt);
+
+    if (T.t < ROULAGE) {
+      state.pos.y = SOL_Y;                       // roulage, train au sol
+      state.pitch = 0;
+    } else {
+      const k = Math.min(1, (T.t - ROULAGE) / MONTEE);
+      const e = 1 - Math.pow(1 - k, 2.2);        // montée qui s'assoit
+      state.pos.y = SOL_Y + (ALT_DEPART - SOL_Y) * e;
+      state.pitch = Math.sin(Math.PI * k) * 0.42; // cabré puis remis à plat
+    }
+    state.pos.z -= state.speed * dt;
+
+    euler.set(state.pitch, 0, 0);
+    state.quat.setFromEuler(euler);
+    state.forward.set(0, 0, -1).applyQuaternion(state.quat);
+    playerMesh.position.copy(state.pos);
+    playerMesh.quaternion.copy(state.quat);
+    propMesh.rotation.z += (6 + state.speed * 0.16) * dt;
+
+    state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 7.2, dt);
+    euler.set(state.camPitch, 0, 0);
+    camera.quaternion.setFromEuler(euler);
+    _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
+    springCamera(_v, dt, 44, 10.2, _cv.copy(state.forward).multiplyScalar(state.speed));
+    if (camera.position.y < 2.5) camera.position.y = 2.5;
+
+    if (T.t >= ROULAGE + MONTEE) {
+      state.takeoff = null;
+      state.pos.y = ALT_DEPART;
+      state.pitch = 0;
+      state.speed = CRUISE;
+    }
+    updateDecor();
+    state.announceT = Math.max(0, state.announceT - dt);
+    refreshBars();
+    return;
   }
 
   // Renversement Immelmann : demi-looping vers le haut, puis demi-tonneau
@@ -1687,13 +1786,6 @@ function simulate(dt) {
 
   state.hitFlash = Math.max(0, state.hitFlash - dt * 2.2);
   state.announceT = Math.max(0, state.announceT - dt);
-
-  // le moteur monte avec la vitesse : c'est lui qui fait entendre le piqué
-  if (moteur) {
-    const f = 46 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 62;
-    moteur[0].frequency.value = f;
-    moteur[1].frequency.value = f * 1.02;
-  }
 
   refreshBars();
 }
@@ -2029,6 +2121,7 @@ startBtn.addEventListener('click', () => {
 
 function gameOver() {
   state.running = false;
+  state.auSol = false;   // l'épave ne ronronne pas
   SFX.fin();
   overlayTitle.textContent = 'ABATTU';
   overlayText.innerHTML = 'Plus de vie.';
@@ -2083,6 +2176,9 @@ function setAimFromJoy() {
 let lastTapT = 0, lastTapSide = 0;
 
 window.addEventListener('pointerdown', e => {
+  // le premier contact, où qu'il soit, autorise le son : ça permet d'entendre
+  // le moteur au ralenti derrière le menu, avant même d'avoir décollé
+  audioDemarre();
   // e.target n'est pas toujours un Element (événement synthétique visé sur
   // window, par exemple) : closest() n'existerait pas et la boucle casserait
   const el = e.target instanceof Element ? e.target : null;
@@ -2197,6 +2293,7 @@ resize();
 aim.x = window.innerWidth / 2;
 aim.y = window.innerHeight / 2;
 
+poseAuSol();
 refreshBars();
 requestAnimationFrame(step);
 window.__fodReady = true;
