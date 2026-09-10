@@ -173,7 +173,7 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
-  <button id="versionBtn">v0.14</button>
+  <button id="versionBtn">v0.15</button>
 </div>
 
 <div id="bottombar">
@@ -184,6 +184,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.15</b> — l'avion du joueur fait deux fois sa taille, envergure portée de 7,2 à 14,4. Les bouches de canon suivent, et les rayons de collision sont recalés : une cellule deux fois plus large se fait toucher de plus loin.</div>
   <div><b>v0.14</b> — les traçantes partent des deux mitrailleuses d'aile, relevées sur le modèle, et convergent sur la cible comme des armes harmonisées ; ce sont de vraies balles qui filent et finissent leur course, plus un rayon instantané. La caméra n'est plus collée à sa place : un ressort amorti l'y rappelle et elle garde sa propre vitesse, comme un second avion qui tient la formation.</div>
   <div><b>v0.13</b> — le cercle qui suivait la commande et le trait qui le reliait à la croix ont sauté. Il ne reste que la croix de visée, sur l'axe réel des canons, et c'est elle qui porte maintenant la montée en puissance. Au doigt, c'est le manche qui montre la commande ; à la souris, c'est le curseur.</div>
   <div><b>v0.12</b> — il faut deux fois plus longtemps pour abattre une cible, et le viseur lui-même raconte la montée en puissance : il se resserre, quatre arcs tournent autour de lui de plus en plus vite, il vibre et blanchit, puis quatre dards rentrent vers le centre une fois le tir calé.</div>
@@ -271,13 +272,17 @@ const ENEMY_BURST   = 3;      // rafale plutôt qu'un coup sec
 const BURST_GAP     = 0.1;
 const BULLET_SPEED  = 300;
 const BULLET_LIFE   = 3.2;
-const BULLET_HIT    = 7;
-const RAM_DIST      = 9;
+const BULLET_HIT    = 10;
+const RAM_DIST      = 13;
 // Bouches des deux mitrailleuses, relevées sur le modèle lui-même : ce sont
 // les nacelles d'aile, à 30 % de la demi-envergure. Les traçantes partent de
 // là et convergent sur la cible — c'est le réglage d'harmonisation des armes
 // d'aile, réglées pour se croiser à distance de tir plutôt que rester
 // parallèles.
+// Taille de l'avion du joueur. Un seul nombre : la maquette est décrite pour
+// une envergure de 7,2, ce facteur la porte à 14,4. Les bouches de canon
+// suivent, et les rayons de collision plus bas sont calés dessus.
+const PLANE_SCALE   = 2;
 const GUN_L         = { x: -1.077, y: 0.082, z: -2.015 };
 const GUN_R         = { x:  1.071, y: 0.082, z: -2.015 };
 const SHOT_SPEED    = 900;
@@ -590,6 +595,7 @@ const enemyGeom = idxGeom(ENEMY_VERTS, ENEMY_TRIS);
 const enemyEdges = new THREE.EdgesGeometry(enemyGeom, 20);
 
 const playerMesh = solidWire(planeGeom, planeEdges, matPlayer);
+playerMesh.scale.setScalar(PLANE_SCALE);
 scene.add(playerMesh);
 
 // enfant de l'avion : l'axe Z local est celui du fuselage, donc une simple
@@ -962,7 +968,8 @@ function updateLock(dt) {
   if (state.gunT <= 0) {
     state.gunT = SHOT_RATE * (1.6 - 0.6 * charge);
     for (const g of [GUN_L, GUN_R]) {
-      const p = new THREE.Vector3(g.x, g.y, g.z).applyQuaternion(state.quat).add(state.pos);
+      const p = new THREE.Vector3(g.x, g.y, g.z)
+        .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
       const d = new THREE.Vector3().subVectors(best.pos, p).normalize();
       state.shots.push({ pos: p, dir: d, t: 0 });
     }
