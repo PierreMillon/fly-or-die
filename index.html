@@ -19,6 +19,15 @@
     --ph-chrome: #071812;
   }
 
+  /* touch-action n'est pas une propriété héritée : la poser sur html et body
+     ne protégeait rien de ce qu'il y a dedans. Les canvas gardaient donc le
+     comportement par défaut, et sur iOS deux appuis rapprochés déclenchaient
+     le zoom-au-double-tap — ce qui décalait toute la page et laissait une
+     bande noire en bas. Exactement le geste qui sert à faire une figure. */
+  * { touch-action: none; }
+  /* seuls les panneaux doivent encore défiler au doigt */
+  #aide, #changelog { touch-action: pan-y; }
+
   html, body {
     margin: 0;
     height: 100%;
@@ -214,7 +223,7 @@
   <span class="spacer"></span>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.19</button>
+  <button id="versionBtn">v0.21</button>
 </div>
 
 <div id="bottombar">
@@ -308,6 +317,8 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.21</b> — commandes bien plus vives, l'avion réagit comme un appareil de voltige. Le vrai coupable n'était pas l'autorité mais la courbe de commande : elle était en carré pur, donc à mi-manche on n'obtenait qu'un quart de la réponse. Elle est maintenant linéaire sur le premier tiers puis progressive. Lacet porté de 66 à 112 degrés par seconde, tangage de 54 à 97, roulis qui s'établit deux fois plus vite, course du manche raccourcie, retour au neutre plus franc, figures raccourcies, et la caméra suit d'autant.</div>
+  <div><b>v0.20</b> — corrige le décalage de l'écran sur iPhone après une figure. touch-action n'est pas une propriété héritée : posée sur html et body, elle ne protégeait pas les canvas, et deux appuis rapprochés déclenchaient le zoom-au-double-tap d'iOS — exactement le geste qui sert à faire une figure. Le refus est maintenant posé sur tous les éléments, les gestes de pincement sont interceptés, et la fenêtre visuelle est surveillée pour les replis de barres du navigateur.</div>
   <div><b>v0.19</b> — les avions passent aux dimensions réelles, une unité valant un mètre. Le joueur mesurait 14,4 m d'envergure contre 4,4 à 7,8 à ses adversaires : il écrasait tout. Chaque appareil déclare maintenant son envergure et sa maquette s'y plie — 8,5 m pour le biplan comme un Sopwith Camel, 11,2 m pour le chasseur comme un Spitfire, 7,5 m pour l'intercepteur à aile courte, 6 m pour le drone, 12 m pour le joueur. La caméra se rapproche d'autant pour que le cadrage ne bouge pas, et les rayons de collision reviennent à des tailles d'avion.</div>
   <div><b>v0.18</b> — caméra rapprochée, l'avion occupe deux fois plus d'écran : le ressort traînait d'un écart constant de 21 unités, il réinjecte maintenant 80 % de la vitesse de l'avion et ne garde que le flottement. Première vague ramenée à un seul biplan, la montée se fait sur onze vagues. Et du son, entièrement synthétisé, sans un fichier : moteur qui monte avec la vitesse, tir sec, accroche, mise en puissance, impacts, destructions, souffles de figures, éraflures. Bouton SON pour couper.</div>
   <div><b>v0.17</b> — quatre adversaires au lieu d'un, chacun avec sa silhouette et sa manière de poursuivre : le biplan en poursuite pure, la courbe du chien de Bouguer ; le chasseur qui se colle dans les six heures ; l'intercepteur en poursuite anticipée, qui résout l'équation du second degré du point de rencontre ; le drone en navigation proportionnelle, celle des missiles, qui braque trois fois plus vite que ne pivote la ligne de visée. Les vagues traversent le siècle : biplans seuls au début, drones à la fin, et les anciens restent en minorité.</div>
@@ -373,15 +384,15 @@ const SPEED_MAX     = 168;
 const GRAV          = 48;     // ce que la pesanteur donne ou reprend selon l'assiette
 const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 66;     // en dessous, le nez retombe malgré la consigne
-const SPIN_TIME     = 0.52;   // durée du tonneau au double tap
+const SPIN_TIME     = 0.42;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
-const FIG_TIME      = 1.25;   // durée d'un renversement, Immelmann ou Split-S
-const MAX_YAW       = 1.15;   // rad/s, autorité en lacet à pleine déflexion
-const MAX_PITCH     = 0.95;   // rad/s, autorité en tangage
+const FIG_TIME      = 1.05;   // durée d'un renversement, Immelmann ou Split-S
+const MAX_YAW       = 1.95;   // rad/s, autorité en lacet à pleine déflexion — 112 degrés par seconde
+const MAX_PITCH     = 1.7;    // rad/s, autorité en tangage
 const PITCH_LIMIT   = 68 * Math.PI / 180; // jamais la verticale : au-delà l'orientation devient ambiguë
-const PITCH_TRIM    = 1.15;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
-const ROLL_FACTOR   = 0.95;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
+const PITCH_TRIM    = 0.95;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
+const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
 const LOCK_COS      = Math.cos(9 * Math.PI / 180); // cône du viseur : produit scalaire plutôt qu'arc cosinus
 const LOCK_RANGE    = 1250;
 const DPS_MIN       = 15;     // dégâts par seconde à l'accroche
@@ -1408,8 +1419,12 @@ function simulate(dt) {
   const dx = THREE.MathUtils.clamp((aim.x - w / 2) / ref, -1, 1);
   const dy = THREE.MathUtils.clamp((aim.y - h / 2) / ref, -1, 1);
 
-  // courbe douce au centre : un doigt qui tremble ne fait pas vibrer l'avion
-  const curve = v => Math.sign(v) * v * v;
+  // Courbe de commande. Le carré pur amortissait tout le début de course :
+  // à mi-manche on n'obtenait qu'un quart de l'autorité, d'où la sensation
+  // d'un avion lourd. La part linéaire rend le premier tiers vivant, la part
+  // quadratique garde de la finesse au centre pour qu'un doigt qui tremble ne
+  // fasse pas vibrer l'avion.
+  const curve = v => v * (0.4 + 0.6 * Math.abs(v));
   const yawRate   = -curve(dx) * MAX_YAW;
   const pitchRate = -curve(dy) * MAX_PITCH;
 
@@ -1422,8 +1437,8 @@ function simulate(dt) {
   state.pitch = THREE.MathUtils.damp(state.pitch, 0, PITCH_TRIM * (1 - Math.abs(dy)), dt);
 
   // le roulis n'a aucune autorité : il ne fait que raconter le virage
-  const targetRoll = THREE.MathUtils.clamp(yawRate * ROLL_FACTOR, -1.05, 1.05);
-  state.roll = THREE.MathUtils.damp(state.roll, targetRoll, 5, dt);
+  const targetRoll = THREE.MathUtils.clamp(yawRate * ROLL_FACTOR, -1.3, 1.3);
+  state.roll = THREE.MathUtils.damp(state.roll, targetRoll, 9, dt);
 
   // Échange altitude / vitesse. Monter coûte de la vitesse, descendre en rend :
   // c'est la pesanteur qui travaille pour ou contre, et le moteur qui ramène
@@ -1551,8 +1566,8 @@ function simulate(dt) {
 
   // --- caméra : elle traîne derrière et ne prend qu'une part du roulis,
   // sinon l'horizon bascule trop et on perd ses repères
-  state.camYaw   = dampAngle(state.camYaw, state.yaw, 5.2, dt);
-  state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 5.2, dt);
+  state.camYaw   = dampAngle(state.camYaw, state.yaw, 7.2, dt);
+  state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 7.2, dt);
   state.camRoll  = THREE.MathUtils.damp(state.camRoll, state.roll * 0.45, 6, dt);
   euler.set(state.camPitch, state.camYaw, state.camRoll);
   camera.quaternion.setFromEuler(euler);
@@ -1967,7 +1982,7 @@ const joy = { on: false, ox: 0, oy: 0, x: 0, y: 0 };
 
 // déflexion maximale du viseur, et course du doigt qui y correspond
 const aimRef = () => Math.min(window.innerWidth, window.innerHeight) * 0.42;
-const joyRadius = () => Math.min(window.innerWidth, window.innerHeight) * 0.2;
+const joyRadius = () => Math.min(window.innerWidth, window.innerHeight) * 0.17;
 
 function setAimDirect(e) {
   aim.x = e.clientX;
@@ -2060,18 +2075,25 @@ document.addEventListener('mouseleave', () => { aim.active = false; });
 // sans ça, un balayage fait défiler ou faire rebondir la page sous le jeu
 window.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
+// iOS ignore user-scalable=no depuis longtemps, pour des raisons
+// d'accessibilité. On refuse donc explicitement ses gestes de zoom.
+for (const g of ['gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(g, e => e.preventDefault(), { passive: false });
+}
+
 // quand personne ne touche l'écran, le viseur revient doucement au centre :
 // l'avion se remet à plat tout seul plutôt que de tourner indéfiniment
 setInterval(() => {
   if (aim.active) return;
-  aim.x += (window.innerWidth / 2 - aim.x) * 0.12;
-  aim.y += (window.innerHeight / 2 - aim.y) * 0.12;
+  aim.x += (window.innerWidth / 2 - aim.x) * 0.22;
+  aim.y += (window.innerHeight / 2 - aim.y) * 0.22;
 }, 16);
 
 // ---------------------------------------------------------------------------
 // dimensionnement
 // ---------------------------------------------------------------------------
 function resize() {
+  window.scrollTo(0, 0);
   const w = window.innerWidth, h = window.innerHeight;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   renderer.setPixelRatio(dpr);
@@ -2087,6 +2109,15 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+
+// Sur iOS, la fenêtre visible change de taille toute seule quand les barres
+// du navigateur se replient, sans toujours émettre un resize sur window. On
+// écoute donc aussi la fenêtre visuelle, et on annule tout défilement résiduel
+// qui laisserait le bas de l'écran vide.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize);
+  window.visualViewport.addEventListener('scroll', resize);
+}
 resize();
 aim.x = window.innerWidth / 2;
 aim.y = window.innerHeight / 2;
