@@ -34,21 +34,31 @@ donc encore d'un produit scalaire.
 un halo qui délave la grille ?), l'intensité de l'éblouissement, et si le
 soleil est fixe dans le monde ou tourne lentement au fil des vagues.
 
-## Modèle d'avion fourni en .obj
+## Split-S, le renversement inverse
 
-Remplacer la silhouette écrite à la main par un vrai modèle. Le rendu restant
-filaire, il faudra en extraire les arêtes vives (seuil d'angle) plutôt que
-tout le maillage, sinon la lecture se perd dans le bruit de triangles.
+Le pendant du renversement Immelmann, déjà en place : demi-tonneau d'abord,
+puis demi-looping vers le bas. On ressort cap inversé comme avec l'Immelmann,
+mais plus bas et plus vite au lieu de plus haut et plus lent.
 
-À décider : conversion en amont et arêtes embarquées dans `index.html` (garde
-le fichier unique, aucun chargement au vol), ou chargement du .obj à
-l'exécution (plus souple, une requête de plus).
+Le couple des deux donne un vrai choix : retourner la situation en montant,
+en payant de la vitesse, ou en descendant, en payant de l'altitude.
+
+Pas encore posé faute d'un endroit sûr où le déclencher : le double tap sous
+l'avion tomberait pile là où le doigt tient déjà le manche.
+
+## Modèle d'avion fourni → fait en v0.4, deuxième modèle en v0.5
+
+Conversion en amont, sommets soudés et géométrie indexée embarquée dans
+`index.html` ; les arêtes vives en sont dérivées au chargement. Le fichier
+reste unique, rien à charger au vol.
 
 ## Collision avec les pylônes
 
-Les pylônes sont pour l'instant purement décoratifs : on les traverse. Leur
-donner un volume rendrait le vol bas dangereux, donc intéressant — raser le
-sol pour semer un poursuivant deviendrait un pari.
+Les pylônes sont pour l'instant purement décoratifs : on les traverse. Depuis
+le passage au trait caché en v0.6 ils ont de vraies faces et masquent ce qu'il
+y a derrière, mais rien ne les rend solides. Leur donner un volume rendrait le
+vol bas dangereux, donc intéressant — raser le sol pour semer un poursuivant
+deviendrait un pari.
 
 ## Son
 
