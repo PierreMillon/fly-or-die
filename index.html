@@ -78,6 +78,19 @@
   .spacer { flex: 1; }
   .dim { color: var(--ph-dim); }
 
+  #sonBtn {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 5px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    flex-shrink: 0;
+  }
+  #sonBtn.off { opacity: 0.3; }
+
   #aideBtn {
     background: none;
     border: 1px solid var(--ph-dim);
@@ -199,8 +212,9 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
+  <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.17</button>
+  <button id="versionBtn">v0.18</button>
 </div>
 
 <div id="bottombar">
@@ -289,6 +303,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.18</b> — caméra rapprochée, l'avion occupe deux fois plus d'écran : le ressort traînait d'un écart constant de 21 unités, il réinjecte maintenant 80 % de la vitesse de l'avion et ne garde que le flottement. Première vague ramenée à un seul biplan, la montée se fait sur onze vagues. Et du son, entièrement synthétisé, sans un fichier : moteur qui monte avec la vitesse, tir sec, accroche, mise en puissance, impacts, destructions, souffles de figures, éraflures. Bouton SON pour couper.</div>
   <div><b>v0.17</b> — quatre adversaires au lieu d'un, chacun avec sa silhouette et sa manière de poursuivre : le biplan en poursuite pure, la courbe du chien de Bouguer ; le chasseur qui se colle dans les six heures ; l'intercepteur en poursuite anticipée, qui résout l'équation du second degré du point de rencontre ; le drone en navigation proportionnelle, celle des missiles, qui braque trois fois plus vite que ne pivote la ligne de visée. Les vagues traversent le siècle : biplans seuls au début, drones à la fin, et les anciens restent en minorité.</div>
   <div><b>v0.16</b> — le jeu se met en pause quand un panneau est ouvert : lire l'aide ne coûte plus la partie. une flèche par ennemi désormais, et sa taille dit la distance : la plus grosse est la plus proche. L'altitude passe d'un chiffre à un curseur entre plancher et plafond. Le décor n'arrête plus l'avion, il l'érafle : on rebondit sur le sol et sur les pylônes en perdant un peu de vie, donc le Split-S bas et le rase-mottes deviennent possibles au lieu d'être refusés. Un bouton d'aide explique le pilotage, le verrouillage et la théorie des courbes de poursuite.</div>
   <div><b>v0.15</b> — l'avion du joueur fait deux fois sa taille, envergure portée de 7,2 à 14,4. Les bouches de canon suivent, et les rayons de collision sont recalés : une cellule deux fois plus large se fait toucher de plus loin.</div>
@@ -391,6 +406,90 @@ const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
 const COL_LOCK      = 0xffffff;
 const COL_BG        = 0x04070a;
+
+// ---------------------------------------------------------------------------
+// Son. Tout est synthétisé à la volée : aucun fichier à charger, le jeu reste
+// un seul index.html. Un contexte audio ne peut naître que d'un geste de
+// l'utilisateur — il est donc créé au clic sur DÉCOLLER.
+// ---------------------------------------------------------------------------
+let actx = null, master = null, bruitBuf = null, moteur = null, moteurG = null;
+let muet = localStorage.getItem('fod_muet') === '1';
+
+function audioDemarre() {
+  if (actx) { actx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  actx = new AC();
+  master = actx.createGain();
+  master.gain.value = muet ? 0 : 0.55;
+  master.connect(actx.destination);
+
+  // une seconde de bruit blanc, réutilisée par tous les souffles
+  bruitBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+  const d = bruitBuf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+
+  // moteur : deux dents de scie légèrement désaccordées, dont la hauteur suit
+  // la vitesse. C'est ce qui fait entendre le piqué.
+  moteurG = actx.createGain();
+  moteurG.gain.value = 0.05;
+  const lp = actx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 420;
+  moteur = [actx.createOscillator(), actx.createOscillator()];
+  moteur.forEach((o, i) => {
+    o.type = 'sawtooth';
+    o.frequency.value = 70 + i * 1.7;
+    o.connect(moteurG);
+    o.start();
+  });
+  moteurG.connect(lp).connect(master);
+}
+
+function ton(f0, f1, dur, type, vol) {
+  if (!actx || muet) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(master);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+
+function souffle(dur, f0, f1, q, vol) {
+  if (!actx || muet || !bruitBuf) return;
+  const t = actx.currentTime;
+  const n = actx.createBufferSource();
+  n.buffer = bruitBuf;
+  n.loop = true;
+  const bp = actx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.Q.value = q;
+  bp.frequency.setValueAtTime(f0, t);
+  if (f1 !== f0) bp.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur);
+  const g = actx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  n.connect(bp).connect(g).connect(master);
+  n.start(t); n.stop(t + dur + 0.02);
+}
+
+// Une signature par action, choisies pour rester distinctes quand tout se
+// superpose : le tir est sec et aigu, l'impact court et bas, la destruction
+// large et grave, les figures sont des souffles qui montent ou descendent.
+const SFX = {
+  tir:          () => souffle(0.045, 2600, 1500, 6, 0.055),
+  accroche:     () => ton(680, 1320, 0.11, 'sine', 0.13),
+  cale:         () => ton(1320, 1760, 0.08, 'sine', 0.09),
+  touche:       () => { ton(150, 62, 0.22, 'square', 0.19); souffle(0.16, 500, 160, 1.2, 0.14); },
+  detruit:      () => { souffle(0.55, 900, 90, 0.9, 0.34); ton(190, 48, 0.45, 'sawtooth', 0.16); },
+  eraflure:     () => souffle(0.3, 1400, 300, 1.4, 0.22),
+  tonneau:      () => souffle(0.5, 300, 1800, 2.2, 0.18),
+  renversement: () => { souffle(0.9, 250, 1500, 1.8, 0.2); ton(220, 520, 0.7, 'triangle', 0.07); },
+  vague:        () => { ton(520, 520, 0.13, 'sine', 0.11); setTimeout(() => ton(784, 784, 0.22, 'sine', 0.11), 130); },
+  fin:          () => { ton(400, 90, 0.9, 'sawtooth', 0.2); souffle(1.0, 700, 70, 0.8, 0.22); }
+};
 
 // ---------------------------------------------------------------------------
 // rendu
@@ -733,6 +832,7 @@ const VAGUES = [
   [0], [0], [0, 0, 1], [0, 1, 1], [0, 1, 1, 2],
   [0, 1, 2, 2], [1, 1, 2, 2, 3], [1, 2, 2, 3, 3], [1, 2, 3, 3, 3], [2, 2, 3, 3, 3, 3]
 ];
+const EFFECTIF = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12];
 const PN_GAIN = 3.2;   // constante de navigation proportionnelle
 
 const matPlayer  = lineMat(COL_TEXT);
@@ -915,7 +1015,10 @@ function placeTower(t, initial) {
 // ---------------------------------------------------------------------------
 function spawnWave() {
   state.wave++;
-  const n = Math.min(3 + state.wave, 12);
+  // Montée en charge : on ouvre sur un seul adversaire, le temps de prendre
+  // l'avion en main. Le tableau remplace la formule qui donnait déjà quatre
+  // biplans dès la première vague.
+  const n = EFFECTIF[Math.min(state.wave - 1, EFFECTIF.length - 1)];
   const pool = VAGUES[Math.min(state.wave - 1, VAGUES.length - 1)];
   const vus = new Set();
   for (let i = 0; i < n; i++) {
@@ -950,6 +1053,7 @@ function spawnWave() {
   }
   // le nom de l'escadrille dit tout de suite à quoi on a affaire
   announce('VAGUE ' + state.wave + '  ·  ' + [...vus].join(' + '));
+  SFX.vague();
 }
 
 const _m4 = new THREE.Matrix4();
@@ -1160,6 +1264,7 @@ function damagePlayer(amount) {
   if (!state.running) return;
   state.structure -= amount;
   state.hitFlash = 1;
+  SFX.touche();
   if (state.structure <= 0) {
     state.structure = 0;
     gameOver();
@@ -1180,7 +1285,11 @@ function updateLock(dt) {
     if (dot > bestDot) { bestDot = dot; best = e; }
   }
 
-  if (best !== state.lock) { state.lock = best; state.lockT = 0; }
+  if (best !== state.lock) {
+    state.lock = best;
+    state.lockT = 0;
+    if (best) SFX.accroche();
+  }
   if (!best) { state.lockCharge = 0; return; }
 
   state.lockT += dt;
@@ -1189,6 +1298,7 @@ function updateLock(dt) {
   // Lâcher pour reprendre une autre cible remet la montée à zéro — mieux vaut
   // finir celle qu'on tient que picorer.
   const charge = Math.min(1, state.lockT / LOCK_SPOOL);
+  if (state.lockCharge < 1 && charge >= 1) SFX.cale();
   state.lockCharge = charge;
   best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge) * dt;
 
@@ -1202,9 +1312,11 @@ function updateLock(dt) {
       const d = new THREE.Vector3().subVectors(best.pos, p).normalize();
       state.shots.push({ pos: p, dir: d, t: 0 });
     }
+    SFX.tir();
   }
 
   if (best.hp <= 0) {
+    SFX.detruit();
     spawnBurst(best.pos, 10);
     scene.remove(best.mesh);
     state.enemies.splice(state.enemies.indexOf(best), 1);
@@ -1226,10 +1338,23 @@ const camOffset = new THREE.Vector3(0, 5.0, 16.0);
 // un peu quand on se remet à plat, et se recale tout seul.
 const camVel = new THREE.Vector3();
 const _cs = new THREE.Vector3();
-function springCamera(desired, dt, k, d) {
+const _cd = new THREE.Vector3();
+const _cv = new THREE.Vector3();
+
+// Part de la vitesse de l'avion réinjectée dans le ressort. Sans elle, un
+// ressort qui suit une cible en mouvement traîne d'un écart constant valant
+// amortissement x vitesse / raideur — mesuré à 21 unités, soit une caméra
+// deux fois et demie trop loin. En laissant passer 18 % de cet écart, on
+// garde le flottement d'un suiveur sans le décrochage permanent.
+const CAM_SUIVI = 0.80;
+
+function springCamera(desired, dt, k, d, vitesse) {
   _cs.subVectors(desired, camera.position).multiplyScalar(k * dt);
   camVel.add(_cs);
-  camVel.multiplyScalar(Math.max(0, 1 - d * dt));
+  // on amortit la vitesse RELATIVE à l'avion, pas la vitesse absolue
+  _cv.copy(vitesse).multiplyScalar(CAM_SUIVI);
+  _cd.subVectors(camVel, _cv).multiplyScalar(d * dt);
+  camVel.sub(_cd);
   camera.position.addScaledVector(camVel, dt);
   if (camera.position.y < 6) {
     camera.position.y = 6;
@@ -1245,6 +1370,7 @@ function step(now) {
 
   // panneau ouvert : le vol s'arrête. Lire l'aide ne doit pas coûter la partie.
   if (state.running && !state.paused) simulate(dt);
+  if (moteurG) moteurG.gain.value = (state.running && !state.paused) ? 0.05 : 0;
   renderer.render(scene, camera);
   drawHud(dt);
 }
@@ -1336,7 +1462,7 @@ function simulate(dt) {
     const lam = 3.5 + 6 * u * u;
     camera.quaternion.slerp(state.quat, 1 - Math.exp(-lam * dt));
     _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
-    springCamera(_v, dt, 55, 12.5);
+    springCamera(_v, dt, 55, 12.5, _cv.copy(state.forward).multiplyScalar(state.speed));
 
     if (u >= 1) {
       // on rend la main exactement là où la figure a mené : cap inversé,
@@ -1407,7 +1533,7 @@ function simulate(dt) {
   const fov = 66 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 12;
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
   _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
-  springCamera(_v, dt, 44, 10.2);
+  springCamera(_v, dt, 44, 10.2, _cv.copy(state.forward).multiplyScalar(state.speed));
 
   updateDecor(dt);
 
@@ -1446,6 +1572,13 @@ function simulate(dt) {
   state.hitFlash = Math.max(0, state.hitFlash - dt * 2.2);
   state.announceT = Math.max(0, state.announceT - dt);
 
+  // le moteur monte avec la vitesse : c'est lui qui fait entendre le piqué
+  if (moteur) {
+    const f = 46 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 62;
+    moteur[0].frequency.value = f;
+    moteur[1].frequency.value = f * 1.02;
+  }
+
   refreshBars();
 }
 
@@ -1458,7 +1591,7 @@ function scrape(dt) {
 
   if (state.pos.y <= FLOOR + 0.5) {
     state.pos.y = FLOOR + 0.5;
-    if (state.scrapeT <= 0) { damagePlayer(5); state.scrapeT = 0.45; }
+    if (state.scrapeT <= 0) { damagePlayer(5); state.scrapeT = 0.45; SFX.eraflure(); }
     state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
     state.speed *= 0.99;
   }
@@ -1468,7 +1601,7 @@ function scrape(dt) {
     if (state.pos.y > TOWER_H * t.scale.y + 6) continue;
     if (Math.abs(state.pos.x - t.position.x) > hx) continue;
     if (Math.abs(state.pos.z - t.position.z) > hz) continue;
-    if (state.scrapeT <= 0) { damagePlayer(7); state.scrapeT = 0.45; }
+    if (state.scrapeT <= 0) { damagePlayer(7); state.scrapeT = 0.45; SFX.eraflure(); }
     _right.set(state.pos.x - t.position.x, 0, state.pos.z - t.position.z);
     if (_right.lengthSq() < 1e-4) _right.set(1, 0, 0);
     _right.normalize();
@@ -1727,6 +1860,16 @@ versionBtn.addEventListener('click', e => {
   aide.hidden = true;
   majPause();
 });
+const sonBtn = document.getElementById('sonBtn');
+sonBtn.classList.toggle('off', muet);
+sonBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  muet = !muet;
+  localStorage.setItem('fod_muet', muet ? '1' : '0');
+  sonBtn.classList.toggle('off', muet);
+  if (master) master.gain.value = muet ? 0 : 0.55;
+});
+
 const aide = document.getElementById('aide');
 const aideBtn = document.getElementById('aideBtn');
 aideBtn.addEventListener('click', e => {
@@ -1761,6 +1904,7 @@ if (!touchMode) {
 }
 
 startBtn.addEventListener('click', () => {
+  audioDemarre();
   overlay.hidden = true;
   resetGame();
   state.running = true;
@@ -1769,6 +1913,7 @@ startBtn.addEventListener('click', () => {
 
 function gameOver() {
   state.running = false;
+  SFX.fin();
   overlayTitle.textContent = 'ABATTU';
   overlayText.innerHTML = 'Plus de vie.';
   overlayScore.hidden = false;
@@ -1841,9 +1986,11 @@ window.addEventListener('pointerdown', e => {
     if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50) {
       state.fig = { t: 0, side, type: dy > 0 ? 'split' : 'imm',
                     base: state.quat.clone(), yaw0: state.yaw };
+      SFX.renversement();
     } else {
       state.spinT = SPIN_TIME;
       state.spinSide = side;
+      SFX.tonneau();
     }
     lastTapT = 0;
   } else {
