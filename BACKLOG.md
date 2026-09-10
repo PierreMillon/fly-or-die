@@ -157,7 +157,7 @@ Bouton COOP au menu, un code court à partager. WebRTC en pair à pair, sans
 serveur de jeu — reste à trancher le rôle d'hôte, ce qui est synchronisé et
 ce qui ne l'est pas.
 
-## Troisième halo : le boost de tir
+## Troisième halo : le boost de tir → fait en v0.51 (surchauffe)
 
 Un état où l'on tire deux fois plus vite et où l'écran vibre. Le déclencheur
 reste à trouver. À ajouter à la planche d'essai des halos, avec le bouclier

@@ -388,7 +388,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.50</button>
+  <button id="versionBtn">v0.51</button>
 </div>
 
 <div id="bottombar">
@@ -586,6 +586,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.51</b> — la surchauffe : chaque appareil abattu rallonge de trois secondes un état où les canons tirent deux fois plus vite et où le cadran tremble. Enchaîner devient plus facile que commencer.</div>
   <div><b>v0.50</b> — les caps peints ne sont plus opposés : le seuil nord porte 05, le cap réel de Hangzhou depuis Bayonne, le seuil sud 01, celui d'Arcachon. La boussole est calée dessus. Le bouton DÉCOLLER descend dans la zone du pouce, et un mécanicien pris de court se jette à terre pour laisser passer l'avion.</div>
   <div><b>v0.49</b> — coopération jusqu'à dix appareils, sans serveur : les navigateurs se parlent directement, on s'échange un code une fois. L'hôte tient le monde, chacun pilote le sien. Vagues alourdies de moitié par appareil, score commun, et reprendre de la vie relève les équipiers à terre.</div>
   <div><b>v0.48</b> — les adversaires ne traversent plus les bâtiments. Le décollage part pile sur l'axe de la piste, les roquettes lâchent quatre fois plus de fumée au départ, et l'échelle de tangage ne monte plus qu'en montée. Boussole : la forme dit le type, la taille dit la distance.</div>
@@ -1074,6 +1075,8 @@ const SFX = {
   arme:         () => { ton(440, 660, 0.07, 'square', 0.07); souffle(0.05, 1400, 700, 5, 0.04); },
   // la poursuite qui s'enclenche : un souffle qui monte, et rien de percussif
   poursuite:    () => { souffle(0.85, 240, 1900, 1.1, 0.16); ton(150, 420, 0.7, 'sawtooth', 0.06); },
+  // la surchauffe : un grondement qui s'installe, sans attaque
+  chauffe:      () => { ton(70, 130, 0.9, 'sawtooth', 0.13); souffle(0.7, 180, 900, 0.8, 0.13); },
   touche:       () => { ton(150, 62, 0.22, 'square', 0.19); souffle(0.16, 500, 160, 1.2, 0.14); },
   detruit:      (pos) => { const { v, sortie } = parDistance(pos);
                           souffle(0.55, 900, 90, 0.9, 0.34 * v, sortie);
@@ -2130,6 +2133,17 @@ const BOOST_GAIN = 2.0;       // ce que devient la vitesse de croisière visée
 const BOOST_LOIN = 620;       // en deçà, il n'y a plus rien à rattraper
 const BOOST_APRES = 0.75;     // ce qui reste de poussée une fois la cible accrochée
 
+// SURCHAUFFE. Abattre relance : chaque appareil détruit rallonge de trois
+// secondes un état où les canons tirent deux fois plus vite et où l'image
+// tremble. Le déclencheur n'est pas une jauge à remplir mais le résultat
+// lui-même — enchaîner devient plus facile que commencer, et une vague bien
+// entamée se termine dans l'élan. C'est le seul endroit du jeu où la
+// récompense d'un abattage sert au suivant plutôt qu'au compteur.
+const CHAUFFE_PAR = 3.0;      // secondes gagnées par appareil abattu
+const CHAUFFE_MAX = 9.0;      // au-delà, on ne cumule plus
+const CHAUFFE_CADENCE = 0.5;  // ce que devient l'intervalle entre deux salves
+const CHAUFFE_SECOUSSE = 3.4; // pixels d'amplitude au maximum
+
 const VIT_SEUIL = 88;         // m/s : en dessous, l'air est invisible
 const VIT_PLEIN = 150;        // m/s : au-dessus, l'effet est à son maximum
 const N_TRAITS = 170;
@@ -2172,6 +2186,10 @@ function semerTrait(i, devant) {
 // aucun n'a jamais bougé.
 function semerTousLesTraits() {
   for (let i = 0; i < N_TRAITS; i++) semerTrait(i, false);
+}
+
+function updateChauffe(dt) {
+  if (state.chauffe > 0) state.chauffe = Math.max(0, state.chauffe - dt);
 }
 
 function updateBoost(dt) {
@@ -2723,6 +2741,7 @@ const state = {
   announceT: 0,
   hitFlash: 0,
   peine: 0,
+  chauffe: 0,
   regime: 0,
   boostFin: 0,
   boost: 0,
@@ -2878,6 +2897,7 @@ function resetGame() {
   state.fumees.length = 0;
   state.boost = 0;
   state.boostT = 0;
+  state.chauffe = 0;
   semerTousLesTraits();
   state.roqT = 0;
   state.gunT = 0;
@@ -3271,6 +3291,9 @@ function abattre(e) {
   state.enemies.splice(i, 1);
   if (state.lock === e) { state.lock = null; state.lockCharge = 0; }
   state.score += 100 + state.wave * 10;
+  const avant = state.chauffe;
+  state.chauffe = Math.min(CHAUFFE_MAX, state.chauffe + CHAUFFE_PAR);
+  if (avant <= 0) SFX.chauffe();
   SFX.detruit(e.pos);
 
   // la bouffée du coup au but : entre cinq et dix boules de tailles très
@@ -3641,7 +3664,8 @@ function updateLock(dt) {
   // une salve part de chaque aile, d'autant plus serrée que le tir est calé
   state.gunT -= dt;
   if (state.gunT <= 0) {
-    state.gunT = SHOT_RATE * (1.6 - 0.6 * charge);
+    state.gunT = SHOT_RATE * (1.6 - 0.6 * charge)
+                 * (state.chauffe > 0 ? CHAUFFE_CADENCE : 1);
     for (const g of [GUN_L, GUN_R]) {
       const p = new THREE.Vector3(g.x, g.y, g.z)
         .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
@@ -4274,6 +4298,7 @@ function simulate(dt) {
   _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
   springCamera(_v, dt, 44, 10.2, _cv.copy(state.forward).multiplyScalar(state.speed));
   updateBoost(dt);
+  updateChauffe(dt);
   updateTraits(dt);
   coopTic(dt);
   updateAmis(dt);
@@ -4713,6 +4738,17 @@ function drawHud() {
   const w = window.innerWidth, h = window.innerHeight;
   hctx.clearRect(0, 0, w, h);
   if (!state.running) return;
+
+  // LA SECOUSSE. Elle porte sur le HUD entier, pas sur la caméra : faire
+  // trembler le monde brouillerait la visée au moment précis où elle compte,
+  // alors qu'un cadran qui vibre se lit comme une machine poussée à bout.
+  const kch = Math.min(1, state.chauffe / CHAUFFE_PAR);
+  if (kch > 0.01) {
+    const t = performance.now() / 1000;
+    hctx.save();
+    hctx.translate(Math.sin(t * 47) * CHAUFFE_SECOUSSE * kch,
+                   Math.sin(t * 39 + 1.7) * CHAUFFE_SECOUSSE * kch);
+  }
 
   const pSelf = project(state.pos);
   state.screenX = pSelf.x;
@@ -5257,6 +5293,25 @@ function drawHud() {
   // quatre traits épais sans rien dire de plus que les dégradés, qui eux
   // portent la direction du coup. Un trait plein ne dit qu'une chose, et
   // elle était déjà dite.
+
+  // CANONS CHAUDS. Un chiffre au-dessus de la jauge de vie dit ce qu'il reste,
+  // et deux traits en chevron l'encadrent : on sait qu'on est dans la fenêtre
+  // et combien de temps elle dure encore.
+  if (kch > 0.01) {
+    hctx.restore();
+    const cy2 = h * 0.885, lg = Math.min(w, h) * 0.13;
+    hctx.save();
+    hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.textAlign = 'center';
+    hctx.fillStyle = 'rgba(190,255,220,' + (0.5 + 0.45 * kch).toFixed(2) + ')';
+    hctx.fillText('CANONS CHAUDS  ' + state.chauffe.toFixed(1) + 's', w / 2, cy2);
+    hctx.strokeStyle = 'rgba(190,255,220,' + (0.3 + 0.5 * kch).toFixed(2) + ')';
+    const q = Math.min(1, state.chauffe / CHAUFFE_MAX);
+    hctx.beginPath();
+    hctx.moveTo(w / 2 - lg * q, cy2 + 9); hctx.lineTo(w / 2 + lg * q, cy2 + 9);
+    hctx.stroke();
+    hctx.restore();
+  }
 }
 
 function bracket(x, y, s, arm) {
