@@ -173,7 +173,7 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
-  <button id="versionBtn">v0.9</button>
+  <button id="versionBtn">v0.10</button>
 </div>
 
 <div id="bottombar">
@@ -184,6 +184,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.10</b> — Split-S : deux appuis sous l'avion, demi-tonneau puis demi-looping vers le bas, cap inversé en descendant là où l'Immelmann l'obtient en montant. Refusé trop près du sol. La figure suit maintenant la direction du geste par rapport à l'avion. Ennemis nettement plus hargneux : rafales de trois coups, cône et portée élargis, virage plus vif, escadrilles plus fournies.</div>
   <div><b>v0.9</b> — la jauge s'appelle LIFE et non plus STRUCT</div>
   <div><b>v0.8</b> — renversement Immelmann : deux appuis rapprochés au-dessus de l'avion, et il part en demi-looping puis se remet à plat par un demi-tonneau, cap inversé et plus haut. De quoi retourner la situation sur un poursuivant. La figure compose les quaternions directement, le modèle de vol ne sachant pas franchir la verticale.</div>
   <div><b>v0.7</b> — deux appuis rapprochés du même côté déclenchent un tonneau de ce côté. C'est une figure, pas un pilotage : le roulis n'a toujours aucune autorité. L'avion se déporte pour de bon pendant la manœuvre, donc l'esquive est réelle ; la caméra, elle, ne suit pas le tour, sinon on perdrait tout repère au moment d'esquiver.</div>
@@ -242,7 +243,8 @@ const STALL         = 66;     // en dessous, le nez retombe malgré la consigne
 const SPIN_TIME     = 0.52;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
-const IMM_TIME      = 1.25;   // durée du renversement Immelmann
+const FIG_TIME      = 1.25;   // durée d'un renversement, Immelmann ou Split-S
+const SPLIT_FLOOR   = 150;    // sous cette altitude, le Split-S finirait dans le sol
 const MAX_YAW       = 1.15;   // rad/s, autorité en lacet à pleine déflexion
 const MAX_PITCH     = 0.95;   // rad/s, autorité en tangage
 const PITCH_LIMIT   = 68 * Math.PI / 180; // jamais la verticale : au-delà l'orientation devient ambiguë
@@ -256,11 +258,13 @@ const LOCK_SPOOL    = 1.8;    // secondes pour monter de l'un à l'autre
 const FLOOR         = 26;     // plancher : on rase le sol sans le traverser
 const CEILING       = 480;    // plafond bas volontaire : la grille au sol est le seul repère de vitesse
 const ENEMY_HP      = 100;
-const ENEMY_SPEED   = [64, 84];
-const ENEMY_TURN    = 0.85;   // rad/s
-const ENEMY_RANGE   = 780;
-const ENEMY_CONE    = Math.cos(11 * Math.PI / 180);
-const ENEMY_RELOAD  = [1.3, 2.6];
+const ENEMY_SPEED   = [72, 94];
+const ENEMY_TURN    = 1.2;    // rad/s
+const ENEMY_RANGE   = 900;
+const ENEMY_CONE    = Math.cos(15 * Math.PI / 180);
+const ENEMY_RELOAD  = [0.8, 1.7];
+const ENEMY_BURST   = 3;      // rafale plutôt qu'un coup sec
+const BURST_GAP     = 0.1;
 const BULLET_SPEED  = 300;
 const BULLET_LIFE   = 3.2;
 const BULLET_HIT    = 7;
@@ -678,7 +682,8 @@ const state = {
   lockCharge: 0,
   spinT: 0,
   spinSide: 0,
-  imm: null,      // renversement en cours
+  fig: null,      // renversement en cours
+  screenX: 0,
   screenY: 0
 };
 
@@ -706,7 +711,7 @@ function resetGame() {
   state.lockT = 0;
   state.lockCharge = 0;
   state.spinT = 0;
-  state.imm = null;
+  state.fig = null;
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
   state.bullets.length = 0;
@@ -728,7 +733,7 @@ function placeTower(t, initial) {
 // ---------------------------------------------------------------------------
 function spawnWave() {
   state.wave++;
-  const n = Math.min(2 + state.wave, 9);
+  const n = Math.min(3 + state.wave, 12);
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2;
     const d = 520 + Math.random() * 420;
@@ -747,7 +752,9 @@ function spawnWave() {
       hp: ENEMY_HP,
       goal: new THREE.Vector3(),
       goalT: 0,
-      reload: 0.8 + Math.random() * 1.5
+      reload: 0.6 + Math.random() * 1.1,
+      burst: 0,
+      burstT: 0
     });
   }
   announce('VAGUE ' + state.wave);
@@ -790,9 +797,9 @@ function updateEnemies(dt) {
     // point de rendez-vous renouvelé régulièrement autour de l'ancre
     e.goalT -= dt;
     if (e.goalT <= 0) {
-      e.goalT = 1.3 + Math.random() * 1.8;
+      e.goalT = 0.9 + Math.random() * 1.3;
       const a = Math.random() * Math.PI * 2;
-      const r = 130 + Math.random() * 320;
+      const r = 95 + Math.random() * 260;
       e.goal.copy(_anchor)
         .addScaledVector(_right, Math.cos(a) * r)
         .addScaledVector(_up, Math.sin(a) * r * 0.55);
@@ -812,13 +819,22 @@ function updateEnemies(dt) {
 
     // tir ennemi : même test de cône que le joueur, en plus large
     _v.multiplyScalar(-1 / dist); // direction ennemi -> joueur
-    e.reload -= dt;
-    if (e.reload <= 0 && dist < ENEMY_RANGE && e.forward.dot(_v) > ENEMY_CONE) {
-      e.reload = ENEMY_RELOAD[0] + Math.random() * (ENEMY_RELOAD[1] - ENEMY_RELOAD[0]);
+    const tirer = () => {
       // légère anticipation, sinon les tirs arrivent toujours dans le dos
       const lead = state.forward.clone().multiplyScalar(state.speed * (dist / BULLET_SPEED) * 0.8);
       const dir = _v.clone().multiplyScalar(dist).add(lead).normalize();
       state.bullets.push({ pos: e.pos.clone(), dir, t: 0 });
+    };
+    e.reload -= dt;
+    if (e.burst > 0) {
+      // une rafale part en trois coups : on peut passer entre, mais rester
+      // aligné devant un ennemi coûte cher
+      e.burstT -= dt;
+      if (e.burstT <= 0) { tirer(); e.burst--; e.burstT = BURST_GAP; }
+    } else if (e.reload <= 0 && dist < ENEMY_RANGE && e.forward.dot(_v) > ENEMY_CONE) {
+      e.reload = ENEMY_RELOAD[0] + Math.random() * (ENEMY_RELOAD[1] - ENEMY_RELOAD[0]);
+      e.burst = ENEMY_BURST;
+      e.burstT = 0;
     }
 
     // collision : se rentrer dedans coûte cher aux deux
@@ -841,7 +857,8 @@ function reenter(e) {
     .addScaledVector(_up, (Math.random() - 0.5) * 240);
   e.pos.y = THREE.MathUtils.clamp(e.pos.y, 90, CEILING);
   e.goalT = 0;
-  e.reload = Math.max(e.reload, 0.6);
+  e.reload = Math.max(e.reload, 0.5);
+  e.burst = 0;
   _m4.lookAt(e.pos, state.pos, _up);
   e.quat.setFromRotationMatrix(_m4);
   e.mesh.position.copy(e.pos);
@@ -857,7 +874,7 @@ function updateBullets(dt) {
     if (b.t > BULLET_LIFE || b.pos.y < 0) { state.bullets.splice(i, 1); continue; }
     if (b.pos.distanceTo(state.pos) < BULLET_HIT) {
       state.bullets.splice(i, 1);
-      damagePlayer(9);
+      damagePlayer(7);
       continue;
     }
     pts.push(
@@ -992,14 +1009,29 @@ function simulate(dt) {
   // Le compte est juste : un demi-tour de tangage suivi d'un demi-tour de
   // roulis équivaut exactement à un demi-tour de lacet. L'avion ressort donc
   // à plat, cap à 180 degrés, sans dérive à rattraper.
-  if (state.imm) {
-    const im = state.imm;
+  if (state.fig) {
+    const im = state.fig;
     im.t += dt;
-    const u = Math.min(1, im.t / IMM_TIME);
-    const loop = Math.min(1, u / 0.62);                     // demi-looping
-    const roll = Math.max(0, (u - 0.62) / 0.38);            // puis demi-tonneau
-    _qa.setFromAxisAngle(_ax, Math.PI * (1 - Math.cos(Math.PI * loop)) / 2);
-    _qb.setFromAxisAngle(_az, Math.PI * roll * im.side);
+    const u = Math.min(1, im.t / FIG_TIME);
+    // adoucissement en cosinus : le demi-looping démarre et finit sans à-coup
+    const ease = x => (1 - Math.cos(Math.PI * x)) / 2;
+    if (im.type === 'split') {
+      // Split-S : demi-tonneau d'abord, demi-looping vers le bas ensuite.
+      // Sur le dos, tirer sur le manche emmène vers le sol — d'où le cap
+      // inversé en descendant, là où l'Immelmann l'obtient en montant.
+      const roll = Math.min(1, u / 0.34);
+      const loop = Math.max(0, (u - 0.34) / 0.66);
+      _qa.setFromAxisAngle(_az, Math.PI * roll * im.side);
+      _qb.setFromAxisAngle(_ax, Math.PI * ease(loop));
+    } else {
+      const loop = Math.min(1, u / 0.62);                   // demi-looping
+      const roll = Math.max(0, (u - 0.62) / 0.38);          // puis demi-tonneau
+      _qa.setFromAxisAngle(_ax, Math.PI * ease(loop));
+      _qb.setFromAxisAngle(_az, Math.PI * roll * im.side);
+    }
+    // dans les deux cas la composition vaut un demi-tour de lacet : un
+    // demi-tour de tangage et un demi-tour de roulis s'y ramènent, quel que
+    // soit l'ordre. L'avion ressort donc à plat, cap inversé.
     state.quat.copy(im.base).multiply(_qa).multiply(_qb);
     state.forward.set(0, 0, -1).applyQuaternion(state.quat);
     state.pos.addScaledVector(state.forward, state.speed * dt);
@@ -1026,7 +1058,7 @@ function simulate(dt) {
       state.camYaw = state.yaw;
       state.camPitch = 0;
       state.camRoll = 0;
-      state.imm = null;
+      state.fig = null;
     }
     updateEnemies(dt);
     updateBullets(dt);
@@ -1162,7 +1194,9 @@ function drawHud() {
   hctx.clearRect(0, 0, w, h);
   if (!state.running) return;
 
-  state.screenY = project(state.pos).y;
+  const pSelf = project(state.pos);
+  state.screenX = pSelf.x;
+  state.screenY = pSelf.y;
 
   hctx.lineWidth = 1.5;
   hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
@@ -1415,10 +1449,19 @@ window.addEventListener('pointerdown', e => {
   // côté, un tonneau du côté touché.
   const side = e.clientX >= window.innerWidth / 2 ? 1 : -1;
   const now = performance.now();
-  const libre = state.running && state.spinT <= 0 && !state.imm;
+  const libre = state.running && state.spinT <= 0 && !state.fig;
   if (libre && now - lastTapT < DOUBLE_TAP && side === lastTapSide) {
-    if (e.clientY < state.screenY - 70) {
-      state.imm = { t: 0, side, base: state.quat.clone(), yaw0: state.yaw };
+    // la figure suit la direction du geste par rapport à l'avion : au-dessus
+    // on renverse par le haut, en dessous par le bas, sur le côté on tonneau
+    const dx = e.clientX - state.screenX;
+    const dy = e.clientY - state.screenY;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50) {
+      if (dy > 0 && state.pos.y < SPLIT_FLOOR) {
+        announce('TROP BAS');
+      } else {
+        state.fig = { t: 0, side, type: dy > 0 ? 'split' : 'imm',
+                      base: state.quat.clone(), yaw0: state.yaw };
+      }
     } else {
       state.spinT = SPIN_TIME;
       state.spinSide = side;

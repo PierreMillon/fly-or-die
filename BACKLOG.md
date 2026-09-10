@@ -34,17 +34,19 @@ donc encore d'un produit scalaire.
 un halo qui délave la grille ?), l'intensité de l'éblouissement, et si le
 soleil est fixe dans le monde ou tourne lentement au fil des vagues.
 
-## Split-S, le renversement inverse
+## Split-S, le renversement inverse → fait en v0.10
 
-Le pendant du renversement Immelmann, déjà en place : demi-tonneau d'abord,
-puis demi-looping vers le bas. On ressort cap inversé comme avec l'Immelmann,
-mais plus bas et plus vite au lieu de plus haut et plus lent.
+Le pendant de l'Immelmann : demi-tonneau d'abord, puis demi-looping vers le
+bas. Cap inversé comme l'Immelmann, mais plus bas et plus vite au lieu de plus
+haut et plus lent. Le couple des deux donne un vrai choix : retourner la
+situation en payant de la vitesse, ou en payant de l'altitude.
 
-Le couple des deux donne un vrai choix : retourner la situation en montant,
-en payant de la vitesse, ou en descendant, en payant de l'altitude.
+La figure suit la direction du geste par rapport à l'avion — au-dessus,
+en dessous, sur le côté — ce qui a réglé du même coup la question de savoir
+où le déclencher sans marcher sur le manche.
 
-Pas encore posé faute d'un endroit sûr où le déclencher : le double tap sous
-l'avion tomberait pile là où le doigt tient déjà le manche.
+Refusé sous 150 unités d'altitude, avec un message : sinon la figure finit
+dans le sol.
 
 ## Modèle d'avion fourni → fait en v0.4, deuxième modèle en v0.5
 
