@@ -388,7 +388,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.49</button>
+  <button id="versionBtn">v0.50</button>
 </div>
 
 <div id="bottombar">
@@ -586,6 +586,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.50</b> — les caps peints ne sont plus opposés : le seuil nord porte 05, le cap réel de Hangzhou depuis Bayonne, le seuil sud 01, celui d'Arcachon. La boussole est calée dessus. Le bouton DÉCOLLER descend dans la zone du pouce, et un mécanicien pris de court se jette à terre pour laisser passer l'avion.</div>
   <div><b>v0.49</b> — coopération jusqu'à dix appareils, sans serveur : les navigateurs se parlent directement, on s'échange un code une fois. L'hôte tient le monde, chacun pilote le sien. Vagues alourdies de moitié par appareil, score commun, et reprendre de la vie relève les équipiers à terre.</div>
   <div><b>v0.48</b> — les adversaires ne traversent plus les bâtiments. Le décollage part pile sur l'axe de la piste, les roquettes lâchent quatre fois plus de fumée au départ, et l'échelle de tangage ne monte plus qu'en montée. Boussole : la forme dit le type, la taille dit la distance.</div>
   <div><b>v0.47</b> — le manche répond à la distance au centre et non à chaque axe : il était très inégal hors des axes. L'avion ne disparaît plus une fois posé cap au sud, et la caméra ne fait plus le tour au redécollage.</div>
@@ -2381,6 +2382,9 @@ function poserMecanos() {
     m.but.copy(m.p);
     m.t = Math.random() * 1.5;
     m.fuite = 0;
+    m.plaque = undefined;
+    m.couche = 0;
+    m.g.rotation.set(0, 0, 0);
     m.g.visible = true;
     m.g.position.copy(m.p);
   });
@@ -2394,13 +2398,24 @@ function updateMecanos(dt) {
   for (const m of mecanos) {
     if (!m.g.visible) continue;
     if (m.fuite > 0) {
-      // ils dégagent perpendiculairement à la piste, puis disparaissent
       m.fuite -= dt;
-      // moitié moins vite : ils s'écartent, ils ne détalent pas
-      m.p.x += m.cote * 31 * dt;
-      m.g.position.copy(m.p);
-      m.g.rotation.y = m.cote > 0 ? -Math.PI / 2 : Math.PI / 2;
-      if (m.fuite <= 0) m.g.visible = false;
+      // CELUI QUI EST DEVANT N'A PAS LE TEMPS. Plutôt que de courir vers un
+      // bord qu'il n'atteindra pas, il se jette à terre et laisse passer
+      // l'appareil au-dessus de lui. C'est ce que font les vrais.
+      if (m.plaque === undefined) {
+        m.plaque = Math.abs(m.p.x - state.pos.x) < 4.5 && m.p.z < state.pos.z;
+      }
+      if (m.plaque) {
+        m.couche = Math.min(1, (m.couche || 0) + dt * 3.4);
+        m.g.rotation.set(-m.couche * Math.PI / 2, m.g.rotation.y, 0);
+        m.g.position.set(m.p.x, PISTE.y + 0.1, m.p.z + m.couche * 0.9);
+      } else {
+        // moitié moins vite : ils s'écartent, ils ne détalent pas
+        m.p.x += m.cote * 31 * dt;
+        m.g.position.copy(m.p);
+        m.g.rotation.set(0, m.cote > 0 ? -Math.PI / 2 : Math.PI / 2, 0);
+      }
+      if (m.fuite <= 0) { m.g.visible = false; m.plaque = undefined; m.couche = 0; }
       continue;
     }
     // marche lente d'un poste à l'autre, avec des pauses : ça bricole

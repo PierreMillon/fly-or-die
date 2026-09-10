@@ -177,17 +177,17 @@ faire.
 
 Le tout premier modèle dessiné à la main, avant le STL, revient comme skin.
 
-## Un mécanicien qui n'a pas le temps
+## Un mécanicien qui n'a pas le temps → fait en v0.50
 
 S'il est encore devant l'avion au moment du départ, il se jette à terre et
 se couche pour laisser passer.
 
-## Caps de piste tricheurs
+## Caps de piste tricheurs → fait en v0.50
 
 Une direction pointe vers Hangzhou, l'autre vers Arcachon, calculées depuis
 Bayonne — donc pas à 180 degrés l'une de l'autre.
 
-## Bouton DÉCOLLER sous l'avion
+## Bouton DÉCOLLER sous l'avion → fait en v0.50
 
 Dans la zone du pouce, en bas de l'écran.
 
