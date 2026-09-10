@@ -173,7 +173,7 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
-  <button id="versionBtn">v0.12</button>
+  <button id="versionBtn">v0.14</button>
 </div>
 
 <div id="bottombar">
@@ -184,6 +184,8 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.14</b> — les traçantes partent des deux mitrailleuses d'aile, relevées sur le modèle, et convergent sur la cible comme des armes harmonisées ; ce sont de vraies balles qui filent et finissent leur course, plus un rayon instantané. La caméra n'est plus collée à sa place : un ressort amorti l'y rappelle et elle garde sa propre vitesse, comme un second avion qui tient la formation.</div>
+  <div><b>v0.13</b> — le cercle qui suivait la commande et le trait qui le reliait à la croix ont sauté. Il ne reste que la croix de visée, sur l'axe réel des canons, et c'est elle qui porte maintenant la montée en puissance. Au doigt, c'est le manche qui montre la commande ; à la souris, c'est le curseur.</div>
   <div><b>v0.12</b> — il faut deux fois plus longtemps pour abattre une cible, et le viseur lui-même raconte la montée en puissance : il se resserre, quatre arcs tournent autour de lui de plus en plus vite, il vibre et blanchit, puis quatre dards rentrent vers le centre une fois le tir calé.</div>
   <div><b>v0.11</b> — figures adoucies : le demi-tonneau partait sec après le demi-looping, les deux phases s'enchaînent maintenant sans à-coup. La caméra suit de loin au début puis se resserre, et la reprise en main repart de son orientation réelle au lieu de la forcer sur celle de l'avion — l'image ne claque plus à la sortie de figure.</div>
   <div><b>v0.10</b> — Split-S : deux appuis sous l'avion, demi-tonneau puis demi-looping vers le bas, cap inversé en descendant là où l'Immelmann l'obtient en montant. Refusé trop près du sol. La figure suit maintenant la direction du geste par rapport à l'avion. Ennemis nettement plus hargneux : rafales de trois coups, cône et portée élargis, virage plus vif, escadrilles plus fournies.</div>
@@ -271,6 +273,16 @@ const BULLET_SPEED  = 300;
 const BULLET_LIFE   = 3.2;
 const BULLET_HIT    = 7;
 const RAM_DIST      = 9;
+// Bouches des deux mitrailleuses, relevées sur le modèle lui-même : ce sont
+// les nacelles d'aile, à 30 % de la demi-envergure. Les traçantes partent de
+// là et convergent sur la cible — c'est le réglage d'harmonisation des armes
+// d'aile, réglées pour se croiser à distance de tir plutôt que rester
+// parallèles.
+const GUN_L         = { x: -1.077, y: 0.082, z: -2.015 };
+const GUN_R         = { x:  1.071, y: 0.082, z: -2.015 };
+const SHOT_SPEED    = 900;
+const SHOT_LEN      = 26;     // longueur du trait laissé par une traçante
+const SHOT_RATE     = 0.075;  // secondes entre deux salves
 const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
 const COL_LOCK      = 0xffffff;
@@ -681,6 +693,8 @@ const state = {
   bullets: [],
   lock: null,
   lockT: 0,
+  shots: [],
+  gunT: 0,
   lockCharge: 0,
   spinT: 0,
   spinSide: 0,
@@ -717,6 +731,9 @@ function resetGame() {
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
   state.bullets.length = 0;
+  state.shots.length = 0;
+  state.gunT = 0;
+  camVel.set(0, 0, 0);
   aim.x = 0; aim.y = 0; aim.active = false;
   for (const t of towers) placeTower(t, true);
   announce('VAGUE 1');
@@ -867,6 +884,23 @@ function reenter(e) {
   e.mesh.quaternion.copy(e.quat);
 }
 
+// les traçantes du joueur vivent leur vie une fois parties : elles finissent
+// leur course même si la cible est perdue entre-temps
+function updateShots(dt) {
+  const pts = [];
+  for (let i = state.shots.length - 1; i >= 0; i--) {
+    const sh = state.shots[i];
+    sh.t += dt;
+    if (sh.t > 0.85) { state.shots.splice(i, 1); continue; }
+    sh.pos.addScaledVector(sh.dir, SHOT_SPEED * dt);
+    pts.push(
+      sh.pos.x, sh.pos.y, sh.pos.z,
+      sh.pos.x - sh.dir.x * SHOT_LEN, sh.pos.y - sh.dir.y * SHOT_LEN, sh.pos.z - sh.dir.z * SHOT_LEN
+    );
+  }
+  feedTracers(playerTracers, pts);
+}
+
 function updateBullets(dt) {
   const pts = [];
   for (let i = state.bullets.length - 1; i >= 0; i--) {
@@ -912,7 +946,7 @@ function updateLock(dt) {
   }
 
   if (best !== state.lock) { state.lock = best; state.lockT = 0; }
-  if (!best) { feedTracers(playerTracers, []); state.lockCharge = 0; return; }
+  if (!best) { state.lockCharge = 0; return; }
 
   state.lockT += dt;
 
@@ -923,17 +957,15 @@ function updateLock(dt) {
   state.lockCharge = charge;
   best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge) * dt;
 
-  // les traçantes clignotent à l'accroche puis deviennent continues : c'est le
-  // signal le plus direct que la puissance est montée
-  if (charge > 0.7 || (performance.now() / 45 | 0) % 2 === 0) {
-    const l = new THREE.Vector3(-2.4, -0.2, 0.6).applyQuaternion(state.quat).add(state.pos);
-    const r = new THREE.Vector3(2.4, -0.2, 0.6).applyQuaternion(state.quat).add(state.pos);
-    feedTracers(playerTracers, [
-      l.x, l.y, l.z, best.pos.x, best.pos.y, best.pos.z,
-      r.x, r.y, r.z, best.pos.x, best.pos.y, best.pos.z
-    ]);
-  } else {
-    feedTracers(playerTracers, []);
+  // une salve part de chaque aile, d'autant plus serrée que le tir est calé
+  state.gunT -= dt;
+  if (state.gunT <= 0) {
+    state.gunT = SHOT_RATE * (1.6 - 0.6 * charge);
+    for (const g of [GUN_L, GUN_R]) {
+      const p = new THREE.Vector3(g.x, g.y, g.z).applyQuaternion(state.quat).add(state.pos);
+      const d = new THREE.Vector3().subVectors(best.pos, p).normalize();
+      state.shots.push({ pos: p, dir: d, t: 0 });
+    }
   }
 
   if (best.hp <= 0) {
@@ -951,6 +983,23 @@ function updateLock(dt) {
 // le modèle est un avion à panneaux plats : vu strictement de derrière il
 // se réduit à un trait. La caméra le surplombe un peu pour montrer la voilure.
 const camOffset = new THREE.Vector3(0, 5.0, 16.0);
+
+// La caméra ne se colle plus à sa place idéale : elle y est rappelée par un
+// ressort amorti et garde sa propre vitesse. Elle se comporte donc comme un
+// second avion qui tient la formation — il traîne dans les virages, dépasse
+// un peu quand on se remet à plat, et se recale tout seul.
+const camVel = new THREE.Vector3();
+const _cs = new THREE.Vector3();
+function springCamera(desired, dt, k, d) {
+  _cs.subVectors(desired, camera.position).multiplyScalar(k * dt);
+  camVel.add(_cs);
+  camVel.multiplyScalar(Math.max(0, 1 - d * dt));
+  camera.position.addScaledVector(camVel, dt);
+  if (camera.position.y < 6) {
+    camera.position.y = 6;
+    if (camVel.y < 0) camVel.y = 0;
+  }
+}
 let last = performance.now();
 
 function step(now) {
@@ -1051,8 +1100,7 @@ function simulate(dt) {
     const lam = 3.5 + 6 * u * u;
     camera.quaternion.slerp(state.quat, 1 - Math.exp(-lam * dt));
     _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
-    camera.position.lerp(_v, 1 - Math.exp(-7 * dt));
-    if (camera.position.y < 6) camera.position.y = 6;
+    springCamera(_v, dt, 55, 12.5);
 
     if (u >= 1) {
       // on rend la main exactement là où la figure a mené : cap inversé,
@@ -1072,6 +1120,7 @@ function simulate(dt) {
     updateEnemies(dt);
     updateBullets(dt);
     updateLock(dt);
+    updateShots(dt);
     updateDecor(dt);
     refreshBars();
     return;
@@ -1113,16 +1162,15 @@ function simulate(dt) {
 
   // --- caméra : elle traîne derrière et ne prend qu'une part du roulis,
   // sinon l'horizon bascule trop et on perd ses repères
-  state.camYaw   = dampAngle(state.camYaw, state.yaw, 7.5, dt);
-  state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 7.5, dt);
+  state.camYaw   = dampAngle(state.camYaw, state.yaw, 5.2, dt);
+  state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 5.2, dt);
   state.camRoll  = THREE.MathUtils.damp(state.camRoll, state.roll * 0.45, 6, dt);
   euler.set(state.camPitch, state.camYaw, state.camRoll);
   camera.quaternion.setFromEuler(euler);
   const fov = 66 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 12;
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
   _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
-  camera.position.lerp(_v, 1 - Math.exp(-11 * dt));
-  if (camera.position.y < 6) camera.position.y = 6;
+  springCamera(_v, dt, 44, 10.2);
 
   updateDecor(dt);
 
@@ -1130,6 +1178,7 @@ function simulate(dt) {
   updateEnemies(dt);
   updateBullets(dt);
   updateLock(dt);
+  updateShots(dt);
 
   // --- vagues
   if (state.enemies.length === 0) {
@@ -1212,19 +1261,58 @@ function drawHud() {
   hctx.textAlign = 'center';
   hctx.textBaseline = 'middle';
 
-  // marqueur de nez : la vraie direction de l'avion, pas le centre de l'écran
+  // La croix de visée, seule à l'écran désormais : elle marque l'axe des canons,
+  // c'est-à-dire la direction réelle de l'avion et non le centre de l'écran.
+  // Le cercle qui suivait la commande et le trait qui l'y reliait ont sauté —
+  // c'est ici que se joue le tir, le reste ne faisait que doubler l'information.
+  //
+  // C'est donc elle qui porte la montée en puissance : elle se resserre, quatre
+  // arcs tournent autour d'elle de plus en plus vite, elle vibre et blanchit,
+  // puis quatre dards rentrent vers le centre une fois le tir calé.
   const nose = project(_v.copy(state.forward).multiplyScalar(1500).add(state.pos));
   if (nose.front) {
-    hctx.strokeStyle = 'rgba(143,252,196,0.85)';
+    const ch = state.lock ? state.lockCharge : 0;
+    const jit = () => (Math.random() - 0.5) * 2.4 * ch;
+    const cx = nose.x + jit(), cy = nose.y + jit();
+    const br = 13 - 3 * ch;   // longueur des bras
+    const gp = 4 + 2 * ch;    // trou central, qui s'ouvre en se calant
+
+    hctx.strokeStyle = ch > 0
+      ? 'rgba(' + Math.round(143 + 112 * ch) + ', 255, ' + Math.round(196 + 59 * ch) + ', '
+        + (0.85 + 0.15 * ch).toFixed(2) + ')'
+      : 'rgba(143,252,196,0.85)';
+    hctx.lineWidth = 1.5 + ch;
     hctx.beginPath();
-    hctx.moveTo(nose.x - 13, nose.y); hctx.lineTo(nose.x - 4, nose.y);
-    hctx.moveTo(nose.x + 4, nose.y);  hctx.lineTo(nose.x + 13, nose.y);
-    hctx.moveTo(nose.x, nose.y - 13); hctx.lineTo(nose.x, nose.y - 4);
-    hctx.moveTo(nose.x, nose.y + 4);  hctx.lineTo(nose.x, nose.y + 13);
+    hctx.moveTo(cx - br, cy); hctx.lineTo(cx - gp, cy);
+    hctx.moveTo(cx + gp, cy); hctx.lineTo(cx + br, cy);
+    hctx.moveTo(cx, cy - br); hctx.lineTo(cx, cy - gp);
+    hctx.moveTo(cx, cy + gp); hctx.lineTo(cx, cy + br);
     hctx.stroke();
+
+    if (ch > 0) {
+      const spin = performance.now() / 1000 * (0.8 + 5.5 * ch);
+      const R2 = 20 - 5 * ch;
+      for (let i = 0; i < 4; i++) {
+        const a0 = spin + i * Math.PI / 2;
+        hctx.beginPath();
+        hctx.arc(cx, cy, R2, a0, a0 + 0.45 + 0.5 * ch);
+        hctx.stroke();
+      }
+      if (ch >= 1) {
+        for (let i = 0; i < 4; i++) {
+          const a0 = spin + i * Math.PI / 2 + Math.PI / 4;
+          hctx.beginPath();
+          hctx.moveTo(cx + Math.cos(a0) * (R2 - 3), cy + Math.sin(a0) * (R2 - 3));
+          hctx.lineTo(cx + Math.cos(a0) * (R2 - 12), cy + Math.sin(a0) * (R2 - 12));
+          hctx.stroke();
+        }
+      }
+    }
+    hctx.lineWidth = 1.5;
   }
 
-  // le manche flottant, dessiné là où le doigt s'est posé
+  // le manche flottant, dessiné là où le doigt s'est posé : c'est lui, au doigt,
+  // qui montre la commande — plus besoin d'un curseur pour ça
   if (joy.on) {
     const R = joyRadius();
     hctx.strokeStyle = 'rgba(70,255,160,0.22)';
@@ -1233,52 +1321,6 @@ function drawHud() {
     hctx.beginPath(); hctx.arc(joy.x, joy.y, 15, 0, Math.PI * 2); hctx.stroke();
     hctx.beginPath();
     hctx.moveTo(joy.ox, joy.oy); hctx.lineTo(joy.x, joy.y); hctx.stroke();
-  }
-
-  // Le viseur, déporté par le manche au doigt, posé sur le curseur à la souris.
-  // Il raconte aussi la montée en puissance du tir : plus on tient la cible,
-  // plus il se resserre, plus ses arcs tournent vite, et plus il blanchit.
-  const ch = state.lock ? state.lockCharge : 0;
-  const jit = () => (Math.random() - 0.5) * 2.4 * ch;
-  const ax = aim.x + jit(), ay = aim.y + jit();
-  const rr = 22 - 7 * ch;
-
-  hctx.strokeStyle = ch > 0
-    ? 'rgba(' + Math.round(70 + 185 * ch) + ', 255, ' + Math.round(160 + 95 * ch) + ', '
-      + (0.55 + 0.45 * ch).toFixed(2) + ')'
-    : (aim.active ? 'rgba(70,255,160,0.9)' : 'rgba(70,255,160,0.35)');
-  hctx.lineWidth = 1.5 + ch;
-  hctx.beginPath(); hctx.arc(ax, ay, rr, 0, Math.PI * 2); hctx.stroke();
-  hctx.beginPath(); hctx.arc(ax, ay, 2.5, 0, Math.PI * 2); hctx.stroke();
-
-  if (ch > 0) {
-    const spin = performance.now() / 1000 * (0.8 + 5.5 * ch);
-    const R2 = rr + 8;
-    for (let i = 0; i < 4; i++) {
-      const a0 = spin + i * Math.PI / 2;
-      hctx.beginPath();
-      hctx.arc(ax, ay, R2, a0, a0 + 0.45 + 0.5 * ch);
-      hctx.stroke();
-    }
-    if (ch >= 1) {
-      // calé : quatre dards rentrent vers le centre
-      for (let i = 0; i < 4; i++) {
-        const a0 = spin + i * Math.PI / 2 + Math.PI / 4;
-        hctx.beginPath();
-        hctx.moveTo(ax + Math.cos(a0) * (rr + 4), ay + Math.sin(a0) * (rr + 4));
-        hctx.lineTo(ax + Math.cos(a0) * (rr - 6), ay + Math.sin(a0) * (rr - 6));
-        hctx.stroke();
-      }
-    }
-  }
-  hctx.lineWidth = 1.5;
-
-  if (nose.front) {
-    hctx.strokeStyle = 'rgba(70,255,160,0.22)';
-    hctx.beginPath();
-    hctx.moveTo(nose.x, nose.y);
-    hctx.lineTo(ax, ay);
-    hctx.stroke();
   }
 
   // cadres de désignation, et flèche vers la cible la plus proche hors champ
