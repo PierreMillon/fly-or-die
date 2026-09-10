@@ -206,6 +206,19 @@
   #overlayText { margin: 0; font-size: 13px; line-height: 1.7; color: var(--ph-text); max-width: 30em; }
   #overlayScore { margin: 0; font-size: 13px; color: var(--ph-dim); letter-spacing: 0.15em; }
 
+  #videoBtn {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 6px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    padding: 10px 18px;
+    max-width: 90vw;
+  }
+  #videoBtn[disabled] { opacity: 0.35; }
+
   #startBtn {
     background: var(--ph-fill);
     border: 1px solid var(--ph-line);
@@ -226,10 +239,11 @@
 <div id="topbar">
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
+  <span id="chronoLbl" class="dim"></span>
   <span class="spacer"></span>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.28</button>
+  <button id="versionBtn">v0.30</button>
 </div>
 
 <div id="bottombar">
@@ -328,6 +342,8 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.30</b> — les balles ennemies ne traversent plus l'avion sans le toucher : on teste tout le segment parcouru dans l'image et non le seul point d'arrivée. À 300 mètres par seconde, une balle avance de dix mètres par image quand la cadence tombe à trente, soit plus que le rayon de la cellule — le coup passait au travers, défaut invisible sur une machine rapide. les coups se voient du côté d'où ils viennent : un dégradé monte du bord touché et retombe en une demi-seconde, dessous quand on racle le sol, à gauche ou à droite quand on frotte une tour. Pas d'éclair plein cadre, moins lisible et risqué pour qui craint les flashs. Nettoyer une vague rend maintenant quelque chose, selon la manière : dans le chrono, la vie repart à plein ; sans une égratignure, un bouclier de dix impacts s'allume autour de l'avion ; les deux à la fois donnent tout. Et sur l'écran de fin, un bouton propose de reprendre contre une vidéo — la régie viendra plus tard, en attendant il le dit et offre la reprise.</div>
+  <div><b>v0.29</b> — des arches apparaissent dans le paysage, en U renversé à la manière de la Grande Arche : 96 mètres de passage sur 74 de hauteur sous poutre, de quoi les traverser à huit envergures près. Le vide en est vraiment un — l'arche est trois volumes solides distincts, deux piles et une poutre, et le passage n'en fait pas partie. Elles s'orientent au quart de tour pour qu'on les aborde de face ou de profil.</div>
   <div><b>v0.28</b> — l'écart de taille entre les flèches de désignation passe de un à quatre à un à huit : la menace immédiate se distingue enfin du lointain d'un seul coup d'oeil.</div>
   <div><b>v0.27</b> — l'écart de vitesse avec les adversaires se resserre : on les rattrapait si vite qu'on n'avait pas le temps de se caler derrière. Le biplan passe de 56-70 à 74-84, les autres suivent. L'indicateur d'altitude perd son triangle, qu'on confondait avec les flèches de désignation, au profit d'un simple trait. un horizon artificiel en haut à gauche : la ligne descend quand le nez monte, s'incline en sens inverse du virage, et l'assiette est chiffrée dessous. En plein ciel on ne savait plus si l'on montait ou si l'on descendait. Les 128 petits détails des flancs de nacelle sont remis : ils font 8,5 cm de long, indéchiffrables quand l'avion était petit et loin, lisibles comme une texture fine maintenant qu'il est grand et près. L'indicateur de vitesse chiffré disparaît, le moteur le dit mieux. se rentrer dans un ennemi ne coûte plus de vie et ne le détruit plus : c'est un frôlement, il souffle et chacun continue. Récompenser la collision revenait à faire de l'éperonnage la meilleure arme du jeu. un ciel étoilé, posé sur une sphère qui suit la caméra sans jamais tourner : la direction des étoiles est fixe où qu'on aille, comme un vrai ciel, et le cap redevient lisible d'un coup d'oeil. La visée gagne en finesse : la courbe de commande ne donne plus qu'un cinquième de l'autorité à mi-course, contre un tiers avant, tandis que l'autorité maximale monte de 112 à 123 degrés par seconde. Le magnétisme est renforcé de moitié et porte un peu plus loin.</div>
   <div><b>v0.26</b> — les cibles ne se laissent plus faire : tenue sous le feu, une cible rompt perpendiculairement à la ligne de tir en changeant d'altitude. Pour que ça reste jouable, la montée en puissance appartient désormais à la cible et non au tireur : elle retombe au lieu de s'effacer, et reprend où elle en était si on la retrouve vite. Caméra collée au décollage, sans le saut qu'il y avait au passage en vol libre — elle suivait le vecteur nez alors que l'avion suivait une courbe imposée. La caméra prend un tiers du tonneau, en décalé. Et le moteur redescend dans les graves, plus bas qu'avant sa dernière retouche.</div>
@@ -366,6 +382,7 @@
   </p>
   <p id="overlayScore" hidden></p>
   <button id="startBtn">DÉCOLLER</button>
+  <button id="videoBtn" hidden>REGARDER UNE VIDÉO · REPRENDRE</button>
 </div>
 
 <script>
@@ -561,6 +578,12 @@ const SFX = {
   detruit:      () => { souffle(0.55, 900, 90, 0.9, 0.34); ton(190, 48, 0.45, 'sawtooth', 0.16); },
   eraflure:     () => souffle(0.3, 1400, 300, 1.4, 0.22),
   frolement:    () => souffle(0.34, 2600, 280, 0.9, 0.2),
+  bouclier:     () => { ton(880, 1400, 0.12, 'sine', 0.14); souffle(0.14, 3000, 900, 3, 0.09); },
+  bouclierOn:   () => { ton(400, 1200, 0.5, 'sine', 0.15); setTimeout(() => ton(600, 1800, 0.45, 'sine', 0.12), 120); },
+  bouclierFin:  () => ton(900, 260, 0.5, 'triangle', 0.13),
+  vagueNette:   () => { ton(620, 620, 0.14, 'sine', 0.13);
+                        setTimeout(() => ton(830, 830, 0.14, 'sine', 0.13), 140);
+                        setTimeout(() => ton(1244, 1244, 0.34, 'sine', 0.13), 280); },
   tonneau:      () => souffle(0.5, 300, 1800, 2.2, 0.18),
   renversement: () => { souffle(0.9, 250, 1500, 1.8, 0.2); ton(220, 520, 0.7, 'triangle', 0.07); },
   vague:        () => { ton(520, 520, 0.13, 'sine', 0.11); setTimeout(() => ton(784, 784, 0.22, 'sine', 0.11), 130); },
@@ -1199,7 +1222,10 @@ const EFFECTIF = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12];
 const PN_GAIN = 3.2;
 const ESQUIVE_DUREE = [1.0, 1.6];  // secondes de dégagement quand on est visé
 const ESQUIVE_REPOS  = 0.8;        // avant de pouvoir recommencer
-const CHARGE_DECROIT = 0.8;        // la montée en puissance retombe, elle ne s'efface pas   // constante de navigation proportionnelle
+const CHARGE_DECROIT = 0.8;        // la montée en puissance retombe, elle ne s'efface pas
+const BOUCLIER_COUPS = 10;         // impacts absorbés avant évaporation
+const LIMITE_BASE    = 9;          // chrono d'une vague : base plus tant par appareil
+const LIMITE_PAR     = 4.5;   // constante de navigation proportionnelle
 
 const matPlayer  = lineMat(COL_TEXT);
 const matEnemy   = lineMat(COL_LINE);
@@ -1288,6 +1314,64 @@ const towerGeom = new THREE.BoxGeometry(18, TOWER_H, 18).translate(0, TOWER_H / 
 const towerEdges = new THREE.EdgesGeometry(towerGeom, 20);
 const matTower = lineMat(COL_LINE, 0.72);
 const towers = [];
+
+// ARCHE. Un bâtiment en U renversé, à la manière de la Grande Arche : deux
+// piles et une poutre, avec un vide au milieu assez large pour le traverser.
+// Tout l'intérêt tient à ce vide, donc la collision ne peut pas se contenter
+// d'une boîte englobante : l'arche est trois volumes distincts, et le passage
+// n'en est pas un.
+const ARCHE = {
+  ouvertureL: 96,   // largeur du passage
+  ouvertureH: 74,   // hauteur sous poutre
+  pile: 24,         // épaisseur d'une pile
+  poutre: 28,       // épaisseur de la poutre du haut
+  prof: 32          // profondeur du bâtiment
+};
+ARCHE.largeur = ARCHE.ouvertureL + 2 * ARCHE.pile;
+ARCHE.hauteur = ARCHE.ouvertureH + ARCHE.poutre;
+
+const matArche = lineMat(COL_LINE, 0.85);
+const geomPile = new THREE.BoxGeometry(ARCHE.pile, ARCHE.ouvertureH, ARCHE.prof)
+  .translate(0, ARCHE.ouvertureH / 2, 0);
+const geomPoutre = new THREE.BoxGeometry(ARCHE.largeur, ARCHE.poutre, ARCHE.prof)
+  .translate(0, ARCHE.ouvertureH + ARCHE.poutre / 2, 0);
+const edgesPile = new THREE.EdgesGeometry(geomPile, 20);
+const edgesPoutre = new THREE.EdgesGeometry(geomPoutre, 20);
+
+const arches = [];
+for (let i = 0; i < 3; i++) {
+  const g = new THREE.Group();
+  const demi = (ARCHE.ouvertureL + ARCHE.pile) / 2;
+  const pg = solidWire(geomPile, edgesPile, matArche); pg.position.x = -demi;
+  const pd = solidWire(geomPile, edgesPile, matArche); pd.position.x = demi;
+  g.add(pg, pd, solidWire(geomPoutre, edgesPoutre, matArche));
+  g.frustumCulled = false;
+  scene.add(g);
+  arches.push({ g, boites: [] });
+}
+
+// Les trois volumes solides, exprimés en coordonnées du monde : deux piles et
+// la poutre. Le passage entre les piles, sous la poutre, n'est pas listé —
+// c'est précisément par là qu'on passe.
+function placeArche(a, initial) {
+  const ang = Math.random() * Math.PI * 2;
+  const r = initial ? 700 + Math.random() * 2200 : 3000 + Math.random() * 1200;
+  const x = state.pos.x + Math.cos(ang) * r;
+  const z = state.pos.z + Math.sin(ang) * r;
+  const quart = Math.random() < 0.5;          // orientée à 0 ou 90 degrés, pour
+  a.g.position.set(x, 0, z);                  // que les boîtes restent alignées
+  a.g.rotation.y = quart ? Math.PI / 2 : 0;
+  const demi = (ARCHE.ouvertureL + ARCHE.pile) / 2;
+  const L = ARCHE.largeur / 2, P = ARCHE.prof / 2, E = ARCHE.pile / 2;
+  const b = (dx, dz, hx, hz, y0, y1) => quart
+    ? { x: x + dz, z: z - dx, hx: hz, hz: hx, y0, y1 }
+    : { x: x + dx, z: z + dz, hx, hz, y0, y1 };
+  a.boites = [
+    b(-demi, 0, E, P, 0, ARCHE.ouvertureH),
+    b( demi, 0, E, P, 0, ARCHE.ouvertureH),
+    b(0, 0, L, P, ARCHE.ouvertureH, ARCHE.hauteur)
+  ];
+}
 for (let i = 0; i < 34; i++) {
   const t = solidWire(towerGeom, towerEdges, matTower);
   t.scale.set(0.6 + Math.random() * 1.4, 0.5 + Math.random() * 2.4, 0.6 + Math.random() * 1.4);
@@ -1319,6 +1403,15 @@ function feedTracers(layer, pts) {
 // explosions : un icosaèdre filaire qui gonfle et s'efface
 // ---------------------------------------------------------------------------
 const burstGeom = new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 0));
+
+// Le bouclier : une coque filaire qui vibre autour de l'avion et pâlit à
+// mesure qu'elle encaisse. Rien de plein, rien de clignotant.
+const matBouclier = lineMat(COL_TEXT, 0.5);
+const bouclierMesh = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 1)), matBouclier);
+bouclierMesh.frustumCulled = false;
+bouclierMesh.visible = false;
+scene.add(bouclierMesh);
 
 const bursts = [];
 function spawnBurst(pos, scale) {
@@ -1352,6 +1445,11 @@ const state = {
   announce: '',
   announceT: 0,
   hitFlash: 0,
+  impacts: [],
+  bouclier: 0,
+  vagueTouche: false,
+  vagueT: 0,
+  vagueLimite: 0,
   paused: false,
   enemies: [],
   bullets: [],
@@ -1380,6 +1478,7 @@ let touchMode = window.matchMedia('(pointer: coarse)').matches;
 // du navigateur (positions, ennemis, verrouillage) sans instrumenter le code
 window.__fod = state;
 window.__kinds = KINDS;   // pour éprouver une tactique isolément depuis la console
+window.__arches = () => arches;   // volumes solides des arches, pour vérification
 const euler = new THREE.Euler(0, 0, 0, 'YXZ'); // lacet d'abord, puis tangage : jamais de tonneau subi
 
 // L'avion est posé, moteur au ralenti, tant qu'on n'a pas décollé. C'est
@@ -1405,6 +1504,7 @@ function poseAuSol() {
   camera.position.copy(camOffset).add(state.pos);
   camVel.set(0, 0, 0);
   for (const t of towers) placeTower(t, true);
+  for (const a of arches) placeArche(a, true);
   updateDecor();
   feedTracers(playerTracers, []);
   feedTracers(enemyTracers, []);
@@ -1427,6 +1527,11 @@ function resetGame() {
   state.wave = 0;
   state.waveTimer = 99;   // aucun ennemi tant qu'on n'est pas en l'air
   state.hitFlash = 0;
+  state.impacts.length = 0;
+  state.bouclier = 0;
+  state.vagueTouche = false;
+  state.vagueT = 0;
+  state.vagueLimite = 0;
   state.lock = null;
   state.lockT = 0;
   state.lockCharge = 0;
@@ -1444,6 +1549,37 @@ function resetGame() {
 }
 
 function announce(txt) { state.announce = txt; state.announceT = 2.2; }
+
+// Ce qu'on gagne à nettoyer une vague dépend de la manière. Deux exigences
+// indépendantes : la tenir dans le chrono, et n'être pas touché une seule
+// fois. Chacune rend quelque chose, les deux ensemble rendent tout.
+function bilanVague() {
+  const dansTemps = state.vagueT <= state.vagueLimite;
+  const intact = !state.vagueTouche;
+  state.vagueLimite = 0;
+  state.score += 250;
+
+  if (dansTemps && intact) {
+    state.structure = 100;
+    state.bouclier = BOUCLIER_COUPS;
+    state.score += 750;
+    announce('SANS FAUTE  ·  VIE PLEINE  ·  BOUCLIER');
+    SFX.vagueNette(); SFX.bouclierOn();
+  } else if (dansTemps) {
+    state.structure = 100;
+    state.score += 400;
+    announce('DANS LES TEMPS  ·  VIE PLEINE');
+    SFX.vagueNette();
+  } else if (intact) {
+    state.bouclier = BOUCLIER_COUPS;
+    state.score += 400;
+    announce('PAS UNE ÉGRATIGNURE  ·  BOUCLIER');
+    SFX.bouclierOn();
+  } else {
+    state.structure = Math.min(100, state.structure + 12);
+    announce('VAGUE DÉGAGÉE  ·  +12');
+  }
+}
 
 function placeTower(t, initial) {
   const a = Math.random() * Math.PI * 2;
@@ -1500,6 +1636,9 @@ function spawnWave() {
     });
   }
   // le nom de l'escadrille dit tout de suite à quoi on a affaire
+  state.vagueTouche = false;
+  state.vagueT = 0;
+  state.vagueLimite = LIMITE_BASE + LIMITE_PAR * n;
   announce('VAGUE ' + state.wave + '  ·  ' + [...vus].join(' + '));
   SFX.vague();
 }
@@ -1515,6 +1654,10 @@ const _az = new THREE.Vector3(0, 0, 1);
 const _anchor = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _los = new THREE.Vector3();
+const _impactSrc = new THREE.Vector3();
+const _seg = new THREE.Vector3();
+const _segA = new THREE.Vector3();
+const _segB = new THREE.Vector3();
 const _pn = new THREE.Vector3();
 
 function updateEnemies(dt) {
@@ -1724,11 +1867,25 @@ function updateBullets(dt) {
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i];
     b.t += dt;
+    // On ne teste pas le point d'arrivée mais tout le segment parcouru dans
+    // l'image. Une balle fait 300 mètres par seconde : à 30 images par seconde
+    // elle avance de 10 mètres d'un coup, soit plus que le rayon de la cellule.
+    // Elle traversait donc l'avion sans jamais le toucher dès que la cadence
+    // baissait — un défaut invisible sur une machine rapide.
+    _segA.copy(b.pos);
     b.pos.addScaledVector(b.dir, BULLET_SPEED * dt);
     if (b.t > BULLET_LIFE || b.pos.y < 0) { state.bullets.splice(i, 1); continue; }
-    if (b.pos.distanceTo(state.pos) < BULLET_HIT) {
+    _seg.subVectors(b.pos, _segA);
+    const L2 = _seg.lengthSq();
+    let u = L2 > 1e-6 ? _segB.subVectors(state.pos, _segA).dot(_seg) / L2 : 0;
+    u = THREE.MathUtils.clamp(u, 0, 1);
+    _segB.copy(_segA).addScaledVector(_seg, u);
+    if (_segB.distanceTo(state.pos) < BULLET_HIT) {
       state.bullets.splice(i, 1);
-      damagePlayer(7);
+      // la direction d'où vient le coup se lit sur la trajectoire de la balle,
+      // pas sur le point d'impact : au contact les deux se confondent et
+      // l'écran ne saurait plus de quel côté s'allumer
+      damagePlayer(7, _impactSrc.copy(state.pos).addScaledVector(b.dir, -40));
       continue;
     }
     pts.push(
@@ -1739,8 +1896,37 @@ function updateBullets(dt) {
   feedTracers(enemyTracers, pts);
 }
 
-function damagePlayer(amount) {
+// D'où vient le coup ? On ramène la source dans le repère de l'avion, ce qui
+// donne un côté : dessous, dessus, gauche, droite. L'écran répond de ce
+// côté-là. Une pulsation douce en bord d'écran plutôt qu'un éclair plein
+// cadre : c'est plus lisible, et sans risque pour qui craint les flashs.
+function noteImpact(source) {
+  let sx = 0, sy = 1;   // par défaut : ça vient d'en dessous
+  if (source) {
+    _los.copy(source).sub(state.pos).normalize()
+      .applyQuaternion(_qa.copy(state.quat).invert());
+    const n = Math.hypot(_los.x, _los.y) || 1;
+    sx = _los.x / n;
+    sy = -_los.y / n;   // l'écran a son axe vertical vers le bas
+  }
+  state.impacts.push({ x: sx, y: sy, t: 1 });
+  if (state.impacts.length > 4) state.impacts.shift();
+}
+
+function damagePlayer(amount, source) {
   if (!state.running) return;
+  noteImpact(source);
+
+  // le bouclier encaisse, coup par coup, puis s'évapore
+  if (state.bouclier > 0) {
+    state.bouclier--;
+    state.hitFlash = Math.max(state.hitFlash, 0.6);
+    SFX.bouclier();
+    if (state.bouclier === 0) { announce('BOUCLIER ÉPUISÉ'); SFX.bouclierFin(); }
+    return;
+  }
+
+  state.vagueTouche = true;
   state.structure -= amount;
   state.hitFlash = 1;
   SFX.touche();
@@ -2115,6 +2301,18 @@ function simulate(dt) {
   playerMesh.quaternion.copy(state.quat);
   propMesh.rotation.z += 16 * dt;
 
+  bouclierMesh.visible = state.bouclier > 0;
+  if (state.bouclier > 0) {
+    const reste = state.bouclier / BOUCLIER_COUPS;
+    const t = performance.now() / 1000;
+    bouclierMesh.position.copy(state.pos);
+    bouclierMesh.quaternion.copy(state.quat);
+    // la coque respire, et se resserre en s'épuisant
+    bouclierMesh.scale.setScalar(11 * (0.86 + 0.14 * reste) * (1 + Math.sin(t * 7) * 0.025));
+    bouclierMesh.rotation.z += 0;
+    matBouclier.opacity = 0.16 + 0.34 * reste + Math.sin(t * 11) * 0.05;
+  }
+
   // --- caméra : elle traîne derrière et ne prend qu'une part du roulis,
   // sinon l'horizon bascule trop et on perd ses repères
   state.camYaw   = dampAngle(state.camYaw, state.yaw, 7.2, dt);
@@ -2141,12 +2339,14 @@ function simulate(dt) {
   updateShots(dt);
   scrape(dt);
 
-  // --- vagues
-  if (state.enemies.length === 0) {
+  // --- vagues et bilan
+  if (state.enemies.length > 0) {
+    state.vagueT += dt;
+  } else {
+    if (state.vagueLimite > 0) bilanVague();
     state.waveTimer -= dt;
     if (state.waveTimer <= 0) {
       state.waveTimer = 3.0;
-      if (state.wave > 0) state.score += 250;
       spawnWave();
     }
   }
@@ -2181,23 +2381,40 @@ function scrape(dt) {
 
   if (state.pos.y <= FLOOR + 0.5) {
     state.pos.y = FLOOR + 0.5;
-    if (state.scrapeT <= 0) { damagePlayer(5); state.scrapeT = 0.45; SFX.eraflure(); }
+    if (state.scrapeT <= 0) { damagePlayer(5, null); state.scrapeT = 0.45; SFX.eraflure(); }
     state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
     state.speed *= 0.99;
   }
 
-  for (const t of towers) {
-    const hx = 9 * t.scale.x + 8, hz = 9 * t.scale.z + 8;
-    if (state.pos.y > TOWER_H * t.scale.y + 6) continue;
-    if (Math.abs(state.pos.x - t.position.x) > hx) continue;
-    if (Math.abs(state.pos.z - t.position.z) > hz) continue;
-    if (state.scrapeT <= 0) { damagePlayer(7); state.scrapeT = 0.45; SFX.eraflure(); }
-    _right.set(state.pos.x - t.position.x, 0, state.pos.z - t.position.z);
+  // on érafle le décor de la même façon, qu'il s'agisse d'un pylône ou d'une
+  // des trois pièces d'une arche
+  const heurte = (bx, bz, hx, hz, y0, y1) =>
+    state.pos.y > y0 && state.pos.y < y1 &&
+    Math.abs(state.pos.x - bx) < hx && Math.abs(state.pos.z - bz) < hz;
+
+  const repousse = (bx, bz) => {
+    if (state.scrapeT <= 0) { damagePlayer(7, _impactSrc.set(bx, state.pos.y, bz)); state.scrapeT = 0.45; SFX.eraflure(); }
+    _right.set(state.pos.x - bx, 0, state.pos.z - bz);
     if (_right.lengthSq() < 1e-4) _right.set(1, 0, 0);
     _right.normalize();
-    state.pos.addScaledVector(_right, 9);        // on est repoussé sur le côté
+    state.pos.addScaledVector(_right, 9);
     state.speed *= 0.97;
-    break;
+  };
+
+  for (const t of towers) {
+    if (heurte(t.position.x, t.position.z, 9 * t.scale.x + 8, 9 * t.scale.z + 8,
+               -1, TOWER_H * t.scale.y + 6)) {
+      repousse(t.position.x, t.position.z);
+      return;
+    }
+  }
+  for (const a of arches) {
+    for (const b of a.boites) {
+      if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) {
+        repousse(b.x, b.z);
+        return;
+      }
+    }
   }
 }
 
@@ -2212,6 +2429,9 @@ function updateDecor() {
   );
   for (const t of towers) {
     if (t.position.distanceTo(state.pos) > 3700) placeTower(t, false);
+  }
+  for (const a of arches) {
+    if (a.g.position.distanceTo(state.pos) > 4600) placeArche(a, false);
   }
 }
 
@@ -2423,11 +2643,33 @@ function drawHud() {
     hctx.globalAlpha = 1;
   }
 
-  // flash de dégâts : un liseré, pas un voile qui masque le jeu
+  // IMPACTS. Le coup se voit du côté d'où il vient : un dégradé qui monte du
+  // bord touché et retombe en une demi-seconde. Pas d'éclair plein cadre —
+  // c'est moins lisible, et c'est un risque pour qui craint les flashs.
+  for (let i = state.impacts.length - 1; i >= 0; i--) {
+    const im = state.impacts[i];
+    im.t -= 1 / 34;
+    if (im.t <= 0) { state.impacts.splice(i, 1); continue; }
+    const a = im.t * im.t * 0.55;
+    const prof = Math.min(w, h) * 0.34;
+    const poser = (x0, y0, x1, y1, sx, sy, sw, sh) => {
+      const g = hctx.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, 'rgba(143,252,196,' + a.toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(143,252,196,0)');
+      hctx.fillStyle = g;
+      hctx.fillRect(sx, sy, sw, sh);
+    };
+    if (im.x < -0.35) poser(0, 0, prof, 0, 0, 0, prof, h);
+    if (im.x > 0.35) poser(w, 0, w - prof, 0, w - prof, 0, prof, h);
+    if (im.y < -0.35) poser(0, 0, 0, prof, 0, 0, w, prof);
+    if (im.y > 0.35) poser(0, h, 0, h - prof, 0, h - prof, w, prof);
+  }
+
+  // et un liseré général, qui dit simplement qu'on a pris quelque chose
   if (state.hitFlash > 0) {
-    hctx.strokeStyle = 'rgba(70,255,160,' + (state.hitFlash * 0.75).toFixed(3) + ')';
-    hctx.lineWidth = 10;
-    hctx.strokeRect(5, 5, w - 10, h - 10);
+    hctx.strokeStyle = 'rgba(70,255,160,' + (state.hitFlash * 0.5).toFixed(3) + ')';
+    hctx.lineWidth = 8;
+    hctx.strokeRect(4, 4, w - 8, h - 8);
     hctx.lineWidth = 1.5;
   }
 }
@@ -2475,12 +2717,17 @@ function edgeArrow(target, w, h, dist) {
 // ---------------------------------------------------------------------------
 const scoreLbl = document.getElementById('scoreLbl');
 const waveLbl  = document.getElementById('waveLbl');
+const chronoLbl = document.getElementById('chronoLbl');
 const gaugeFill = document.getElementById('gaugeFill');
 const structLbl = document.getElementById('structLbl');
 
 function refreshBars() {
   scoreLbl.textContent = 'SCORE ' + String(Math.floor(state.score)).padStart(6, '0');
   waveLbl.textContent  = 'VAGUE ' + state.wave;
+  // le chrono ne sert qu'à savoir si la prime est encore accessible : il
+  // s'efface dès qu'elle est perdue, plutôt que de compter dans le vide
+  const reste = state.vagueLimite - state.vagueT;
+  chronoLbl.textContent = (state.vagueLimite > 0 && reste > 0) ? reste.toFixed(0) + 's' : '';
   const st = Math.max(0, Math.round(state.structure));
   gaugeFill.style.width = st + '%';
   structLbl.textContent = st + '%';
@@ -2572,9 +2819,41 @@ if (!touchMode) {
     + 'Il tire tout seul quand une cible y entre.';
 }
 
+// Reprendre là où on en était, en échange d'une vidéo. Le branchement à une
+// régie publicitaire viendra plus tard ; en attendant le bouton dit
+// honnêtement qu'aucune vidéo n'est disponible et accorde quand même la
+// reprise, ce qui permet d'éprouver la boucle de jeu dès maintenant.
+const videoBtn = document.getElementById('videoBtn');
+videoBtn.addEventListener('click', () => {
+  audioDemarre();
+  overlayText.textContent = "Aucune vidéo disponible pour l'instant. Reprise offerte.";
+  videoBtn.disabled = true;
+  setTimeout(() => {
+    overlay.hidden = true;
+    state.structure = 100;
+    state.bouclier = BOUCLIER_COUPS;
+    state.hitFlash = 0;
+    state.impacts.length = 0;
+    state.enemies.forEach(e => scene.remove(e.mesh));
+    state.enemies.length = 0;
+    state.bullets.length = 0;
+    state.shots.length = 0;
+    state.vagueTouche = false;
+    state.vagueT = 0;
+    state.vagueLimite = 0;
+    state.waveTimer = 1.2;
+    state.wave = Math.max(0, state.wave - 1);   // la vague en cours est rejouée
+    state.running = true;
+    state.auSol = false;
+    last = performance.now();
+    SFX.bouclierOn();
+  }, 900);
+});
+
 startBtn.addEventListener('click', () => {
   audioDemarre();
   overlay.hidden = true;
+  videoBtn.hidden = true;
   resetGame();
   state.running = true;
   last = performance.now();
@@ -2590,6 +2869,9 @@ function gameOver() {
   overlayScore.textContent = 'SCORE ' + String(Math.floor(state.score)).padStart(6, '0')
     + '  ·  VAGUE ' + state.wave;
   startBtn.textContent = 'REDÉCOLLER';
+  videoBtn.hidden = false;
+  videoBtn.disabled = false;
+  videoBtn.textContent = 'REGARDER UNE VIDÉO · REPRENDRE';
   overlay.hidden = false;
   feedTracers(playerTracers, []);
   feedTracers(enemyTracers, []);
