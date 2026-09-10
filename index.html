@@ -349,7 +349,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.44</button>
+  <button id="versionBtn">v0.45</button>
 </div>
 
 <div id="bottombar">
@@ -517,6 +517,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.45</b> — taper un mur fait maintenant tourner l'avion du côté où il y a de la place : on tapait, on reculait, on repartait droit dessus, on retapait. On peut monter jusqu'à 85 degrés au lieu de 68, mais au-delà de 58 le moteur ne suit plus et la cellule vacille — même chose sous le plafond. On peut aller à la verticale, on ne peut pas y rester. L'arrondi du décollage s'adoucit : le sommet de la vague arrive à 42 % au lieu de 50, la remise à plat a donc plus de temps. Les caps de la piste sont creux, contour seul.</div>
   <div><b>v0.44</b> — le saut après le décollage est corrigé. La caméra ne suivait pas la séquence, elle la poursuivait : un ressort traîne toujours un peu, et la place idéale balaie vingt unités quand le nez revient à plat. L'avion montait puis redescendait de 139 pixels à l'écran ; il n'en bouge plus que de 40, et reste rigoureusement fixe pendant toute la montée. la boussole gagne deux étages : un triangle par adversaire, une astérisque par arche et par tour encore à prendre, un rectangle pour la piste. On peut se poser dans les deux sens, tant qu'on touche avant la moitié, et une jauge POSÉ dit à quel point on y est. La surface de la piste est pleine et noire, elle masque la grille dessous ; il ne reste que l'axe et les caps, tracés en trait épais. Se frôler ne fait plus de bruit et ne coûte rien : c'est lui qui s'écarte, jamais nous. Biplan et chasseur accélérés, on les doublait sans le vouloir. POURSUITE devient BOOST.</div>
   <div><b>v0.43</b> — un avion abattu part en vrille, traîne sa fumée et s'ouvre au sol. Le coup au but jette cinq à dix boules de tailles très différentes. Les roquettes orphelines ne s'évaporent plus : elles piquent et explosent où elles finissent. Un anneau se referme sur la cible à mesure qu'elles arrivent, et bat au canon d'où elles sont parties. Le ressort de caméra reste raide jusqu'au bout du décollage : il se détendait pile quand le nez revient à plat, l'avion sautait de 7 pixels, il n'en fait plus que 5.</div>
   <div><b>v0.42</b> — une piste, avec son axe et ses caps peints. On décolle toujours de là, et le décor ne s'y pose plus. Trois mécaniciens s'affairent autour du moteur et détalent au départ. Passer bas et dans l'axe suffit à se poser : la vie remonte de 17 points par seconde, l'avion repart au bout de dix secondes. les panneaux défilent où qu'on pose le doigt. Un adversaire hors champ retrouve sa flèche : le cône fixe de la v0.39 était plus large que l'écran d'un téléphone, et les cibles latérales disparaissaient. Les traits de vitesse s'éteignent en fondu au lieu d'un bloc — c'était le saut qui restait après le décollage. L'accueil ne garde que le titre et le bouton ; l'écran de mort propose les explications, qu'on peut faire taire.</div>
@@ -620,7 +621,12 @@ const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
 const FIG_TIME      = 1.05;   // durée d'un renversement, Immelmann ou Split-S
 const MAX_YAW       = 2.15;   // rad/s, autorité en lacet à pleine déflexion — 123 degrés par seconde
 const MAX_PITCH     = 1.9;    // rad/s, autorité en tangage
-const PITCH_LIMIT   = 68 * Math.PI / 180; // jamais la verticale : au-delà l'orientation devient ambiguë
+const PITCH_LIMIT   = 85 * Math.PI / 180;
+// Au-delà de cette assiette, et à l'approche du plafond, l'appareil peine :
+// le moteur ne suit plus et la cellule se met à vaciller. Rien ne l'interdit,
+// tout le décourage — c'est plus juste qu'une butée, et ça oblige à doser.
+const PEINE_ANGLE = 58 * Math.PI / 180;
+const PEINE_PLAFOND = 190;    // mètres sous le plafond où la gêne commence // jamais la verticale : au-delà l'orientation devient ambiguë
 const PITCH_TRIM    = 0.95;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
 const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
 // Viser, maintenant, veut dire viser. Le cône n'est plus une constante : il
@@ -2136,7 +2142,9 @@ const PISTE = {
 // pose, sans rien demander. C'est le seul endroit du monde où l'on peut
 // reprendre de la vie en quantité, et c'est aussi le seul où l'on ne peut ni
 // esquiver ni riposter. Le marché est net.
-const ATT_PLAFOND = 62;       // hauteur maximale d'interception
+const ATT_PLAFOND = 95;       // au-dessus, la piste ne propose rien
+const ATT_SOL = 20;           // en dessous, la hauteur est acquise
+const ATT_SEUIL = 0.88;       // ce que doit atteindre la plus mauvaise des quatre parts
 const ATT_CONE = Math.cos(17 * Math.PI / 180);
 const ATT_DUREE = 2.6;        // secondes de l'arrondi au point d'arrêt
 const REPARATION = 10;        // secondes avant que ça reparte tout seul
@@ -2179,11 +2187,13 @@ const CHIFFRES = {
   // d'autre, ce qui donne un chiffre plein plutôt qu'un fil. Peint au sol, un
   // trait d'un pixel ne se lit pas — un vrai marquage de piste fait des
   // mètres de large.
-  const EP = 2.2;
+  const EP = 3.2;
   const gras = (x0, z0, x1, z1) => {
     const dx = x1 - x0, dz = z1 - z0, L2 = Math.hypot(dx, dz) || 1;
     const nx = -dz / L2 * EP, nz = dx / L2 * EP;
-    for (const k of [-1, -0.34, 0.34, 1]) {
+    // seulement les deux bords : le chiffre est creux, c'est son contour qu'on
+    // peint. Rempli, il devenait une tache et perdait sa forme de loin.
+    for (const k of [-1, 1]) {
       seg(x0 + nx * k, z0 + nz * k, x1 + nx * k, z1 + nz * k);
     }
     // et les deux bouts, pour fermer le trait
@@ -2570,6 +2580,7 @@ const state = {
   announce: '',
   announceT: 0,
   hitFlash: 0,
+  peine: 0,
   boost: 0,
   boostT: 0,
   recordBattu: null,
@@ -3558,13 +3569,17 @@ function simulate(dt) {
     const sens = state.forward.z < 0 ? -1 : 1;
     const reste = sens < 0 ? state.pos.z - mid : mid - state.pos.z;
     const q = [
-      1 - state.pos.y / ATT_PLAFOND,
+      (ATT_PLAFOND - state.pos.y) / (ATT_PLAFOND - ATT_SOL),
       1 - Math.abs(state.pos.x) / (PISTE.demiL * 2.6),
       reste / 260,
       (Math.abs(state.forward.z) - ATT_CONE) / (1 - ATT_CONE)
     ].map(v => THREE.MathUtils.clamp(v, 0, 1));
-    state.approche = Math.min(...q)
-                   * THREE.MathUtils.clamp(1 - state.forward.y * 5, 0, 1);
+    // Exiger que les quatre parts valent exactement un rendrait la pose
+    // impossible : il suffit qu'aucune ne manque vraiment. La jauge affichée
+    // est donc rapportée à ce seuil, si bien qu'elle se remplit pile quand
+    // l'avion se pose.
+    state.approche = Math.min(1, Math.min(...q)
+                   * THREE.MathUtils.clamp(1 - state.forward.y * 5, 0, 1) / ATT_SEUIL);
     if (state.approche >= 0.999) {
       state.atterro = { t: 0, y0: state.pos.y, x0: state.pos.x, sens,
                         p0: state.pitch, yaw0: state.yaw, v0: state.speed };
@@ -3578,6 +3593,26 @@ function simulate(dt) {
   const croisiere = CRUISE * (1 + (BOOST_GAIN - 1) * state.boost);
   state.speed += (-state.forward.y * GRAV + (croisiere - state.speed) * THRUST) * dt;
   state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_MAX);
+
+  // PEINE. Deux causes, une seule mesure : le nez trop haut, ou le plafond
+  // trop près. Le moteur perd de sa poussée et la cellule vacille — un lacet
+  // et un roulis erratiques, faibles mais constants, qu'il faut rattraper à la
+  // main. On peut monter à la verticale ; on ne peut pas y rester.
+  {
+    const parAngle = Math.max(0, (Math.abs(state.pitch) - PEINE_ANGLE))
+                   / (PITCH_LIMIT - PEINE_ANGLE);
+    const parHaut = Math.max(0, state.pos.y - (CEILING - PEINE_PLAFOND)) / PEINE_PLAFOND;
+    const peine = THREE.MathUtils.clamp(Math.max(parAngle, parHaut), 0, 1);
+    state.peine = peine;
+    if (peine > 0.01) {
+      state.speed -= peine * 26 * dt;
+      const t = performance.now() / 1000;
+      // deux sinusoïdes incommensurables : ça ne se répète jamais tout à fait
+      state.yaw += (Math.sin(t * 5.3) + 0.6 * Math.sin(t * 8.9)) * peine * 0.55 * dt;
+      state.roll += (Math.sin(t * 4.1) + 0.7 * Math.sin(t * 7.3)) * peine * 1.5 * dt;
+      state.pitch -= peine * 0.5 * dt;
+    }
+  }
 
   // trop lent : le nez retombe tout seul, quoi que demande le doigt
   if (state.speed < STALL && state.pitch > 0) {
@@ -3692,7 +3727,12 @@ function simulate(dt) {
     // monte, ça se recouche. Le palier disparaît, donc le milieu ne traîne
     // plus — l'avion y passe à son assiette maximale au lieu de s'y installer.
     const u = THREE.MathUtils.clamp((T.t - ROULAGE) / MONTEE, 0, 1);
-    state.pitch = ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * u));
+    // La vague n'est pas symétrique : en déformant le temps, le sommet arrive
+    // à 42 % au lieu de 50, si bien que la remise à plat dispose de six
+    // dixièmes de la montée au lieu de cinq. La rotation reste franche, mais
+    // l'arrondi cesse d'être cassé — c'est la moitié qui se lisait le plus mal.
+    const uu = Math.pow(u, 0.8);
+    state.pitch = ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
 
     // La trajectoire découle maintenant de l'assiette au lieu de lui être
     // imposée. Avant, l'avion montait 162 mètres en deux secondes le nez à
@@ -4025,6 +4065,11 @@ function scrape(dt) {
     state.pos.y > y0 && state.pos.y < y1 &&
     Math.abs(state.pos.x - bx) < hx && Math.abs(state.pos.z - bz) < hz;
 
+  // Un simple recul enfermait le joueur dans une boucle : on tape, on recule,
+  // on repart droit sur le mur, on retape. L'éraflure fait donc aussi TOURNER
+  // l'appareil du côté où il y a de la place — c'est ce qu'un vrai contact
+  // ferait, et c'est surtout ce qui permet d'en sortir. Le lacet est
+  // volontairement modeste : il oriente, il ne pilote pas à notre place.
   const repousse = (bx, bz) => {
     if (state.scrapeT <= 0) { damagePlayer(7, _impactSrc.set(bx, state.pos.y, bz)); state.scrapeT = 0.45; SFX.eraflure(); }
     _right.set(state.pos.x - bx, 0, state.pos.z - bz);
@@ -4032,6 +4077,11 @@ function scrape(dt) {
     _right.normalize();
     state.pos.addScaledVector(_right, 9);
     state.speed *= 0.97;
+    // de quel côté l'échappée est-elle la plus courte ? Le produit vectoriel
+    // du nez et de la normale au mur le dit d'un seul signe.
+    const cote = state.forward.x * _right.z - state.forward.z * _right.x;
+    state.yaw += (cote >= 0 ? -1 : 1) * 0.30;
+    state.roll = THREE.MathUtils.clamp(state.roll + (cote >= 0 ? -0.5 : 0.5), -1.2, 1.2);
   };
 
   for (const t of towers) {
