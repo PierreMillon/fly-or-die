@@ -5,7 +5,7 @@ nouvelle idée est mentionnée en conversation (même en une phrase, même pas
 prête à être codée), elle est ajoutée ici avant d'être oubliée. Rien n'est
 retiré quand une idée est implémentée — noter "→ fait en vX.Y" à la place.
 
-## Le soleil-lampe de bureau
+## Le soleil-lampe de bureau → fait en v0.32
 
 L'image d'origine : un enfant qui joue avec des avions en plastique dans sa
 chambre, et la lampe de bureau qui fait le soleil. On tourne l'avion, on
@@ -62,9 +62,26 @@ délai pour qu'un frottement continu ne vide pas la jauge d'un coup. Le
 rase-mottes devient un pari, et le Split-S bas est permis au lieu d'être
 refusé.
 
-## Son
+## Son → fait en v0.18, retouché en v0.25 et v0.34
 
 Rien pour l'instant. Pistes : un bourdonnement de moteur qui monte avec le
 tangage, une note de verrouillage, un souffle à la destruction. Tout en
 synthèse WebAudio, sans fichier à charger, pour garder le fichier unique.
 Avec un bouton de coupure, et rien qui démarre avant le premier toucher.
+
+## Ciel réel de Bayonne, 6 juin 1991 → fait en v0.34
+
+Les étoiles ne devaient pas être tirées au hasard mais reproduire le ciel
+réel au-dessus de Bayonne cette nuit-là. 945 étoiles de magnitude 5,2 et
+mieux, prises dans le catalogue Yale des étoiles brillantes, converties en
+hauteur et azimut pour la latitude 43,4933 N et la longitude 1,475 O.
+Contrôle : la Polaire tombe à 42,8 degrés de hauteur, azimut 359,8 — la
+hauteur du pôle vaut la latitude du lieu, à l'écart près entre la Polaire
+et le pôle vrai en 1991.
+
+## Skins d'avion débloqués en abattant le type correspondant
+
+Même principe que les viseurs, mais sur la cellule : détruire un BIPLAN
+donne le droit de piloter un BIPLAN. Suppose de pouvoir échanger le modèle,
+la position des canons et l'envergure — donc de sortir le modèle du joueur
+de son bloc unique. Pas commencé.

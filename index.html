@@ -65,7 +65,7 @@
     color: var(--ph-text);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 7px;
     font-size: 12px;
     letter-spacing: 0.08em;
     overflow: hidden;
@@ -249,7 +249,8 @@
     text-shadow: 0 0 18px var(--ph-dim);
   }
   #overlayText { margin: 0; font-size: 13px; line-height: 1.7; color: var(--ph-text); max-width: 30em; }
-  #overlayScore { margin: 0; font-size: 13px; color: var(--ph-dim); letter-spacing: 0.15em; }
+  #overlayScore { margin: 0; font-size: 13px; color: var(--ph-dim); letter-spacing: 0.15em; line-height: 1.9; }
+  #overlayScore b { color: var(--ph-line); font-weight: 500; }
 
   #videoBtn {
     background: none;
@@ -282,14 +283,14 @@
 <canvas id="hud"></canvas>
 
 <div id="topbar">
-  <span id="scoreLbl">SCORE 000000</span>
-  <span id="waveLbl" class="dim">VAGUE 1</span>
+  <span id="scoreLbl">000000</span>
+  <span id="waveLbl" class="dim">V1</span>
   <span id="chronoLbl" class="dim"></span>
   <span class="spacer"></span>
-  <button id="viseurBtn">VISEURS</button>
+  <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.31</button>
+  <button id="versionBtn">v0.34</button>
 </div>
 
 <div id="bottombar">
@@ -394,6 +395,9 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.34</b> — le ciel n'est plus tiré au hasard : ce sont les 945 étoiles réellement visibles au-dessus de Bayonne dans la nuit du 6 juin 1991, calculées depuis le catalogue Yale des étoiles brillantes. Trois rangs de magnitude, des vraies constellations, et un contrôle qui ne trompe pas : la Polaire tombe à 42,8 degrés de hauteur pour un azimut de 359,8 — la hauteur du pôle, c'est la latitude du lieu. Le viseur s'ouvre à l'accrochage et se referme à mesure qu'on tient la cible, de 67 à 25 pixels : large, il dit « quelque part là-dedans » ; refermé, il dit « exactement là ». En passe rapprochée son ouverture suit la taille apparente de l'avion visé. Et les mitrailleuses descendent d'une octave : trois couches au lieu d'une, la claque du départ, un corps grave qui s'effondre, un coup de basse dessous. Le corps dure plus longtemps que la cadence, si bien qu'en rafale les coups se recouvrent au lieu de s'égrener.</div>
+  <div><b>v0.33</b> — deux roquettes partent des ailes après une seconde de verrouillage tenu, guidées, lourdes, et longues à recharger : c'est la prime du pilotage propre. Une cible qui rompt franchement peut encore les faire manquer, elles virent à taux limité. Le bouclier n'est plus une bulle mais un halo collé à l'avion, deux copies de ses arêtes à peine plus grandes qui dépassent du contour — la cellule rayonne. Et la caméra plonge un peu : l'avion remonte du tiers inférieur au milieu de l'image sans qu'on renonce à la vue de dessus.</div>
+  <div><b>v0.32</b> — l'échelle de tangage de l'horizon artificiel court maintenant d'un pôle à l'autre : en montée franche la ligne d'horizon sortait du cadran et l'instrument ne disait plus rien. La bande d'altitude remonte du milieu de l'écran vers le haut, à droite : plus bas, le pouce la recouvrait au moment même où l'on pilote. un soleil dans le ciel, direction fixe comme les étoiles : le regarder en face rend la cible plus dure à tenir et le tir moins fort ; l'avoir dans le dos gêne celui qui vous vise, qui tire alors de moins loin et doit être bien mieux aligné. C'est la plus vieille manœuvre du combat aérien, et elle tient en un produit scalaire de plus. Les vagues ne s'arrêtent plus jamais, et toutes les cinq un GARDIEN vient seul, dix-sept mètres d'envergure et six cent vingt points de structure. Des pièces au sol tirent maintenant vers le ciel : elles ne bloquent pas la vague, c'est une cible d'occasion pour qui accepte de descendre. Le meilleur score et la vague la plus haute sont gardés sur l'appareil.</div>
   <div><b>v0.31</b> — l'avion du joueur ralentit de 92 à 78 mètres par seconde et les adversaires avec lui : on les dépassait si vite qu'ils tournaient autour sans qu'on puisse jamais recoller. Le rayon de virage vaut la vitesse divisée par le taux de virage, donc moins vite on tourne plus court. Le magnétisme gagne encore la moitié de sa force et porte plus loin. franchir une arche rend 10 % de vie et rapporte des points, une seule fois par vague — sinon il suffirait de faire des allers-retours sous la même. Elles sont deux fois plus nombreuses, six au lieu de trois. La barre du haut passe au-dessus du menu : ses boutons étaient couverts par l'écran de titre, donc inaccessibles au moment précis où l'on veut choisir son viseur. douze viseurs interchangeables, un bouton VISEURS en haut pour les essayer. Deux sont offerts d'emblée, les équerres s'ouvrent à la cinquième vague et la cible à la centième, les huit autres demandent une vidéo. Ni régie ni paiement ne sont branchés : le bouton le dit et débloque quand même, le temps d'éprouver la boucle. Le choix est retenu d'une partie à l'autre.</div>
   <div><b>v0.30</b> — les balles ennemies ne traversent plus l'avion sans le toucher : on teste tout le segment parcouru dans l'image et non le seul point d'arrivée. À 300 mètres par seconde, une balle avance de dix mètres par image quand la cadence tombe à trente, soit plus que le rayon de la cellule — le coup passait au travers, défaut invisible sur une machine rapide. les coups se voient du côté d'où ils viennent : un dégradé monte du bord touché et retombe en une demi-seconde, dessous quand on racle le sol, à gauche ou à droite quand on frotte une tour. Pas d'éclair plein cadre, moins lisible et risqué pour qui craint les flashs. Nettoyer une vague rend maintenant quelque chose, selon la manière : dans le chrono, la vie repart à plein ; sans une égratignure, un bouclier de dix impacts s'allume autour de l'avion ; les deux à la fois donnent tout. Et sur l'écran de fin, un bouton propose de reprendre contre une vidéo — la régie viendra plus tard, en attendant il le dit et offre la reprise.</div>
   <div><b>v0.29</b> — des arches apparaissent dans le paysage, en U renversé à la manière de la Grande Arche : 96 mètres de passage sur 74 de hauteur sous poutre, de quoi les traverser à huit envergures près. Le vide en est vraiment un — l'arche est trois volumes solides distincts, deux piles et une poutre, et le passage n'en fait pas partie. Elles s'orientent au quart de tour pour qu'on les aborde de face ou de profil.</div>
@@ -525,6 +529,15 @@ const GUN_R         = { x:  1.071, y: 0.082, z: -2.015 };
 const SHOT_SPEED    = 900;
 const SHOT_LEN      = 26;     // longueur du trait laissé par une traçante
 const SHOT_RATE     = 0.075;  // secondes entre deux salves
+// Roquettes. Tenir une cible une seconde pleine en lâche deux, une par aile.
+// Elles guident, frappent lourd, et se rechargent lentement : c'est la prime
+// du pilotage propre, pas une arme d'appoint.
+const ROQ_SEUIL     = 1.0;    // secondes de verrouillage avant le départ
+const ROQ_VITESSE   = 420;
+const ROQ_VIRAGE    = 3.4;    // rad/s de guidage
+const ROQ_DEGATS    = 55;
+const ROQ_RECHARGE  = 6.5;
+const ROQ_VIE       = 4.5;
 const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
 const COL_LOCK      = 0xffffff;
@@ -593,6 +606,14 @@ const VISEURS = [
   { id:'carre',   nom:'CARRÉ TOURNÉ', acces:'video',
     dessin:(x,c)=>{_cx_.croix(x,16-4*c,7-2*c);_cx_.poly(x,7-2*c,4,c>0.5?Math.PI/4:0);} }
 ];
+
+// records gardés sur l'appareil, comme les viseurs
+let record = { score: 0, vague: 0 };
+try { record = Object.assign(record, JSON.parse(localStorage.getItem('fod_record') || '{}')); }
+catch (e) { /* rien de gardé */ }
+function sauveRecord() {
+  try { localStorage.setItem('fod_record', JSON.stringify(record)); } catch (e) {}
+}
 
 let debloques, viseurChoisi;
 try { debloques = new Set(JSON.parse(localStorage.getItem('fod_viseurs') || '[]')); }
@@ -716,13 +737,22 @@ function souffle(dur, f0, f1, q, vol) {
 // superpose : le tir est sec et aigu, l'impact court et bas, la destruction
 // large et grave, les figures sont des souffles qui montent ou descendent.
 const SFX = {
-  tir:          () => souffle(0.045, 2600, 1500, 6, 0.055),
+  // Le tir avait le claquement d'une agrafeuse : haut, sec, sans corps. Il est
+  // maintenant en trois couches, comme une vraie arme lourde — la claque du
+  // départ, le corps grave qui s'effondre, et un coup de basse dessous qui
+  // donne la masse. Le corps dure un peu plus que la cadence maximale, si
+  // bien que les coups se recouvrent en rafale au lieu de s'égrener.
+  tir:          () => { souffle(0.028, 3000, 1900, 7, 0.03);
+                        souffle(0.085, 760, 120, 1.0, 0.10);
+                        ton(190, 62, 0.075, 'square', 0.085); },
   accroche:     () => ton(680, 1320, 0.11, 'sine', 0.13),
   cale:         () => ton(1320, 1760, 0.08, 'sine', 0.09),
   touche:       () => { ton(150, 62, 0.22, 'square', 0.19); souffle(0.16, 500, 160, 1.2, 0.14); },
   detruit:      () => { souffle(0.55, 900, 90, 0.9, 0.34); ton(190, 48, 0.45, 'sawtooth', 0.16); },
   eraflure:     () => souffle(0.3, 1400, 300, 1.4, 0.22),
   frolement:    () => souffle(0.34, 2600, 280, 0.9, 0.2),
+  roquette:     () => { souffle(0.7, 1800, 240, 1.1, 0.26); ton(320, 120, 0.5, 'sawtooth', 0.1); },
+  roquetteImpact: () => { souffle(0.42, 1100, 110, 0.9, 0.3); ton(240, 60, 0.35, 'square', 0.16); },
   bouclier:     () => { ton(880, 1400, 0.12, 'sine', 0.14); souffle(0.14, 3000, 900, 3, 0.09); },
   bouclierOn:   () => { ton(400, 1200, 0.5, 'sine', 0.15); setTimeout(() => ton(600, 1800, 0.45, 'sine', 0.12), 120); },
   bouclierFin:  () => ton(900, 260, 0.5, 'triangle', 0.13),
@@ -1353,6 +1383,37 @@ const KINDS = [
     envergure: 6.0,   // engin compact, plus petit que tout ce qui est piloté
     vitesse: [82, 94], virage: 1.75, vie: 80, recharge: [0.7, 1.4],
     cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
+  },
+  {
+    nom: 'GARDIEN', tactique: 'proportionnelle',
+    // Le seul adversaire qui vient seul. Même croix que le drone, mais bien
+    // plus grande et beaucoup plus dure à mettre à terre.
+    verts: [
+       0, 0, -0.9,   0.9, 0, 0,    0, 0, 0.9,   -0.9, 0, 0,
+      -3.4, 0, -3.4,  3.4, 0, -3.4, 3.4, 0, 3.4, -3.4, 0, 3.4,
+       0, 1.5, 0.3,   0, -1.1, 0.3
+    ],
+    tris: [0,1,2, 0,2,3,  3,0,4,  0,1,5,  1,2,6,  2,3,7,  0,8,2,  0,9,2],
+    envergure: 17,
+    vitesse: [78, 86], virage: 1.5, vie: 620, recharge: [0.55, 1.1],
+    cone: Math.cos(16 * Math.PI / 180), portee: 1250, rafale: 6
+  },
+  {
+    nom: 'TANK', tactique: 'sol', sol: true,
+    // Posé au sol, il ne bouge pas et tire vers le haut. Il n'empêche pas de
+    // passer à la vague suivante : c'est une cible d'occasion, pour qui
+    // accepte de descendre le chercher.
+    verts: [
+      -4.5, 0, -7,   4.5, 0, -7,   4.5, 0, 7,   -4.5, 0, 7,
+      -3.6, 2.6, -5, 3.6, 2.6, -5, 3.6, 2.6, 5, -3.6, 2.6, 5,
+      -1.8, 2.6, -1.6, 1.8, 2.6, -1.6, 1.8, 4.4, 1.6, -1.8, 4.4, 1.6,
+       0, 4.0, -9
+    ],
+    tris: [0,1,5, 0,5,4,  1,2,6, 1,6,5,  2,3,7, 2,7,6,  3,0,4, 3,4,7,
+           4,5,6, 4,6,7,  8,9,10, 8,10,11,  8,9,12, 10,11,12],
+    envergure: 9,
+    vitesse: [0, 0], virage: 0, vie: 150, recharge: [1.5, 2.6],
+    cone: Math.cos(42 * Math.PI / 180), portee: 950, rafale: 3
   }
 ];
 
@@ -1365,6 +1426,15 @@ const VAGUES = [
 ];
 const EFFECTIF = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12];
 const PN_GAIN = 3.2;
+
+// LE SOLEIL. Une direction fixe dans le ciel, comme les étoiles. Le regarder
+// éblouit : la cible devient plus difficile à tenir. L'avoir dans le dos
+// protège : celui qui vous vise l'a alors en pleine figure et tire moins bien.
+// C'est la manœuvre la plus vieille du combat aérien, et elle tient en un
+// produit scalaire de plus.
+const SOLEIL = new THREE.Vector3(0.62, 0.42, -0.66).normalize();
+const SOL_CONE = Math.cos(24 * Math.PI / 180);   // au-delà, on est ébloui
+const SOL_CONE_E = Math.cos(20 * Math.PI / 180); // et l'adversaire aussi
 const ESQUIVE_DUREE = [1.0, 1.6];  // secondes de dégagement quand on est visé
 const ESQUIVE_REPOS  = 0.8;        // avant de pouvoir recommencer
 const CHARGE_DECROIT = 0.8;        // la montée en puissance retombe, elle ne s'efface pas
@@ -1429,18 +1499,187 @@ let etoiles = [];
 // où qu'on aille, exactement comme un ciel réel. C'est ce qui rend le cap
 // lisible d'un coup d'oeil, ce que la ligne d'horizon faisait avant d'être
 // retirée. Pas de brouillard sur elles, sinon la distance les effacerait.
+// Ciel réel de Bayonne, nuit du 6 juin 1991, 23 h locales. Positions
+// calculées depuis le catalogue Yale des étoiles brillantes : angle horaire
+// à partir du temps sidéral local, puis hauteur et azimut pour la latitude
+// 43,4933 N et la longitude 1,475 O. Nord vers -Z, est vers +X.
+const CIEL = [
+[
+  0.093, 0.908, 0.409, 0.737, 0.616, -0.279, -0.539, 0.177, -0.824, 0.988, 0.114, -0.105, -0.539, 0.177, -0.824, -0.119, 0.573, 0.811,
+  0.564, 0.198, 0.801, -0.882, 0.301, -0.362, 0.688, 0.382, -0.617, -0.813, 0.538, 0.224, -0.846, 0.314, -0.431, -0.143, 0.963, -0.229,
+  -0.25, 0.095, -0.964, -0.319, 0.86, -0.398, -0.016, 0.995, -0.102, -0.623, 0.242, -0.744, -0.002, 0.679, -0.734, -0.906, 0.184, 0.382,
+  -0.754, 0.641, 0.141, 0.047, 0.175, 0.983, 0.068, 0.854, -0.516, 0.804, 0.551, 0.223, -0.499, 0.775, 0.388, 0.119, 0.256, -0.959,
+  0.383, 0.895, 0.229, -0.073, 0.977, -0.201, 0.757, 0.375, -0.535, 0.172, 0.194, -0.966, 0.544, 0.759, -0.359, 0.225, 0.257, -0.94,
+  0.486, 0.304, 0.819, 0.576, 0.042, 0.816, 0.136, 0.067, 0.988, -0.376, 0.868, -0.325, 0.2, 0.943, 0.267, -0.295, 0.927, -0.231,
+  0.73, 0.269, 0.629, 0.429, 0.489, -0.759, 0.807, 0.247, -0.536
+],
+[
+  0.645, 0.412, 0.644, -0.599, 0.764, 0.241, 0.513, 0.339, 0.788, -0.393, 0.423, 0.817, 0.353, 0.556, 0.752, 0.463, 0.715, 0.524,
+  -0.701, 0.142, -0.699, -0.309, 0.354, 0.883, 0.059, 0.24, -0.969, 0.006, 0.906, 0.424, 0.205, 0.037, 0.978, 0.982, 0.148, -0.113,
+  0.292, 0.879, -0.378, 0.577, 0.547, 0.607, -0.307, 0.673, 0.673, -0.114, 0.164, 0.98, 0.239, 0.485, 0.841, 0.841, 0.443, 0.31,
+  0.589, 0.775, 0.23, 0.746, 0.619, 0.245, 0.497, 0.803, -0.328, 0.324, 0.04, 0.945, 0.57, 0.82, 0.055, 0.574, 0.159, 0.803,
+  -0.846, 0.314, -0.431, -0.217, 0.826, 0.521, 0.705, 0.506, -0.497, -0.194, 0.978, 0.073, 0.468, 0.253, 0.847, 0.543, 0.225, 0.809,
+  -0.183, 0.143, -0.973, -0.341, 0.454, 0.823, -0.807, 0.591, 0.005, -0.137, 0.389, 0.911, 0.95, 0.311, -0.036, -0.467, 0.874, -0.137,
+  0.116, 0.864, -0.49, -0.31, 0.077, -0.948, -0.401, 0.338, 0.851, -0.529, 0.121, -0.84, 0.133, 0.988, 0.083, 0.879, 0.385, -0.281,
+  -0.864, 0.097, -0.494, -0.596, 0.785, -0.168, 0.374, 0.685, -0.625, -0.958, 0.265, 0.108, -0.689, 0.293, 0.662, -0.641, 0.65, -0.409,
+  0.7, 0.708, 0.093, 0.211, 0.055, 0.976, -0.765, 0.613, -0.197, 0.618, 0.782, -0.084, -0.562, 0.73, -0.389, 0.31, 0.823, -0.475,
+  -0.562, 0.091, -0.822, 0.711, 0.608, 0.352, 0.118, 0.543, -0.832, 0.812, 0.133, -0.568, 0.285, 0.062, 0.957, 0.304, 0.551, -0.777,
+  0.59, 0.526, 0.612, 0.92, 0.248, 0.305, 0.051, 0.338, 0.94, 0.275, 0.331, 0.903, 0.818, 0.515, -0.256, 0.716, 0.112, 0.689,
+  0.201, 0.934, -0.295, -0.225, 0.937, -0.268, 0.866, 0.225, 0.447, -0.616, 0.721, 0.317, -0.483, 0.658, -0.579, -0.002, 0.295, -0.955,
+  0.991, 0.125, 0.043, -0.967, 0.244, 0.077, -0.081, 0.716, 0.694, -0.248, 0.742, 0.623, 0.435, 0.369, -0.822, 0.73, 0.269, 0.629,
+  -0.012, 0.084, 0.996, 0.46, 0.53, -0.713, 0.412, 0.056, 0.909, 0.753, 0.657, -0.017, -0.744, 0.664, 0.082, 0.976, 0.088, 0.201,
+  -0.593, 0.781, -0.198, 0.147, 0.211, -0.966, 0.294, 0.946, 0.14, -0.011, 0.07, 0.997, -0.798, 0.582, 0.155, 0.525, 0.849, -0.061,
+  -0.524, 0.85, 0.054, 0.225, 0.974, 0.031, -0.918, 0.161, -0.363, 0.29, 0.426, -0.857, 0.942, 0.213, -0.258, -0.878, 0.443, 0.183,
+  -0.307, 0.673, 0.673, 0.804, 0.543, -0.243, -0.982, 0.183, -0.047, -0.488, 0.141, 0.862, 0.486, 0.591, 0.644, 0.8, 0.207, 0.563,
+  0.273, 0.741, -0.613, -0.601, 0.374, 0.706, -0.91, 0.259, -0.324, -0.648, 0.654, -0.39, 0.145, 0.965, 0.219, 0.304, 0.135, 0.943,
+  -0.947, 0.09, -0.307, -0.509, 0.645, 0.57, 0.044, 0.038, -0.998, -0.801, 0.228, -0.554, 0.386, 0.251, 0.888, -0.806, 0.253, 0.535,
+  0.502, 0.07, -0.862, 0.95, 0.038, -0.311, -0.412, 0.75, -0.517, 0.456, 0.799, 0.392, 0.351, 0.915, 0.198, 0.386, 0.222, 0.896,
+  0.021, 0.934, -0.357, 0.948, 0.236, -0.214, -0.554, 0.082, -0.828, -0.354, 0.924, -0.144, 0.192, 0.152, -0.969, 0.764, 0.642, -0.065,
+  0.49, 0.684, 0.541, 0.883, 0.433, 0.182, 0.994, 0.07, -0.087, -0.513, 0.357, -0.78, 0.685, 0.317, -0.656, 0.229, 0.728, 0.646,
+  0.474, 0.774, -0.42, 0.571, 0.772, 0.28, 0.738, 0.225, -0.636, 0.853, 0.409, 0.323, 0.493, 0.234, -0.838, 0.616, 0.586, -0.526,
+  -0.139, 0.176, -0.975, 0.942, 0.048, -0.332, -0.878, 0.244, -0.411, -0.448, 0.774, -0.448, 0.202, 0.853, 0.482, -0.584, 0.811, -0.005,
+  0.422, 0.77, 0.479, 0.589, 0.62, -0.518, 0.683, 0.457, -0.57, 0.384, 0.084, -0.919, 0.412, 0.882, 0.226, -0.745, 0.624, -0.233,
+  -0.205, 0.853, -0.481, 0.58, 0.773, -0.259, 0.635, 0.584, 0.506, -0.752, 0.23, 0.618, 0.017, 0.077, 0.997, -0.757, 0.571, 0.318,
+  0.338, 0.653, -0.678, 0.785, 0.614, -0.081, 0.847, 0.037, 0.531, -0.118, 0.882, -0.457, 0.493, 0.786, 0.373, 0.859, 0.512, -0.026,
+  0.933, 0.141, 0.331, 0.695, 0.699, -0.172, 0.017, 0.03, 0.999, 0.215, 0.637, 0.74, 0.449, 0.207, 0.869, -0.779, 0.627, -0.01,
+  -0.937, 0.279, 0.209, -0.396, 0.658, 0.64, 0.818, 0.387, -0.425, -0.893, 0.312, 0.323, -0.074, 0.121, 0.99, -0.988, 0.055, 0.146,
+  0.412, 0.9, -0.143, 0.418, 0.457, 0.785, 0.625, 0.78, 0.031, -0.159, 0.124, -0.979, 0.515, 0.324, 0.794, 0.881, 0.377, 0.287,
+  -0.926, 0.368, -0.08, 0.724, 0.303, -0.62, -0.073, 0.977, -0.201, -0.014, 0.437, -0.899, -0.714, 0.616, -0.334, -0.375, 0.104, -0.921,
+  0.67, 0.462, -0.582, -0.669, 0.15, -0.728, 0.409, 0.145, 0.901, 0.633, 0.276, -0.723, -0.07, 0.977, -0.202
+],
+[
+  -0.596, 0.693, 0.406, 0.537, 0.333, 0.775, -0.915, 0.098, -0.392, 0.026, 0.073, -0.997, 0.167, 0.139, 0.976, 0.278, 0.907, -0.315,
+  0.852, 0.249, -0.46, -0.401, 0.303, 0.864, 0.939, 0.341, -0.035, 0.97, 0.092, 0.225, -0.853, 0.478, -0.209, -0.364, 0.357, -0.86,
+  0.891, 0.358, 0.28, -0.524, 0.691, 0.498, 0.086, 0.985, -0.149, -0.612, 0.641, 0.463, -0.211, 0.08, -0.974, -0.016, 0.885, 0.465,
+  0.094, 0.146, 0.985, -0.889, 0.263, -0.374, -0.574, 0.342, 0.744, 0.179, 0.182, 0.967, 0.099, 0.646, 0.757, 0.407, 0.347, -0.845,
+  -0.652, 0.285, 0.703, 0.697, 0.608, -0.38, 0.459, 0.818, 0.347, -0.144, 0.059, -0.988, -0.841, 0.17, 0.514, -0.449, 0.743, 0.496,
+  -0.385, 0.122, -0.915, 0.481, 0.403, 0.779, -0.976, 0.208, 0.06, 0.36, 0.92, 0.155, 0.461, 0.865, 0.198, 0.642, 0.087, -0.762,
+  0.392, 0.047, -0.919, 0.633, 0.767, -0.105, -0.845, 0.298, -0.443, 0.731, 0.114, 0.672, 0.156, 0.303, -0.94, 0.07, 0.996, -0.048,
+  0.085, 0.588, 0.804, 0.443, 0.349, -0.826, 0.534, 0.051, 0.844, -0.013, 0.209, 0.978, 0.896, 0.439, -0.067, -0.626, 0.775, -0.089,
+  0.477, 0.873, -0.102, -0.204, 0.264, -0.943, 0.095, 0.755, -0.649, 0.448, 0.561, -0.696, 0.294, 0.743, -0.601, 0.44, 0.073, 0.895,
+  0.59, 0.321, 0.741, 0.721, 0.235, -0.652, 0.774, 0.56, -0.296, 0.837, 0.21, -0.505, 0.956, 0.148, 0.255, -0.875, 0.305, -0.376,
+  -0.158, 0.953, 0.259, -0.027, 0.232, 0.972, 0.037, 0.743, 0.668, 0.395, 0.912, -0.108, 0.459, 0.414, -0.786, 0.573, 0.297, -0.764,
+  -0.255, 0.967, 0.007, 0.013, 0.64, -0.768, 0.523, 0.068, 0.849, 0.818, 0.231, 0.526, -0.723, 0.539, -0.432, -0.492, 0.042, -0.87,
+  -0.351, 0.143, -0.925, -0.197, 0.091, 0.976, 0.037, 0.844, -0.535, 0.426, 0.438, -0.792, -0.939, 0.341, 0.04, -0.285, 0.425, -0.859,
+  0.129, 0.022, -0.991, 0.361, 0.454, -0.815, 0.822, 0.569, 0.033, 0.935, 0.03, -0.354, -0.67, 0.032, 0.741, -0.136, 0.728, -0.672,
+  0.549, 0.539, -0.639, 0.692, 0.035, -0.721, 0.697, 0.031, 0.716, -0.416, 0.137, 0.899, 0.098, 0.808, -0.58, 0.405, 0.033, -0.914,
+  0.609, 0.34, 0.716, -0.975, 0.198, 0.106, -0.635, 0.759, 0.143, -0.612, 0.255, -0.748, -0.56, 0.591, 0.581, -0.333, 0.462, 0.822,
+  0.308, 0.949, 0.064, 0.517, 0.32, 0.794, -0.837, 0.547, -0.019, -0.792, 0.078, -0.605, -0.29, 0.078, -0.954, -0.179, 0.887, 0.426,
+  -0.005, 0.234, 0.972, 0.183, 0.034, 0.983, 0.767, 0.283, 0.575, -0.982, 0.029, -0.187, -0.533, 0.842, 0.078, 0.69, 0.104, 0.716,
+  0.742, 0.637, -0.207, 0.104, 0.157, -0.982, 0.522, 0.201, -0.829, 0.757, 0.589, -0.282, 0.8, 0.482, 0.358, 0.911, 0.411, -0.04,
+  -0.966, 0.242, 0.09, -0.508, 0.495, -0.705, -0.324, 0.92, 0.22, 0.049, 0.712, -0.701, 0.312, 0.239, 0.919, 0.776, 0.516, -0.361,
+  -0.276, 0.069, -0.959, 0.042, 0.092, 0.995, 0.997, 0.037, 0.066, 0.839, 0.543, 0.025, -0.187, 0.643, 0.743, 0.212, 0.662, -0.719,
+  -0.998, 0.057, -0.002, -0.819, 0.516, 0.25, -0.201, 0.364, -0.909, 0.299, 0.717, 0.63, 0.699, 0.625, 0.349, 0.735, 0.169, 0.657,
+  0.949, 0.252, -0.187, 0.953, 0.243, -0.183, -0.849, 0.232, -0.474, 0.1, 0.117, 0.988, 0.167, 0.529, -0.832, 0.73, 0.682, 0.041,
+  0.758, 0.647, -0.079, 0.765, 0.179, -0.619, -0.637, 0.738, 0.224, 0.218, 0.298, 0.929, 0.47, 0.721, 0.508, 0.485, 0.273, -0.831,
+  0.884, 0.355, 0.305, -0.426, 0.257, -0.868, 0.764, 0.531, -0.367, 0.839, 0.285, -0.464, 0.942, 0.027, -0.333, -0.473, 0.442, -0.763,
+  0.904, 0.357, -0.236, -0.979, 0.183, 0.093, -0.63, 0.518, 0.579, 0.283, 0.693, -0.663, 0.595, 0.267, 0.758, 0.988, 0.148, -0.036,
+  -0.597, 0.242, 0.765, -0.588, 0.686, -0.43, -0.06, 0.36, -0.931, -0.827, 0.557, -0.08, -0.555, 0.734, -0.39, 0.156, 0.961, 0.228,
+  0.275, 0.643, 0.715, -0.832, 0.398, 0.386, 0.196, 0.052, -0.979, 0.575, 0.303, 0.76, -0.681, 0.725, -0.108, -0.013, 0.413, -0.911,
+  0.198, 0.875, 0.441, 0.638, 0.563, -0.525, 0.776, 0.035, -0.63, -0.487, 0.82, 0.301, -0.025, 0.898, 0.439, 0.533, 0.134, -0.835,
+  0.629, 0.118, -0.769, 0.88, 0.258, -0.398, -0.664, 0.145, -0.733, 0.266, 0.242, -0.933, 0.376, 0.626, -0.683, 0.429, 0.84, 0.333,
+  0.11, 0.542, 0.833, 0.273, 0.928, 0.255, 0.522, 0.493, -0.696, 0.565, 0.135, -0.814, 0.055, 0.988, -0.146, 0.42, 0.162, -0.893,
+  0.782, 0.273, -0.561, 0.799, 0.37, 0.473, -0.908, 0.289, 0.303, -0.728, 0.658, -0.194, -0.312, 0.753, -0.579, 0.237, 0.889, 0.392,
+  0.306, 0.123, 0.944, 0.318, 0.409, 0.855, -0.973, 0.071, -0.219, -0.51, 0.768, -0.387, -0.219, 0.633, -0.742, -0.212, 0.247, -0.946,
+  0.285, 0.546, -0.788, 0.513, 0.234, -0.826, 0.547, 0.248, 0.799, 0.55, 0.199, -0.811, -0.743, 0.607, -0.282, -0.585, 0.785, 0.204,
+  0.639, 0.355, -0.682, 0.861, 0.149, -0.486, 0.258, 0.776, -0.576, 0.566, 0.25, 0.786, 0.598, 0.721, 0.35, 0.893, 0.434, -0.119,
+  0.913, 0.28, -0.297, -0.003, 0.932, -0.362, 0.504, 0.204, 0.839, 0.822, 0.303, 0.482, -0.913, 0.261, 0.315, -0.424, 0.684, -0.593,
+  -0.157, 0.45, -0.879, 0.437, 0.872, 0.221, 0.453, 0.273, 0.849, 0.736, 0.604, -0.306, -0.817, 0.229, 0.529, -0.378, 0.156, -0.913,
+  0.215, 0.877, 0.43, 0.305, 0.09, 0.948, 0.368, 0.929, -0.049, 0.407, 0.67, -0.621, -0.649, 0.467, -0.601, 0.42, 0.526, 0.74,
+  0.804, 0.293, -0.518, -0.664, 0.622, 0.414, 0.125, 0.231, -0.965, 0.618, 0.46, 0.637, 0.88, 0.297, 0.371, 0.967, 0.228, 0.116,
+  -0.968, 0.071, 0.241, -0.241, 0.085, 0.967, -0.031, 0.98, -0.195, 0.113, 0.913, -0.393, 0.443, 0.27, 0.855, 0.491, 0.691, -0.531,
+  0.359, 0.931, 0.061, 0.432, 0.183, -0.883, 0.469, 0.243, -0.849, 0.619, 0.779, -0.096, 0.684, 0.382, 0.621, 0.885, 0.424, 0.193,
+  0.951, 0.046, -0.305, 0.993, 0.088, 0.076, -0.467, 0.715, 0.52, -0.908, 0.398, -0.127, -0.514, 0.846, -0.14, -0.314, 0.586, 0.747,
+  0.37, 0.146, 0.917, 0.884, 0.298, -0.359, 0.913, 0.166, 0.372, -0.95, 0.266, -0.166, -0.421, 0.724, -0.547, -0.265, 0.093, -0.96,
+  0.346, 0.668, -0.659, 0.735, 0.605, -0.306, 0.843, 0.527, 0.103, 0.904, 0.078, 0.421, -0.893, 0.376, 0.245, -0.842, 0.474, 0.257,
+  -0.636, 0.771, 0.002, -0.092, 0.643, 0.76, -0.054, 0.994, -0.098, 0.043, 0.222, -0.974, 0.863, 0.383, -0.329, -0.599, 0.098, -0.795,
+  0.557, 0.328, -0.763, -0.553, 0.475, 0.685, -0.45, 0.106, 0.886, 0.069, 0.634, -0.77, 0.941, 0.11, 0.321, -0.504, 0.367, 0.782,
+  0.989, 0.098, -0.11, -0.685, 0.124, -0.718, -0.653, 0.756, -0.05, -0.583, 0.801, -0.134, -0.374, 0.846, 0.381, -0.118, 0.992, 0.045,
+  0.044, 0.37, -0.928, 0.372, 0.921, -0.119, 0.776, 0.453, 0.44, -0.679, 0.502, 0.536, -0.09, 0.07, -0.993, 0.449, 0.893, 0.028,
+  -0.363, 0.719, -0.593, -0.152, 0.349, -0.925, -0.143, 0.465, 0.874, 0.202, 0.166, -0.965, 0.46, 0.836, 0.299, 0.647, 0.367, -0.668,
+  0.805, 0.037, 0.592, 0.821, 0.445, -0.357, 0, 0.252, 0.968, 0.063, 0.988, -0.139, 0.233, 0.427, -0.874, 0.378, 0.138, 0.916,
+  0.43, 0.376, 0.821, -0.816, 0.027, 0.577, -0.489, 0.872, -0.025, -0.324, 0.541, -0.776, -0.236, 0.956, -0.172, -0.224, 0.879, 0.421,
+  -0.108, 0.504, 0.857, -0.005, 0.988, 0.157, 0.42, 0.458, -0.783, 0.919, 0.359, -0.162, -0.909, 0.119, 0.399, -0.583, 0.552, 0.596,
+  -0.25, 0.578, 0.777, -0.17, 0.197, -0.966, 0.086, 0.624, -0.777, 0.3, 0.789, -0.537, 0.511, 0.713, -0.48, 0.783, 0.363, -0.505,
+  0.878, 0.234, 0.418, -0.757, 0.638, 0.145, -0.621, 0.569, -0.539, -0.347, 0.903, 0.255, -0.212, 0.328, -0.92, -0.154, 0.779, 0.608,
+  0.115, 0.316, 0.942, 0.745, 0.105, 0.659, 0.251, 0.532, -0.809, 0.4, 0.914, 0.064, 0.573, 0.216, 0.79, 0.879, 0.395, 0.269,
+  0.898, 0.234, -0.373, -0.915, 0.152, 0.373, -0.699, 0.295, -0.651, -0.549, 0.708, -0.444, -0.533, 0.842, 0.078, -0.415, 0.101, -0.904,
+  -0.367, 0.727, -0.58, -0.309, 0.896, 0.319, -0.177, 0.949, 0.261, 0.015, 0.828, -0.56, 0.088, 0.987, 0.136, 0.125, 0.264, -0.956,
+  0.194, 0.092, -0.977, 0.195, 0.941, 0.277, 0.268, 0.919, 0.289, 0.519, 0.184, 0.834, 0.651, 0.758, -0.034, 0.682, 0.458, -0.57,
+  0.69, 0.347, -0.635, -0.695, 0.679, -0.235, -0.593, 0.438, 0.676, 0.152, 0.69, 0.708, 0.673, 0.375, -0.638, 0.914, 0.116, -0.389,
+  -0.6, 0.064, -0.797, -0.433, 0.828, -0.357, -0.055, 0.991, 0.124, 0.068, 0.947, 0.314, 0.31, 0.711, -0.631, 0.384, 0.738, -0.555,
+  0.411, 0.149, -0.899, 0.483, 0.857, -0.178, 0.492, 0.832, 0.255, 0.605, 0.59, 0.535, 0.729, 0.443, 0.522, 0.129, 0.228, -0.965,
+  0.204, 0.974, -0.094, 0.467, 0.88, -0.085, 0.856, 0.496, -0.148, 0.965, 0.105, 0.24, -0.683, 0.572, 0.455, -0.524, 0.708, 0.474,
+  0.111, 0.885, 0.452, 0.287, 0.853, -0.436, 0.338, 0.317, -0.886, 0.374, 0.866, -0.331, 0.531, 0.462, 0.71, 0.628, 0.683, 0.373,
+  -0.141, 0.142, 0.98, -0.091, 0.479, -0.873, 0.918, 0.324, 0.227, -0.487, 0.486, -0.725, -0.188, 0.783, -0.593, 0.13, 0.812, 0.568,
+  0.208, 0.8, 0.563, 0.434, 0.876, -0.208, 0.467, 0.804, -0.369, 0.519, 0.849, 0.098, 0.784, 0.107, 0.611, -0.777, 0.028, 0.629,
+  -0.67, 0.106, 0.735, 0.707, 0.185, -0.683, -0.301, 0.802, 0.516, -0.197, 0.959, 0.204, 0.269, 0.21, -0.94, 0.272, 0.266, -0.925,
+  0.301, 0.837, -0.456, 0.944, 0.116, 0.308, -0.948, 0.197, -0.25, -0.822, 0.354, -0.446, -0.733, 0.305, 0.608, -0.399, 0.023, 0.917,
+  -0.241, 0.903, 0.357, 0.305, 0.28, -0.91, 0.466, 0.804, -0.369, 0.581, 0.06, -0.811, 0.725, 0.625, 0.289, 0.794, 0.44, -0.419,
+  -0.685, 0.365, -0.63, -0.223, 0.194, 0.955, 0.174, 0.096, -0.98, 0.421, 0.048, 0.906, 0.513, 0.339, 0.788, 0.923, 0.271, -0.273,
+  -0.761, 0.335, -0.556, -0.718, 0.259, 0.646, -0.064, 0.992, 0.108, 0.288, 0.584, 0.759, 0.297, 0.22, 0.929, 0.432, 0.842, -0.323,
+  0.61, 0.541, -0.58, 0.639, 0.303, 0.707, -0.604, 0.344, -0.719, -0.594, 0.164, 0.787, -0.329, 0.915, 0.236, -0.131, 0.673, -0.728,
+  -0.083, 0.765, 0.638, -0.014, 0.926, 0.378, 0.183, 0.181, 0.966, 0.381, 0.535, 0.754, 0.612, 0.651, -0.449, 0.852, 0.523, -0.02,
+  0.881, 0.147, -0.449, -0.813, 0.025, 0.582, -0.573, 0.029, -0.819, -0.519, 0.571, -0.636, -0.503, 0.181, 0.845, -0.375, 0.884, 0.279,
+  -0.235, 0.938, 0.253, -0.126, 0.964, -0.233, 0.074, 0.501, 0.862, 0.25, 0.674, 0.695, 0.288, 0.914, 0.287, 0.561, 0.467, 0.684,
+  0.797, 0.358, -0.486, 0.798, 0.372, -0.474, 0.803, 0.249, -0.542, -0.884, 0.35, -0.311, -0.815, 0.123, 0.566, -0.327, 0.81, -0.486,
+  -0.176, 0.385, 0.906, -0.131, 0.99, 0.05, 0.226, 0.847, -0.482, 0.648, 0.443, -0.62, 0.824, 0.507, -0.252, 0.961, 0.116, -0.251,
+  -0.591, 0.618, 0.518, -0.234, 0.332, -0.914, -0.115, 0.88, -0.46, 0.076, 0.207, -0.975, 0.145, 0.811, -0.566, 0.204, 0.032, -0.978,
+  0.503, 0.431, 0.749, 0.517, 0.101, -0.85, 0.783, 0.422, -0.458, -0.49, 0.367, -0.791, -0.014, 0.475, 0.88, 0.28, 0.34, -0.898,
+  0.299, 0.92, -0.252, 0.484, 0.25, 0.839, 0.772, 0.623, -0.127, 0.826, 0.563, 0.013, -0.893, 0.311, -0.326, -0.393, 0.705, 0.59,
+  -0.105, 0.864, 0.492, -0.004, 0.378, -0.926, 0.132, 0.285, 0.949, 0.363, 0.073, -0.929, 0.412, 0.315, 0.855, 0.715, 0.643, 0.274,
+  -0.679, 0.6, 0.423, -0.464, 0.24, -0.853, -0.328, 0.913, 0.244, 0.315, 0.949, -0.002, 0.46, 0.876, 0.145, 0.479, 0.731, -0.485,
+  0.517, 0.585, -0.625, 0.967, 0.228, 0.116, 0.985, 0.038, 0.166, -0.98, 0.025, -0.198, -0.946, 0.287, 0.15, -0.891, 0.432, 0.14,
+  -0.718, 0.313, -0.621, -0.443, 0.891, -0.103, -0.343, 0.93, 0.131, -0.264, 0.085, -0.961, -0.249, 0.302, -0.92, -0.023, 0.139, -0.99,
+  0.083, 0.751, 0.655, 0.331, 0.926, 0.183, 0.392, 0.752, -0.529, 0.45, 0.189, -0.873, 0.862, 0.42, -0.283, -0.892, 0.398, 0.213,
+  -0.643, 0.452, -0.619, -0.491, 0.059, 0.869, -0.278, 0.278, -0.919, 0.091, 0.816, -0.571, 0.526, 0.648, -0.551, 0.531, 0.779, 0.335,
+  0.531, 0.462, 0.71, 0.65, 0.708, -0.277, 0.666, 0.614, -0.425, 0.831, 0.4, -0.386, 0.938, 0.288, -0.193, -0.879, 0.257, -0.402,
+  -0.436, 0.465, -0.77, -0.289, 0.957, 0.04, -0.263, 0.818, -0.512, -0.126, 0.884, -0.45, 0.301, 0.042, -0.953, 0.747, 0.64, 0.18,
+  0.945, 0.238, -0.226, -0.845, 0.038, 0.533, -0.633, 0.07, -0.771, -0.583, 0.812, 0.01, 0.013, 0.961, 0.276, 0.112, 0.865, -0.489,
+  0.194, 0.755, -0.627, 0.203, 0.132, 0.97, 0.542, 0.77, -0.338, 0.603, 0.705, -0.373, 0.955, 0.238, 0.176, -0.523, 0.847, -0.09,
+  -0.317, 0.866, 0.387, -0.05, 0.612, 0.789, 0.539, 0.692, -0.48, 0.602, 0.554, -0.575, 0.621, 0.051, 0.782, 0.639, 0.756, 0.142,
+  0.767, 0.575, 0.285, 0.851, 0.154, -0.502, 0.994, 0.038, 0.103, -0.951, 0.168, -0.259, -0.898, 0.207, -0.388, -0.68, 0.327, -0.656,
+  -0.223, 0.107, -0.969, -0.171, 0.493, 0.853, 0.247, 0.549, -0.799, 0.313, 0.95, -0, 0.367, 0.696, 0.618, 0.47, 0.352, 0.809,
+  0.671, 0.288, -0.684, 0.685, 0.205, -0.7, -0.235, 0.095, -0.967, -0.052, 0.685, -0.726, 0.196, 0.403, -0.894, 0.419, 0.383, -0.823,
+  0.77, 0.629, -0.104, -0.529, 0.846, -0.069, -0.206, 0.324, -0.923, 0.641, 0.511, -0.572, 0.697, 0.351, -0.626, 0.7, 0.518, -0.492,
+  0.895, 0.151, -0.42, -0.946, 0.071, -0.316, -0.896, 0.415, 0.161, -0.877, 0.258, -0.405, -0.865, 0.146, 0.48, -0.859, 0.26, 0.441,
+  -0.756, 0.55, 0.355, -0.399, 0.225, -0.889, 0.076, 0.327, 0.942, 0.304, 0.795, -0.525, 0.39, 0.426, -0.817, 0.394, 0.88, -0.265,
+  0.572, 0.809, -0.133, 0.69, 0.104, 0.716, 0.755, 0.04, -0.655, 0.962, 0.275, -0.004, -0.774, 0.452, 0.444, -0.699, 0.152, 0.699,
+  -0.677, 0.722, 0.142, -0.664, 0.035, -0.747, -0.608, 0.738, -0.291, -0.576, 0.324, 0.751, -0.148, 0.593, -0.791, 0.193, 0.157, -0.969,
+  0.214, 0.527, -0.822, 0.915, 0.236, -0.328, -0.928, 0.148, -0.341, -0.478, 0.765, -0.432, -0.398, 0.816, 0.42, -0.233, 0.192, -0.954,
+  -0.112, 0.604, -0.789, 0.492, 0.593, 0.637, 0.493, 0.183, 0.851, 0.497, 0.075, -0.864, 0.591, 0.206, -0.78, 0.65, 0.234, -0.723,
+  0.772, 0.635, 0.007, 0.938, 0.2, -0.282, -0.461, 0.245, 0.853, -0.134, 0.251, 0.959, -0.091, 0.582, -0.808, 0.134, 0.785, 0.605,
+  0.374, 0.289, -0.881, 0.505, 0.796, 0.334, 0.844, 0.535, 0.036, 0.988, 0.122, 0.09, -0.645, 0.735, -0.208, -0.348, 0.575, -0.74,
+  -0.091, 0.114, 0.989, 0.228, 0.702, -0.675, 0.381, 0.451, -0.807, 0.411, 0.313, -0.856, 0.547, 0.092, -0.832, 0.714, 0.65, -0.261,
+  -0.794, 0.333, -0.509, -0.409, 0.859, -0.309, -0.305, 0.828, -0.471, -0.274, 0.863, 0.425, -0.25, 0.065, 0.966, 0.806, 0.581, -0.114,
+  0.879, 0.385, -0.281, 0.889, 0.023, 0.457, 0.925, 0.107, 0.364, 0.983, 0.131, -0.125, -0.981, 0.193, 0.002, -0.883, 0.39, -0.26,
+  -0.492, 0.153, 0.857, -0.167, 0.335, -0.927, 0.046, 0.999, -0.007, 0.233, 0.068, 0.97, 0.378, 0.255, 0.89, 0.538, 0.648, -0.54,
+  0.716, 0.692, 0.085, -0.973, 0.193, -0.13, -0.834, 0.364, -0.414, -0.381, 0.487, 0.786, -0.368, 0.562, -0.741, -0.098, 0.989, -0.113,
+  -0.091, 0.813, -0.575, 0.115, 0.693, 0.712, 0.335, 0.942, 0.026, 0.426, 0.132, 0.895, 0.537, 0.58, -0.612, 0.71, 0.131, 0.691,
+  0.814, 0.329, -0.478, 0.934, 0.315, -0.168, 0.984, 0.152, 0.089, -0.793, 0.403, -0.457, -0.699, 0.609, -0.375, -0.372, 0.725, -0.58,
+  -0.271, 0.757, -0.594, -0.193, 0.571, 0.798, -0.022, 0.178, 0.984, 0.134, 0.897, -0.421, 0.206, 0.342, 0.917, 0.239, 0.486, 0.841,
+  0.265, 0.052, 0.963, 0.404, 0.685, 0.606, 0.676, 0.626, 0.388, 0.798, 0.398, -0.453, 0.935, 0.03, -0.354, -0.876, 0.478, -0.064,
+  -0.413, 0.834, -0.366, -0.233, 0.097, -0.968, -0.071, 0.166, -0.984, 0.007, 0.707, 0.707, 0.379, 0.826, 0.417, 0.422, 0.538, 0.73,
+  -0.467, 0.402, 0.788, -0.34, 0.906, 0.253, -0.301, 0.517, 0.801, -0.179, 0.887, 0.426, -0.057, 0.447, -0.893, 0.112, 0.154, -0.982,
+  0.664, 0.72, -0.203, 0.709, 0.521, -0.475, 0.8, 0.476, -0.364, 0.971, 0.23, -0.067, -0.629, 0.588, 0.509, -0.509, 0.837, -0.201,
+  -0.449, 0.725, -0.523, 0.015, 0.409, -0.912, 0.029, 0.898, -0.438, 0.256, 0.633, -0.73, 0.269, 0.554, -0.788, 0.78, 0.437, -0.448,
+  0.913, 0.21, -0.351, 0.994, 0.109, -0.026, -0.775, 0.424, 0.468, -0.199, 0.856, -0.478, -0.156, 0.819, 0.552, -0.087, 0.065, -0.994,
+  0.219, 0.905, -0.365, 0.302, 0.468, 0.83, 0.334, 0.403, -0.852, 0.395, 0.51, -0.764, 0.873, 0.272, -0.404, -0.925, 0.177, -0.336,
+  -0.89, 0.137, -0.435, -0.499, 0.535, -0.682, -0.458, 0.144, 0.877, -0.436, 0.416, -0.798, -0.364, 0.357, 0.86, -0.348, 0.205, -0.915,
+  -0.167, 0.978, 0.122, 0.021, 0.367, 0.93, 0.504, 0.862, 0.051, 0.74, 0.252, -0.624, 0.815, 0.522, -0.254, 0.827, 0.491, -0.275,
+  0.93, 0.268, 0.25
+]
+];
+
 (function voute() {
   const R = 4500;
-  const semer = (n, taille, opacite) => {
-    const pts = [];
-    while (pts.length < n * 3) {
-      const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(1 - u * u);
-      const y = Math.abs(u) * 0.96 + 0.04;      // hémisphère haut seulement
-      pts.push(Math.cos(a) * r * R, y * R, Math.sin(a) * r * R);
-    }
+  // Une bande = un rang de magnitude. Les directions sont déjà unitaires,
+  // il ne reste qu'à les poser sur la sphère de rayon R.
+  const poser = (dirs, taille, opacite) => {
+    const pts = new Float32Array(dirs.length);
+    for (let i = 0; i < dirs.length; i++) pts[i] = dirs[i] * R;
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    g.setAttribute('position', new THREE.BufferAttribute(pts, 3));
     const m = new THREE.PointsMaterial({
       color: COL_TEXT, size: taille, sizeAttenuation: false,
       transparent: true, opacity: opacite, fog: false, depthWrite: false
@@ -1451,7 +1690,32 @@ let etoiles = [];
     scene.add(p);
     return p;
   };
-  etoiles = [semer(420, 1.6, 0.5), semer(70, 2.8, 0.85)];
+  etoiles = [poser(CIEL[2], 1.4, 0.42), poser(CIEL[1], 2.2, 0.7), poser(CIEL[0], 3.4, 1)];
+
+  // le disque et sa couronne, posés sur la même sphère
+  const pts = [];
+  const c = new THREE.Vector3().copy(SOLEIL).multiplyScalar(R);
+  const u = new THREE.Vector3().crossVectors(SOLEIL, new THREE.Vector3(0, 1, 0)).normalize();
+  const v = new THREE.Vector3().crossVectors(SOLEIL, u).normalize();
+  const pos = (ang, ray) => new THREE.Vector3().copy(c)
+    .addScaledVector(u, Math.cos(ang) * ray).addScaledVector(v, Math.sin(ang) * ray);
+  const N = 48, RAY = 210;
+  for (let i = 0; i < N; i++) {
+    const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2;
+    const p0 = pos(a0, RAY), p1 = pos(a1, RAY);
+    pts.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
+  }
+  for (let i = 0; i < 16; i++) {                  // la couronne
+    const a = i / 16 * Math.PI * 2;
+    const p0 = pos(a, RAY * 1.25), p1 = pos(a, RAY * (i % 2 ? 1.6 : 2.1));
+    pts.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
+  }
+  const so = new THREE.LineSegments(segGeom(pts),
+    new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.75, fog: false }));
+  so.frustumCulled = false;
+  so.renderOrder = -1;
+  scene.add(so);
+  etoiles.push(so);
 })();
 
 const TOWER_H = 150;
@@ -1538,6 +1802,7 @@ function tracerLayer(color, opacity) {
   return obj;
 }
 const playerTracers = tracerLayer(COL_LOCK, 0.9);
+const roqTracers = tracerLayer(COL_TEXT, 0.95);
 const enemyTracers  = tracerLayer(COL_LINE, 0.95);
 
 function feedTracers(layer, pts) {
@@ -1552,14 +1817,20 @@ function feedTracers(layer, pts) {
 // ---------------------------------------------------------------------------
 const burstGeom = new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 0));
 
-// Le bouclier : une coque filaire qui vibre autour de l'avion et pâlit à
-// mesure qu'elle encaisse. Rien de plein, rien de clignotant.
-const matBouclier = lineMat(COL_TEXT, 0.5);
-const bouclierMesh = new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 1)), matBouclier);
-bouclierMesh.frustumCulled = false;
-bouclierMesh.visible = false;
-scene.add(bouclierMesh);
+// Le bouclier n'est pas une bulle autour de l'avion : c'est l'avion lui-même
+// qui rayonne. Deux copies de ses arêtes, à peine plus grandes, dépassent du
+// contour et donnent ce halo — comme une cellule légèrement radioactive.
+const matHaloA = lineMat(COL_TEXT, 0.5);
+const matHaloB = lineMat(COL_LINE, 0.22);
+matHaloA.depthWrite = false;
+matHaloB.depthWrite = false;
+const haloA = new THREE.LineSegments(planeEdges, matHaloA);
+const haloB = new THREE.LineSegments(planeEdges, matHaloB);
+haloA.scale.setScalar(1.045);
+haloB.scale.setScalar(1.11);
+haloA.frustumCulled = haloB.frustumCulled = false;
+haloA.visible = haloB.visible = false;
+playerMesh.add(haloA, haloB);
 
 const bursts = [];
 function spawnBurst(pos, scale) {
@@ -1593,6 +1864,7 @@ const state = {
   announce: '',
   announceT: 0,
   hitFlash: 0,
+  recordBattu: null,
   impacts: [],
   bouclier: 0,
   vagueTouche: false,
@@ -1605,6 +1877,8 @@ const state = {
   lockT: 0,
   shots: [],
   gunT: 0,
+  roquettes: [],
+  roqT: 0,
   lockCharge: 0,
   spinT: 0,
   spinSide: 0,
@@ -1648,9 +1922,9 @@ function poseAuSol() {
   state.shots.length = 0;
   playerMesh.position.copy(state.pos);
   playerMesh.quaternion.identity();
-  euler.set(0, 0, 0);
+  euler.set(CAM_DECLIN, 0, 0);
   camera.quaternion.setFromEuler(euler);
-  camera.position.copy(camOffset).add(state.pos);
+  camera.position.copy(camOffset).add(state.pos);   // décalage à plat, vue plongeante
   camVel.set(0, 0, 0);
   for (const t of towers) placeTower(t, true);
   for (const a of arches) placeArche(a, true);
@@ -1693,6 +1967,8 @@ function resetGame() {
   state.enemies.length = 0;
   state.bullets.length = 0;
   state.shots.length = 0;
+  state.roquettes.length = 0;
+  state.roqT = 0;
   state.gunT = 0;
   aim.x = 0; aim.y = 0; aim.active = false;
   announce('DÉCOLLAGE');
@@ -1704,6 +1980,10 @@ function announce(txt) { state.announce = txt; state.announceT = 2.2; }
 // indépendantes : la tenir dans le chrono, et n'être pas touché une seule
 // fois. Chacune rend quelque chose, les deux ensemble rendent tout.
 function bilanVague() {
+  // les pièces au sol restées debout s'effacent avec la vague
+  for (let i = state.enemies.length - 1; i >= 0; i--) {
+    if (state.enemies[i].kind.sol) { scene.remove(state.enemies[i].mesh); state.enemies.splice(i, 1); }
+  }
   const dansTemps = state.vagueT <= state.vagueLimite;
   const intact = !state.vagueTouche;
   state.vagueLimite = 0;
@@ -1745,25 +2025,37 @@ function spawnWave() {
   // Montée en charge : on ouvre sur un seul adversaire, le temps de prendre
   // l'avion en main. Le tableau remplace la formule qui donnait déjà quatre
   // biplans dès la première vague.
-  const n = EFFECTIF[Math.min(state.wave - 1, EFFECTIF.length - 1)];
-  const pool = VAGUES[Math.min(state.wave - 1, VAGUES.length - 1)];
+  // Toutes les cinq vagues, un adversaire unique. Au-delà du tableau les
+  // vagues continuent indéfiniment avec le lot le plus dur : le jeu n'a pas
+  // de fin, seul le score en a une.
+  const boss = state.wave % 5 === 0;
+  const pool = boss ? [4] : VAGUES[Math.min(state.wave - 1, VAGUES.length - 1)];
+  const n = boss ? 1 : EFFECTIF[Math.min(state.wave - 1, EFFECTIF.length - 1)];
+
   const vus = new Set();
-  for (let i = 0; i < n; i++) {
-    const k = KINDS[pool[Math.floor(Math.random() * pool.length)]];
+  // quelques pièces au sol à partir de la deuxième vague, en plus des avions
+  const iTank = KINDS.findIndex(k => k.sol);
+  const tanks = boss ? 0 : (state.wave >= 2 ? 1 + (Math.random() < 0.5 ? 1 : 0) : 0);
+  for (let i = 0; i < n + tanks; i++) {
+    const auSol = i >= n;
+    const k = auSol ? KINDS[iTank] : KINDS[pool[Math.floor(Math.random() * pool.length)]];
     vus.add(k.nom);
     const a = Math.random() * Math.PI * 2;
-    const d = 520 + Math.random() * 420;
+    const d = boss ? 900 : 520 + Math.random() * 420;
     const mesh = solidWire(k.geom, k.edges, matEnemy);
     mesh.scale.setScalar(k.echelle);
     scene.add(mesh);
     state.enemies.push({
       kind: k,
       mesh,
-      pos: new THREE.Vector3(
-        state.pos.x + Math.cos(a) * d,
-        110 + Math.random() * 270,
-        state.pos.z + Math.sin(a) * d
-      ),
+      pos: auSol
+        ? new THREE.Vector3(state.pos.x + Math.cos(a) * (500 + Math.random() * 700), 0,
+                            state.pos.z + Math.sin(a) * (500 + Math.random() * 700))
+        : new THREE.Vector3(
+            state.pos.x + Math.cos(a) * d,
+            110 + Math.random() * 270,
+            state.pos.z + Math.sin(a) * d
+          ),
       quat: new THREE.Quaternion(),
       forward: new THREE.Vector3(0, 0, -1),
       los: new THREE.Vector3(),
@@ -1789,8 +2081,9 @@ function spawnWave() {
   state.vagueTouche = false;
   state.vagueT = 0;
   state.archePassee = false;
-  state.vagueLimite = LIMITE_BASE + LIMITE_PAR * n;
-  announce('VAGUE ' + state.wave + '  ·  ' + [...vus].join(' + '));
+  state.vagueLimite = boss ? 55 : LIMITE_BASE + LIMITE_PAR * n;
+  announce(boss ? 'VAGUE ' + state.wave + '  ·  GARDIEN'
+                : 'VAGUE ' + state.wave + '  ·  ' + [...vus].join(' + '));
   SFX.vague();
   jalonVague(state.wave);
 }
@@ -1822,6 +2115,41 @@ function updateEnemies(dt) {
     _v.subVectors(e.pos, state.pos);
     const dist = _v.length() || 1;
     const bearing = state.forward.dot(_v) / dist; // >0 devant, <0 derrière
+
+    // Pièce au sol : elle reste où elle est, tourne sa tourelle vers le ciel
+    // et n'entre dans aucune logique de poursuite. Trop loin, on la remplace.
+    if (K.sol) {
+      if (dist > 2600) {
+        const ang = Math.random() * Math.PI * 2, r = 900 + Math.random() * 700;
+        e.pos.set(state.pos.x + Math.cos(ang) * r, 0, state.pos.z + Math.sin(ang) * r);
+      }
+      _m4.lookAt(e.pos, state.pos, _up);
+      _q.setFromRotationMatrix(_m4);
+      e.quat.rotateTowards(_q, 1.4 * dt);
+      e.forward.set(0, 0, -1).applyQuaternion(e.quat);
+      e.mesh.position.copy(e.pos);
+      e.mesh.quaternion.copy(e.quat);
+      e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
+      _v.multiplyScalar(-1 / dist);
+      const geneSol = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
+      e.reload -= dt;
+      if (e.burst > 0) {
+        e.burstT -= dt;
+        if (e.burstT <= 0) {
+          const lead = state.forward.clone()
+            .multiplyScalar(state.speed * (dist / BULLET_SPEED) * 0.8);
+          const dir = _v.clone().multiplyScalar(dist).add(lead).normalize();
+          state.bullets.push({ pos: e.pos.clone().setY(4), dir, t: 0 });
+          e.burst--; e.burstT = BURST_GAP;
+        }
+      } else if (e.reload <= 0 && dist < K.portee * (1 - 0.45 * geneSol)
+                 && e.forward.dot(_v) > K.cone) {
+        e.reload = K.recharge[0] + Math.random() * (K.recharge[1] - K.recharge[0]);
+        e.burst = K.rafale;
+        e.burstT = 0;
+      }
+      continue;
+    }
 
     // Décrocher trop loin, c'est sortir du combat : on revient en face pour un
     // nouveau passage. L'avion du joueur avance sans arrêt, une poursuite
@@ -1952,11 +2280,16 @@ function updateEnemies(dt) {
       const dir = _v.clone().multiplyScalar(dist).add(lead).normalize();
       state.bullets.push({ pos: e.pos.clone(), dir, t: 0 });
     };
+    // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
+    // être bien mieux aligné : c'est tout l'intérêt d'attaquer avec le soleil
+    // dans le dos, la plus vieille manœuvre du combat aérien.
+    const gene = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
     e.reload -= dt;
     if (e.burst > 0) {
       e.burstT -= dt;
       if (e.burstT <= 0) { tirer(); e.burst--; e.burstT = BURST_GAP; }
-    } else if (e.reload <= 0 && dist < K.portee && e.forward.dot(_v) > K.cone) {
+    } else if (e.reload <= 0 && dist < K.portee * (1 - 0.45 * gene)
+               && e.forward.dot(_v) > K.cone + (1 - K.cone) * gene * 1.6) {
       e.reload = K.recharge[0] + Math.random() * (K.recharge[1] - K.recharge[0]);
       e.burst = K.rafale;
       e.burstT = 0;
@@ -2012,6 +2345,45 @@ function updateShots(dt) {
     );
   }
   feedTracers(playerTracers, pts);
+}
+
+// Les roquettes guident vers leur cible tant qu'elle vit, en virant à taux
+// limité : une cible qui rompt franchement peut donc les faire manquer.
+function updateRoquettes(dt) {
+  const pts = [];
+  for (let i = state.roquettes.length - 1; i >= 0; i--) {
+    const r = state.roquettes[i];
+    r.t += dt;
+    const morte = !r.cible || r.cible.hp <= 0 || state.enemies.indexOf(r.cible) < 0;
+    if (r.t > ROQ_VIE) { state.roquettes.splice(i, 1); continue; }
+    if (!morte) {
+      _seg.subVectors(r.cible.pos, r.pos).normalize();
+      // on tourne vers la cible sans dépasser le taux de virage
+      const cosA = THREE.MathUtils.clamp(r.dir.dot(_seg), -1, 1);
+      const ang = Math.acos(cosA);
+      const pas = Math.min(ang, ROQ_VIRAGE * dt);
+      if (ang > 1e-4) {
+        _segA.crossVectors(r.dir, _seg).normalize();
+        r.dir.applyAxisAngle(_segA, pas).normalize();
+      }
+    }
+    _segB.copy(r.pos);
+    r.pos.addScaledVector(r.dir, ROQ_VITESSE * dt);
+
+    if (!morte && r.pos.distanceTo(r.cible.pos) < 14) {
+      r.cible.hp -= ROQ_DEGATS;
+      spawnBurst(r.pos, 6);
+      SFX.roquetteImpact();
+      state.roquettes.splice(i, 1);
+      continue;
+    }
+    // corps puis traînée
+    pts.push(r.pos.x, r.pos.y, r.pos.z,
+             r.pos.x - r.dir.x * 12, r.pos.y - r.dir.y * 12, r.pos.z - r.dir.z * 12);
+    pts.push(r.pos.x - r.dir.x * 16, r.pos.y - r.dir.y * 16, r.pos.z - r.dir.z * 16,
+             r.pos.x - r.dir.x * 44, r.pos.y - r.dir.y * 44, r.pos.z - r.dir.z * 44);
+  }
+  feedTracers(roqTracers, pts);
 }
 
 function updateBullets(dt) {
@@ -2094,7 +2466,13 @@ function damagePlayer(amount, source) {
 // seuil angulaire d'une cible : sa demi-envergure vue à cette distance, plus
 // la marge. C'est ce qui rend la visée honnête à toute distance.
 function seuilLock(e, d) {
-  return Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE;
+  return Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE * (1 - 0.55 * eblouissement());
+}
+
+// 0 quand le soleil n'est pas dans l'axe, 1 quand on le regarde en face
+function eblouissement() {
+  const dp = state.forward.dot(SOLEIL);
+  return dp <= SOL_CONE ? 0 : (dp - SOL_CONE) / (1 - SOL_CONE);
 }
 
 function updateLock(dt) {
@@ -2127,7 +2505,24 @@ function updateLock(dt) {
   const charge = best.charge;
   if (state.lockCharge < 1 && charge >= 1) SFX.cale();
   state.lockCharge = charge;
-  best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge) * dt;
+  best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge) * (1 - 0.6 * eblouissement()) * dt;
+
+  // deux roquettes après une seconde de verrouillage tenu
+  state.roqT -= dt;
+  if (state.roqT <= 0 && best.charge * LOCK_SPOOL >= ROQ_SEUIL) {
+    state.roqT = ROQ_RECHARGE;
+    for (const g of [GUN_L, GUN_R]) {
+      const p = new THREE.Vector3(g.x, g.y, g.z)
+        .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
+      state.roquettes.push({
+        pos: p,
+        dir: new THREE.Vector3().subVectors(best.pos, p).normalize(),
+        cible: best,
+        t: 0
+      });
+    }
+    SFX.roquette();
+  }
 
   // une salve part de chaque aile, d'autant plus serrée que le tir est calé
   state.gunT -= dt;
@@ -2163,6 +2558,11 @@ const camOffset = new THREE.Vector3(0, 5.0, 16.0).multiplyScalar(ENVERGURE_JOUEU
 // ressort amorti et garde sa propre vitesse. Elle se comporte donc comme un
 // second avion qui tient la formation — il traîne dans les virages, dépasse
 // un peu quand on se remet à plat, et se recale tout seul.
+// La caméra plonge d'un angle fixe. Elle surplombe l'avion pour montrer la
+// voilure, ce qui le posait au tiers inférieur de l'image ; ce piqué le
+// ramène à mi-hauteur sans renoncer à la vue de dessus.
+const CAM_DECLIN = -0.215;
+
 const camVel = new THREE.Vector3();
 const _cs = new THREE.Vector3();
 const _cd = new THREE.Vector3();
@@ -2280,8 +2680,10 @@ function simulate(dt) {
 
     state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 9, dt);
     euler.set(state.camPitch, 0, 0);
+    _qa.setFromEuler(euler);
+    euler.set(state.camPitch + CAM_DECLIN, 0, 0);
     camera.quaternion.setFromEuler(euler);
-    _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
+    _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
     // La vitesse réelle, et non celle déduite de l'assiette : pendant la
     // montée l'avion suit une courbe imposée, pas son vecteur nez. C'est cet
     // écart qui faisait décrocher la caméra puis sauter au passage en vol
@@ -2382,6 +2784,7 @@ function simulate(dt) {
     updateBullets(dt);
     updateLock(dt);
     updateShots(dt);
+  updateRoquettes(dt);
     scrape(dt);
     updateDecor(dt);
     refreshBars();
@@ -2453,16 +2856,15 @@ function simulate(dt) {
   playerMesh.quaternion.copy(state.quat);
   propMesh.rotation.z += 16 * dt;
 
-  bouclierMesh.visible = state.bouclier > 0;
+  haloA.visible = haloB.visible = state.bouclier > 0;
   if (state.bouclier > 0) {
     const reste = state.bouclier / BOUCLIER_COUPS;
     const t = performance.now() / 1000;
-    bouclierMesh.position.copy(state.pos);
-    bouclierMesh.quaternion.copy(state.quat);
-    // la coque respire, et se resserre en s'épuisant
-    bouclierMesh.scale.setScalar(11 * (0.86 + 0.14 * reste) * (1 + Math.sin(t * 7) * 0.025));
-    bouclierMesh.rotation.z += 0;
-    matBouclier.opacity = 0.16 + 0.34 * reste + Math.sin(t * 11) * 0.05;
+    // le rayonnement respire et s'éteint à mesure qu'il encaisse
+    haloA.scale.setScalar(1.03 + 0.03 * reste + Math.sin(t * 9) * 0.006);
+    haloB.scale.setScalar(1.07 + 0.07 * reste + Math.sin(t * 6.3) * 0.012);
+    matHaloA.opacity = 0.14 + 0.4 * reste + Math.sin(t * 12) * 0.05;
+    matHaloB.opacity = 0.05 + 0.2 * reste + Math.sin(t * 8) * 0.03;
   }
 
   // --- caméra : elle traîne derrière et ne prend qu'une part du roulis,
@@ -2476,10 +2878,12 @@ function simulate(dt) {
   // désorienterait — un tiers suffit à le faire ressentir.
   state.camSpin = THREE.MathUtils.damp(state.camSpin, spinRoll * 0.32, 5.5, dt);
   euler.set(state.camPitch, state.camYaw, state.camRoll + state.camSpin);
-  camera.quaternion.setFromEuler(euler);
+  _qa.setFromEuler(euler);                       // repère à plat : sert au décalage
+  euler.set(state.camPitch + CAM_DECLIN, state.camYaw, state.camRoll + state.camSpin);
+  camera.quaternion.setFromEuler(euler);         // et la visée seule plonge
   const fov = 66 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 12;
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
-  _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
+  _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
   springCamera(_v, dt, 44, 10.2, _cv.copy(state.forward).multiplyScalar(state.speed));
 
   updateDecor(dt);
@@ -2489,10 +2893,14 @@ function simulate(dt) {
   updateBullets(dt);
   updateLock(dt);
   updateShots(dt);
+  updateRoquettes(dt);
   scrape(dt);
 
   // --- vagues et bilan
-  if (state.enemies.length > 0) {
+  // seuls les avions décident de la fin d'une vague : une pièce au sol se
+  // laisse dépasser sans bloquer la progression
+  const enVol = state.enemies.filter(e => !e.kind.sol).length;
+  if (enVol > 0) {
     state.vagueT += dt;
   } else {
     if (state.vagueLimite > 0) bilanVague();
@@ -2655,16 +3063,39 @@ function drawHud() {
         + (0.85 + 0.15 * ch).toFixed(2) + ')'
       : 'rgba(143,252,196,0.85)';
     hctx.fillStyle = hctx.strokeStyle;
-    hctx.lineWidth = 1.5 + ch;
+    // Le viseur s'ouvre large à l'accrochage puis se referme : large, il dit
+    // « quelque part là-dedans » ; refermé, il dit « exactement là ». C'est la
+    // montée en précision rendue visible, la même que celle qui fait grimper
+    // les dégâts. Le trait est divisé par l'échelle pour garder sa finesse,
+    // sinon le canvas l'épaissirait d'autant.
+    // Ouverture au repos : exactement la taille apparente de la cible. Le
+    // rapport pixels/radian d'une perspective vaut (h/2)/tan(fov/2) près du
+    // centre ; la demi-envergure vue à cette distance donne donc un rayon en
+    // pixels, borné pour rester lisible de très loin comme de très près.
+    // Un plancher généreux gouverne le combat ordinaire — à 800 m une cible ne
+    // fait que 3 px, un viseur à sa taille serait invisible. C'est en passe
+    // rapprochée, sous la centaine de mètres, que la taille apparente prend le
+    // dessus et que le viseur s'ouvre pour encadrer l'avion.
+    let ouvert = 2.6;
+    if (state.lock) {
+      const dL = state.pos.distanceTo(state.lock.pos);
+      const pxRad = (h * 0.5) / Math.tan(camera.fov * Math.PI / 360);
+      const rc = Math.atan2(state.lock.kind.envergure * 0.5, dL) * pxRad;
+      ouvert = Math.max(2.6, Math.min(4.4, rc / 13));
+    }
+    const kv = ouvert + (0.9 - ouvert) * ch;
+    hctx.lineWidth = (1.5 + ch) / kv;
     // la forme vient du viseur choisi ; tout le reste de l'habillage est commun
     hctx.save();
     hctx.translate(cx, cy);
+    hctx.scale(kv, kv);
     (VISEURS.find(v => v.id === viseurChoisi) || VISEURS[0]).dessin(hctx, ch);
     hctx.restore();
+    hctx.lineWidth = 1.5 + ch;
 
     if (ch > 0) {
       const spin = performance.now() / 1000 * (0.8 + 5.5 * ch);
-      const R2 = 20 - 5 * ch;
+      const R2 = (20 - 5 * ch) * kv;
       for (let i = 0; i < 4; i++) {
         const a0 = spin + i * Math.PI / 2;
         hctx.beginPath();
@@ -2697,15 +3128,20 @@ function drawHud() {
     hctx.translate(ox, oy);
     hctx.rotate(state.roll);
     const py = state.pitch * ech;
-    hctx.strokeStyle = 'rgba(70,255,160,0.75)';
-    hctx.beginPath();
-    hctx.moveTo(-R * 1.7, py); hctx.lineTo(R * 1.7, py);
-    hctx.stroke();
-    hctx.strokeStyle = 'rgba(70,255,160,0.35)';
-    for (const d of [-20, -10, 10, 20]) {
+    // L'échelle de tangage court d'un pôle à l'autre : en montée franche la
+    // ligne d'horizon sort du cadran, et sans graduations au-delà l'instrument
+    // ne disait plus rien. Les barreaux longs marquent les trentaines.
+    for (let d = -90; d <= 90; d += 10) {
       const yy = py - d * Math.PI / 180 * ech;
-      const l = d % 20 === 0 ? 11 : 6;
-      hctx.beginPath(); hctx.moveTo(-l, yy); hctx.lineTo(l, yy); hctx.stroke();
+      if (Math.abs(yy) > R + 2) continue;
+      if (d === 0) {
+        hctx.strokeStyle = 'rgba(70,255,160,0.8)';
+        hctx.beginPath(); hctx.moveTo(-R * 1.7, yy); hctx.lineTo(R * 1.7, yy); hctx.stroke();
+      } else {
+        hctx.strokeStyle = 'rgba(70,255,160,' + (d % 30 === 0 ? '0.45' : '0.28') + ')';
+        const l = d % 30 === 0 ? 12 : 6;
+        hctx.beginPath(); hctx.moveTo(-l, yy); hctx.lineTo(l, yy); hctx.stroke();
+      }
     }
     hctx.restore();
 
@@ -2777,7 +3213,9 @@ function drawHud() {
   // bande d'altitude : un curseur entre plancher et plafond dit tout de suite
   // où l'on se situe dans la couche d'air. Un nombre absolu ne dit rien.
   {
-    const tx = w - 24, ty0 = h * 0.30, ty1 = h * 0.70;
+    // du milieu de l'écran vers le haut, à droite : plus bas, le pouce la
+    // recouvrait au moment même où l'on pilote
+    const tx = w - 24, ty0 = h * 0.13, ty1 = h * 0.50;
     hctx.strokeStyle = 'rgba(70,255,160,0.28)';
     hctx.beginPath(); hctx.moveTo(tx, ty0); hctx.lineTo(tx, ty1); hctx.stroke();
     for (let i = 0; i <= 4; i++) {
@@ -2798,9 +3236,17 @@ function drawHud() {
   if (state.announceT > 0) {
     hctx.globalAlpha = Math.min(1, state.announceT / 0.6);
     hctx.fillStyle = '#46ffa0';
-    hctx.font = '500 22px "IBM Plex Mono", ui-monospace, monospace';
+    // le texte se réduit jusqu'à tenir : une vague mêlant trois types donnait
+    // une ligne plus large que l'écran, tronquée des deux côtés
+    let taille = 22;
+    hctx.font = '500 ' + taille + 'px "IBM Plex Mono", ui-monospace, monospace';
+    while (taille > 10 && hctx.measureText(state.announce).width > w - 26) {
+      taille -= 1;
+      hctx.font = '500 ' + taille + 'px "IBM Plex Mono", ui-monospace, monospace';
+    }
     hctx.fillText(state.announce, w / 2, h * 0.26);
     hctx.globalAlpha = 1;
+    hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
   }
 
   // IMPACTS. Le coup se voit du côté d'où il vient : un dégradé qui monte du
@@ -2882,8 +3328,8 @@ const gaugeFill = document.getElementById('gaugeFill');
 const structLbl = document.getElementById('structLbl');
 
 function refreshBars() {
-  scoreLbl.textContent = 'SCORE ' + String(Math.floor(state.score)).padStart(6, '0');
-  waveLbl.textContent  = 'VAGUE ' + state.wave;
+  scoreLbl.textContent = String(Math.floor(state.score)).padStart(6, '0');
+  waveLbl.textContent  = 'V' + state.wave;
   // le chrono ne sert qu'à savoir si la prime est encore accessible : il
   // s'efface dès qu'elle est perdue, plutôt que de compter dans le vide
   const reste = state.vagueLimite - state.vagueT;
@@ -3054,6 +3500,11 @@ function pique() {
             : PIQUES.moyen;
   return lot[Math.floor(Math.random() * lot.length)];
 }
+if (record.score > 0) {
+  overlayScore.hidden = false;
+  overlayScore.innerHTML = 'RECORD ' + String(record.score).padStart(6, '0')
+    + '  ·  VAGUE ' + record.vague;
+}
 if (!touchMode) {
   overlayText.innerHTML = 'Le curseur est le viseur, l\'avion le rejoint.<br>'
     + 'Il tire tout seul quand une cible y entre.';
@@ -3101,13 +3552,21 @@ startBtn.addEventListener('click', () => {
 
 function gameOver() {
   state.running = false;
+  const battuScore = Math.floor(state.score) > record.score;
+  const battuVague = state.wave > record.vague;
+  if (battuScore) record.score = Math.floor(state.score);
+  if (battuVague) record.vague = state.wave;
+  if (battuScore || battuVague) sauveRecord();
+  state.recordBattu = battuScore ? 'score' : (battuVague ? 'vague' : null);
   state.auSol = false;   // l'épave ne ronronne pas
   SFX.fin();
   overlayTitle.textContent = 'ABATTU';
   overlayText.textContent = pique();
   overlayScore.hidden = false;
-  overlayScore.textContent = 'SCORE ' + String(Math.floor(state.score)).padStart(6, '0')
-    + '  ·  VAGUE ' + state.wave;
+  overlayScore.innerHTML = 'SCORE ' + String(Math.floor(state.score)).padStart(6, '0')
+    + '  ·  VAGUE ' + state.wave
+    + (state.recordBattu ? '<br><b>NOUVEAU RECORD</b>' : '')
+    + '<br>RECORD ' + String(record.score).padStart(6, '0') + '  ·  VAGUE ' + record.vague;
   startBtn.textContent = 'REDÉCOLLER';
   videoBtn.hidden = false;
   videoBtn.disabled = false;
