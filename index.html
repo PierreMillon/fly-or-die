@@ -169,6 +169,18 @@
     transition: width 0.18s linear;
   }
 
+  #aideLangue { text-align: right; margin: -2px 0 8px; }
+  #langBtn {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 4px;
+    color: var(--ph-dim);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    padding: 5px 10px;
+  }
+
   #coop textarea {
     width: 100%;
     background: #04070a;
@@ -378,7 +390,7 @@
 <canvas id="scene"></canvas>
 <canvas id="hud"></canvas>
 
-<button id="redecoBtn" hidden>REDÉCOLLER</button>
+<button id="redecoBtn" hidden data-en="TAKE OFF AGAIN">REDÉCOLLER</button>
 
 <div id="topbar">
   <span id="scoreLbl">000000</span>
@@ -388,7 +400,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.51</button>
+  <button id="versionBtn">v0.52</button>
 </div>
 
 <div id="bottombar">
@@ -397,31 +409,31 @@
 </div>
 
 <div id="coop" hidden>
-  <h2>JOUER À PLUSIEURS</h2>
+  <h2 data-en="PLAY TOGETHER">JOUER À PLUSIEURS</h2>
   <p class="aide">Jusqu'à dix appareils dans la même partie. Les navigateurs se
   parlent directement, sans passer par un serveur : il n'y a donc rien à
   installer, mais il faut s'échanger un code une fois, par message.</p>
   <div id="coopChoix">
-    <button id="coopCreer">CRÉER UNE PARTIE</button>
-    <button id="coopRejoindre">REJOINDRE</button>
+    <button id="coopCreer" data-en="CREATE A GAME">CRÉER UNE PARTIE</button>
+    <button id="coopRejoindre" data-en="JOIN">REJOINDRE</button>
   </div>
   <div id="coopHote" hidden>
     <p class="aide"><b>1.</b> Envoie ce code à qui veut te rejoindre.</p>
     <textarea id="coopMonCode" readonly rows="3"></textarea>
-    <button id="coopCopier">COPIER</button>
+    <button id="coopCopier" data-en="COPY">COPIER</button>
     <p class="aide"><b>2.</b> Colle ici la réponse qu'il te renvoie, puis valide.
     Recommence pour chaque joueur.</p>
     <textarea id="coopReponse" rows="3" placeholder="réponse du joueur"></textarea>
-    <button id="coopValider">AJOUTER CE JOUEUR</button>
+    <button id="coopValider" data-en="ADD THIS PLAYER">AJOUTER CE JOUEUR</button>
   </div>
   <div id="coopInvite" hidden>
     <p class="aide"><b>1.</b> Colle le code reçu.</p>
     <textarea id="coopCodeRecu" rows="3" placeholder="code de l'hôte"></textarea>
-    <button id="coopAccepter">RÉPONDRE</button>
+    <button id="coopAccepter" data-en="ANSWER">RÉPONDRE</button>
     <p class="aide" id="coopEtape2" hidden><b>2.</b> Renvoie cette réponse à
     l'hôte. La partie démarre dès qu'il l'a collée.</p>
     <textarea id="coopMaReponse" rows="3" readonly hidden></textarea>
-    <button id="coopCopier2" hidden>COPIER</button>
+    <button id="coopCopier2" hidden data-en="COPY">COPIER</button>
   </div>
   <p class="aide" id="coopEtat"></p>
 </div>
@@ -433,6 +445,8 @@
 </div>
 
 <div id="aide" hidden>
+  <div id="aideLangue"><button id="langBtn">ENGLISH</button></div>
+  <div id="aideFR">
   <h2>PILOTER</h2>
   <p>Pose le doigt n'importe où : un manche apparaît sous lui, et l'avion suit.
   Il ne part jamais en tonneau — le roulis que tu vois ne fait que raconter le
@@ -583,9 +597,135 @@
   Bouguer traitait avec ses navires.</p>
   <p class="src">Sources : Pierre Bouguer, Mémoires de l'Académie royale des
   sciences, 1732 · article « Radiodrome ».</p>
+  </div>
+  <div id="aideEN" hidden>
+  <h2>FLYING</h2>
+  <p>Put a finger anywhere: a stick appears under it and the aircraft follows.
+  It never rolls on its own — the bank you see only tells the turn, it changes
+  nothing about the path.</p>
+  <p>Climbing costs speed, diving gives it back. Too slow and the nose drops by
+  itself.</p>
+  <p>Scenery doesn't stop you: ground and pylons graze you, you bounce off and
+  lose a little life. You can fly low.</p>
+  <p><b>Mid-travel, the stick is deliberately slow.</b> That is not a fault: it
+  is where you track a target circling you, and that needs fineness. At half
+  travel you have 11 % of the authority, 14 degrees per second. Go to the stop
+  and you have 123.</p>
+
+  <p>One unit is one metre. Cruise is 78 m/s, 281 km/h; the ceiling is at 960
+  metres. Wingspans are real: 8.5 m for the biplane like a Sopwith Camel,
+  11.2 m for the fighter like a Spitfire, 12 m for you.</p>
+
+  <h2>THE GUNSIGHT</h2>
+  <p>There is no instrument in a corner: the pitch ladder is drawn <b>in the
+  world</b>, in its true place. The horizon line is the horizon. Solid bar
+  above, dashed below: you know whether you are climbing before you read the
+  figure.</p>
+  <p>It only appears past twelve degrees of attitude, and is full at thirty.
+  Level, the screen stays clean.</p>
+  <p>Along the top, the heading tape, numbered like a real gunsight: 18 for one
+  hundred and eighty degrees. On the right, the altitude band between floor and
+  ceiling.</p>
+  <p>Arrows say two things at once. <b>Their size</b> gives the distance — one
+  to fifteen between nearest and farthest. <b>Their sharpness</b> gives the
+  angle to turn. Below twenty-six degrees the arrow disappears, the frame is
+  enough.</p>
+
+  <h2>FIGURES</h2>
+  <p>Two quick taps trigger a figure, in the direction of the gesture relative
+  to the aircraft.</p>
+  <p><b>Above</b> — Immelmann turn: half loop up, then half roll. Reversed
+  heading, higher, slower.</p>
+  <p><b>Below</b> — Split-S: half roll, then half loop down. Reversed heading,
+  lower, faster.</p>
+  <p><b>To the side</b> — a roll that way, with real displacement: the dodge is
+  not decorative.</p>
+
+  <h2>SHOOTING</h2>
+  <p>Nothing to press. As soon as a target enters the sight cone the lock takes
+  — but <b>nothing leaves yet</b>.</p>
+  <p>It takes half a second more, during which the sight closes and stays half
+  lit. A click announces arming. Brushing past a target therefore does not hurt
+  it: you have to place yourself.</p>
+  <p>Then fire builds as long as you hold: weak at the lock, nearly five times
+  stronger once settled. Reckon about two seconds of clean lock for an ordinary
+  opponent, nine and a half for a GUARDIAN. Switching target resets the build —
+  though not entirely: the charge belongs to the target, it decays slowly and
+  resumes where it was if you find it again quickly.</p>
+  <p><b>The sight opens and closes.</b> Wide at the lock — 67 pixels — it says
+  "somewhere in there"; closed to 25, it says "exactly there". Up close, its
+  opening follows the apparent size of the aircraft you are aiming at.</p>
+
+  <h2>ROCKETS</h2>
+  <p>One second of held lock and two rockets leave the wings. Guided, slow —
+  200 m/s against 300 for a bullet — and heavy: 55 points each. They do not
+  miss, but it takes five seconds to get two more.</p>
+
+  <h2>BOOST</h2>
+  <p>Hold in line an opponent too far to be locked: after a second and a
+  quarter, it pushes. Target speed goes from 78 to 156 m/s and the air starts
+  to streak. Breaking the line cuts it, three times faster than it built.</p>
+
+  <h2>HOT GUNS</h2>
+  <p>Every aircraft destroyed adds three seconds, up to nine, of a state where
+  the guns fire twice as fast and the dial shakes. Chaining is easier than
+  starting.</p>
+
+  <h2>THE SUN</h2>
+  <p>Looking at it makes the target harder to hold and the fire weaker.
+  <b>Having it behind you</b> hampers whoever is looking for you: they fire
+  from less far and must be far better lined up. It is the oldest manoeuvre in
+  air combat.</p>
+  <p>When that happens a halo lights around you, a banner says so, and a ring
+  beats around every opponent searching for you in the light.</p>
+
+  <h2>GETTING LIFE BACK</h2>
+  <p>Three ways, all paid for in risk.</p>
+  <p><b>Arches.</b> Passing under one gives 10 % life. Each can only be taken
+  once per wave, but they add up — there are six.</p>
+  <p><b>Pierced towers.</b> A 45-metre window 197 metres up: you have to climb
+  for it, and it is twice as narrow as an arch. 25 % life.</p>
+  <p><b>The runway.</b> Come in low, in line, nose not too high: you land by
+  yourself. The ground crew runs up, life climbs 17 points a second, and the
+  aircraft leaves again after ten seconds — or at once if you press TAKE OFF
+  AGAIN. Meanwhile you can neither turn, nor shoot, nor dodge. They can.</p>
+
+  <h2>WHO YOU FACE</h2>
+  <p>Four opponents, four silhouettes, four ways of pursuing. The waves cross
+  the century: the old ones do not disappear, they become a minority.</p>
+  <p><b>BIPLANE</b> — pure pursuit. It points its nose at you and nothing else.
+  That is the dog curve: it always arrives in your wake, always late. Slow,
+  fragile, it must come very close to shoot.</p>
+  <p><b>FIGHTER</b> — it does not aim at you, it aims at a point one hundred
+  and ninety metres behind you. Getting into your six and staying there is its
+  trade. It is against this one that the reversal earns its keep.</p>
+  <p><b>INTERCEPTOR</b> — lead pursuit. Every frame it solves the quadratic of
+  the meeting point and drives straight at it. Taut path, very fast. Its
+  weakness is written into its method: it assumes you carry straight on. Turn,
+  and it goes past.</p>
+  <p><b>DRONE</b> — proportional navigation, the missile's law. It aims at no
+  point: it nulls the rotation of the line of sight. As long as that line stops
+  turning, collision is certain whatever you do. It turns three times faster
+  than the line pivots. It is the only one you cannot shake by turning.</p>
+
+  <h2>PURSUIT CURVES</h2>
+  <p>Following an aircraft that manoeuvres does not draw a straight line. It
+  draws a <b>pursuit curve</b>, also called a <b>radiodrome</b> — from the
+  Latin <i>radius</i> and the Greek <i>dromos</i>, the course of the ray. The
+  problem was set by Pierre Bouguer in 1732, in a memoir to the Académie royale
+  des sciences titled <i>Problème de la route du vaisseau à la chasse d'un
+  autre</i>: a pirate ship chases a merchant, always pointing its bow at it.
+  The differential equation is 1 + y′² = k²(a − x)² y″², where k is the ratio
+  of the speeds.</p>
+  <p>Its lesson is exactly what you feel here: aiming straight at a target that
+  is crossing you always brings you in behind it, never onto it. That is why
+  the FIGHTER aims behind you and the INTERCEPTOR ahead — and why the DRONE
+  does not aim at all.</p>
+  </div>
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.52</b> — le jeu se donne en anglais si le téléphone n'est pas en français, et l'aide se bascule d'un bouton. Le bandeau du soleil dans le dos, perdu en route, est de retour.</div>
   <div><b>v0.51</b> — la surchauffe : chaque appareil abattu rallonge de trois secondes un état où les canons tirent deux fois plus vite et où le cadran tremble. Enchaîner devient plus facile que commencer.</div>
   <div><b>v0.50</b> — les caps peints ne sont plus opposés : le seuil nord porte 05, le cap réel de Hangzhou depuis Bayonne, le seuil sud 01, celui d'Arcachon. La boussole est calée dessus. Le bouton DÉCOLLER descend dans la zone du pouce, et un mécanicien pris de court se jette à terre pour laisser passer l'avion.</div>
   <div><b>v0.49</b> — coopération jusqu'à dix appareils, sans serveur : les navigateurs se parlent directement, on s'échange un code une fois. L'hôte tient le monde, chacun pilote le sien. Vagues alourdies de moitié par appareil, score commun, et reprendre de la vie relève les équipiers à terre.</div>
@@ -643,11 +783,11 @@
   <h1>FLY OR DIE</h1>
   <p id="overlayText"></p>
   <p id="overlayScore" hidden></p>
-  <button id="startBtn">DÉCOLLER</button>
-  <button id="videoBtn" hidden>REGARDER UNE VIDÉO · REPRENDRE</button>
-  <button id="coopBtn">COOP</button>
-  <button id="expliqueBtn" hidden>BESOIN D'EXPLICATIONS ?</button>
-  <label id="plusJamais" hidden><input type="checkbox" id="plusJamaisCase"> ne plus afficher</label>
+  <button id="startBtn" data-en="TAKE OFF">DÉCOLLER</button>
+  <button id="videoBtn" hidden data-en="WATCH A VIDEO · CONTINUE">REGARDER UNE VIDÉO · REPRENDRE</button>
+  <button id="coopBtn" data-en="CO-OP">COOP</button>
+  <button id="expliqueBtn" hidden data-en="NEED AN EXPLANATION?">BESOIN D'EXPLICATIONS ?</button>
+  <label id="plusJamais" hidden><input type="checkbox" id="plusJamaisCase"> <span data-en="don't show again">ne plus afficher</span></label>
 </div>
 
 <script>
@@ -931,7 +1071,7 @@ function jalonVague(n) {
     if (!debloques.has(v.id)) {
       debloques.add(v.id);
       sauveViseurs();
-      announce('VISEUR DÉBLOQUÉ  ·  ' + v.nom);
+      announce(t('viseur') + v.nom);
       SFX.bouclierOn();
     }
   }
@@ -2851,7 +2991,7 @@ function redecoller() {
   state.speed = 0;
   state.boost = 0;
   state.boostT = 0;
-  announce('DÉCOLLAGE');
+  announce(t('decollage'));
 }
 
 const redecoBtn = document.getElementById('redecoBtn');
@@ -2924,21 +3064,21 @@ function bilanVague() {
     state.structure = 100;
     state.bouclier = BOUCLIER_COUPS;
     state.score += 750;
-    announce('SANS FAUTE  ·  VIE PLEINE  ·  BOUCLIER');
+    announce(t('sansFaute'));
     SFX.vagueNette(); SFX.bouclierOn();
   } else if (dansTemps) {
     state.structure = 100;
     state.score += 400;
-    announce('DANS LES TEMPS  ·  VIE PLEINE');
+    announce(t('dansTemps'));
     SFX.vagueNette();
   } else if (intact) {
     state.bouclier = BOUCLIER_COUPS;
     state.score += 400;
-    announce('PAS UNE ÉGRATIGNURE  ·  BOUCLIER');
+    announce(t('egratignure'));
     SFX.bouclierOn();
   } else {
     state.structure = Math.min(100, state.structure + 12);
-    announce('VAGUE DÉGAGÉE  ·  +12');
+    announce(t('degagee'));
   }
 }
 
@@ -3036,8 +3176,8 @@ function spawnWave() {
   for (const a of arches) a.prise = false;
   for (const t of tours) t.prise = false;
   state.vagueLimite = boss ? 55 : LIMITE_BASE + LIMITE_PAR * n;
-  announce(boss ? 'VAGUE ' + state.wave + '  ·  GARDIEN'
-                : 'VAGUE ' + state.wave + '  ·  ' + [...vus].join(' + '));
+  announce(boss ? t('vague') + state.wave + '  ·  ' + t('gardien')
+                : t('vague') + state.wave + '  ·  ' + [...vus].join(' + '));
   SFX.vague();
   jalonVague(state.wave);
 }
@@ -3561,7 +3701,7 @@ function damagePlayer(amount, source) {
     state.bouclier--;
     state.hitFlash = Math.max(state.hitFlash, 0.6);
     SFX.bouclier();
-    if (state.bouclier === 0) { announce('BOUCLIER ÉPUISÉ'); SFX.bouclierFin(); }
+    if (state.bouclier === 0) { announce(t('bouclierFin')); SFX.bouclierFin(); }
     return;
   }
 
@@ -3905,7 +4045,7 @@ function simulate(dt) {
       poserMecanos();
       coopReanime();
       redecoBtn.hidden = false;
-      announce('AU SOL  ·  RÉPARATION');
+      announce(t('auSol'));
       SFX.bouclierOn();
     }
     updateEnemies(dt);
@@ -4414,7 +4554,7 @@ function scrape(dt) {
       state.structure = Math.min(100, state.structure + TOUR_PRIME);
       coopReanime();
       state.score += 400;
-      announce('TOUR TRAVERSÉE  ·  +' + TOUR_PRIME);
+      announce(t('tour') + TOUR_PRIME);
       SFX.vagueNette();
     }
   }
@@ -4436,7 +4576,7 @@ function scrape(dt) {
       state.structure = Math.min(100, state.structure + ARCHE_PRIME);
       coopReanime();
       state.score += 150;
-      announce('ARCHE FRANCHIE  ·  +' + ARCHE_PRIME);
+      announce(t('arche') + ARCHE_PRIME);
       SFX.vagueNette();
     }
   }
@@ -4568,9 +4708,9 @@ function coopBranche(dc, id) {
   dc.onopen = () => {
     coop.actif = true;
     coopEtat.textContent = coop.hote
-      ? coop.pairs.length + ' appareil(s) relié(s) sur ' + (COOP_MAX - 1)
-      : 'relié à l\'hôte. La partie est commune.';
-    announce('COOP  ·  ' + (coop.pairs.length + 1) + ' APPAREILS');
+      ? coop.pairs.length + t('relie') + (COOP_MAX - 1)
+      : t('relieHote');
+    announce(t('coop') + (coop.pairs.length + 1) + t('appareils'));
     // le monde ne doit pas rester en pause parce qu'un panneau était ouvert
     // au moment où la liaison s'est faite
     majPause();
@@ -4589,7 +4729,7 @@ function coopBranche(dc, id) {
     else if (m.t === 'r') {
       // un ami a repris de la vie : si l'on est à terre, on repart avec lui
       if (!state.running && overlay && !overlay.hidden) {
-        announce('RELEVÉ PAR UN ÉQUIPIER');
+        announce(t('releve'));
         videoBtn.click();
       }
       if (coop.hote) coopEnvoie(ev.data, dcSauf(id));
@@ -4768,7 +4908,7 @@ function drawHud() {
     hctx.lineWidth = 1.5;
     hctx.font = '12px "IBM Plex Mono", ui-monospace, monospace';
     hctx.fillStyle = 'rgba(190,255,220,' + (0.25 + 0.7 * q).toFixed(2) + ')';
-    hctx.fillText('POSÉ', w / 2, ay - 12);
+    hctx.fillText(t('pose'), w / 2, ay - 12);
     hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
     hctx.restore();
   }
@@ -4791,7 +4931,7 @@ function drawHud() {
     if (state.boost > 0.05) {
       hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
       hctx.fillStyle = 'rgba(190,255,220,' + (0.4 + 0.55 * state.boost).toFixed(2) + ')';
-      hctx.fillText('BOOST', w / 2, by + 15);
+      hctx.fillText(t('boost'), w / 2, by + 15);
     }
     hctx.restore();
   }
@@ -4815,6 +4955,13 @@ function drawHud() {
     g.addColorStop(1, 'rgba(70,255,160,0)');
     hctx.fillStyle = g;
     hctx.beginPath(); hctx.arc(pSelf.x, pSelf.y, R0, 0, Math.PI * 2); hctx.fill();
+    // et le bandeau qui le dit en clair, sous le cadran d'assiette
+    hctx.save();
+    hctx.font = '12px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.textAlign = 'center';
+    hctx.fillStyle = 'rgba(190,255,220,' + (0.55 + 0.4 * dos).toFixed(2) + ')';
+    hctx.fillText(t('dos'), w / 2, h * 0.215);
+    hctx.restore();
   }
 
   hctx.lineWidth = 1.5;
@@ -5304,7 +5451,7 @@ function drawHud() {
     hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
     hctx.textAlign = 'center';
     hctx.fillStyle = 'rgba(190,255,220,' + (0.5 + 0.45 * kch).toFixed(2) + ')';
-    hctx.fillText('CANONS CHAUDS  ' + state.chauffe.toFixed(1) + 's', w / 2, cy2);
+    hctx.fillText(t('canons') + state.chauffe.toFixed(1) + 's', w / 2, cy2);
     hctx.strokeStyle = 'rgba(190,255,220,' + (0.3 + 0.5 * kch).toFixed(2) + ')';
     const q = Math.min(1, state.chauffe / CHAUFFE_MAX);
     hctx.beginPath();
@@ -5423,6 +5570,76 @@ versionBtn.addEventListener('click', e => {
 });
 // ---- panneau des viseurs
 const panViseurs = document.getElementById('viseurs');
+// ---------------------------------------------------------------------------
+// LANGUE. Français si le téléphone est en français, anglais partout ailleurs.
+// Les textes courts portent leur traduction en attribut, à côté de l'original :
+// pas de fichier de langue à tenir à part, et un texte oublié reste lisible au
+// lieu de laisser une clé nue à l'écran. Le panneau d'aide existe en deux blocs
+// entiers — c'est de la prose, elle se traduit d'un tenant ou pas du tout.
+// ---------------------------------------------------------------------------
+let langue = 'fr';
+try {
+  const gardee = localStorage.getItem('fod_langue');
+  langue = gardee || ((navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en');
+} catch (e) {
+  langue = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+}
+
+const T = {
+  fr: {
+    decollage: 'DÉCOLLAGE', auSol: 'AU SOL  ·  RÉPARATION',
+    tour: 'TOUR TRAVERSÉE  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
+    bouclierFin: 'BOUCLIER ÉPUISÉ', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
+    sansFaute: 'SANS FAUTE  ·  VIE PLEINE  ·  BOUCLIER',
+    dansTemps: 'DANS LES TEMPS  ·  VIE PLEINE',
+    egratignure: 'PAS UNE ÉGRATIGNURE  ·  BOUCLIER',
+    degagee: 'VAGUE DÉGAGÉE  ·  +12',
+    coop: 'COOP  ·  ', appareils: ' APPAREILS', releve: 'RELEVÉ PAR UN ÉQUIPIER',
+    vague: 'VAGUE ', gardien: 'GARDIEN', abattu: 'ABATTU',
+    canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
+    dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
+    complet: 'partie complète', illisible: 'code illisible.',
+    prepare: 'préparation du code...', pret: 'code prêt. Envoie-le, puis colle la réponse.',
+    ajoute: 'joueur ajouté. Recommence pour le suivant.',
+    colle: "colle le code de l'hôte.",
+    repPrete: "réponse prête. Renvoie-la à l'hôte.",
+    relie: ' appareil(s) relié(s) sur ', relieHote: "relié à l'hôte. La partie est commune."
+  },
+  en: {
+    decollage: 'TAKE OFF', auSol: 'ON THE GROUND  ·  REPAIRS',
+    tour: 'TOWER THREADED  ·  +', arche: 'ARCH CLEARED  ·  +',
+    bouclierFin: 'SHIELD SPENT', viseur: 'SIGHT UNLOCKED  ·  ',
+    sansFaute: 'FLAWLESS  ·  FULL LIFE  ·  SHIELD',
+    dansTemps: 'ON TIME  ·  FULL LIFE',
+    egratignure: 'NOT A SCRATCH  ·  SHIELD',
+    degagee: 'WAVE CLEARED  ·  +12',
+    coop: 'CO-OP  ·  ', appareils: ' AIRCRAFT', releve: 'PICKED UP BY A WINGMAN',
+    vague: 'WAVE ', gardien: 'GUARDIAN', abattu: 'SHOT DOWN',
+    canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
+    dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
+    complet: 'game full', illisible: 'unreadable code.',
+    prepare: 'preparing the code...', pret: 'code ready. Send it, then paste the answer.',
+    ajoute: 'player added. Do it again for the next one.',
+    colle: "paste the host's code.",
+    repPrete: "answer ready. Send it back to the host.",
+    relie: ' aircraft connected of ', relieHote: 'connected to the host. The game is shared.'
+  }
+};
+const t = k => (T[langue] && T[langue][k] !== undefined) ? T[langue][k] : T.fr[k];
+
+function appliqueLangue() {
+  for (const el of document.querySelectorAll('[data-en]')) {
+    if (el.dataset.fr === undefined) el.dataset.fr = el.textContent;
+    el.textContent = langue === 'en' ? el.dataset.en : el.dataset.fr;
+  }
+  const fr = document.getElementById('aideFR');
+  const en = document.getElementById('aideEN');
+  if (fr && en) { fr.hidden = langue === 'en'; en.hidden = langue !== 'en'; }
+  const lb = document.getElementById('langBtn');
+  if (lb) lb.textContent = langue === 'en' ? 'FRANÇAIS' : 'ENGLISH';
+  document.documentElement.lang = langue;
+}
+
 // ---- panneau de coopération ----
 const panCoop = document.getElementById('coop');
 const coopBtn = document.getElementById('coopBtn');
@@ -5453,12 +5670,12 @@ document.getElementById('coopCopier2').onclick = e => { e.stopPropagation(); cop
 let attente = null;
 document.getElementById('coopCreer').onclick = async e => {
   e.stopPropagation();
-  if (coop.pairs.length >= COOP_MAX - 1) { coopEtat.textContent = 'partie complète'; return; }
+  if (coop.pairs.length >= COOP_MAX - 1) { coopEtat.textContent = t('complet'); return; }
   coop.hote = true;
   coop.moi = 1;
   coopChoix.hidden = true;
   coopHote.hidden = false;
-  coopEtat.textContent = 'préparation du code...';
+  coopEtat.textContent = t('prepare');
   const pc = nouvelleConnexion();
   const id = 2 + coop.pairs.length;
   const dc = pc.createDataChannel('fod', { ordered: false, maxRetransmits: 0 });
@@ -5467,7 +5684,7 @@ document.getElementById('coopCreer').onclick = async e => {
   const d = await sdpComplet(pc);
   coopMonCode.value = await enCode(JSON.stringify({ s: d.sdp, i: id }));
   attente = { pc, dc, id };
-  coopEtat.textContent = 'code prêt. Envoie-le, puis colle la réponse.';
+  coopEtat.textContent = t('pret');
 };
 
 document.getElementById('coopValider').onclick = async e => {
@@ -5479,10 +5696,10 @@ document.getElementById('coopValider').onclick = async e => {
     coop.pairs.push(attente);
     attente = null;
     coopReponse.value = '';
-    coopEtat.textContent = 'joueur ajouté. Recommence pour le suivant.';
+    coopEtat.textContent = t('ajoute');
     document.getElementById('coopCreer').click();
   } catch (err) {
-    coopEtat.textContent = 'code illisible.';
+    coopEtat.textContent = t('illisible');
   }
 };
 
@@ -5491,7 +5708,7 @@ document.getElementById('coopRejoindre').onclick = e => {
   e.stopPropagation();
   coopChoix.hidden = true;
   coopInvite.hidden = false;
-  coopEtat.textContent = 'colle le code de l\'hôte.';
+  coopEtat.textContent = t('colle');
 };
 
 document.getElementById('coopAccepter').onclick = async e => {
@@ -5510,9 +5727,9 @@ document.getElementById('coopAccepter').onclick = async e => {
     document.getElementById('coopEtape2').hidden = false;
     coopMaReponse.hidden = false;
     document.getElementById('coopCopier2').hidden = false;
-    coopEtat.textContent = 'réponse prête. Renvoie-la à l\'hôte.';
+    coopEtat.textContent = t('repPrete');
   } catch (err) {
-    coopEtat.textContent = 'code illisible.';
+    coopEtat.textContent = t('illisible');
   }
 };
 
@@ -5609,6 +5826,13 @@ function ouvrirAide(ouvert) {
   majPause();
 }
 aideBtn.addEventListener('click', e => { e.stopPropagation(); ouvrirAide(); });
+
+document.getElementById('langBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  langue = langue === 'fr' ? 'en' : 'fr';
+  try { localStorage.setItem('fod_langue', langue); } catch (err) {}
+  appliqueLangue();
+});
 
 // EXPLICATIONS APRÈS LA MORT. C'est le seul moment où le joueur a une question
 // précise en tête — pourquoi ça n'a pas marché — donc le seul où il lira. Le
@@ -5758,7 +5982,7 @@ function gameOver() {
   state.pose = null;
   redecoBtn.hidden = true;
   SFX.fin();
-  overlayTitle.textContent = 'ABATTU';
+  overlayTitle.textContent = t('abattu');
   overlayText.textContent = pique();
   overlayScore.hidden = false;
   overlayScore.innerHTML = 'SCORE ' + String(Math.floor(state.score)).padStart(6, '0')
@@ -5957,6 +6181,7 @@ aim.y = window.innerHeight / 2;
 poseAuSol();
 refreshBars();
 requestAnimationFrame(step);
+appliqueLangue();
 window.__fodReady = true;
 clearTimeout(window.__fodTimer);
 </script>

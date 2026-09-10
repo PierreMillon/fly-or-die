@@ -163,7 +163,7 @@ Un état où l'on tire deux fois plus vite et où l'écran vibre. Le déclencheu
 reste à trouver. À ajouter à la planche d'essai des halos, avec le bouclier
 et le soleil dans le dos.
 
-## Traduction anglaise
+## Traduction anglaise → fait en v0.52
 
 Option de langue au menu, et détection automatique : français si le
 téléphone est en français, anglais sinon.
