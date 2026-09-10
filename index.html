@@ -173,17 +173,18 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
-  <button id="versionBtn">v0.8</button>
+  <button id="versionBtn">v0.9</button>
 </div>
 
 <div id="bottombar">
-  <span><span class="dim">STRUCT</span> <span id="gauge"><span id="gaugeFill"></span></span> <span id="structLbl">100%</span></span>
+  <span><span class="dim">LIFE</span> <span id="gauge"><span id="gaugeFill"></span></span> <span id="structLbl">100%</span></span>
   <span class="spacer"></span>
   <span id="altLbl" class="dim">ALT 000</span>
   <span id="spdLbl" class="dim">VIT 000</span>
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.9</b> — la jauge s'appelle LIFE et non plus STRUCT</div>
   <div><b>v0.8</b> — renversement Immelmann : deux appuis rapprochés au-dessus de l'avion, et il part en demi-looping puis se remet à plat par un demi-tonneau, cap inversé et plus haut. De quoi retourner la situation sur un poursuivant. La figure compose les quaternions directement, le modèle de vol ne sachant pas franchir la verticale.</div>
   <div><b>v0.7</b> — deux appuis rapprochés du même côté déclenchent un tonneau de ce côté. C'est une figure, pas un pilotage : le roulis n'a toujours aucune autorité. L'avion se déporte pour de bon pendant la manœuvre, donc l'esquive est réelle ; la caméra, elle, ne suit pas le tour, sinon on perdrait tout repère au moment d'esquiver.</div>
   <div><b>v0.6</b> — trait caché : les faces sont peintes dans la couleur exacte du fond, invisibles mais opaques, et masquent les arêtes de derrière — un avion filaire nu se lisait à l'envers une fois sur deux. Les ennemis et les pylônes sont devenus de vrais volumes pour en profiter. l'altitude s'échange contre la vitesse : monter freine, piquer accélère, et le champ de vision s'ouvre avec l'aiguille ; sous 66 le nez retombe tout seul. Retour au trait d'un seul pixel, le plus fin qu'un écran sache tracer. La jauge de structure affiche son pourcentage. Pilotage tactile repensé : le doigt n'est plus le viseur, il ouvre un manche flottant là où il se pose, n'importe où sur l'écran. Le viseur reste visible plus haut au lieu d'être caché sous le doigt. Le manche se laisse tirer quand on va au bout de sa course, pour ne jamais rester bloqué à fond près d'un bord. À la souris, rien ne change : le curseur reste le viseur.</div>
@@ -1352,7 +1353,7 @@ startBtn.addEventListener('click', () => {
 function gameOver() {
   state.running = false;
   overlayTitle.textContent = 'ABATTU';
-  overlayText.innerHTML = 'La structure a lâché.';
+  overlayText.innerHTML = 'Plus de vie.';
   overlayScore.hidden = false;
   overlayScore.textContent = 'SCORE ' + String(Math.floor(state.score)).padStart(6, '0')
     + '  ·  VAGUE ' + state.wave;
