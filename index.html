@@ -78,6 +78,17 @@
   .spacer { flex: 1; }
   .dim { color: var(--ph-dim); }
 
+  #aideBtn {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 5px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 3px 9px;
+    flex-shrink: 0;
+  }
+
   #versionBtn {
     background: none;
     border: 1px solid var(--ph-dim);
@@ -104,7 +115,7 @@
     transition: width 0.18s linear;
   }
 
-  #changelog {
+  #changelog, #aide {
     position: fixed;
     top: calc(38px + env(safe-area-inset-top));
     right: 8px;
@@ -121,10 +132,25 @@
     font-size: 12px;
     line-height: 1.5;
   }
-  #changelog[hidden] { display: none; }
-  #changelog div { margin-bottom: 8px; }
-  #changelog div:last-child { margin-bottom: 0; }
-  #changelog b { color: var(--ph-line); }
+  #changelog[hidden], #aide[hidden] { display: none; }
+  #changelog div, #aide p { margin: 0 0 8px; }
+  #changelog div:last-child, #aide p:last-child { margin-bottom: 0; }
+  #changelog b, #aide b { color: var(--ph-line); }
+  #aide h2 {
+    margin: 16px 0 7px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    color: var(--ph-line);
+  }
+  #aide h2:first-child { margin-top: 0; }
+  #aide .eq {
+    margin: 9px 0;
+    text-align: center;
+    color: var(--ph-line);
+    letter-spacing: 0.06em;
+  }
+  #aide .src { color: var(--ph-dim); font-size: 11px; }
 
   #overlay {
     position: fixed;
@@ -173,17 +199,77 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
-  <button id="versionBtn">v0.15</button>
+  <button id="aideBtn">?</button>
+  <button id="versionBtn">v0.16</button>
 </div>
 
 <div id="bottombar">
   <span><span class="dim">LIFE</span> <span id="gauge"><span id="gaugeFill"></span></span> <span id="structLbl">100%</span></span>
   <span class="spacer"></span>
-  <span id="altLbl" class="dim">ALT 000</span>
   <span id="spdLbl" class="dim">VIT 000</span>
 </div>
 
+<div id="aide" hidden>
+  <h2>PILOTER</h2>
+  <p>Pose le doigt n'importe où : un manche apparaît sous lui, et l'avion suit.
+  Il ne part jamais en tonneau — le roulis que tu vois ne fait que raconter le
+  virage, il ne change rien à la trajectoire.</p>
+  <p>Monter coûte de la vitesse, piquer en rend. Trop lent, le nez retombe
+  tout seul.</p>
+  <p>Le décor ne t'arrête pas : le sol et les pylônes t'éraflent, tu rebondis
+  et tu perds un peu de vie. On peut raser.</p>
+
+  <h2>FIGURES</h2>
+  <p>Deux appuis rapprochés déclenchent une figure, dans la direction du geste
+  par rapport à l'avion.</p>
+  <p><b>Au-dessus</b> — renversement Immelmann : demi-looping vers le haut puis
+  demi-tonneau. Cap inversé, plus haut, plus lent.</p>
+  <p><b>En dessous</b> — Split-S : demi-tonneau puis demi-looping vers le bas.
+  Cap inversé, plus bas, plus vite.</p>
+  <p><b>Sur le côté</b> — tonneau de ce côté, avec un vrai déport : l'esquive
+  n'est pas que décorative.</p>
+
+  <h2>TIRER</h2>
+  <p>Rien à presser. Dès qu'une cible entre dans le cône du viseur, les deux
+  mitrailleuses d'aile ouvrent le feu.</p>
+  <p>Le tir monte en puissance tant que tu tiens la cible : faible à
+  l'accroche, près de cinq fois plus fort une fois calé. Changer de cible
+  remet la montée à zéro.</p>
+  <p>Le verrouillage tient dans un produit scalaire. On compare la direction du
+  nez à la direction de la cible, toutes deux ramenées à une longueur de 1 :
+  leur produit scalaire vaut le cosinus de l'angle entre elles. Au-delà du
+  cosinus de 9 degrés, c'est dans le viseur. Aucun arc cosinus n'est calculé,
+  on compare directement les cosinus.</p>
+
+  <h2>LES COURBES DE POURSUITE</h2>
+  <p>Suivre un avion qui manœuvre ne trace pas une droite. Ça trace une
+  <b>courbe de poursuite</b>, qu'on appelle aussi <b>radiodrome</b> — du latin
+  <i>radius</i>, le rayon, et du grec <i>dromos</i>, la course.</p>
+  <p>Pierre Bouguer l'a posée en 1732, dans un mémoire à l'Académie royale des
+  sciences intitulé « Problème de la route du vaisseau à la chasse d'un
+  autre » : un navire en poursuit un autre en pointant sans cesse sa proue
+  sur lui.</p>
+  <p>On la connaît mieux sous le nom de <b>courbe du chien</b> : le chien qui
+  traverse une rivière en visant l'os posé sur l'autre rive, et que le courant
+  déporte sans arrêt.</p>
+  <p>Si la proie file en ligne droite à vitesse constante, la courbe du
+  poursuivant est solution de</p>
+  <p class="eq">1 + y′² = k² (a − x)² y″²</p>
+  <p>où k est le rapport des vitesses, proie sur poursuivant.</p>
+  <p>Deux manières de poursuivre. La <b>poursuite pure</b> vise là où la cible
+  est : on finit toujours dans son sillage, et le chemin parcouru est plus
+  long. La <b>poursuite anticipée</b> vise là où elle sera : la trajectoire se
+  redresse et l'interception est plus courte.</p>
+  <p>Les intercepteurs d'ici ne te visent pas toi. Ils visent des points en
+  avant de toi — de la poursuite anticipée. C'est ce qui fait qu'ils repassent
+  devant au lieu de te coller au train, et c'est exactement le problème que
+  Bouguer traitait avec ses navires.</p>
+  <p class="src">Sources : Pierre Bouguer, Mémoires de l'Académie royale des
+  sciences, 1732 · article « Radiodrome ».</p>
+</div>
+
 <div id="changelog" hidden>
+  <div><b>v0.16</b> — le jeu se met en pause quand un panneau est ouvert : lire l'aide ne coûte plus la partie. une flèche par ennemi désormais, et sa taille dit la distance : la plus grosse est la plus proche. L'altitude passe d'un chiffre à un curseur entre plancher et plafond. Le décor n'arrête plus l'avion, il l'érafle : on rebondit sur le sol et sur les pylônes en perdant un peu de vie, donc le Split-S bas et le rase-mottes deviennent possibles au lieu d'être refusés. Un bouton d'aide explique le pilotage, le verrouillage et la théorie des courbes de poursuite.</div>
   <div><b>v0.15</b> — l'avion du joueur fait deux fois sa taille, envergure portée de 7,2 à 14,4. Les bouches de canon suivent, et les rayons de collision sont recalés : une cellule deux fois plus large se fait toucher de plus loin.</div>
   <div><b>v0.14</b> — les traçantes partent des deux mitrailleuses d'aile, relevées sur le modèle, et convergent sur la cible comme des armes harmonisées ; ce sont de vraies balles qui filent et finissent leur course, plus un rayon instantané. La caméra n'est plus collée à sa place : un ressort amorti l'y rappelle et elle garde sa propre vitesse, comme un second avion qui tient la formation.</div>
   <div><b>v0.13</b> — le cercle qui suivait la commande et le trait qui le reliait à la croix ont sauté. Il ne reste que la croix de visée, sur l'axe réel des canons, et c'est elle qui porte maintenant la montée en puissance. Au doigt, c'est le manche qui montre la commande ; à la souris, c'est le curseur.</div>
@@ -249,7 +335,6 @@ const SPIN_TIME     = 0.52;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
 const FIG_TIME      = 1.25;   // durée d'un renversement, Immelmann ou Split-S
-const SPLIT_FLOOR   = 150;    // sous cette altitude, le Split-S finirait dans le sol
 const MAX_YAW       = 1.15;   // rad/s, autorité en lacet à pleine déflexion
 const MAX_PITCH     = 0.95;   // rad/s, autorité en tangage
 const PITCH_LIMIT   = 68 * Math.PI / 180; // jamais la verticale : au-delà l'orientation devient ambiguë
@@ -695,6 +780,7 @@ const state = {
   announce: '',
   announceT: 0,
   hitFlash: 0,
+  paused: false,
   enemies: [],
   bullets: [],
   lock: null,
@@ -704,6 +790,7 @@ const state = {
   lockCharge: 0,
   spinT: 0,
   spinSide: 0,
+  scrapeT: 0,
   fig: null,      // renversement en cours
   screenX: 0,
   screenY: 0
@@ -734,6 +821,8 @@ function resetGame() {
   state.lockCharge = 0;
   state.spinT = 0;
   state.fig = null;
+  state.scrapeT = 0;
+  state.paused = false;
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
   state.bullets.length = 0;
@@ -1014,7 +1103,8 @@ function step(now) {
   const dt = Math.min((now - last) / 1000, 0.05); // un onglet en arrière-plan ne doit pas téléporter l'avion
   last = now;
 
-  if (state.running) simulate(dt);
+  // panneau ouvert : le vol s'arrête. Lire l'aide ne doit pas coûter la partie.
+  if (state.running && !state.paused) simulate(dt);
   renderer.render(scene, camera);
   drawHud(dt);
 }
@@ -1095,7 +1185,6 @@ function simulate(dt) {
     state.pos.addScaledVector(state.forward, state.speed * dt);
     state.speed += (-state.forward.y * GRAV + (CRUISE - state.speed) * THRUST) * dt;
     state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_MAX);
-    if (state.pos.y < FLOOR) state.pos.y = FLOOR;
 
     playerMesh.position.copy(state.pos);
     playerMesh.quaternion.copy(state.quat);
@@ -1128,6 +1217,7 @@ function simulate(dt) {
     updateBullets(dt);
     updateLock(dt);
     updateShots(dt);
+    scrape(dt);
     updateDecor(dt);
     refreshBars();
     return;
@@ -1186,6 +1276,7 @@ function simulate(dt) {
   updateBullets(dt);
   updateLock(dt);
   updateShots(dt);
+  scrape(dt);
 
   // --- vagues
   if (state.enemies.length === 0) {
@@ -1216,6 +1307,35 @@ function simulate(dt) {
   state.announceT = Math.max(0, state.announceT - dt);
 
   refreshBars();
+}
+
+// Jeu d'arcade : le décor n'arrête pas l'avion, il l'érafle. On rebondit sur
+// le sol et sur les pylônes en perdant un peu de vie, ce qui rend le Split-S
+// bas et le rase-mottes possibles au lieu d'être interdits. Le délai empêche
+// qu'un frottement continu vide la jauge en une seconde.
+function scrape(dt) {
+  state.scrapeT = Math.max(0, state.scrapeT - dt);
+
+  if (state.pos.y <= FLOOR + 0.5) {
+    state.pos.y = FLOOR + 0.5;
+    if (state.scrapeT <= 0) { damagePlayer(5); state.scrapeT = 0.45; }
+    state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
+    state.speed *= 0.99;
+  }
+
+  for (const t of towers) {
+    const hx = 9 * t.scale.x + 8, hz = 9 * t.scale.z + 8;
+    if (state.pos.y > TOWER_H * t.scale.y + 6) continue;
+    if (Math.abs(state.pos.x - t.position.x) > hx) continue;
+    if (Math.abs(state.pos.z - t.position.z) > hz) continue;
+    if (state.scrapeT <= 0) { damagePlayer(7); state.scrapeT = 0.45; }
+    _right.set(state.pos.x - t.position.x, 0, state.pos.z - t.position.z);
+    if (_right.lengthSq() < 1e-4) _right.set(1, 0, 0);
+    _right.normalize();
+    state.pos.addScaledVector(_right, 9);        // on est repoussé sur le côté
+    state.speed *= 0.97;
+    break;
+  }
 }
 
 function updateDecor() {
@@ -1331,10 +1451,8 @@ function drawHud() {
   }
 
   // cadres de désignation, et flèche vers la cible la plus proche hors champ
-  let nearest = null, nearestD = Infinity;
   for (const e of state.enemies) {
     const d = e.pos.distanceTo(state.pos);
-    if (d < nearestD) { nearestD = d; nearest = e; }
     const p = project(e.pos);
     const onScreen = p.front && p.x > 0 && p.x < w && p.y > 0 && p.y < h;
     if (!onScreen) continue;
@@ -1361,10 +1479,29 @@ function drawHud() {
     }
   }
 
-  if (nearest) {
-    const p = project(nearest.pos);
-    const onScreen = p.front && p.x > 30 && p.x < w - 30 && p.y > 30 && p.y < h - 30;
-    if (!onScreen) edgeArrow(nearest.pos, w, h);
+  // Une flèche par ennemi, sur un anneau autour du centre. Sa taille dit la
+  // distance : la plus grosse est la plus proche. On sait d'un coup d'oeil
+  // combien ils sont, d'où ils viennent, et lequel il faut traiter d'abord.
+  for (const e of state.enemies) {
+    edgeArrow(e.pos, w, h, e.pos.distanceTo(state.pos));
+  }
+
+  // bande d'altitude : un curseur entre plancher et plafond dit tout de suite
+  // où l'on se situe dans la couche d'air. Un nombre absolu ne dit rien.
+  {
+    const tx = w - 24, ty0 = h * 0.30, ty1 = h * 0.70;
+    hctx.strokeStyle = 'rgba(70,255,160,0.28)';
+    hctx.beginPath(); hctx.moveTo(tx, ty0); hctx.lineTo(tx, ty1); hctx.stroke();
+    for (let i = 0; i <= 4; i++) {
+      const yy = ty0 + (ty1 - ty0) * i / 4;
+      hctx.beginPath(); hctx.moveTo(tx - 3, yy); hctx.lineTo(tx + 3, yy); hctx.stroke();
+    }
+    const k = THREE.MathUtils.clamp((state.pos.y - FLOOR) / (CEILING - FLOOR), 0, 1);
+    const cy = ty1 - (ty1 - ty0) * k;
+    hctx.strokeStyle = 'rgba(143,252,196,0.95)';
+    hctx.beginPath();
+    hctx.moveTo(tx - 14, cy); hctx.lineTo(tx - 5, cy - 5); hctx.lineTo(tx - 5, cy + 5);
+    hctx.closePath(); hctx.stroke();
   }
 
   // annonce de vague
@@ -1395,7 +1532,9 @@ function bracket(x, y, s, arm) {
   hctx.stroke();
 }
 
-function edgeArrow(target, w, h) {
+const ARROW_NEAR = 120, ARROW_FAR = 1300;
+
+function edgeArrow(target, w, h, dist) {
   // on part du point projeté ; quand la cible est derrière la caméra la
   // projection se retourne, d'où le miroir autour du centre
   const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.36;
@@ -1405,10 +1544,15 @@ function edgeArrow(target, w, h) {
   const len = Math.hypot(dx, dy) || 1;
   const x = cx + dx / len * r;
   const y = cy + dy / len * r;
-  hctx.strokeStyle = 'rgba(70,255,160,0.6)';
+  // taille pleine au contact, quatre fois moindre au bout de la portée,
+  // linéairement entre les deux
+  const t = THREE.MathUtils.clamp((dist - ARROW_NEAR) / (ARROW_FAR - ARROW_NEAR), 0, 1);
+  const k = 1 - 0.75 * t;
+  hctx.strokeStyle = 'rgba(70,255,160,' + (0.35 + 0.45 * k).toFixed(2) + ')';
   hctx.save();
   hctx.translate(x, y);
   hctx.rotate(Math.atan2(dy, dx) + Math.PI / 2);
+  hctx.scale(k, k);
   hctx.beginPath();
   hctx.moveTo(0, -9); hctx.lineTo(7, 7); hctx.lineTo(-7, 7); hctx.closePath();
   hctx.stroke();
@@ -1420,7 +1564,6 @@ function edgeArrow(target, w, h) {
 // ---------------------------------------------------------------------------
 const scoreLbl = document.getElementById('scoreLbl');
 const waveLbl  = document.getElementById('waveLbl');
-const altLbl   = document.getElementById('altLbl');
 const spdLbl   = document.getElementById('spdLbl');
 const gaugeFill = document.getElementById('gaugeFill');
 const structLbl = document.getElementById('structLbl');
@@ -1428,7 +1571,6 @@ const structLbl = document.getElementById('structLbl');
 function refreshBars() {
   scoreLbl.textContent = 'SCORE ' + String(Math.floor(state.score)).padStart(6, '0');
   waveLbl.textContent  = 'VAGUE ' + state.wave;
-  altLbl.textContent   = 'ALT ' + String(Math.round(state.pos.y)).padStart(3, '0');
   spdLbl.textContent   = 'VIT ' + Math.round(state.speed * 3.6);
   const st = Math.max(0, Math.round(state.structure));
   gaugeFill.style.width = st + '%';
@@ -1440,11 +1582,30 @@ const versionBtn = document.getElementById('versionBtn');
 versionBtn.addEventListener('click', e => {
   e.stopPropagation();
   changelog.hidden = !changelog.hidden;
+  aide.hidden = true;
+  majPause();
 });
-document.addEventListener('pointerdown', e => {
-  if (changelog.hidden) return;
-  if (changelog.contains(e.target) || e.target === versionBtn) return;
+const aide = document.getElementById('aide');
+const aideBtn = document.getElementById('aideBtn');
+aideBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  aide.hidden = !aide.hidden;
   changelog.hidden = true;
+  majPause();
+});
+
+function majPause() {
+  state.paused = !aide.hidden || !changelog.hidden;
+}
+
+document.addEventListener('pointerdown', e => {
+  if (!changelog.hidden && !changelog.contains(e.target) && e.target !== versionBtn) {
+    changelog.hidden = true;
+  }
+  if (!aide.hidden && !aide.contains(e.target) && e.target !== aideBtn) {
+    aide.hidden = true;
+  }
+  majPause();
 });
 
 const overlay = document.getElementById('overlay');
@@ -1522,7 +1683,7 @@ window.addEventListener('pointerdown', e => {
   // e.target n'est pas toujours un Element (événement synthétique visé sur
   // window, par exemple) : closest() n'existerait pas et la boucle casserait
   const el = e.target instanceof Element ? e.target : null;
-  if (el && el.closest('#topbar, #bottombar, #overlay, #changelog')) return;
+  if (el && el.closest('#topbar, #bottombar, #overlay, #changelog, #aide')) return;
 
   // Deux appuis rapprochés déclenchent une figure. Laquelle dépend de l'endroit
   // visé par rapport à l'avion : au-dessus de lui, c'est un renversement ; à
@@ -1536,12 +1697,8 @@ window.addEventListener('pointerdown', e => {
     const dx = e.clientX - state.screenX;
     const dy = e.clientY - state.screenY;
     if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50) {
-      if (dy > 0 && state.pos.y < SPLIT_FLOOR) {
-        announce('TROP BAS');
-      } else {
-        state.fig = { t: 0, side, type: dy > 0 ? 'split' : 'imm',
-                      base: state.quat.clone(), yaw0: state.yaw };
-      }
+      state.fig = { t: 0, side, type: dy > 0 ? 'split' : 'imm',
+                    base: state.quat.clone(), yaw0: state.yaw };
     } else {
       state.spinT = SPIN_TIME;
       state.spinSide = side;

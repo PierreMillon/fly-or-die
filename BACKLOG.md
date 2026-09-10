@@ -54,13 +54,13 @@ Conversion en amont, sommets soudés et géométrie indexée embarquée dans
 `index.html` ; les arêtes vives en sont dérivées au chargement. Le fichier
 reste unique, rien à charger au vol.
 
-## Collision avec les pylônes
+## Collision avec les pylônes → fait en v0.16
 
-Les pylônes sont pour l'instant purement décoratifs : on les traverse. Depuis
-le passage au trait caché en v0.6 ils ont de vraies faces et masquent ce qu'il
-y a derrière, mais rien ne les rend solides. Leur donner un volume rendrait le
-vol bas dangereux, donc intéressant — raser le sol pour semer un poursuivant
-deviendrait un pari.
+Choix arcade plutôt que simulation : le décor n'arrête pas l'avion, il
+l'érafle. Sol et pylônes coûtent un peu de vie et renvoient l'avion, avec un
+délai pour qu'un frottement continu ne vide pas la jauge d'un coup. Le
+rase-mottes devient un pari, et le Split-S bas est permis au lieu d'être
+refusé.
 
 ## Son
 
