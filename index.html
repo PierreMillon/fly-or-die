@@ -173,7 +173,7 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
-  <button id="versionBtn">v0.10</button>
+  <button id="versionBtn">v0.12</button>
 </div>
 
 <div id="bottombar">
@@ -184,6 +184,8 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.12</b> — il faut deux fois plus longtemps pour abattre une cible, et le viseur lui-même raconte la montée en puissance : il se resserre, quatre arcs tournent autour de lui de plus en plus vite, il vibre et blanchit, puis quatre dards rentrent vers le centre une fois le tir calé.</div>
+  <div><b>v0.11</b> — figures adoucies : le demi-tonneau partait sec après le demi-looping, les deux phases s'enchaînent maintenant sans à-coup. La caméra suit de loin au début puis se resserre, et la reprise en main repart de son orientation réelle au lieu de la forcer sur celle de l'avion — l'image ne claque plus à la sortie de figure.</div>
   <div><b>v0.10</b> — Split-S : deux appuis sous l'avion, demi-tonneau puis demi-looping vers le bas, cap inversé en descendant là où l'Immelmann l'obtient en montant. Refusé trop près du sol. La figure suit maintenant la direction du geste par rapport à l'avion. Ennemis nettement plus hargneux : rafales de trois coups, cône et portée élargis, virage plus vif, escadrilles plus fournies.</div>
   <div><b>v0.9</b> — la jauge s'appelle LIFE et non plus STRUCT</div>
   <div><b>v0.8</b> — renversement Immelmann : deux appuis rapprochés au-dessus de l'avion, et il part en demi-looping puis se remet à plat par un demi-tonneau, cap inversé et plus haut. De quoi retourner la situation sur un poursuivant. La figure compose les quaternions directement, le modèle de vol ne sachant pas franchir la verticale.</div>
@@ -252,8 +254,8 @@ const PITCH_TRIM    = 1.15;   // sans consigne, le tangage revient seul à plat 
 const ROLL_FACTOR   = 0.95;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
 const LOCK_COS      = Math.cos(9 * Math.PI / 180); // cône du viseur : produit scalaire plutôt qu'arc cosinus
 const LOCK_RANGE    = 1250;
-const DPS_MIN       = 30;     // dégâts par seconde à l'accroche
-const DPS_MAX       = 145;    // ...et une fois le tir bien calé sur la cible
+const DPS_MIN       = 15;     // dégâts par seconde à l'accroche
+const DPS_MAX       = 72;     // ...et une fois le tir bien calé sur la cible
 const LOCK_SPOOL    = 1.8;    // secondes pour monter de l'un à l'autre
 const FLOOR         = 26;     // plancher : on rase le sol sans le traverser
 const CEILING       = 480;    // plafond bas volontaire : la grille au sol est le seul repère de vitesse
@@ -1021,13 +1023,13 @@ function simulate(dt) {
       // inversé en descendant, là où l'Immelmann l'obtient en montant.
       const roll = Math.min(1, u / 0.34);
       const loop = Math.max(0, (u - 0.34) / 0.66);
-      _qa.setFromAxisAngle(_az, Math.PI * roll * im.side);
+      _qa.setFromAxisAngle(_az, Math.PI * ease(roll) * im.side);
       _qb.setFromAxisAngle(_ax, Math.PI * ease(loop));
     } else {
       const loop = Math.min(1, u / 0.62);                   // demi-looping
       const roll = Math.max(0, (u - 0.62) / 0.38);          // puis demi-tonneau
       _qa.setFromAxisAngle(_ax, Math.PI * ease(loop));
-      _qb.setFromAxisAngle(_az, Math.PI * roll * im.side);
+      _qb.setFromAxisAngle(_az, Math.PI * ease(roll) * im.side);
     }
     // dans les deux cas la composition vaut un demi-tour de lacet : un
     // demi-tour de tangage et un demi-tour de roulis s'y ramènent, quel que
@@ -1043,10 +1045,13 @@ function simulate(dt) {
     playerMesh.quaternion.copy(state.quat);
     propMesh.rotation.z += 16 * dt;
 
-    // la caméra suit la figure, avec un temps de retard
-    camera.quaternion.slerp(state.quat, 1 - Math.exp(-7 * dt));
+    // La caméra suit la figure de loin au début — on voit l'avion partir — puis
+    // se resserre vers la fin pour être recollée au moment de rendre la main.
+    // Un rattrapage à raideur constante donnait un départ sec puis une fin molle.
+    const lam = 3.5 + 6 * u * u;
+    camera.quaternion.slerp(state.quat, 1 - Math.exp(-lam * dt));
     _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
-    camera.position.lerp(_v, 1 - Math.exp(-11 * dt));
+    camera.position.lerp(_v, 1 - Math.exp(-7 * dt));
     if (camera.position.y < 6) camera.position.y = 6;
 
     if (u >= 1) {
@@ -1055,9 +1060,13 @@ function simulate(dt) {
       state.yaw = im.yaw0 + Math.PI;
       state.pitch = 0;
       state.roll = 0;
-      state.camYaw = state.yaw;
-      state.camPitch = 0;
-      state.camRoll = 0;
+      // On repart de l'orientation réelle de la caméra, pas de celle de
+      // l'avion : forcer les deux à coïncider ferait claquer l'image à la
+      // sortie de figure. L'amortissement habituel referme l'écart ensuite.
+      euler.setFromQuaternion(camera.quaternion, 'YXZ');
+      state.camPitch = euler.x;
+      state.camYaw = euler.y;
+      state.camRoll = euler.z;
       state.fig = null;
     }
     updateEnemies(dt);
@@ -1226,19 +1235,49 @@ function drawHud() {
     hctx.moveTo(joy.ox, joy.oy); hctx.lineTo(joy.x, joy.y); hctx.stroke();
   }
 
-  // le viseur, déporté par le manche au doigt, posé sur le curseur à la souris
-  hctx.strokeStyle = aim.active ? 'rgba(70,255,160,0.9)' : 'rgba(70,255,160,0.35)';
-  hctx.beginPath();
-  hctx.arc(aim.x, aim.y, 22, 0, Math.PI * 2);
-  hctx.stroke();
-  hctx.beginPath();
-  hctx.arc(aim.x, aim.y, 2.5, 0, Math.PI * 2);
-  hctx.stroke();
+  // Le viseur, déporté par le manche au doigt, posé sur le curseur à la souris.
+  // Il raconte aussi la montée en puissance du tir : plus on tient la cible,
+  // plus il se resserre, plus ses arcs tournent vite, et plus il blanchit.
+  const ch = state.lock ? state.lockCharge : 0;
+  const jit = () => (Math.random() - 0.5) * 2.4 * ch;
+  const ax = aim.x + jit(), ay = aim.y + jit();
+  const rr = 22 - 7 * ch;
+
+  hctx.strokeStyle = ch > 0
+    ? 'rgba(' + Math.round(70 + 185 * ch) + ', 255, ' + Math.round(160 + 95 * ch) + ', '
+      + (0.55 + 0.45 * ch).toFixed(2) + ')'
+    : (aim.active ? 'rgba(70,255,160,0.9)' : 'rgba(70,255,160,0.35)');
+  hctx.lineWidth = 1.5 + ch;
+  hctx.beginPath(); hctx.arc(ax, ay, rr, 0, Math.PI * 2); hctx.stroke();
+  hctx.beginPath(); hctx.arc(ax, ay, 2.5, 0, Math.PI * 2); hctx.stroke();
+
+  if (ch > 0) {
+    const spin = performance.now() / 1000 * (0.8 + 5.5 * ch);
+    const R2 = rr + 8;
+    for (let i = 0; i < 4; i++) {
+      const a0 = spin + i * Math.PI / 2;
+      hctx.beginPath();
+      hctx.arc(ax, ay, R2, a0, a0 + 0.45 + 0.5 * ch);
+      hctx.stroke();
+    }
+    if (ch >= 1) {
+      // calé : quatre dards rentrent vers le centre
+      for (let i = 0; i < 4; i++) {
+        const a0 = spin + i * Math.PI / 2 + Math.PI / 4;
+        hctx.beginPath();
+        hctx.moveTo(ax + Math.cos(a0) * (rr + 4), ay + Math.sin(a0) * (rr + 4));
+        hctx.lineTo(ax + Math.cos(a0) * (rr - 6), ay + Math.sin(a0) * (rr - 6));
+        hctx.stroke();
+      }
+    }
+  }
+  hctx.lineWidth = 1.5;
+
   if (nose.front) {
     hctx.strokeStyle = 'rgba(70,255,160,0.22)';
     hctx.beginPath();
     hctx.moveTo(nose.x, nose.y);
-    hctx.lineTo(aim.x, aim.y);
+    hctx.lineTo(ax, ay);
     hctx.stroke();
   }
 
@@ -1268,14 +1307,6 @@ function drawHud() {
       hctx.beginPath();
       hctx.arc(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ch);
       hctx.stroke();
-      if (ch >= 1) {
-        // à pleine puissance l'anneau pulse, franchement
-        const puls = 1 + Math.sin(performance.now() / 90) * 0.06;
-        hctx.strokeStyle = 'rgba(255,255,255,0.9)';
-        hctx.beginPath();
-        hctx.arc(p.x, p.y, r * puls, 0, Math.PI * 2);
-        hctx.stroke();
-      }
     } else {
       bracket(p.x, p.y, size, 0.3);
     }
