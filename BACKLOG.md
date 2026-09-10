@@ -150,7 +150,7 @@ déplace exactement le long de son nez. Le vecteur vitesse tomberait donc pile
 sur le viseur et ne dirait rien. Suppose d'abord de donner une incidence au
 modèle — l'aile portant à un angle différent de celui du fuselage.
 
-## Coop à deux en ligne
+## Coop en ligne, jusqu'à dix → fait en v0.49
 
 Deux joueurs sur le même site, dans la même partie, contre les mêmes vagues.
 Bouton COOP au menu, un code court à partager. WebRTC en pair à pair, sans

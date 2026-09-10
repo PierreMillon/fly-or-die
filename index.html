@@ -32,7 +32,8 @@
      décide. Poser le doigt sur un texte du panneau bloquait donc le
      défilement, et seule la mince bande de la barre de défilement — qui, elle,
      appartient au panneau lui-même — répondait. */
-  #aide, #aide *, #changelog, #changelog *, #viseurs, #viseurs * { touch-action: pan-y; }
+  #aide, #aide *, #changelog, #changelog *, #viseurs, #viseurs *,
+  #coop, #coop * { touch-action: pan-y; }
 
   html, body {
     margin: 0;
@@ -168,7 +169,44 @@
     transition: width 0.18s linear;
   }
 
-  #changelog, #aide, #viseurs {
+  #coop textarea {
+    width: 100%;
+    background: #04070a;
+    border: 1px solid var(--ph-dim);
+    border-radius: 4px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 10px;
+    padding: 6px;
+    resize: none;
+    margin: 0 0 8px;
+  }
+  #coop button {
+    background: var(--ph-fill);
+    border: 1px solid var(--ph-line);
+    border-radius: 5px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    padding: 9px 14px;
+    margin: 0 8px 10px 0;
+  }
+  #coopChoix { display: flex; gap: 8px; flex-wrap: wrap; }
+  #coopEtat { color: var(--ph-line); }
+  #coopBtn {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 6px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    padding: 10px 22px;
+    margin-top: 2px;
+  }
+
+  #changelog, #aide, #viseurs, #coop {
     /* et les panneaux par-dessus tout */
     position: fixed;
     top: calc(38px + env(safe-area-inset-top));
@@ -186,7 +224,8 @@
     font-size: 12px;
     line-height: 1.5;
   }
-  #changelog[hidden], #aide[hidden], #viseurs[hidden] { display: none; }
+  #changelog[hidden], #aide[hidden], #viseurs[hidden], #coop[hidden] { display: none; }
+  #coopHote[hidden], #coopInvite[hidden], #coopEtape2[hidden] { display: none; }
   #viseurs .grille {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
@@ -214,7 +253,7 @@
     letter-spacing: 0.06em;
     padding: 3px 0;
   }
-  #viseurs .aide { color: var(--ph-dim); font-size: 11px; margin: 0 0 10px; line-height: 1.6; }
+  #coop .aide, #viseurs .aide { color: var(--ph-dim); font-size: 11px; margin: 0 0 10px; line-height: 1.6; }
   #changelog div, #aide p { margin: 0 0 8px; }
   #changelog div:last-child, #aide p:last-child { margin-bottom: 0; }
   #changelog b, #aide b { color: var(--ph-line); }
@@ -349,12 +388,42 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.48</button>
+  <button id="versionBtn">v0.49</button>
 </div>
 
 <div id="bottombar">
   <span><span class="dim">LIFE</span> <span id="gauge"><span id="gaugeFill"></span></span> <span id="structLbl">100%</span></span>
   <span class="spacer"></span>
+</div>
+
+<div id="coop" hidden>
+  <h2>JOUER À PLUSIEURS</h2>
+  <p class="aide">Jusqu'à dix appareils dans la même partie. Les navigateurs se
+  parlent directement, sans passer par un serveur : il n'y a donc rien à
+  installer, mais il faut s'échanger un code une fois, par message.</p>
+  <div id="coopChoix">
+    <button id="coopCreer">CRÉER UNE PARTIE</button>
+    <button id="coopRejoindre">REJOINDRE</button>
+  </div>
+  <div id="coopHote" hidden>
+    <p class="aide"><b>1.</b> Envoie ce code à qui veut te rejoindre.</p>
+    <textarea id="coopMonCode" readonly rows="3"></textarea>
+    <button id="coopCopier">COPIER</button>
+    <p class="aide"><b>2.</b> Colle ici la réponse qu'il te renvoie, puis valide.
+    Recommence pour chaque joueur.</p>
+    <textarea id="coopReponse" rows="3" placeholder="réponse du joueur"></textarea>
+    <button id="coopValider">AJOUTER CE JOUEUR</button>
+  </div>
+  <div id="coopInvite" hidden>
+    <p class="aide"><b>1.</b> Colle le code reçu.</p>
+    <textarea id="coopCodeRecu" rows="3" placeholder="code de l'hôte"></textarea>
+    <button id="coopAccepter">RÉPONDRE</button>
+    <p class="aide" id="coopEtape2" hidden><b>2.</b> Renvoie cette réponse à
+    l'hôte. La partie démarre dès qu'il l'a collée.</p>
+    <textarea id="coopMaReponse" rows="3" readonly hidden></textarea>
+    <button id="coopCopier2" hidden>COPIER</button>
+  </div>
+  <p class="aide" id="coopEtat"></p>
 </div>
 
 <div id="viseurs" hidden>
@@ -517,6 +586,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.49</b> — coopération jusqu'à dix appareils, sans serveur : les navigateurs se parlent directement, on s'échange un code une fois. L'hôte tient le monde, chacun pilote le sien. Vagues alourdies de moitié par appareil, score commun, et reprendre de la vie relève les équipiers à terre.</div>
   <div><b>v0.48</b> — les adversaires ne traversent plus les bâtiments. Le décollage part pile sur l'axe de la piste, les roquettes lâchent quatre fois plus de fumée au départ, et l'échelle de tangage ne monte plus qu'en montée. Boussole : la forme dit le type, la taille dit la distance.</div>
   <div><b>v0.47</b> — le manche répond à la distance au centre et non à chaque axe : il était très inégal hors des axes. L'avion ne disparaît plus une fois posé cap au sud, et la caméra ne fait plus le tour au redécollage.</div>
   <div><b>v0.46</b> — le décollage respecte le cap où l'on est posé : après une réparation faite cap au sud, l'appareil basculait de 180 degrés en une image. Le moteur prend ses tours une demi-seconde pendant que les mécaniciens dégagent, puis la vitesse monte en S. La caméra rejoint sa place au ressort au lieu d'y sauter — 27 unités de bond, il en reste 4. Le boost double, ne s'arme qu'au-delà de 600 mètres, s'attend deux fois moins et tient encore trois quarts de seconde après l'accrochage : on arrive en tirant. Les flèches gardent un cercle fixe, c'est leur finesse qui dit l'angle. Le premier adversaire de la vague 1 arrive pile dans l'axe, en guise de leçon ; ensuite il reste devant, décalé. Les roquettes atteignent enfin les pièces au sol — elles s'ouvraient sur le plancher juste avant. Tanks trois fois plus rares. Les caps de la piste sont de vrais contours fermés, et son pourtour redevient visible.</div>
@@ -573,6 +643,7 @@
   <p id="overlayScore" hidden></p>
   <button id="startBtn">DÉCOLLER</button>
   <button id="videoBtn" hidden>REGARDER UNE VIDÉO · REPRENDRE</button>
+  <button id="coopBtn">COOP</button>
   <button id="expliqueBtn" hidden>BESOIN D'EXPLICATIONS ?</button>
   <label id="plusJamais" hidden><input type="checkbox" id="plusJamaisCase"> ne plus afficher</label>
 </div>
@@ -2690,8 +2761,11 @@ const euler = new THREE.Euler(0, 0, 0, 'YXZ'); // lacet d'abord, puis tangage : 
 // même de commencer.
 function poseAuSol() {
   state.auSol = true;
-  // pile sur l'axe, au seuil : la piste est là pour être suivie
-  state.pos.set(0, SOL_Y, PISTE.z0 - 90);
+  // Pile sur l'axe, au seuil. À plusieurs on s'échelonne le long de la piste
+  // plutôt que côte à côte : elle est étroite, et deux appareils au même
+  // endroit se traverseraient au décollage.
+  const rang = coop.actif ? Math.max(0, coop.moi - 1) : 0;
+  state.pos.set(0, SOL_Y, PISTE.z0 - 90 + rang * 46);
   state.yaw = 0; state.pitch = 0; state.roll = 0;
   state.camYaw = 0; state.camPitch = 0; state.camRoll = 0; state.camSpin = 0;
   state.speed = 0;
@@ -2858,7 +2932,9 @@ function spawnWave() {
   // de fin, seul le score en a une.
   const boss = state.wave % 5 === 0;
   const pool = boss ? [4] : VAGUES[Math.min(state.wave - 1, VAGUES.length - 1)];
-  const n = boss ? 1 : EFFECTIF[Math.min(state.wave - 1, EFFECTIF.length - 1)];
+  let n = boss ? 1 : EFFECTIF[Math.min(state.wave - 1, EFFECTIF.length - 1)];
+  // à plusieurs, chaque appareil de plus alourdit la vague de moitié
+  if (coop.actif) n = Math.round(n * (1 + (COOP_RENFORT - 1) * coop.autres.size));
 
   const vus = new Set();
   // quelques pièces au sol à partir de la deuxième vague, en plus des avions
@@ -2885,6 +2961,7 @@ function spawnWave() {
     mesh.scale.setScalar(k.echelle);
     scene.add(mesh);
     state.enemies.push({
+      id: ++coopSeqEnnemi,
       kind: k,
       mesh,
       pos: auSol
@@ -3787,6 +3864,7 @@ function simulate(dt) {
       state.pose = { t: 0 };
       state.speed = 0;
       poserMecanos();
+      coopReanime();
       redecoBtn.hidden = false;
       announce('AU SOL  ·  RÉPARATION');
       SFX.bouclierOn();
@@ -4182,11 +4260,15 @@ function simulate(dt) {
   springCamera(_v, dt, 44, 10.2, _cv.copy(state.forward).multiplyScalar(state.speed));
   updateBoost(dt);
   updateTraits(dt);
+  coopTic(dt);
+  updateAmis(dt);
 
   updateDecor(dt);
 
-  // --- combat
-  updateEnemies(dt);
+  // --- combat. L'invité ne simule ni les adversaires ni les vagues : il les
+  // reçoit de l'hôte. Il garde en revanche ses balles, ses roquettes et son
+  // verrouillage, qui n'appartiennent qu'à lui.
+  if (!coop.actif || coop.hote) updateEnemies(dt);
   updateBullets(dt);
   updateLock(dt);
   updateShots(dt);
@@ -4198,7 +4280,8 @@ function simulate(dt) {
   // seuls les avions décident de la fin d'une vague : une pièce au sol se
   // laisse dépasser sans bloquer la progression
   const enVol = state.enemies.filter(e => !e.kind.sol).length;
-  if (enVol > 0) {
+  if (coop.actif && !coop.hote) { /* les vagues sont décidées par l'hôte */ }
+  else if (enVol > 0) {
     state.vagueT += dt;
   } else {
     if (state.vagueLimite > 0) bilanVague();
@@ -4289,6 +4372,7 @@ function scrape(dt) {
     if (q && !t.prise && heurte(q.x, q.z, q.hx, q.hz, q.y0, q.y1)) {
       t.prise = true;
       state.structure = Math.min(100, state.structure + TOUR_PRIME);
+      coopReanime();
       state.score += 400;
       announce('TOUR TRAVERSÉE  ·  +' + TOUR_PRIME);
       SFX.vagueNette();
@@ -4310,6 +4394,7 @@ function scrape(dt) {
         heurte(p.x, p.z, p.hx, p.hz, p.y0, p.y1)) {
       a.prise = true;
       state.structure = Math.min(100, state.structure + ARCHE_PRIME);
+      coopReanime();
       state.score += 150;
       announce('ARCHE FRANCHIE  ·  +' + ARCHE_PRIME);
       SFX.vagueNette();
@@ -4365,6 +4450,232 @@ function dampAngle(current, target, lambda, dt) {
   if (d > Math.PI) d -= Math.PI * 2;
   if (d < -Math.PI) d += Math.PI * 2;
   return current + d * (1 - Math.exp(-lambda * dt));
+}
+
+// ---------------------------------------------------------------------------
+// COOPÉRATION — jusqu'à dix appareils, sans un octet de serveur
+// ---------------------------------------------------------------------------
+// Les navigateurs se parlent directement par WebRTC. Reste le problème de la
+// mise en relation : pour ouvrir un tunnel, chacun doit connaître la
+// description de l'autre. D'ordinaire un petit serveur s'en charge ; ici c'est
+// le joueur, en s'échangeant un code par message. Rien à héberger, rien qui
+// puisse tomber, et le jeu reste un fichier posé sur des pages statiques.
+//
+// La topologie est une ÉTOILE, pas un maillage : à dix, un maillage complet
+// demanderait quarante-cinq échanges de codes à la main. Là, chaque invité en
+// fait un seul avec l'hôte, qui devient le point de passage de tout le monde.
+//
+// L'hôte fait autorité sur le monde — vagues, adversaires, dégâts, score — et
+// chacun simule SON avion sans latence. C'est le partage qui donne un pilotage
+// net des deux côtés : ce qu'on tient dans les mains ne passe jamais par le
+// réseau, seul ce qu'on regarde en vient.
+// ---------------------------------------------------------------------------
+const COOP_MAX = 10;
+const COOP_HZ = 20;                 // envois par seconde
+const COOP_RENFORT = 1.5;           // vagues plus fournies à plusieurs
+
+const coop = {
+  actif: false, hote: false, pairs: [], moi: 0,
+  autres: new Map(),                // id -> { pos, quat, vie, mesh, nom }
+  envoiT: 0, seq: 0
+};
+
+// Un code doit tenir dans un message : on comprime avant d'encoder. Les SDP
+// sont très répétitifs, gzip les divise par trois ou quatre.
+async function enCode(txt) {
+  try {
+    if (!window.CompressionStream) throw 0;
+    const cs = new CompressionStream('gzip');
+    const w = cs.writable.getWriter();
+    w.write(new TextEncoder().encode(txt)); w.close();
+    const buf = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+    let b = ''; for (const o of buf) b += String.fromCharCode(o);
+    return 'z' + btoa(b);
+  } catch (e) {
+    return 'p' + btoa(unescape(encodeURIComponent(txt)));
+  }
+}
+async function deCode(code) {
+  const c = code.trim().replace(/\s+/g, '');
+  const corps = atob(c.slice(1));
+  if (c[0] !== 'z') return decodeURIComponent(escape(corps));
+  const arr = new Uint8Array(corps.length);
+  for (let i = 0; i < corps.length; i++) arr[i] = corps.charCodeAt(i);
+  const ds = new DecompressionStream('gzip');
+  const w = ds.writable.getWriter(); w.write(arr); w.close();
+  return new Response(ds.readable).text();
+}
+
+// On attend que la collecte des candidats soit finie avant de montrer le code :
+// sinon il faudrait un second échange pour les transmettre.
+function sdpComplet(pc) {
+  return new Promise(res => {
+    if (pc.iceGatheringState === 'complete') return res(pc.localDescription);
+    const t = setTimeout(() => res(pc.localDescription), 2500);
+    pc.addEventListener('icegatheringstatechange', () => {
+      if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(pc.localDescription); }
+    });
+  });
+}
+
+function nouvelleConnexion() {
+  return new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+}
+
+function coopBranche(dc, id) {
+  dc.onopen = () => {
+    coop.actif = true;
+    coopEtat.textContent = coop.hote
+      ? coop.pairs.length + ' appareil(s) relié(s) sur ' + (COOP_MAX - 1)
+      : 'relié à l\'hôte. La partie est commune.';
+    announce('COOP  ·  ' + (coop.pairs.length + 1) + ' APPAREILS');
+    // le monde ne doit pas rester en pause parce qu'un panneau était ouvert
+    // au moment où la liaison s'est faite
+    majPause();
+  };
+  dc.onclose = () => {
+    coop.pairs = coop.pairs.filter(p => p.dc !== dc);
+    const a = coop.autres.get(id);
+    if (a && a.mesh) scene.remove(a.mesh);
+    coop.autres.delete(id);
+    if (!coop.pairs.length) { coop.actif = false; coop.hote = false; }
+  };
+  dc.onmessage = ev => {
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.t === 'p') coopRecoitAvion(m, id);
+    else if (m.t === 'w' && !coop.hote) coopRecoitMonde(m);
+    else if (m.t === 'r') {
+      // un ami a repris de la vie : si l'on est à terre, on repart avec lui
+      if (!state.running && overlay && !overlay.hidden) {
+        announce('RELEVÉ PAR UN ÉQUIPIER');
+        videoBtn.click();
+      }
+      if (coop.hote) coopEnvoie(ev.data, dcSauf(id));
+    }
+  };
+}
+
+// ---- un appareil ami : sa cellule, en plus pâle, plus son état ----
+const matAmi = lineMat(COL_TEXT, 0.9);
+function meshAmi() {
+  const g = solidWire(planeGeom, planeEdges, matAmi);
+  g.scale.setScalar(PLANE_SCALE);
+  g.frustumCulled = false;
+  scene.add(g);
+  return g;
+}
+
+function coopRecoitAvion(m, id) {
+  let a = coop.autres.get(id);
+  if (!a) { a = { mesh: meshAmi(), pos: new THREE.Vector3(),
+                  quat: new THREE.Quaternion(), vie: 100 };
+            coop.autres.set(id, a); }
+  a.pos.set(m.x, m.y, m.z);
+  a.quat.set(m.qx, m.qy, m.qz, m.qw);
+  a.vie = m.v;
+  a.lock = m.l;
+  a.ch = m.c;
+  a.vu = performance.now();
+  // l'hôte relaie : chacun voit tout le monde
+  if (coop.hote) coopEnvoie(JSON.stringify({ ...m, i: id }), dcSauf(id));
+}
+
+function dcSauf(id) {
+  return coop.pairs.filter(p => p.id !== id).map(p => p.dc);
+}
+function coopEnvoie(txt, liste) {
+  for (const dc of (liste || coop.pairs.map(p => p.dc))) {
+    if (dc && dc.readyState === 'open') { try { dc.send(txt); } catch (e) {} }
+  }
+}
+
+// ---- l'invité reçoit le monde et s'y conforme ----
+function coopRecoitMonde(m) {
+  state.wave = m.g;
+  state.score = m.s;
+  const vus = new Set();
+  for (const o of m.e) {
+    vus.add(o.i);
+    let e = state.enemies.find(x => x.id === o.i);
+    if (!e) {
+      const k = KINDS[o.k];
+      const mesh = solidWire(k.geom, k.edges, matEnemy);
+      mesh.scale.setScalar(k.echelle);
+      scene.add(mesh);
+      e = { id: o.i, kind: k, mesh, pos: new THREE.Vector3(),
+            quat: new THREE.Quaternion(), forward: new THREE.Vector3(0, 0, -1),
+            hp: k.vie, hpMax: k.vie, charge: 0, gene: 0, distant: true };
+      state.enemies.push(e);
+    }
+    e.pos.set(o.x, o.y, o.z);
+    e.quat.set(o.a, o.b, o.c, o.d);
+    e.hp = o.h;
+    e.forward.set(0, 0, -1).applyQuaternion(e.quat);
+    e.mesh.position.copy(e.pos);
+    e.mesh.quaternion.copy(e.quat);
+  }
+  for (let i = state.enemies.length - 1; i >= 0; i--) {
+    if (!vus.has(state.enemies[i].id)) {
+      scene.remove(state.enemies[i].mesh);
+      state.enemies.splice(i, 1);
+    }
+  }
+}
+
+let coopSeqEnnemi = 0;
+
+function coopTic(dt) {
+  if (!coop.actif) return;
+  coop.envoiT -= dt;
+  if (coop.envoiT > 0) return;
+  coop.envoiT = 1 / COOP_HZ;
+
+  coopEnvoie(JSON.stringify({
+    t: 'p', i: coop.moi,
+    x: +state.pos.x.toFixed(1), y: +state.pos.y.toFixed(1), z: +state.pos.z.toFixed(1),
+    qx: +state.quat.x.toFixed(3), qy: +state.quat.y.toFixed(3),
+    qz: +state.quat.z.toFixed(3), qw: +state.quat.w.toFixed(3),
+    v: Math.round(state.structure),
+    l: state.lock ? state.lock.id : 0,
+    c: +(state.lockCharge || 0).toFixed(2)
+  }));
+
+  if (coop.hote) {
+    coopEnvoie(JSON.stringify({
+      t: 'w', g: state.wave, s: Math.round(state.score),
+      e: state.enemies.map(e => ({
+        i: e.id, k: KINDS.indexOf(e.kind),
+        x: +e.pos.x.toFixed(1), y: +e.pos.y.toFixed(1), z: +e.pos.z.toFixed(1),
+        a: +e.quat.x.toFixed(3), b: +e.quat.y.toFixed(3),
+        c: +e.quat.z.toFixed(3), d: +e.quat.w.toFixed(3),
+        h: Math.round(e.hp)
+      }))
+    }));
+  }
+}
+
+// Les amis abattus reviennent : reprendre de la vie profite à tout le monde,
+// c'est ce qui fait qu'on se surveille au lieu de courir chacun son score.
+function coopReanime() {
+  if (!coop.actif) return;
+  coopEnvoie(JSON.stringify({ t: 'r' }));
+}
+
+// ---- placement et affichage des amis ----
+function updateAmis(dt) {
+  const now = performance.now();
+  for (const [id, a] of coop.autres) {
+    // au-delà d'une seconde sans nouvelle, on efface : la liaison est rompue
+    if (now - a.vu > 1000) {
+      if (a.mesh) scene.remove(a.mesh);
+      coop.autres.delete(id);
+      continue;
+    }
+    a.mesh.position.copy(a.pos);
+    a.mesh.quaternion.copy(a.quat);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -4718,6 +5029,22 @@ function drawHud() {
       etoile(px(d), L_VIE, 2.4 + 4.6 * proche(t.g.position), 4, bord(d) ? '0.35' : '0.95');
     }
 
+    // LES AMIS. Un losange, forme qu'aucun autre repère n'utilise, sur la ligne
+    // des adversaires : on ne peut pas les confondre avec eux, et on sait
+    // toujours où ils sont. Le sien se remplit quand il est en difficulté.
+    for (const [, a] of coop.autres) {
+      const d = dc(capDe(a.pos));
+      const x = px(d), y = L_ENN;
+      hctx.strokeStyle = bord(d) ? 'rgba(190,255,220,0.4)' : 'rgba(190,255,220,0.95)';
+      hctx.lineWidth = 1.1;
+      hctx.beginPath();
+      hctx.moveTo(x, y - 5); hctx.lineTo(x + 4, y); hctx.lineTo(x, y + 5);
+      hctx.lineTo(x - 4, y); hctx.closePath();
+      if (a.vie < 40) { hctx.fillStyle = hctx.strokeStyle; hctx.fill(); }
+      hctx.stroke();
+      hctx.lineWidth = 1.5;
+    }
+
     // le repère du cap courant, au-dessus de tout
     hctx.fillStyle = 'rgba(143,252,196,0.95)';
     hctx.beginPath();
@@ -4759,6 +5086,44 @@ function drawHud() {
       hctx.beginPath();
       hctx.arc(pg.x, pg.y, 5 + 9 * (1 - q), 0, Math.PI * 2);
       hctx.stroke();
+      hctx.restore();
+    }
+  }
+
+  // LES AMIS À L'ÉCRAN. Un losange autour de leur cellule quand ils sont
+  // visibles, une flèche pâle sur l'anneau quand ils ne le sont pas : on ne
+  // perd jamais son coéquipier de vue, ce qui est toute la différence entre
+  // jouer ensemble et jouer côte à côte.
+  for (const [, a] of coop.autres) {
+    const pa = project(a.pos);
+    const dedans = pa.front && pa.x > 26 && pa.x < w - 26 && pa.y > 26 && pa.y < h - 26;
+    if (dedans) {
+      const d = a.pos.distanceTo(state.pos);
+      const sz = THREE.MathUtils.clamp(2000 / Math.max(1, d), 10, 46);
+      hctx.strokeStyle = 'rgba(190,255,220,0.8)';
+      hctx.beginPath();
+      hctx.moveTo(pa.x, pa.y - sz); hctx.lineTo(pa.x + sz, pa.y);
+      hctx.lineTo(pa.x, pa.y + sz); hctx.lineTo(pa.x - sz, pa.y);
+      hctx.closePath(); hctx.stroke();
+      if (a.vie < 40) {
+        hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+        hctx.fillStyle = 'rgba(190,255,220,0.9)';
+        hctx.fillText(Math.round(a.vie) + '%', pa.x, pa.y + sz + 11);
+        hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+      }
+    } else {
+      const cx = w / 2, cy = h / 2;
+      let dx = pa.x - cx, dy = pa.y - cy;
+      if (!pa.front) { dx = -dx; dy = -dy; }
+      const len = Math.hypot(dx, dy) || 1;
+      const r = Math.min(w, h) * 0.40;
+      hctx.save();
+      hctx.translate(cx + dx / len * r, cy + dy / len * r);
+      hctx.rotate(Math.atan2(dy, dx) + Math.PI / 2);
+      hctx.strokeStyle = 'rgba(190,255,220,0.55)';
+      hctx.beginPath();
+      hctx.moveTo(0, -7); hctx.lineTo(5, 0); hctx.lineTo(0, 7); hctx.lineTo(-5, 0);
+      hctx.closePath(); hctx.stroke();
       hctx.restore();
     }
   }
@@ -4988,6 +5353,99 @@ versionBtn.addEventListener('click', e => {
 });
 // ---- panneau des viseurs
 const panViseurs = document.getElementById('viseurs');
+// ---- panneau de coopération ----
+const panCoop = document.getElementById('coop');
+const coopBtn = document.getElementById('coopBtn');
+const coopEtat = document.getElementById('coopEtat');
+const coopChoix = document.getElementById('coopChoix');
+const coopHote = document.getElementById('coopHote');
+const coopInvite = document.getElementById('coopInvite');
+const coopMonCode = document.getElementById('coopMonCode');
+const coopReponse = document.getElementById('coopReponse');
+const coopCodeRecu = document.getElementById('coopCodeRecu');
+const coopMaReponse = document.getElementById('coopMaReponse');
+
+coopBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  panCoop.hidden = !panCoop.hidden;
+  aide.hidden = true; changelog.hidden = true; panViseurs.hidden = true;
+  majPause();
+});
+
+const copier = (el) => {
+  el.select();
+  try { navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand('copy'); }
+};
+document.getElementById('coopCopier').onclick = e => { e.stopPropagation(); copier(coopMonCode); };
+document.getElementById('coopCopier2').onclick = e => { e.stopPropagation(); copier(coopMaReponse); };
+
+// CRÉER : on ouvre un tunnel de plus pour chaque invité, l'un après l'autre.
+let attente = null;
+document.getElementById('coopCreer').onclick = async e => {
+  e.stopPropagation();
+  if (coop.pairs.length >= COOP_MAX - 1) { coopEtat.textContent = 'partie complète'; return; }
+  coop.hote = true;
+  coop.moi = 1;
+  coopChoix.hidden = true;
+  coopHote.hidden = false;
+  coopEtat.textContent = 'préparation du code...';
+  const pc = nouvelleConnexion();
+  const id = 2 + coop.pairs.length;
+  const dc = pc.createDataChannel('fod', { ordered: false, maxRetransmits: 0 });
+  coopBranche(dc, id);
+  await pc.setLocalDescription(await pc.createOffer());
+  const d = await sdpComplet(pc);
+  coopMonCode.value = await enCode(JSON.stringify({ s: d.sdp, i: id }));
+  attente = { pc, dc, id };
+  coopEtat.textContent = 'code prêt. Envoie-le, puis colle la réponse.';
+};
+
+document.getElementById('coopValider').onclick = async e => {
+  e.stopPropagation();
+  if (!attente) return;
+  try {
+    const o = JSON.parse(await deCode(coopReponse.value));
+    await attente.pc.setRemoteDescription({ type: 'answer', sdp: o.s });
+    coop.pairs.push(attente);
+    attente = null;
+    coopReponse.value = '';
+    coopEtat.textContent = 'joueur ajouté. Recommence pour le suivant.';
+    document.getElementById('coopCreer').click();
+  } catch (err) {
+    coopEtat.textContent = 'code illisible.';
+  }
+};
+
+// REJOINDRE : un seul échange, avec l'hôte.
+document.getElementById('coopRejoindre').onclick = e => {
+  e.stopPropagation();
+  coopChoix.hidden = true;
+  coopInvite.hidden = false;
+  coopEtat.textContent = 'colle le code de l\'hôte.';
+};
+
+document.getElementById('coopAccepter').onclick = async e => {
+  e.stopPropagation();
+  try {
+    const o = JSON.parse(await deCode(coopCodeRecu.value));
+    coop.hote = false;
+    coop.moi = o.i;
+    const pc = nouvelleConnexion();
+    pc.ondatachannel = ev => { coopBranche(ev.channel, 1);
+                               coop.pairs = [{ pc, dc: ev.channel, id: 1 }]; };
+    await pc.setRemoteDescription({ type: 'offer', sdp: o.s });
+    await pc.setLocalDescription(await pc.createAnswer());
+    const d = await sdpComplet(pc);
+    coopMaReponse.value = await enCode(JSON.stringify({ s: d.sdp }));
+    document.getElementById('coopEtape2').hidden = false;
+    coopMaReponse.hidden = false;
+    document.getElementById('coopCopier2').hidden = false;
+    coopEtat.textContent = 'réponse prête. Renvoie-la à l\'hôte.';
+  } catch (err) {
+    coopEtat.textContent = 'code illisible.';
+  }
+};
+
 const grilleViseurs = document.getElementById('grilleViseurs');
 const viseurBtn = document.getElementById('viseurBtn');
 
@@ -5105,7 +5563,9 @@ plusJamaisCase.addEventListener('change', () => {
 });
 
 function majPause() {
-  state.paused = !aide.hidden || !changelog.hidden || !panViseurs.hidden;
+  // en coopération le monde ne s'arrête pas : les autres continuent de voler
+  state.paused = !coop.actif
+    && (!aide.hidden || !changelog.hidden || !panViseurs.hidden || !panCoop.hidden);
 }
 
 document.addEventListener('pointerdown', e => {
@@ -5117,6 +5577,9 @@ document.addEventListener('pointerdown', e => {
   }
   if (!panViseurs.hidden && !panViseurs.contains(e.target) && e.target !== viseurBtn) {
     panViseurs.hidden = true;
+  }
+  if (!panCoop.hidden && !panCoop.contains(e.target) && e.target !== coopBtn) {
+    panCoop.hidden = true;
   }
   majPause();
 });
@@ -5291,7 +5754,7 @@ window.addEventListener('pointerdown', e => {
   // e.target n'est pas toujours un Element (événement synthétique visé sur
   // window, par exemple) : closest() n'existerait pas et la boucle casserait
   const el = e.target instanceof Element ? e.target : null;
-  if (el && el.closest('#overlay, #changelog, #aide, #viseurs, button')) return;
+  if (el && el.closest('#overlay, #changelog, #aide, #viseurs, #coop, button')) return;
 
   // On s'approprie le pointeur : le doigt garde la main jusqu'à ce qu'il se
   // lève, même s'il passe au-dessus d'un élément qui disparaît ou change
@@ -5344,7 +5807,7 @@ window.addEventListener('pointermove', e => {
     // ... mais elle ne pilote pas quand elle survole l'interface. Passer sur
     // REDÉCOLLER, posé en bas de l'écran, commandait un piqué à fond.
     const el = e.target instanceof Element ? e.target : null;
-    if (el && el.closest('#overlay, #changelog, #aide, #viseurs, button')) return;
+    if (el && el.closest('#overlay, #changelog, #aide, #viseurs, #coop, button')) return;
     touchMode = false; aim.active = true; setAimDirect(e); return;
   }
   if (!joy.on) return;
