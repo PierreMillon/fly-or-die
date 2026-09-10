@@ -173,7 +173,7 @@
   <span id="scoreLbl">SCORE 000000</span>
   <span id="waveLbl" class="dim">VAGUE 1</span>
   <span class="spacer"></span>
-  <button id="versionBtn">v0.2</button>
+  <button id="versionBtn">v0.3</button>
 </div>
 
 <div id="bottombar">
@@ -184,6 +184,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.3</b> — le tir monte en puissance tant que la cible reste dans le viseur : faible à l'accroche, il se cale en moins de deux secondes et frappe près de cinq fois plus fort. Un anneau se referme autour de la cible, les cadres vibrent de plus en plus et les traçantes passent du clignotement au trait continu. Changer de cible remet la montée à zéro.</div>
   <div><b>v0.2</b> — la souris garde la main quand elle s'arrête de bouger (le retour du viseur au centre ne concerne plus que le doigt qui se lève), ligne d'horizon retirée, et le monde n'a plus de bord visible : grille bien plus large que la portée du brouillard, pylônes qui naissent dans la brume au lieu de surgir</div>
   <div><b>v0.1</b> — premier vol : avion filaire, pilotage à un doigt (tangage et lacet seuls, roulis purement visuel), verrouillage automatique dans le cône du viseur, vagues d'intercepteurs, grille au sol et pylônes pour la sensation de vitesse, jauge de structure</div>
 </div>
@@ -237,7 +238,9 @@ const PITCH_TRIM    = 1.15;   // sans consigne, le tangage revient seul à plat 
 const ROLL_FACTOR   = 0.95;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
 const LOCK_COS      = Math.cos(9 * Math.PI / 180); // cône du viseur : produit scalaire plutôt qu'arc cosinus
 const LOCK_RANGE    = 1250;
-const DPS           = 62;     // dégâts par seconde infligés à la cible verrouillée
+const DPS_MIN       = 30;     // dégâts par seconde à l'accroche
+const DPS_MAX       = 145;    // ...et une fois le tir bien calé sur la cible
+const LOCK_SPOOL    = 1.8;    // secondes pour monter de l'un à l'autre
 const FLOOR         = 26;     // plancher : on rase le sol sans le traverser
 const CEILING       = 480;    // plafond bas volontaire : la grille au sol est le seul repère de vitesse
 const ENEMY_HP      = 100;
@@ -439,7 +442,8 @@ const state = {
   enemies: [],
   bullets: [],
   lock: null,
-  lockT: 0
+  lockT: 0,
+  lockCharge: 0
 };
 
 const aim = { x: 0, y: 0, active: false };
@@ -460,6 +464,7 @@ function resetGame() {
   state.hitFlash = 0;
   state.lock = null;
   state.lockT = 0;
+  state.lockCharge = 0;
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
   state.bullets.length = 0;
@@ -643,13 +648,20 @@ function updateLock(dt) {
   }
 
   if (best !== state.lock) { state.lock = best; state.lockT = 0; }
-  if (!best) { feedTracers(playerTracers, []); return; }
+  if (!best) { feedTracers(playerTracers, []); state.lockCharge = 0; return; }
 
   state.lockT += dt;
-  best.hp -= DPS * dt;
 
-  // deux traçantes depuis les emplantures d'ailes, clignotées une image sur deux
-  if ((performance.now() / 45 | 0) % 2 === 0) {
+  // tenir la cible récompense : le tir se cale et frappe de plus en plus fort.
+  // Lâcher pour reprendre une autre cible remet la montée à zéro — mieux vaut
+  // finir celle qu'on tient que picorer.
+  const charge = Math.min(1, state.lockT / LOCK_SPOOL);
+  state.lockCharge = charge;
+  best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge) * dt;
+
+  // les traçantes clignotent à l'accroche puis deviennent continues : c'est le
+  // signal le plus direct que la puissance est montée
+  if (charge > 0.7 || (performance.now() / 45 | 0) % 2 === 0) {
     const l = new THREE.Vector3(-2.4, -0.2, 0.6).applyQuaternion(state.quat).add(state.pos);
     const r = new THREE.Vector3(2.4, -0.2, 0.6).applyQuaternion(state.quat).add(state.pos);
     feedTracers(playerTracers, [
@@ -860,14 +872,31 @@ function drawHud() {
     const size = THREE.MathUtils.clamp(2200 / d, 12, 60);
     const locked = state.lock === e;
     hctx.strokeStyle = locked ? '#ffffff' : 'rgba(70,255,160,0.75)';
-    bracket(p.x, p.y, size, locked ? 0.42 : 0.3);
     if (locked) {
+      const ch = state.lockCharge;
+      // la vibration croît avec la puissance : on sent le tir se caler
+      const j = () => (Math.random() - 0.5) * 3.4 * ch;
+      hctx.lineWidth = 1.5 + ch * 1.3;
+      bracket(p.x + j(), p.y + j(), size, 0.42);
+      hctx.lineWidth = 1.5;
       hctx.fillStyle = '#ffffff';
-      hctx.fillText(Math.round(e.hp) + '%', p.x, p.y - size - 12);
-      hctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      hctx.fillText(Math.round(Math.max(0, e.hp)) + '%', p.x, p.y - size - 12);
+      // anneau de charge : il se referme et se resserre sur la cible
+      const r = size * (1.95 - 0.6 * ch);
+      hctx.strokeStyle = 'rgba(255,255,255,' + (0.35 + 0.5 * ch).toFixed(2) + ')';
       hctx.beginPath();
-      hctx.arc(p.x, p.y, size * 1.5, 0, Math.PI * 2);
+      hctx.arc(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ch);
       hctx.stroke();
+      if (ch >= 1) {
+        // à pleine puissance l'anneau pulse, franchement
+        const puls = 1 + Math.sin(performance.now() / 90) * 0.06;
+        hctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        hctx.beginPath();
+        hctx.arc(p.x, p.y, r * puls, 0, Math.PI * 2);
+        hctx.stroke();
+      }
+    } else {
+      bracket(p.x, p.y, size, 0.3);
     }
   }
 
