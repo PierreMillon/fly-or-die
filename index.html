@@ -349,7 +349,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.45</button>
+  <button id="versionBtn">v0.46</button>
 </div>
 
 <div id="bottombar">
@@ -517,6 +517,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.46</b> — le décollage respecte le cap où l'on est posé : après une réparation faite cap au sud, l'appareil basculait de 180 degrés en une image. Le moteur prend ses tours une demi-seconde pendant que les mécaniciens dégagent, puis la vitesse monte en S. La caméra rejoint sa place au ressort au lieu d'y sauter — 27 unités de bond, il en reste 4. Le boost double, ne s'arme qu'au-delà de 600 mètres, s'attend deux fois moins et tient encore trois quarts de seconde après l'accrochage : on arrive en tirant. Les flèches gardent un cercle fixe, c'est leur finesse qui dit l'angle. Le premier adversaire de la vague 1 arrive pile dans l'axe, en guise de leçon ; ensuite il reste devant, décalé. Les roquettes atteignent enfin les pièces au sol — elles s'ouvraient sur le plancher juste avant. Tanks trois fois plus rares. Les caps de la piste sont de vrais contours fermés, et son pourtour redevient visible.</div>
   <div><b>v0.45</b> — taper un mur fait maintenant tourner l'avion du côté où il y a de la place : on tapait, on reculait, on repartait droit dessus, on retapait. On peut monter jusqu'à 85 degrés au lieu de 68, mais au-delà de 58 le moteur ne suit plus et la cellule vacille — même chose sous le plafond. On peut aller à la verticale, on ne peut pas y rester. L'arrondi du décollage s'adoucit : le sommet de la vague arrive à 42 % au lieu de 50, la remise à plat a donc plus de temps. Les caps de la piste sont creux, contour seul.</div>
   <div><b>v0.44</b> — le saut après le décollage est corrigé. La caméra ne suivait pas la séquence, elle la poursuivait : un ressort traîne toujours un peu, et la place idéale balaie vingt unités quand le nez revient à plat. L'avion montait puis redescendait de 139 pixels à l'écran ; il n'en bouge plus que de 40, et reste rigoureusement fixe pendant toute la montée. la boussole gagne deux étages : un triangle par adversaire, une astérisque par arche et par tour encore à prendre, un rectangle pour la piste. On peut se poser dans les deux sens, tant qu'on touche avant la moitié, et une jauge POSÉ dit à quel point on y est. La surface de la piste est pleine et noire, elle masque la grille dessous ; il ne reste que l'axe et les caps, tracés en trait épais. Se frôler ne fait plus de bruit et ne coûte rien : c'est lui qui s'écarte, jamais nous. Biplan et chasseur accélérés, on les doublait sans le vouloir. POURSUITE devient BOOST.</div>
   <div><b>v0.43</b> — un avion abattu part en vrille, traîne sa fumée et s'ouvre au sol. Le coup au but jette cinq à dix boules de tailles très différentes. Les roquettes orphelines ne s'évaporent plus : elles piquent et explosent où elles finissent. Un anneau se referme sur la cible à mesure qu'elles arrivent, et bat au canon d'où elles sont parties. Le ressort de caméra reste raide jusqu'au bout du décollage : il se détendait pile quand le nez revient à plat, l'avion sautait de 7 pixels, il n'en fait plus que 5.</div>
@@ -610,6 +611,8 @@ const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
 const SOL_Y         = 3;      // hauteur de l'avion posé, train sous le fuselage
 const ALT_DEPART    = 165;    // altitude atteinte au bout du décollage
+const ATTENTE       = 0.55;   // le temps qu'il faut aux mécaniciens pour dégager
+const RAMPE         = 0.55;   // montée en vitesse, en S
 const ROULAGE       = 0.4;    // secondes de course au sol avant la rotation
 const MONTEE        = 2.4;    // durée de la vague, de la rotation au palier
 const ASSIETTE      = 1.30;   // sommet de la vague, 74 degrés
@@ -865,6 +868,7 @@ function jalonVague(n) {
 // l'utilisateur — il est donc créé au clic sur DÉCOLLER.
 // ---------------------------------------------------------------------------
 let actx = null, master = null, bruitBuf = null, moteur = null, moteurG = null;
+let reverbe = null, loinG = null;
 let muet = localStorage.getItem('fod_muet') === '1';
 
 function audioDemarre() {
@@ -895,6 +899,36 @@ function audioDemarre() {
     o.start();
   });
   moteurG.connect(lp).connect(master);
+
+  // RÉVERBÉRATION. Une réponse impulsionnelle synthétisée : du bruit qui
+  // s'éteint en exponentielle, ce qui suffit à donner l'espace. Elle ne sert
+  // qu'aux sons lointains — un avion qui s'ouvre à huit cents mètres ne claque
+  // pas, il roule. Rien de ce qui se passe dans le cockpit n'y passe.
+  const dur = Math.floor(actx.sampleRate * 1.35);
+  const ri = actx.createBuffer(2, dur, actx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const ch = ri.getChannelData(c);
+    for (let i = 0; i < dur; i++) {
+      ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / dur, 2.6);
+    }
+  }
+  reverbe = actx.createConvolver();
+  reverbe.buffer = ri;
+  loinG = actx.createGain();
+  loinG.gain.value = 0.9;
+  reverbe.connect(loinG).connect(master);
+}
+
+// Volume d'un événement selon sa distance, et destination associée. Au-delà
+// d'une centaine de mètres tout part dans la réverbération, et le niveau
+// décroît comme l'inverse de la distance — pas comme son carré, qui rendrait
+// tout inaudible à trois cents mètres. Le plafond est fixé à la moitié : une
+// destruction lointaine ne doit jamais couvrir ce qui se passe devant soi.
+function parDistance(pos) {
+  if (!pos) return { v: 1, sortie: null };
+  const d = pos.distanceTo(state.pos);
+  const v = Math.min(0.5, 1 / (1 + d / 180));
+  return { v, sortie: d > 90 ? reverbe : null };
 }
 
 // Le moteur est un oscillateur continu, et sa coupure est pilotée dans la
@@ -919,7 +953,7 @@ window.addEventListener('pageshow', audioReprend);
 window.addEventListener('blur', audioPause);
 window.addEventListener('focus', audioReprend);
 
-function ton(f0, f1, dur, type, vol) {
+function ton(f0, f1, dur, type, vol, sortie) {
   if (!actx || muet) return;
   const t = actx.currentTime;
   const o = actx.createOscillator(), g = actx.createGain();
@@ -928,11 +962,11 @@ function ton(f0, f1, dur, type, vol) {
   if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
   g.gain.setValueAtTime(vol, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(master);
+  o.connect(g).connect(sortie || master);
   o.start(t); o.stop(t + dur + 0.02);
 }
 
-function souffle(dur, f0, f1, q, vol) {
+function souffle(dur, f0, f1, q, vol, sortie) {
   if (!actx || muet || !bruitBuf) return;
   const t = actx.currentTime;
   const n = actx.createBufferSource();
@@ -945,7 +979,7 @@ function souffle(dur, f0, f1, q, vol) {
   const g = actx.createGain();
   g.gain.setValueAtTime(vol, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  n.connect(bp).connect(g).connect(master);
+  n.connect(bp).connect(g).connect(sortie || master);
   n.start(t); n.stop(t + dur + 0.02);
 }
 
@@ -967,7 +1001,9 @@ const SFX = {
   // la poursuite qui s'enclenche : un souffle qui monte, et rien de percussif
   poursuite:    () => { souffle(0.85, 240, 1900, 1.1, 0.16); ton(150, 420, 0.7, 'sawtooth', 0.06); },
   touche:       () => { ton(150, 62, 0.22, 'square', 0.19); souffle(0.16, 500, 160, 1.2, 0.14); },
-  detruit:      () => { souffle(0.55, 900, 90, 0.9, 0.34); ton(190, 48, 0.45, 'sawtooth', 0.16); },
+  detruit:      (pos) => { const { v, sortie } = parDistance(pos);
+                          souffle(0.55, 900, 90, 0.9, 0.34 * v, sortie);
+                          ton(190, 48, 0.45, 'sawtooth', 0.16 * v, sortie); },
   eraflure:     () => souffle(0.3, 1400, 300, 1.4, 0.22),
   frolement:    () => souffle(0.34, 2600, 280, 0.9, 0.2),
   // DÉPART DE ROQUETTE. Trois moments dans l'ordre où on les entend : le
@@ -982,11 +1018,12 @@ const SFX = {
   // IMPACT. Le coup sec d'abord, puis la détonation qui s'effondre vers le
   // bas, puis une seconde retombée plus grave un dixième plus tard : c'est ce
   // décalage qui fait la différence entre un bruit et une explosion.
-  roquetteImpact: () => { souffle(0.045, 6000, 2600, 4, 0.22);
-                          ton(150, 30, 0.75, 'square', 0.26);
-                          souffle(0.9, 800, 55, 0.65, 0.40);
-                          setTimeout(() => { ton(88, 26, 0.8, 'sine', 0.22);
-                                             souffle(0.7, 340, 45, 0.7, 0.22); }, 105); },
+  roquetteImpact: (pos) => { const { v, sortie } = parDistance(pos);
+                          souffle(0.045, 6000, 2600, 4, 0.22 * v, sortie);
+                          ton(150, 30, 0.75, 'square', 0.26 * v, sortie);
+                          souffle(0.9, 800, 55, 0.65, 0.40 * v, sortie);
+                          setTimeout(() => { ton(88, 26, 0.8, 'sine', 0.22 * v, sortie);
+                                             souffle(0.7, 340, 45, 0.7, 0.22 * v, sortie); }, 105); },
   bouclier:     () => { ton(880, 1400, 0.12, 'sine', 0.14); souffle(0.14, 3000, 900, 3, 0.09); },
   bouclierOn:   () => { ton(400, 1200, 0.5, 'sine', 0.15); setTimeout(() => ton(600, 1800, 0.45, 'sine', 0.12), 120); },
   bouclierFin:  () => ton(900, 260, 0.5, 'triangle', 0.13),
@@ -2013,9 +2050,11 @@ function bloc(lx, ly, lz, cx, cy) {
 // régime et l'on va le chercher. C'est la réponse à la seule situation où le
 // jeu ne donnait rien à faire — voir la cible, la garder devant soi, et
 // attendre. Rompre l'alignement ou l'accrocher coupe la poussée.
-const BOOST_ATTENTE = 2.5;    // secondes d'alignement tenu avant que ça pousse
+const BOOST_ATTENTE = 1.25;   // secondes d'alignement tenu avant que ça pousse
 const BOOST_COS = Math.cos(13 * Math.PI / 180);
-const BOOST_GAIN = 1.55;      // ce que devient la vitesse de croisière visée
+const BOOST_GAIN = 2.0;       // ce que devient la vitesse de croisière visée
+const BOOST_LOIN = 620;       // en deçà, il n'y a plus rien à rattraper
+const BOOST_APRES = 0.75;     // ce qui reste de poussée une fois la cible accrochée
 
 const VIT_SEUIL = 88;         // m/s : en dessous, l'air est invisible
 const VIT_PLEIN = 150;        // m/s : au-dessus, l'effet est à son maximum
@@ -2062,20 +2101,28 @@ function semerTousLesTraits() {
 }
 
 function updateBoost(dt) {
+  // Il ne sert qu'à COMBLER UNE DISTANCE. En deçà de six cents mètres il n'y a
+  // rien à rattraper : proposer une poussée quand la cible est déjà là n'a
+  // aucun sens, et la jauge s'affichait pour rien.
   let vise = false;
-  if (!state.lock && !state.fig && !state.takeoff) {
+  if (!state.fig && !state.takeoff && !state.pose && !state.atterro) {
     for (const e of state.enemies) {
       _v.subVectors(e.pos, state.pos);
       const d = _v.length();
-      if (d < 1) continue;
+      if (d < BOOST_LOIN) continue;
       if (state.forward.dot(_v.divideScalar(d)) > BOOST_COS) { vise = true; break; }
     }
   }
-  // l'attente s'accumule doucement et se perd trois fois plus vite : la
-  // poursuite se mérite, elle ne se récupère pas d'un coup d'oeil
+  // L'accrochage ne coupe pas la poussée net : elle tient encore trois quarts
+  // de seconde, le temps que les premières balles partent. On arrive donc sur
+  // la cible en tirant, au lieu de se voir freiner à l'instant où l'on touche.
+  if (state.lock) state.boostFin = (state.boostFin || 0) + dt; else state.boostFin = 0;
+  if (state.lock && state.boostFin > BOOST_APRES) vise = false;
+
   state.boostT = vise ? state.boostT + dt : Math.max(0, state.boostT - dt * 3);
   const cible = state.boostT >= BOOST_ATTENTE ? 1 : 0;
-  state.boost = THREE.MathUtils.damp(state.boost, cible, cible ? 1.4 : 3.4, dt);
+  // le coup au cul : il vient vite et retombe plus lentement
+  state.boost = THREE.MathUtils.damp(state.boost, cible, cible ? 3.2 : 2.2, dt);
   if (cible && state.boost < 0.05) SFX.poursuite();
 }
 
@@ -2145,6 +2192,9 @@ const PISTE = {
 const ATT_PLAFOND = 95;       // au-dessus, la piste ne propose rien
 const ATT_SOL = 20;           // en dessous, la hauteur est acquise
 const ATT_SEUIL = 0.88;       // ce que doit atteindre la plus mauvaise des quatre parts
+// L'approche se valide trois fois plus vite qu'avant : chaque part est étirée,
+// si bien qu'un couloir large suffit là où il fallait viser au mètre.
+const ATT_LARGEUR = 3;
 const ATT_CONE = Math.cos(17 * Math.PI / 180);
 const ATT_DUREE = 2.6;        // secondes de l'arrondi au point d'arrêt
 const REPARATION = 10;        // secondes avant que ça reparte tout seul
@@ -2156,20 +2206,30 @@ const PISTE_GARDE_Z1 = -1150;
 
 // Chiffres au trait, décrits une fois pour toutes : chaque segment est une
 // paire de points dans un carré de 1 sur 2, à la manière d'un afficheur.
+// CHIFFRES DE PISTE, décrits par leur CONTOUR. Un chiffre peint au sol n'est
+// pas un trait, c'est une forme pleine : on n'en dessine donc que le pourtour,
+// d'un seul tenant, plus les évidements pour le 6 et le 8. Composer chaque
+// chiffre à partir de barres épaissies une à une donnait des rectangles
+// empilés qui se voyaient comme tels.
+// Grille de 10 de large sur 20 de haut, origine en bas à gauche.
 const CHIFFRES = {
-  0: [[0,0,1,0],[1,0,1,2],[1,2,0,2],[0,2,0,0]],
-  1: [[0.5,0,0.5,2]],
-  3: [[0,2,1,2],[1,2,1,1],[0,1,1,1],[1,1,1,0],[1,0,0,0]],
-  6: [[1,2,0,2],[0,2,0,0],[0,0,1,0],[1,0,1,1],[1,1,0,1]],
-  8: [[0,0,1,0],[1,0,1,2],[1,2,0,2],[0,2,0,0],[0,1,1,1]]
+  '1': [[[3.7,0],[6.3,0],[6.3,20],[3.7,20],[1.2,17.8],[2.6,15.9],[3.7,16.8]]],
+  '3': [[[0,0],[7.4,0],[10,2.6],[10,7.4],[8.4,10],[10,12.6],[10,17.4],[7.4,20],
+         [0,20],[0,17.4],[7.4,17.4],[7.4,12.6],[3,12.6],[3,7.4],[7.4,7.4],
+         [7.4,2.6],[0,2.6]]],
+  '6': [[[0,2.6],[2.6,0],[7.4,0],[10,2.6],[10,7.4],[7.4,10],[2.6,10],[2.6,17.4],
+         [10,17.4],[10,20],[2.6,20],[0,17.4]],
+        [[2.6,2.6],[7.4,2.6],[7.4,7.4],[2.6,7.4]]],
+  '8': [[[0,2.6],[2.6,0],[7.4,0],[10,2.6],[10,7.4],[8.4,10],[10,12.6],[10,17.4],
+         [7.4,20],[2.6,20],[0,17.4],[0,12.6],[1.6,10],[0,7.4]],
+        [[2.6,2.6],[7.4,2.6],[7.4,7.4],[2.6,7.4]],
+        [[2.6,12.6],[7.4,12.6],[7.4,17.4],[2.6,17.4]]]
 };
 
 (function poserPiste() {
-  // LA SURFACE EST PLEINE ET NOIRE. C'est le même procédé que pour les
-  // bâtiments : une face peinte dans la couleur exacte du fond, invisible mais
-  // opaque, qui masque la grille du sol dessous. La piste devient donc une
-  // vraie découpe dans le quadrillage, et non un rectangle posé par-dessus. Il
-  // ne reste ensuite que ce qui dit quelque chose : l'axe, et les caps.
+  // La surface est pleine et peinte dans la couleur du fond : invisible mais
+  // opaque, elle masque la grille du sol. La piste est donc une découpe dans
+  // le quadrillage, pas un rectangle posé dessus.
   const L = PISTE.demiL, y = PISTE.y;
   const dalle = new THREE.PlaneGeometry(L * 2, PISTE.z0 - PISTE.z1)
     .rotateX(-Math.PI / 2)
@@ -2180,39 +2240,32 @@ const CHIFFRES = {
 
   const p = [];
   const seg = (x0, z0, x1, z1) => p.push(x0, y + 0.05, z0, x1, y + 0.05, z1);
-  // l'axe pointillé, seul trait conservé
+
+  // le pourtour, bien visible : c'est lui qui dit où l'on peut se poser
+  seg(-L, PISTE.z0, L, PISTE.z0);
+  seg(-L, PISTE.z1, L, PISTE.z1);
+  seg(-L, PISTE.z0, -L, PISTE.z1);
+  seg(L, PISTE.z0, L, PISTE.z1);
+  // l'axe, en pointillés
   for (let z = PISTE.z0 - 40; z > PISTE.z1 + 40; z -= 60) seg(0, z, 0, z - 30);
 
-  // LES CAPS, tracés en trait épais : chaque segment est doublé de part et
-  // d'autre, ce qui donne un chiffre plein plutôt qu'un fil. Peint au sol, un
-  // trait d'un pixel ne se lit pas — un vrai marquage de piste fait des
-  // mètres de large.
-  const EP = 3.2;
-  const gras = (x0, z0, x1, z1) => {
-    const dx = x1 - x0, dz = z1 - z0, L2 = Math.hypot(dx, dz) || 1;
-    const nx = -dz / L2 * EP, nz = dx / L2 * EP;
-    // seulement les deux bords : le chiffre est creux, c'est son contour qu'on
-    // peint. Rempli, il devenait une tache et perdait sa forme de loin.
-    for (const k of [-1, 1]) {
-      seg(x0 + nx * k, z0 + nz * k, x1 + nx * k, z1 + nz * k);
-    }
-    // et les deux bouts, pour fermer le trait
-    seg(x0 - nx, z0 - nz, x0 + nx, z0 + nz);
-    seg(x1 - nx, z1 - nz, x1 + nx, z1 + nz);
-  };
+  // les caps, chacun d'un seul contour fermé
   const nombre = (txt, cz, sens) => {
-    const hh = 34, l = 15, ecart = 11;
+    const ech = 1.9, l = 10 * ech, hh = 20 * ech, ecart = 7;
     const large = txt.length * l + (txt.length - 1) * ecart;
     for (let k = 0; k < txt.length; k++) {
       const x0 = -large / 2 + k * (l + ecart);
-      for (const [ax, ay, bx, by] of CHIFFRES[txt[k]]) {
-        gras(sens * (x0 + ax * l), cz - sens * ay * hh / 2,
-             sens * (x0 + bx * l), cz - sens * by * hh / 2);
+      for (const boucle of CHIFFRES[txt[k]]) {
+        for (let n = 0; n < boucle.length; n++) {
+          const a = boucle[n], b = boucle[(n + 1) % boucle.length];
+          seg(sens * (x0 + a[0] * ech), cz - sens * a[1] * ech * (hh / hh),
+              sens * (x0 + b[0] * ech), cz - sens * b[1] * ech);
+        }
       }
     }
   };
-  nombre('36', PISTE.z0 - 70, 1);
-  nombre('18', PISTE.z1 + 70, -1);
+  nombre('36', PISTE.z0 - 60, 1);
+  nombre('18', PISTE.z1 + 60, -1);
 
   const li = new THREE.LineSegments(segGeom(p), lineMat(COL_LINE, 0.85));
   li.frustumCulled = false;
@@ -2261,7 +2314,7 @@ function poserMecanos() {
 }
 
 function chasserMecanos() {
-  for (const m of mecanos) m.fuite = 2.6;
+  for (const m of mecanos) m.fuite = 0.55;
 }
 
 function updateMecanos(dt) {
@@ -2270,7 +2323,7 @@ function updateMecanos(dt) {
     if (m.fuite > 0) {
       // ils dégagent perpendiculairement à la piste, puis disparaissent
       m.fuite -= dt;
-      m.p.x += m.cote * 26 * dt;
+      m.p.x += m.cote * 62 * dt;
       m.g.position.copy(m.p);
       m.g.rotation.y = m.cote > 0 ? -Math.PI / 2 : Math.PI / 2;
       if (m.fuite <= 0) m.g.visible = false;
@@ -2581,6 +2634,8 @@ const state = {
   announceT: 0,
   hitFlash: 0,
   peine: 0,
+  regime: 0,
+  boostFin: 0,
   boost: 0,
   boostT: 0,
   recordBattu: null,
@@ -2679,6 +2734,7 @@ function redecoller() {
   state.pos.set(0, SOL_Y, state.pos.z);
   state.pitch = 0; state.roll = 0;
   state.takeoff = { t: 0 };
+  state.regime = 0;
   state.speed = 0;
   state.boost = 0;
   state.boostT = 0;
@@ -2694,6 +2750,7 @@ function resetGame() {
   poseAuSol();
   chasserMecanos();
   state.takeoff = { t: 0 };
+  state.regime = 0;
   state.auSol = false;
   state.structure = 100;
   state.score = 0;
@@ -2801,12 +2858,23 @@ function spawnWave() {
   const vus = new Set();
   // quelques pièces au sol à partir de la deuxième vague, en plus des avions
   const iTank = KINDS.findIndex(k => k.sol);
-  const tanks = boss ? 0 : (state.wave >= 2 ? 1 + (Math.random() < 0.5 ? 1 : 0) : 0);
+  // Trois fois plus rares : une pièce au sol est une cible d'occasion, pas un
+  // rendez-vous. Quand il y en avait à chaque vague, descendre les traiter
+  // devenait une corvée obligatoire.
+  const tanks = boss ? 0 : (state.wave >= 2 && Math.random() < 0.34 ? 1 : 0);
   for (let i = 0; i < n + tanks; i++) {
     const auSol = i >= n;
     const k = auSol ? KINDS[iTank] : KINDS[pool[Math.floor(Math.random() * pool.length)]];
     vus.add(k.nom);
-    const a = Math.random() * Math.PI * 2;
+    // LE PREMIER SE PRÉSENTE DANS L'AXE. La vague d'ouverture sert de leçon :
+    // on décolle, on regarde devant, il est là. À partir de la deuxième, le
+    // premier de la vague reste devant mais décalé — assez pour qu'il faille
+    // aller le chercher, pas assez pour qu'on le perde.
+    const capNez = Math.atan2(state.forward.x, state.forward.z);
+    const a = auSol ? Math.random() * Math.PI * 2
+            : i > 0 ? Math.random() * Math.PI * 2
+            : capNez + (state.wave === 1 ? 0
+                       : (Math.random() < 0.5 ? -1 : 1) * (0.20 + Math.random() * 0.16));
     const d = boss ? 900 : 520 + Math.random() * 420;
     const mesh = solidWire(k.geom, k.edges, matEnemy);
     mesh.scale.setScalar(k.echelle);
@@ -2818,9 +2886,10 @@ function spawnWave() {
         ? new THREE.Vector3(state.pos.x + Math.cos(a) * (500 + Math.random() * 700), 0,
                             state.pos.z + Math.sin(a) * (500 + Math.random() * 700))
         : new THREE.Vector3(
-            state.pos.x + Math.cos(a) * d,
-            110 + Math.random() * 270,
-            state.pos.z + Math.sin(a) * d
+            state.pos.x + Math.sin(a) * d,
+            i === 0 && !boss ? state.pos.y + (Math.random() - 0.4) * 60
+                             : 110 + Math.random() * 270,
+            state.pos.z + Math.cos(a) * d
           ),
       quat: new THREE.Quaternion(),
       forward: new THREE.Vector3(0, 0, -1),
@@ -3103,7 +3172,7 @@ function abattre(e) {
   state.enemies.splice(i, 1);
   if (state.lock === e) { state.lock = null; state.lockCharge = 0; }
   state.score += 100 + state.wave * 10;
-  SFX.detruit();
+  SFX.detruit(e.pos);
 
   // la bouffée du coup au but : entre cinq et dix boules de tailles très
   // différentes, jetées autour du point d'impact. Une seule sphère nette se
@@ -3158,7 +3227,7 @@ function updateChutes(dt) {
         const f = semerFumee(c.pos.clone().addScaledVector(_seg, Math.random() * 16), _seg);
         if (f) f.r0 *= 3 + Math.random() * 5;
       }
-      SFX.roquetteImpact();
+      SFX.roquetteImpact(c.pos);
       scene.remove(c.mesh);
       state.chutes.splice(i, 1);
     }
@@ -3214,14 +3283,18 @@ function updateRoquettes(dt) {
     // finit — au sol ou au bout de sa vie. Une roquette qui disparaît en plein
     // ciel ne veut rien dire ; une roquette qui va au bout, si.
     if (morte) r.dir.y -= 0.16 * dt;
-    if (r.t > ROQ_VIE || r.pos.y <= 3) {
+    // La cible d'abord, le sol ensuite : une pièce posée au sol est à trois
+    // mètres de haut, et la roquette s'ouvrait sur le plancher juste avant de
+    // l'atteindre. Aucune roquette n'a jamais touché un tank.
+    const auBut = !morte && r.pos.distanceTo(r.cible.pos) < (r.cible.kind.sol ? 20 : 14);
+    if (!auBut && (r.t > ROQ_VIE || r.pos.y <= 1.2)) {
       spawnBurst(r.pos, 11);
       for (let k = 0; k < 6; k++) {
         _seg.set((Math.random() - 0.5) * 2, Math.random(), (Math.random() - 0.5) * 2).normalize();
         const f = semerFumee(r.pos.clone().addScaledVector(_seg, Math.random() * 10), _seg);
         if (f) f.r0 *= 2.4 + Math.random() * 3.4;
       }
-      SFX.roquetteImpact();
+      SFX.roquetteImpact(r.pos);
       state.roquettes.splice(i, 1);
       continue;
     }
@@ -3248,7 +3321,7 @@ function updateRoquettes(dt) {
       r.fum += FUM_PAS;
     }
 
-    if (!morte && r.pos.distanceTo(r.cible.pos) < 14) {
+    if (auBut) {
       r.cible.hp -= ROQ_DEGATS;
       const tombe = r.cible.hp <= 0 ? r.cible : null;
       spawnBurst(r.pos, 6);
@@ -3260,7 +3333,7 @@ function updateRoquettes(dt) {
         const f = semerFumee(r.pos.clone().addScaledVector(_seg, Math.random() * 7), _seg);
         if (f) f.r0 *= 3.4;      // seule la boule d'impact a le droit d'être large
       }
-      SFX.roquetteImpact();
+      SFX.roquetteImpact(r.pos);
       state.roquettes.splice(i, 1);
       if (tombe) abattre(tombe);
       continue;
@@ -3507,7 +3580,10 @@ function step(now) {
     moteurG.gain.value = state.paused ? 0 : (state.running ? 0.05 : (state.auSol ? 0.03 : 0));
     // remonté trop haut à la version précédente : on redescend sous la valeur
     // d'origine, qui était déjà à la limite du criard
-    const f = 36 + THREE.MathUtils.clamp(state.speed, 0, SPEED_MAX) / SPEED_MAX * 44;
+    // au sol, le régime tient lieu de vitesse : le moteur s'entend monter
+    // avant que l'appareil ne s'ébranle
+    const vSon = Math.max(state.speed, state.regime * 62);
+    const f = 36 + THREE.MathUtils.clamp(vSon, 0, SPEED_MAX) / SPEED_MAX * 44;
     moteur[0].frequency.value = f;
     moteur[1].frequency.value = f * 1.02;
   }
@@ -3573,7 +3649,7 @@ function simulate(dt) {
       1 - Math.abs(state.pos.x) / (PISTE.demiL * 2.6),
       reste / 260,
       (Math.abs(state.forward.z) - ATT_CONE) / (1 - ATT_CONE)
-    ].map(v => THREE.MathUtils.clamp(v, 0, 1));
+    ].map(v => THREE.MathUtils.clamp(v * ATT_LARGEUR, 0, 1));
     // Exiger que les quatre parts valent exactement un rendrait la pose
     // impossible : il suffit qu'aucune ne manque vraiment. La jauge affichée
     // est donc rapportée à ce seuil, si bien qu'elle se remplit pile quand
@@ -3626,7 +3702,11 @@ function simulate(dt) {
   if (state.atterro) {
     const A = state.atterro;
     A.t += dt;
-    const u = Math.min(1, A.t / ATT_DUREE);
+    // La durée suit la hauteur à perdre : à durée fixe, une interception haute
+    // faisait descendre l'appareil comme un hélicoptère. Là, la pente reste
+    // celle d'une approche.
+    const duree = THREE.MathUtils.clamp(A.y0 / 21, 1.7, 5.2);
+    const u = Math.min(1, A.t / duree);
     const lisse = x => x * x * (3 - 2 * x);
     // l'assiette part de ce qu'elle valait et passe par un léger cabré d'arrondi
     state.pitch = A.p0 * (1 - lisse(u)) + 0.10 * Math.sin(Math.PI * u);
@@ -3712,37 +3792,81 @@ function simulate(dt) {
   if (state.takeoff) {
     const T = state.takeoff;
     T.t += dt;
-    // le moteur prend ses tours : c'est lui qu'on entend d'abord
-    // Plein gaz, et non la vitesse de croisière : un avion qui décolle
-    // pousse tout ce qu'il a. C'est ce qui rend le milieu de la montée vif,
-    // et l'excédent se dissipe tout seul une fois en palier.
-    state.speed = THREE.MathUtils.damp(state.speed, CRUISE * PLEIN_GAZ, 3.6, dt);
+    // LE CAP EST CELUI OÙ L'ON EST POSÉ. La séquence le supposait nul : après
+    // une réparation faite en s'étant posé cap au sud, l'appareil basculait de
+    // cent quatre-vingts degrés en une seule image au moment de repartir.
+    if (T.yaw === undefined) T.yaw = state.yaw;
+    state.yaw = T.yaw;
+    const cy = Math.cos(T.yaw), sy = Math.sin(T.yaw);
+    const poseCam = (pit) => {
+      state.camYaw = T.yaw; state.camRoll = 0; state.camSpin = 0;
+      euler.set(pit, T.yaw, 0);
+      _qa.setFromEuler(euler);
+      euler.set(pit + CAM_DECLIN, T.yaw, 0);
+      camera.quaternion.setFromEuler(euler);
+      _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
+    };
 
-    // UNE SEULE VAGUE. Les trois temps distincts se lisaient comme trois
-    // temps : une charnière pour monter, un palier tenu, une charnière pour
-    // redescendre. Le cosinus relevé — un demi-tour complet de cosinus, remis
-    // entre zéro et un — n'a aucune de ces coutures : sa dérivée est nulle au
+    // RIEN NE BOUGE tant que la piste n'est pas dégagée. Le régime, lui, monte
+    // déjà : on entend le moteur prendre ses tours avant de voir l'appareil
+    // s'ébranler, et les mécaniciens ont le temps de s'écarter.
+    if (T.t < ATTENTE) {
+      state.regime = T.t / ATTENTE;
+      state.speed = 0;
+      state.pitch = 0;
+      euler.set(0, T.yaw, 0);
+      state.quat.setFromEuler(euler);
+      state.forward.set(0, 0, -1).applyQuaternion(state.quat);
+      playerMesh.position.copy(state.pos);
+      playerMesh.quaternion.copy(state.quat);
+      propMesh.rotation.z += (4 + 30 * state.regime) * dt;
+      state.camPitch = 0;
+      poseCam(0);
+      // On rejoint la place de départ au ressort plutôt que d'y sauter : après
+      // une réparation, la caméra est ailleurs, et la poser d'autorité faisait
+      // un bond de vingt-six unités sur la première image. Une demi-seconde à
+      // cette raideur suffit largement à combler l'écart avant que ça roule.
+      springCamera(_v, dt, 90, 19, _cv.set(0, 0, 0));
+      majFov(dt);
+      updateMecanos(dt);
+      updateDecor();
+      state.announceT = Math.max(0, state.announceT - dt);
+      refreshBars();
+      return;
+    }
+    state.regime = 1;
+    const tv = T.t - ATTENTE;
+
+    // Plein gaz. La montée en vitesse se fait en S sur la première
+    // demi-seconde — lente au début, franche ensuite — puis l'amortissement
+    // prend le relais. Une exponentielle seule pousserait le plus fort à
+    // l'instant même du lâcher des freins, ce qu'aucun moteur à pistons ne
+    // fait.
+    const pleine = CRUISE * PLEIN_GAZ;
+    if (tv < RAMPE) {
+      const rr = tv / RAMPE;
+      state.speed = pleine * rr * rr * (3 - 2 * rr);
+    } else {
+      state.speed = THREE.MathUtils.damp(state.speed, pleine, 3.6, dt);
+    }
+
+    // UNE SEULE VAGUE. Le cosinus relevé n'a aucune couture : dérivée nulle au
     // départ, nulle au sommet, nulle à l'arrivée, et jamais nulle entre les
-    // deux. C'est la forme d'une vague, et c'est le geste réel : on tire, ça
-    // monte, ça se recouche. Le palier disparaît, donc le milieu ne traîne
-    // plus — l'avion y passe à son assiette maximale au lieu de s'y installer.
-    const u = THREE.MathUtils.clamp((T.t - ROULAGE) / MONTEE, 0, 1);
-    // La vague n'est pas symétrique : en déformant le temps, le sommet arrive
-    // à 42 % au lieu de 50, si bien que la remise à plat dispose de six
-    // dixièmes de la montée au lieu de cinq. La rotation reste franche, mais
-    // l'arrondi cesse d'être cassé — c'est la moitié qui se lisait le plus mal.
+    // deux. C'est la forme d'une vague, et c'est le geste réel — on tire, ça
+    // monte, ça se recouche. En déformant le temps, le sommet arrive à 42 %
+    // de la montée au lieu de 50 : la remise à plat dispose de six dixièmes
+    // au lieu de cinq, et l'arrondi cesse d'être cassé.
+    const u = THREE.MathUtils.clamp((tv - ROULAGE) / MONTEE, 0, 1);
     const uu = Math.pow(u, 0.8);
     state.pitch = ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
 
-    // La trajectoire découle maintenant de l'assiette au lieu de lui être
-    // imposée. Avant, l'avion montait 162 mètres en deux secondes le nez à
-    // 24 degrés : il fallait 77 degrés de pente pour cela, l'avion lévitait.
-    // La caméra, elle, suivait la vraie trajectoire — et perdait d'un coup
-    // ses 80 m/s de montée au passage en vol libre. C'était tout le saut.
+    // La trajectoire découle de l'assiette au lieu de lui être imposée.
     if (state.pitch > ROUE_LEVE) state.pos.y += state.speed * Math.sin(state.pitch) * dt;
-    state.pos.z -= state.speed * Math.cos(state.pitch) * dt;
+    const av = state.speed * Math.cos(state.pitch) * dt;
+    state.pos.x -= sy * av;
+    state.pos.z -= cy * av;
 
-    euler.set(state.pitch, 0, 0);
+    euler.set(state.pitch, T.yaw, 0);
     state.quat.setFromEuler(euler);
     state.forward.set(0, 0, -1).applyQuaternion(state.quat);
     playerMesh.position.copy(state.pos);
@@ -3750,32 +3874,19 @@ function simulate(dt) {
     propMesh.rotation.z += (6 + state.speed * 0.16) * dt;
 
     state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 9, dt);
-    euler.set(state.camPitch, 0, 0);
-    _qa.setFromEuler(euler);
-    euler.set(state.camPitch + CAM_DECLIN, 0, 0);
-    camera.quaternion.setFromEuler(euler);
-    _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
-    // La vitesse réelle, et non celle déduite de l'assiette : pendant la
-    // montée l'avion suit une courbe imposée, pas son vecteur nez. C'est cet
-    // écart qui faisait décrocher la caméra puis sauter au passage en vol
-    // libre. Le ressort est aussi bien plus raide ici : au décollage on veut
-    // un suivi collé, le flottement reprendra en l'air.
+    poseCam(state.camPitch);
     _cd.subVectors(state.pos, T.prev || state.pos).divideScalar(Math.max(dt, 1e-4));
     if (!T.prev) T.prev = state.pos.clone(); else T.prev.copy(state.pos);
-    // Le ressort se détend pendant l'arrondi jusqu'aux valeurs du vol libre :
-    // au décollage on veut un suivi collé, en l'air le flottement fait la
-    // vie de l'image. Passer de l'un à l'autre d'un seul coup se voyait.
     // PAS DE RESSORT PENDANT LA SÉQUENCE. Le décollage est une figure écrite
     // d'avance, pas un vol : la caméra se pose exactement à sa place, image
     // par image. Un ressort, si raide soit-il, traîne d'un écart valant
-    // amortissement x vitesse / raideur — et la place idéale balaie ici vingt
-    // unités en une demi-seconde quand le nez revient à plat. Six unités de
+    // amortissement x vitesse / raideur, et la place idéale balaie ici vingt
+    // unités en une demi-seconde quand le nez revient à plat — six unités de
     // retard sur dix-huit de distance font vingt degrés, soit deux cents
-    // pixels : l'avion montait puis redescendait de cent trente-neuf pixels à
-    // l'écran, et c'était tout le saut qu'on voyait « une fois stabilisé ».
-    // La vague étant sans à-coup, une caméra qui la suit à la lettre l'est
-    // aussi. On lui laisse en partant la vraie vitesse de l'avion, si bien que
-    // le ressort du vol libre reprend sans écart ni élan à rattraper.
+    // pixels. L'avion montait puis redescendait de 139 pixels à l'écran ; il
+    // n'en bouge plus que de 40, et reste fixe pendant toute la montée. On
+    // laisse à la caméra, en partant, la vraie vitesse de l'appareil, si bien
+    // que le ressort du vol libre reprend sans écart ni élan à rattraper.
     camera.position.copy(_v);
     camVel.copy(_cd);
     majFov(dt);
@@ -3785,13 +3896,10 @@ function simulate(dt) {
     if (u >= 1) {
       state.takeoff = null;
       state.pitch = 0;
-      state.waveTimer = 0.8;   // la première vague arrive juste après le décollage
-      // La boucle normale reprend l'orientation là où la caméra est vraiment.
+      if (state.wave === 0) state.waveTimer = 0.8;
       // Le quaternion lu contient déjà la déclinaison, que le vol libre va
-      // rajouter par-dessus : sans la retirer ici, la caméra piquait de
-      // CAM_DECLIN une seconde fois en une seule image — douze degrés d'un
-      // coup, soit les sept cents degrés par seconde qu'on mesurait. C'était
-      // tout le saut de fin de décollage.
+      // rajouter par-dessus : sans la retirer ici, la caméra piquerait de
+      // CAM_DECLIN une seconde fois en une seule image.
       euler.setFromQuaternion(camera.quaternion, 'YXZ');
       state.camPitch = euler.x - CAM_DECLIN;
       state.camYaw = euler.y;
@@ -3953,10 +4061,18 @@ function simulate(dt) {
 
   state.pos.addScaledVector(state.forward, state.speed * dt);
 
-  // plancher et plafond souples plutôt qu'un crash au sol
-  if (state.pos.y < FLOOR) {
+  // AU-DESSUS DE LA PISTE, le plancher s'efface. C'est le seul endroit du
+  // monde qui est fait pour être touché : y rebondir sur un sol invisible
+  // empêchait justement de venir s'y poser. Le pardon s'arrête à l'assiette —
+  // arriver en piqué franc reste un crash, ici comme ailleurs.
+  const surPiste = Math.abs(state.pos.x) < PISTE.demiL * 2.6
+                && state.pos.z < PISTE.z0 && state.pos.z > PISTE.z1
+                && state.forward.y > -0.34;
+  if (state.pos.y < FLOOR && !surPiste) {
     state.pos.y = FLOOR;
     if (state.pitch < 0) state.pitch = THREE.MathUtils.damp(state.pitch, 0.12, 9, dt);
+  } else if (state.pos.y < SOL_Y) {
+    state.pos.y = SOL_Y;
   }
   if (state.pos.y > CEILING) {
     state.pos.y = CEILING;
@@ -4431,9 +4547,15 @@ function drawHud() {
   // puis les adversaires, puis les points où l'on reprend de la vie. Chacun
   // sait ainsi d'un coup d'oeil où tourner pour trouver ce qu'il cherche.
   {
-    const cap = (Math.atan2(-Math.sin(state.camYaw), -Math.cos(state.camYaw))
+    // LE NORD EST VERS -Z, comme la piste qui y est alignée et porte le 36 à
+    // son seuil sud. Un cap se lit donc atan2(x, -z) : mesuré depuis l'axe
+    // des -Z. L'ancienne formule mesurait depuis +Z et affichait tout à cent
+    // quatre-vingts degrés de la vérité — on lisait 18 en volant vers le 36.
+    const cap = (Math.atan2(state.forward.x, -state.forward.z)
                  * 180 / Math.PI + 360) % 360;
-    const by = h * 0.062, demi = Math.min(w * 0.36, 155), ech = demi / 60;
+    // sous le bandeau du haut : les chiffres se dessinent au-dessus du trait,
+    // et à six pour cent de la hauteur ils passaient derrière le score
+    const by = h * 0.115, demi = Math.min(w * 0.36, 155), ech = demi / 60;
     const L_ENN = by + 20, L_VIE = by + 32;
     hctx.save();
     hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
@@ -4448,8 +4570,12 @@ function drawHud() {
     // derrière se tasse au bord au lieu de disparaître
     const px = d => w/2 + THREE.MathUtils.clamp(d, -60, 60) * ech;
     const bord = d => Math.abs(d) >= 59.5;
-    // cap d'un point du monde, vu d'où l'on est
-    const capDe = v => (Math.atan2(state.pos.x - v.x, state.pos.z - v.z)
+    // CAP D'UN POINT DU MONDE, vu d'où l'on est. Le cap de l'appareil vaut
+    // atan2 du nez : celui d'une cible doit se lire dans le même sens, donc
+    // sur le vecteur qui va de NOUS vers ELLE. Il était pris à l'envers, et
+    // la boussole montrait consciencieusement le contraire de la vérité —
+    // la piste s'affichait devant quand on lui tournait le dos.
+    const capDe = v => (Math.atan2(v.x - state.pos.x, -(v.z - state.pos.z))
                         * 180 / Math.PI + 360) % 360;
 
     for (let d = -60; d <= 60; d += 10) {
@@ -4470,7 +4596,7 @@ function drawHud() {
       const d = dc(capDe(_v.set(0, 0, (PISTE.z0 + PISTE.z1) / 2)));
       const x = px(d);
       hctx.strokeStyle = bord(d) ? 'rgba(143,252,196,0.35)' : 'rgba(143,252,196,0.85)';
-      hctx.lineWidth = 1.4;
+      hctx.lineWidth = 1;
       hctx.strokeRect(x - 8, by + 3, 16, 7);
       hctx.lineWidth = 1.5;
     }
@@ -4479,16 +4605,20 @@ function drawHud() {
     for (const e of state.enemies) {
       const d = dc(capDe(e.pos));
       const x = px(d);
-      hctx.fillStyle = state.lock === e ? '#ffffff'
-                     : bord(d) ? 'rgba(70,255,160,0.4)' : 'rgba(70,255,160,0.9)';
+      hctx.strokeStyle = state.lock === e ? '#ffffff'
+                       : bord(d) ? 'rgba(70,255,160,0.4)' : 'rgba(70,255,160,0.9)';
+      hctx.lineWidth = 1.1;
       hctx.beginPath();
-      hctx.moveTo(x, L_ENN - 5); hctx.lineTo(x - 4, L_ENN + 2); hctx.lineTo(x + 4, L_ENN + 2);
-      hctx.closePath(); hctx.fill();
+      hctx.moveTo(x, L_ENN - 5.5); hctx.lineTo(x - 4.5, L_ENN + 2.5);
+      hctx.lineTo(x + 4.5, L_ENN + 2.5);
+      hctx.closePath(); hctx.stroke();
+      hctx.lineWidth = 1.5;
     }
 
     // LES POINTS DE VIE — une astérisque par arche et par tour encore à prendre
     const etoile = (x, y, r, a) => {
       hctx.strokeStyle = 'rgba(190,255,220,' + a + ')';
+      hctx.lineWidth = 0.8;
       hctx.beginPath();
       for (let k = 0; k < 3; k++) {
         const t = k * Math.PI / 3 + Math.PI / 2;
@@ -4496,6 +4626,7 @@ function drawHud() {
         hctx.lineTo(x + Math.cos(t) * r, y + Math.sin(t) * r);
       }
       hctx.stroke();
+      hctx.lineWidth = 1.5;
     };
     for (const a of arches) {
       if (a.prise) continue;
@@ -4709,11 +4840,16 @@ function edgeArrow(target, w, h, dist) {
   // clignote entre son cadre et sa flèche
   const M = 26;
   if (p.front && p.x > M && p.x < w - M && p.y > M && p.y < h - M) return;
+  // LE CERCLE EST FIXE. Faire varier le rayon avec l'angle demandait de lire
+  // une position pour en déduire une autre : c'est un calcul, pas un
+  // coup d'oeil. C'est la FORME du triangle qui porte l'angle — large quand la
+  // cible est sur le point d'entrer dans le champ, effilée quand elle est pile
+  // dans le dos, linéairement entre les deux.
   _v.subVectors(target, state.pos).normalize();
   const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
   const q = THREE.MathUtils.clamp((ang - ARROW_CONE) / (Math.PI - ARROW_CONE), 0, 1);
   const cx = w / 2, cy = h / 2;
-  const r = Math.min(w, h) * (0.11 + 0.35 * q);
+  const r = Math.min(w, h) * 0.34;
   let dx = p.x - cx, dy = p.y - cy;
   if (!p.front) { dx = -dx; dy = -dy; }
   const len = Math.hypot(dx, dy) || 1;
@@ -4732,8 +4868,11 @@ function edgeArrow(target, w, h, dist) {
   hctx.translate(x, y);
   hctx.rotate(Math.atan2(dy, dx) + Math.PI / 2);
   hctx.scale(k, k);
+  // la base se referme avec l'angle : de sept unités de demi-largeur juste
+  // hors champ, à une seule quand la cible est droit derrière
+  const base = 7 - 6 * q;
   hctx.beginPath();
-  hctx.moveTo(0, -9); hctx.lineTo(7, 7); hctx.lineTo(-7, 7); hctx.closePath();
+  hctx.moveTo(0, -9); hctx.lineTo(base, 7); hctx.lineTo(-base, 7); hctx.closePath();
   hctx.stroke();
   hctx.restore();
 }
