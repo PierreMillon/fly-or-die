@@ -115,6 +115,33 @@ viseurs. Le tout premier avion dessiné à la main — celui d'avant le modèle
 STL — revient comme option. Suppose de sortir le modèle du joueur de son
 bloc unique : géométrie, position des canons, envergure.
 
+## Décoller toujours depuis la piste, avec des mécaniciens
+
+Le point de départ est tiré au hasard : on se retrouve parfois nez à nez
+avec un bâtiment, ce qui ne veut rien dire. La piste devient le point de
+départ fixe, l'avion aligné dessus.
+
+Au menu, un ou deux petits pavés — des mécaniciens — s'affairent près du
+moteur, bougent un peu, font des réglages. Ils détalent dès qu'on appuie
+sur DÉCOLLER.
+
+## Un ailier débloqué en passant par tous les trous
+
+Réussir toutes les ouvertures du monde — arches et tours percées — fait
+décoller un avion ami de la piste, qui vient se battre à nos côtés jusqu'à
+sa mort. Lui aussi peut se recharger en passant par les trous ou en se
+posant, avec les risques que ça suppose.
+
+## Du relief au sol
+
+Un dénivelé très léger, des collines à peine marquées, juste pour que le
+sol ne soit plus un plan parfait.
+
+## Les tanks
+
+Les roquettes doivent pouvoir les prendre pour cible. Et les tanks doivent
+pouvoir se déplacer, parfois vite.
+
 ## Questions restées ouvertes
 
 - Le chrono en haut à gauche ne sert à rien. Score au temps, ou décor.
