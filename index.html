@@ -229,7 +229,7 @@
   <span class="spacer"></span>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.27</button>
+  <button id="versionBtn">v0.28</button>
 </div>
 
 <div id="bottombar">
@@ -328,6 +328,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.28</b> — l'écart de taille entre les flèches de désignation passe de un à quatre à un à huit : la menace immédiate se distingue enfin du lointain d'un seul coup d'oeil.</div>
   <div><b>v0.27</b> — l'écart de vitesse avec les adversaires se resserre : on les rattrapait si vite qu'on n'avait pas le temps de se caler derrière. Le biplan passe de 56-70 à 74-84, les autres suivent. L'indicateur d'altitude perd son triangle, qu'on confondait avec les flèches de désignation, au profit d'un simple trait. un horizon artificiel en haut à gauche : la ligne descend quand le nez monte, s'incline en sens inverse du virage, et l'assiette est chiffrée dessous. En plein ciel on ne savait plus si l'on montait ou si l'on descendait. Les 128 petits détails des flancs de nacelle sont remis : ils font 8,5 cm de long, indéchiffrables quand l'avion était petit et loin, lisibles comme une texture fine maintenant qu'il est grand et près. L'indicateur de vitesse chiffré disparaît, le moteur le dit mieux. se rentrer dans un ennemi ne coûte plus de vie et ne le détruit plus : c'est un frôlement, il souffle et chacun continue. Récompenser la collision revenait à faire de l'éperonnage la meilleure arme du jeu. un ciel étoilé, posé sur une sphère qui suit la caméra sans jamais tourner : la direction des étoiles est fixe où qu'on aille, comme un vrai ciel, et le cap redevient lisible d'un coup d'oeil. La visée gagne en finesse : la courbe de commande ne donne plus qu'un cinquième de l'autorité à mi-course, contre un tiers avant, tandis que l'autorité maximale monte de 112 à 123 degrés par seconde. Le magnétisme est renforcé de moitié et porte un peu plus loin.</div>
   <div><b>v0.26</b> — les cibles ne se laissent plus faire : tenue sous le feu, une cible rompt perpendiculairement à la ligne de tir en changeant d'altitude. Pour que ça reste jouable, la montée en puissance appartient désormais à la cible et non au tireur : elle retombe au lieu de s'effacer, et reprend où elle en était si on la retrouve vite. Caméra collée au décollage, sans le saut qu'il y avait au passage en vol libre — elle suivait le vecteur nez alors que l'avion suivait une courbe imposée. La caméra prend un tiers du tonneau, en décalé. Et le moteur redescend dans les graves, plus bas qu'avant sa dernière retouche.</div>
   <div><b>v0.25</b> — la mort sonne enfin comme une mort : grave et longue, le moteur qui s'éteint sur deux octaves, un grondement dessous, un souffle qui retombe — au lieu du couinement aigu d'avant. Et l'écran de fin se moque du joueur, avec un peu de mesure : la pique dépend de ce qui a été fait, zéro abattu n'appelant pas la même remarque qu'une cinquième vague atteinte.</div>
@@ -2453,10 +2454,11 @@ function edgeArrow(target, w, h, dist) {
   const len = Math.hypot(dx, dy) || 1;
   const x = cx + dx / len * r;
   const y = cy + dy / len * r;
-  // taille pleine au contact, quatre fois moindre au bout de la portée,
-  // linéairement entre les deux
+  // Taille pleine au contact, huit fois moindre au bout de la portée,
+  // linéairement entre les deux. L'écart était de un à quatre : trop serré
+  // pour distinguer d'un coup d'oeil la menace immédiate du lointain.
   const t = THREE.MathUtils.clamp((dist - ARROW_NEAR) / (ARROW_FAR - ARROW_NEAR), 0, 1);
-  const k = 1 - 0.75 * t;
+  const k = 1 - 0.875 * t;
   hctx.strokeStyle = 'rgba(70,255,160,' + (0.35 + 0.45 * k).toFixed(2) + ')';
   hctx.save();
   hctx.translate(x, y);
