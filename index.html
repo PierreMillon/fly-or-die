@@ -400,7 +400,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.52</button>
+  <button id="versionBtn">v0.53</button>
 </div>
 
 <div id="bottombar">
@@ -725,6 +725,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.53</b> — au tonneau, la caméra a enfin sa propre course : elle part avec l'avion, se laisse distancer au milieu, et se recale exactement sur la nouvelle parallèle. Elle reste à plat.</div>
   <div><b>v0.52</b> — le jeu se donne en anglais si le téléphone n'est pas en français, et l'aide se bascule d'un bouton. Le bandeau du soleil dans le dos, perdu en route, est de retour.</div>
   <div><b>v0.51</b> — la surchauffe : chaque appareil abattu rallonge de trois secondes un état où les canons tirent deux fois plus vite et où le cadran tremble. Enchaîner devient plus facile que commencer.</div>
   <div><b>v0.50</b> — les caps peints ne sont plus opposés : le seuil nord porte 05, le cap réel de Hangzhou depuis Bayonne, le seuil sud 01, celui d'Arcachon. La boussole est calée dessus. Le bouton DÉCOLLER descend dans la zone du pouce, et un mécanicien pris de court se jette à terre pour laisser passer l'avion.</div>
@@ -2905,6 +2906,8 @@ const state = {
   roqT: 0,
   lockCharge: 0,
   spinT: 0,
+  spinDep: 0,
+  spinDepCam: 0,
   spinSide: 0,
   camSpin: 0,
   takeoff: null,
@@ -4334,6 +4337,19 @@ function simulate(dt) {
   if (state.spinT > 0) {
     state.spinT = Math.max(0, state.spinT - dt);
     const t = 1 - state.spinT / SPIN_TIME;
+    // LE GLISSEMENT DE LA CAMÉRA. Elle reste à plat — l'avion fait la figure,
+    // pas le joueur — mais elle doit changer de ligne avec lui, et le faire
+    // comme un geste : partir doucement, filer, se reposer. Jusqu'ici elle ne
+    // faisait que subir le retard de son ressort, ce qui donne un traînage mou
+    // et un rattrapage, pas un déplacement. On lui donne donc sa propre course,
+    // décalée d'un cinquième de la figure sur celle de l'avion : on voit
+    // l'appareil partir, l'image suivre, et les deux se retrouver alignés sur
+    // la nouvelle parallèle exactement quand le tonneau s'achève.
+    const lisseC = u => u * u * u * (u * (u * 6 - 15) + 10);
+    const RETARD = 0.20;
+    state.spinDep = SPIN_DODGE * SPIN_TIME * 0.5 * lisseC(t);
+    state.spinDepCam = SPIN_DODGE * SPIN_TIME * 0.5
+                     * lisseC(THREE.MathUtils.clamp((t - RETARD) / (1 - RETARD), 0, 1));
     // Lent, vite, lent. L'ancienne courbe partait sec et s'asseyait : elle
     // avait un début et pas de fin. Le lissage du second ordre a sa dérivée
     // ET sa courbure nulles aux deux bouts — c'est le geste d'un manche
@@ -4342,12 +4358,9 @@ function simulate(dt) {
     spinRoll = -state.spinSide * Math.PI * 2 * ease;
     _right.crossVectors(state.forward, _up).normalize();
     state.pos.addScaledVector(_right, state.spinSide * SPIN_DODGE * Math.sin(Math.PI * t) * dt);
-    // LA CAMÉRA RESTE À PLAT. Elle prenait un tiers du tonneau et tournait
-    // donc avec l'avion, ce qui fait perdre l'horizon pour rien : c'est
-    // l'avion qui fait la figure, pas le joueur. Le déport, lui, est réel —
-    // l'appareil sort vraiment de sa ligne — et le ressort de la caméra le
-    // suit avec son retard habituel. On voit donc l'avion glisser sur le
-    // côté et l'image le rejoindre, sur une ligne parallèle. Rien ne bascule.
+  } else if (state.spinDep) {
+    state.spinDep = 0;
+    state.spinDepCam = 0;
   }
 
   // Magnétisme de visée. Il ne t'emmène pas sur une cible : il t'aide à y
@@ -4436,6 +4449,12 @@ function simulate(dt) {
   camera.quaternion.setFromEuler(euler);         // et la visée seule plonge
   majFov(dt);
   _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
+  // le retard voulu de la caméra sur le déport de l'avion, en travers de sa
+  // route : nul au repos, nul à la fin du tonneau, maximal au milieu
+  if (state.spinDep) {
+    _right.crossVectors(state.forward, _up).normalize();
+    _v.addScaledVector(_right, state.spinSide * (state.spinDepCam - state.spinDep));
+  }
   springCamera(_v, dt, 44, 10.2, _cv.copy(state.forward).multiplyScalar(state.speed));
   updateBoost(dt);
   updateChauffe(dt);
