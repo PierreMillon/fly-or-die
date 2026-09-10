@@ -26,7 +26,13 @@
      bande noire en bas. Exactement le geste qui sert à faire une figure. */
   * { touch-action: none; }
   /* seuls les panneaux doivent encore défiler au doigt */
-  #aide, #changelog, #viseurs { touch-action: pan-y; }
+  /* Et sur tout ce qu'ils contiennent. touch-action n'est pas héritée : la
+     règle universelle ci-dessus la remettait à « none » sur chaque paragraphe,
+     chaque vignette, chaque titre. Or c'est l'élément où le doigt SE POSE qui
+     décide. Poser le doigt sur un texte du panneau bloquait donc le
+     défilement, et seule la mince bande de la barre de défilement — qui, elle,
+     appartient au panneau lui-même — répondait. */
+  #aide, #aide *, #changelog, #changelog *, #viseurs, #viseurs * { touch-action: pan-y; }
 
   html, body {
     margin: 0;
@@ -274,6 +280,48 @@
   }
   #videoBtn[disabled] { opacity: 0.35; }
 
+  /* Le bouton de remise en l'air, posé bas et large : on y va au pouce, sans
+     regarder, pendant qu'on se fait tirer dessus au sol. */
+  #redecoBtn {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(52px + env(safe-area-inset-bottom));
+    z-index: 42;
+    background: var(--ph-fill);
+    border: 1px solid var(--ph-line);
+    border-radius: 6px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    padding: 13px 30px;
+  }
+  #redecoBtn[hidden] { display: none; }
+
+  #expliqueBtn {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 6px;
+    color: var(--ph-dim);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    padding: 9px 18px;
+    margin-top: 4px;
+  }
+  #expliqueBtn[hidden], #plusJamais[hidden] { display: none; }
+  #plusJamais {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--ph-dim);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    margin-top: -2px;
+  }
+  #plusJamais input { accent-color: var(--ph-line); margin: 0; }
+
   #startBtn {
     background: var(--ph-fill);
     border: 1px solid var(--ph-line);
@@ -291,6 +339,8 @@
 <canvas id="scene"></canvas>
 <canvas id="hud"></canvas>
 
+<button id="redecoBtn" hidden>REDÉCOLLER</button>
+
 <div id="topbar">
   <span id="scoreLbl">000000</span>
   <span id="waveLbl" class="dim">V1</span>
@@ -299,7 +349,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.41</button>
+  <button id="versionBtn">v0.42</button>
 </div>
 
 <div id="bottombar">
@@ -322,11 +372,31 @@
   tout seul.</p>
   <p>Le décor ne t'arrête pas : le sol et les pylônes t'éraflent, tu rebondis
   et tu perds un peu de vie. On peut raser.</p>
+  <p><b>Au milieu de la course du manche, l'avion est lent à tourner.</b> Ce
+  n'est pas un défaut : c'est là qu'on suit une cible qui tourne autour de
+  soi, et il y faut de la finesse. À mi-manche tu n'as que 11 % de l'autorité,
+  soit 14 degrés par seconde. Va au bout et tu en as 123.</p>
 
-  <p>Une unité vaut un mètre. La vitesse de croisière, 92 m/s, fait 331 km/h ;
-  le plafond est à 480 mètres. Les envergures sont réelles : 8,5 m pour le
-  biplan comme un Sopwith Camel, 11,2 m pour le chasseur comme un Spitfire,
-  12 m pour toi.</p>
+  <p>Une unité vaut un mètre. La croisière est à 78 m/s, soit 281 km/h ; le
+  plafond est à 960 mètres. Les envergures sont réelles : 8,5 m pour le biplan
+  comme un Sopwith Camel, 11,2 m pour le chasseur comme un Spitfire, 12 m
+  pour toi.</p>
+
+  <h2>LE COLLIMATEUR</h2>
+  <p>Il n'y a pas d'instrument dans un coin : l'échelle de tangage est
+  dessinée <b>dans le monde</b>, à sa vraie place. La ligne d'horizon est
+  l'horizon. Barreau plein au-dessus, tireté en dessous : tu sais si tu montes
+  avant d'avoir lu le chiffre.</p>
+  <p>Elle n'apparaît qu'au-delà de douze degrés d'assiette, et elle est pleine
+  à trente. En palier, l'écran reste net.</p>
+  <p>En haut, la bande de cap, chiffrée comme un vrai collimateur : 18 pour
+  cent quatre-vingts degrés. À droite, la bande d'altitude entre plancher et
+  plafond.</p>
+  <p>Les flèches disent deux choses à la fois. <b>Leur taille</b> donne la
+  distance — un pour quinze entre la plus proche et la plus lointaine.
+  <b>Leur écart au centre</b> donne l'angle à virer : collée au cockpit, la
+  cible va entrer dans le champ ; au bord de l'écran, elle est pile dans ton
+  dos. Sous vingt-six degrés la flèche disparaît, le cadre suffit.</p>
 
   <h2>FIGURES</h2>
   <p>Deux appuis rapprochés déclenchent une figure, dans la direction du geste
@@ -339,11 +409,54 @@
   n'est pas que décorative.</p>
 
   <h2>TIRER</h2>
-  <p>Rien à presser. Dès qu'une cible entre dans le cône du viseur, les deux
-  mitrailleuses d'aile ouvrent le feu.</p>
-  <p>Le tir monte en puissance tant que tu tiens la cible : faible à
-  l'accroche, près de cinq fois plus fort une fois calé. Changer de cible
-  remet la montée à zéro.</p>
+  <p>Rien à presser. Dès qu'une cible entre dans le cône du viseur, l'accroche
+  se fait — mais <b>rien ne part encore</b>.</p>
+  <p>Il faut une demi-seconde de plus, pendant laquelle le viseur se referme
+  et reste en demi-teinte. Un cran sonore annonce l'armement. Effleurer une
+  cible ne l'entame donc pas : il faut se placer.</p>
+  <p>Ensuite le tir monte en puissance tant que tu tiens la cible : faible à
+  l'accroche, près de cinq fois plus fort une fois calé. Compte environ deux
+  secondes de verrouillage propre pour un adversaire ordinaire, neuf et demie
+  pour un GARDIEN. Changer de cible remet la montée à zéro — mais pas tout à
+  fait : la charge appartient à la cible, elle retombe doucement et reprend
+  où elle en était si tu la retrouves vite.</p>
+  <p><b>Le viseur s'ouvre et se referme.</b> Large à l'accroche — 67 pixels —
+  il dit « quelque part là-dedans » ; refermé à 25, il dit « exactement là ».
+  En passe rapprochée, son ouverture suit la taille apparente de l'avion visé.</p>
+
+  <h2>LES ROQUETTES</h2>
+  <p>Une seconde de verrouillage tenu et deux roquettes partent des ailes.
+  Téléguidées, lentes — 200 m/s contre 300 pour une balle — et lourdes :
+  55 points chacune. Elles ne ratent pas, mais il faut six secondes et demie
+  pour en ravoir deux.</p>
+
+  <h2>LA POURSUITE</h2>
+  <p>Tiens dans l'axe un adversaire trop loin pour être accroché : au bout de
+  deux secondes et demie, ça pousse. La vitesse visée passe de 78 à 121 m/s
+  et l'air se met à filer. Rompre l'alignement coupe tout, trois fois plus
+  vite que ça ne s'était accumulé.</p>
+
+  <h2>LE SOLEIL</h2>
+  <p>Le regarder en face rend la cible plus dure à tenir et le tir plus
+  faible. <b>L'avoir dans le dos</b> gêne celui qui te cherche : il tire de
+  moins loin et doit être bien mieux aligné. C'est la plus vieille manœuvre du
+  combat aérien.</p>
+  <p>Quand c'est le cas, un halo s'allume autour de toi, un bandeau le dit, et
+  un anneau bat autour de chaque adversaire en train de te chercher dans la
+  lumière.</p>
+
+  <h2>REPRENDRE DE LA VIE</h2>
+  <p>Trois façons, toutes payantes en risque.</p>
+  <p><b>Les arches.</b> Passer dessous rend 10 % de vie. Chacune ne se laisse
+  prendre qu'une fois par vague, mais elles se cumulent — il y en a six.</p>
+  <p><b>Les tours percées.</b> Une fenêtre de 45 mètres à 197 mètres de haut :
+  il faut monter la chercher, et elle est deux fois plus étroite qu'une arche.
+  25 % de vie.</p>
+  <p><b>La piste.</b> Passe bas, dans l'axe, le nez pas trop haut : tu te poses
+  tout seul. Les mécaniciens accourent, la vie remonte de 17 points par
+  seconde, et l'avion repart au bout de dix secondes — ou tout de suite si tu
+  appuies sur REDÉCOLLER. Pendant ce temps tu ne peux ni virer, ni tirer, ni
+  esquiver. Eux, si.</p>
   <p>Le verrouillage tient dans un produit scalaire. On compare la direction du
   nez à la direction de la cible, toutes deux ramenées à une longueur de 1 :
   leur produit scalaire vaut le cosinus de l'angle entre elles.</p>
@@ -404,9 +517,10 @@
 </div>
 
 <div id="changelog" hidden>
-  <div><b>v0.41</b> — le cadran d'assiette a sauté. Un vrai collimateur de chasse n'a pas d'instrument dans un coin : il annote le monde lui-même, à sa vraie place. Chaque barreau de l'échelle de tangage est maintenant une direction réelle — cap courant, tangage donné — projetée comme n'importe quel objet de la scène. La ligne d'horizon est donc l'horizon, et non sa représentation : elle descend quand le nez monte parce qu'elle est vraiment là. Convention de cockpit gardée telle quelle, barreau plein au-dessus, tireté en dessous : on sait si l'on monte avant même d'avoir lu le chiffre, lequel penche avec son barreau. Et l'échelle n'apparaît que lorsqu'elle sert — rien avant douze degrés d'assiette, pleine à trente. Le seuil se lit sur l'angle de la caméra à l'horizontale et non sur la position de l'horizon à l'écran : la caméra plonge de douze degrés en permanence, si bien que l'horizon n'est jamais au centre de l'image et qu'un seuil mesuré depuis ce centre s'ouvrait déjà en palier. une bande de cap en haut, graduée tous les dix degrés sur soixante de large, chiffrée de trente en trente à la manière des collimateurs — 18 pour cent quatre-vingts. Le jeu n'avait aucun moyen de dire où l'on va : les étoiles le disent, mais il faut les connaître.</div>
-  <div><b>v0.40</b> — la poursuite. Tenir dans l'axe un adversaire trop loin pour être accroché finit par pousser : au bout de deux secondes et demie le moteur monte en régime et la vitesse visée passe de 78 à 121 mètres par seconde. C'était la seule situation où le jeu ne donnait rien à faire — voir la cible, la garder devant soi, attendre. Un arc se remplit sous le viseur pendant l'attente, puis le mot s'affiche ; rompre l'alignement coupe tout, et trois fois plus vite que ça ne s'était accumulé. Les traits de vitesse répondent maintenant à trois choses dont la plus forte l'emporte : le régime, le nez qui pique — visible avant même que la vitesse ait monté, ce qui est tout l'intérêt — et la poursuite. Le glissement du doigt ne s'interrompt plus. Les deux bandeaux sont pleine largeur, et celui du bas ne porte que la jauge de vie, c'est-à-dire exactement l'endroit où un pouce se pose : tout contact qui y atterrissait était rejeté comme un appui sur un bouton et le manche ne démarrait pas. Seuls les boutons restent sensibles, le reste laisse passer. Et le catalogue des viseurs passe de douze à trente-quatre, avec des paliers lus dans les données plutôt qu'énumérés dans le code : vagues 3, 5, 10, 25, 50 et 100.</div>
-  <div><b>v0.39</b> — les flèches de désignation disent enfin de combien il faut virer. Elles vivaient toutes sur un anneau fixe : on savait d'où venait la menace, jamais à quelle distance angulaire. On tournait donc trop, on dépassait, et il fallait revenir. Le rayon porte maintenant l'écart à l'axe — collée au cockpit quand la cible est sur le point d'entrer dans le champ, au bord de l'écran quand elle est pile dans le dos, et rien du tout tant qu'elle est dans le cône de 26 degrés où son cadre suffit. La taille continue de dire la distance : deux informations, deux grandeurs, qui ne se marchent plus dessus. Le dernier saut de caméra du décollage disparaît : la focale suit la vitesse mais n'était pas calculée pendant la séquence, si bien qu'elle passait de 70 à 73 degrés en une image une fois l'avion stabilisé. Elle est maintenant amortie et calculée partout. Le décollage tombe à 2,8 secondes contre 4,4, sommet d'assiette à 74 degrés, plein gaz à 145 mètres par seconde. Des traits de vitesse apparaissent au-delà de 88 mètres par seconde, semés en couronne dans un tube ancré dans le monde — en disque, ils se projetaient en points, un segment aligné sur l'axe du regard n'ayant aucune longueur à l'écran. Le liseré plein qui cerclait l'écran à chaque coup encaissé disparaît au profit des seuls dégradés, qui eux portent la direction. Et les roquettes doublent, de 100 à 200 mètres par seconde.</div>
+  <div><b>v0.42</b> — une piste, avec son axe et ses caps peints. On décolle toujours de là, et le décor ne s'y pose plus. Trois mécaniciens s'affairent autour du moteur et détalent au départ. Passer bas et dans l'axe suffit à se poser : la vie remonte de 17 points par seconde, l'avion repart au bout de dix secondes. les panneaux défilent où qu'on pose le doigt. Un adversaire hors champ retrouve sa flèche : le cône fixe de la v0.39 était plus large que l'écran d'un téléphone, et les cibles latérales disparaissaient. Les traits de vitesse s'éteignent en fondu au lieu d'un bloc — c'était le saut qui restait après le décollage. L'accueil ne garde que le titre et le bouton ; l'écran de mort propose les explications, qu'on peut faire taire.</div>
+  <div><b>v0.41</b> — le cadran d'assiette laisse place à une échelle de tangage dessinée dans le monde, à sa vraie place. Elle n'apparaît qu'au-delà de douze degrés. Bande de cap en haut.</div>
+  <div><b>v0.40</b> — la poursuite : tenir dans l'axe une cible trop loin pour être accrochée finit par pousser, 78 à 121 m/s. Le glissement ne s'interrompt plus sur les bandeaux. Trente-quatre viseurs.</div>
+  <div><b>v0.39</b> — les flèches disent de combien virer : leur écart au centre porte l'angle, leur taille la distance. La focale ne saute plus au décollage. Traits de vitesse.</div>
   <div><b>v0.38</b> — la caméra reste à plat pendant un tonneau. Elle en prenait un tiers et tournait donc avec l'avion, ce qui fait perdre l'horizon pour rien : c'est l'appareil qui fait la figure, pas le joueur. Le déport, lui, est réel — mesuré, l'avion sort de 27 unités et l'image le rejoint sur 21, avec son retard. Le tonneau lui-même passe au lissage du second ordre : lent, vite, lent, dérivée et courbure nulles aux deux bouts. Et les sorties de figure ne claquent plus : la déclinaison de la caméra était appliquée deux fois en une seule image, comme en fin de décollage. Mesuré à la sortie, le tonneau tombe de 490 à 93 degrés par seconde, l'Immelmann de 766 à 149, le Split-S de 620 à 10. Les adversaires doivent maintenant viser eux aussi : une demi-seconde d'alignement tenu avant d'ouvrir le feu, entièrement reperdue dès qu'on leur sort du cône, et 0,7 seconde pour les pièces au sol qui tournent un tube. Le face-à-face était perdu d'avance depuis que le joueur attend que son viseur se referme. Les flèches de désignation creusent enfin l'écart : un pour quinze au lieu d'un pour huit, et surtout une décroissance franche — à mi-portée il ne reste que 27 % de la taille au lieu de 56. Les roquettes ralentissent à 100 mètres par seconde, trois fois moins qu'une balle : téléguidées, elles ne ratent pas, et leur lenteur est ce qui les rend lisibles.</div>
   <div><b>v0.37</b> — les panneaux défilent enfin au doigt. L'historique des versions et la planche des viseurs s'arrêtaient à la ligne de flottaison : le touch-action posé sur eux autorisait bien le défilement, mais la ligne qui empêche la page de rebondir sous le jeu annulait tous les balayages, y compris les leurs. Le décollage devient une seule vague au lieu de trois temps. Un cosinus relevé n'a aucune couture : dérivée nulle au départ, nulle au sommet, nulle à l'arrivée, jamais nulle entre les deux. Le palier disparaît, donc le milieu ne traîne plus, et le décollage se fait plein gaz — 114 mètres par seconde au sommet contre 83 — ce qui le ramène à 4,4 secondes pour un sommet d'assiette à 57 degrés. La commande gagne en finesse là où on en manquait : la part quartique remplace la quadratique, l'autorité à mi-course tombe de 21 à 11 pour cent, soit 14 degrés par seconde au lieu de 26. C'est exactement la zone où l'on suit un adversaire qui tourne autour de vous. Le centre reste aussi fin, le plein manche donne toujours tout. Le plafond double, de 480 à 960 mètres. Et la fumée des roquettes passe au calibre de l'engin : à quatorze mètres les deux traînées se rejoignaient en un seul gros tube, à trois chacune garde son fil.</div>
   <div><b>v0.36</b> — les roquettes laissent enfin une trace. Un vrai panache n'est pas un trait mais une suite d'anneaux tourbillonnaires lâchés en place, qui gonflent et se délayent pendant que l'engin est déjà loin : chacun naît dans le plan perpendiculaire à la trajectoire, à l'endroit exact où il a été semé, et n'en bouge plus. Trois bouffées d'allumage partent sous l'aile au départ, sept autres s'ouvrent en boule à l'impact. Comme une matière ne peut porter qu'une opacité, c'est la couleur qui efface : sur fond noir, assombrir un vert revient à le faire disparaître. Le son du départ se joue en trois moments dans l'ordre où on les entend — le claquement de la mise à feu, le coup de basse, puis le sifflement qui s'éloigne en montant avant de retomber. Et l'impact prend une seconde détonation un dixième de seconde plus tard, plus grave : c'est ce décalage qui sépare un bruit d'une explosion.</div>
@@ -449,13 +563,12 @@
 
 <div id="overlay">
   <h1>FLY OR DIE</h1>
-  <p id="overlayText">
-    Pose le doigt n'importe où : un manche apparaît sous lui.<br>
-    L'avion tire tout seul quand une cible entre dans le viseur.
-  </p>
+  <p id="overlayText"></p>
   <p id="overlayScore" hidden></p>
   <button id="startBtn">DÉCOLLER</button>
   <button id="videoBtn" hidden>REGARDER UNE VIDÉO · REPRENDRE</button>
+  <button id="expliqueBtn" hidden>BESOIN D'EXPLICATIONS ?</button>
+  <label id="plusJamais" hidden><input type="checkbox" id="plusJamaisCase"> ne plus afficher</label>
 </div>
 
 <script>
@@ -1966,9 +2079,14 @@ function updateTraits(dt) {
   const kp = -state.forward.y * 1.7 - 0.12;
   const k = THREE.MathUtils.clamp(
     Math.max(kv, kp, state.boost * 0.95), 0, 1);
-  if (k <= 0.001) { traitsLayer.visible = false; return; }
+  // L'opacité doit partir de zéro, sinon les traits s'éteignent d'un bloc.
+  // Ils apparaissaient et disparaissaient à 22 % d'opacité : au décollage,
+  // la vitesse retombant sous le seuil pile au moment où l'avion se stabilise,
+  // tout l'air disparaissait d'une image à l'autre. C'était le saut qui
+  // restait, et il n'était pas dans la caméra.
+  if (k <= 0.004) { traitsLayer.visible = false; return; }
   const n = Math.round(N_TRAITS * k);
-  const lg = 12 + 62 * k;                      // le trait s'allonge avec le régime
+  const lg = 4 + 68 * k;                       // le trait s'allonge avec le régime
   const pts = [];
   for (let i = 0; i < n; i++) {
     _tp.set(traitsPts[i*3], traitsPts[i*3+1], traitsPts[i*3+2]);
@@ -1992,8 +2110,164 @@ function updateTraits(dt) {
   }
   traitsLayer.geometry.dispose();
   traitsLayer.geometry = segGeom(pts);
-  traitsMat.opacity = 0.22 + 0.55 * k;
+  traitsMat.opacity = 0.78 * k;
   traitsLayer.visible = true;
+}
+
+// ---------------------------------------------------------------------------
+// LA PISTE. Le point de départ était bien fixe — l'origine du monde — mais le
+// décor, lui, était semé au hasard tout autour : on se retrouvait une fois sur
+// trois nez à nez avec un pylône, ce qui ne veut rien dire au décollage. La
+// piste plante donc un repère, et surtout elle réserve son couloir : plus rien
+// ne se pose dedans.
+//
+// Elle est orientée plein nord, cap 360, d'où le 36 peint au seuil sud et le 18
+// au seuil nord — la convention des aérodromes, le cap divisé par dix.
+// ---------------------------------------------------------------------------
+const PISTE = {
+  demiL: 23,        // demi-largeur
+  z0: 260,          // seuil arrière, derrière l'avion
+  z1: -900,         // seuil avant
+  y: 0.7            // juste au-dessus de la grille, pour ne pas cligner avec elle
+};
+// ATTERRISSAGE. Passer bas et dans l'axe au-dessus de la piste suffit : on se
+// pose, sans rien demander. C'est le seul endroit du monde où l'on peut
+// reprendre de la vie en quantité, et c'est aussi le seul où l'on ne peut ni
+// esquiver ni riposter. Le marché est net.
+const ATT_PLAFOND = 62;       // hauteur maximale d'interception
+const ATT_CONE = Math.cos(17 * Math.PI / 180);
+const ATT_DUREE = 2.6;        // secondes de l'arrondi au point d'arrêt
+const REPARATION = 10;        // secondes avant que ça reparte tout seul
+const REPARE_PAR_S = 17;      // points de structure rendus par seconde
+
+const PISTE_GARDE_X = 150;    // couloir interdit au décor, de part et d'autre
+const PISTE_GARDE_Z0 = 420;
+const PISTE_GARDE_Z1 = -1150;
+
+// Chiffres au trait, décrits une fois pour toutes : chaque segment est une
+// paire de points dans un carré de 1 sur 2, à la manière d'un afficheur.
+const CHIFFRES = {
+  0: [[0,0,1,0],[1,0,1,2],[1,2,0,2],[0,2,0,0]],
+  1: [[0.5,0,0.5,2]],
+  3: [[0,2,1,2],[1,2,1,1],[0,1,1,1],[1,1,1,0],[1,0,0,0]],
+  6: [[1,2,0,2],[0,2,0,0],[0,0,1,0],[1,0,1,1],[1,1,0,1]],
+  8: [[0,0,1,0],[1,0,1,2],[1,2,0,2],[0,2,0,0],[0,1,1,1]]
+};
+
+(function poserPiste() {
+  const p = [], y = PISTE.y, L = PISTE.demiL;
+  const seg = (x0, z0, x1, z1) => p.push(x0, y, z0, x1, y, z1);
+  // le contour
+  seg(-L, PISTE.z0, L, PISTE.z0);
+  seg(-L, PISTE.z1, L, PISTE.z1);
+  seg(-L, PISTE.z0, -L, PISTE.z1);
+  seg(L, PISTE.z0, L, PISTE.z1);
+  // l'axe pointillé, un trait de 30 tous les 60
+  for (let z = PISTE.z0 - 40; z > PISTE.z1 + 40; z -= 60) seg(0, z, 0, z - 30);
+  // les barres de seuil, en peigne à chaque bout
+  for (let i = -3; i <= 3; i++) {
+    if (!i) continue;
+    const x = i * 5.5;
+    seg(x, PISTE.z0 - 4, x, PISTE.z0 - 34);
+    seg(x, PISTE.z1 + 4, x, PISTE.z1 + 34);
+  }
+  // les nombres de cap, lisibles depuis l'axe d'approche de chaque seuil
+  // sens = +1 : le nombre se lit en venant du sud, donc en volant vers -Z.
+  // sens = -1 : il se lit en venant du nord. Le miroir sur les deux axes suffit,
+  // c'est une rotation d'un demi-tour dans le plan du sol.
+  const nombre = (txt, cz, sens) => {
+    const h = 30, l = 14, ecart = 8;
+    const large = txt.length * l + (txt.length - 1) * ecart;
+    for (let k = 0; k < txt.length; k++) {
+      const x0 = -large / 2 + k * (l + ecart);
+      for (const [ax, ay, bx, by] of CHIFFRES[txt[k]]) {
+        seg(sens * (x0 + ax * l), cz - sens * ay * h / 2,
+            sens * (x0 + bx * l), cz - sens * by * h / 2);
+      }
+    }
+  };
+  nombre('36', PISTE.z0 - 90, 1);
+  nombre('18', PISTE.z1 + 90, -1);
+  const m = new THREE.LineSegments(segGeom(p), lineMat(COL_LINE, 0.8));
+  m.frustumCulled = false;
+  scene.add(m);
+})();
+
+// vrai tant qu'un point tombe dans le couloir réservé à la piste
+function surLaPiste(x, z) {
+  return Math.abs(x) < PISTE_GARDE_X && z < PISTE_GARDE_Z0 && z > PISTE_GARDE_Z1;
+}
+
+// ---------------------------------------------------------------------------
+// LES MÉCANICIENS. Trois pavés d'un mètre quatre-vingts qui s'affairent autour
+// du moteur tant que l'avion est au sol. Ils ne servent à rien, et c'est
+// exactement pour cela qu'ils servent : ils donnent une échelle à l'appareil —
+// on ne sait pas qu'un avion est grand tant qu'on n'a pas mis un homme à côté —
+// et ils rendent l'attente au menu habitée. Au décollage, ils détalent.
+// ---------------------------------------------------------------------------
+const MECANO_H = 1.8;
+const geomMecano = new THREE.BoxGeometry(0.62, MECANO_H, 0.42)
+  .translate(0, MECANO_H / 2, 0);
+const edgesMecano = new THREE.EdgesGeometry(geomMecano, 20);
+const matMecano = lineMat(COL_TEXT, 0.85);
+const mecanos = [];
+for (let i = 0; i < 3; i++) {
+  const g = solidWire(geomMecano, edgesMecano, matMecano);
+  g.visible = false;
+  scene.add(g);
+  mecanos.push({ g, p: new THREE.Vector3(), but: new THREE.Vector3(),
+                 t: 0, fuite: 0, cote: i % 2 ? 1 : -1 });
+}
+
+// les postes de travail : deux à hauteur de nacelle, un devant le nez
+const MECANO_POSTES = [[-3.4, -3.0], [3.4, -3.2], [0.9, -6.4]];
+
+function poserMecanos() {
+  mecanos.forEach((m, i) => {
+    const [dx, dz] = MECANO_POSTES[i];
+    m.p.set(state.pos.x + dx, PISTE.y, state.pos.z + dz);
+    m.but.copy(m.p);
+    m.t = Math.random() * 1.5;
+    m.fuite = 0;
+    m.g.visible = true;
+    m.g.position.copy(m.p);
+  });
+}
+
+function chasserMecanos() {
+  for (const m of mecanos) m.fuite = 2.6;
+}
+
+function updateMecanos(dt) {
+  for (const m of mecanos) {
+    if (!m.g.visible) continue;
+    if (m.fuite > 0) {
+      // ils dégagent perpendiculairement à la piste, puis disparaissent
+      m.fuite -= dt;
+      m.p.x += m.cote * 26 * dt;
+      m.g.position.copy(m.p);
+      m.g.rotation.y = m.cote > 0 ? -Math.PI / 2 : Math.PI / 2;
+      if (m.fuite <= 0) m.g.visible = false;
+      continue;
+    }
+    // marche lente d'un poste à l'autre, avec des pauses : ça bricole
+    m.t -= dt;
+    if (m.t <= 0) {
+      m.t = 1.2 + Math.random() * 2.4;
+      m.but.set(state.pos.x + (Math.random() - 0.5) * 9,
+                PISTE.y,
+                state.pos.z - 2 - Math.random() * 6);
+    }
+    _v.subVectors(m.but, m.p);
+    const d = _v.length();
+    if (d > 0.15) {
+      m.p.addScaledVector(_v.divideScalar(d), Math.min(d, 2.1 * dt));
+      m.g.rotation.y = Math.atan2(_v.x, _v.z);
+    }
+    // un petit balancement, comme quelqu'un qui se penche sur un capot
+    m.g.position.set(m.p.x, m.p.y, m.p.z);
+    m.g.rotation.z = Math.sin(performance.now() / 420 + m.cote) * 0.06;
+  }
 }
 
 const TOWER_H = 150;
@@ -2046,10 +2320,14 @@ for (let i = 0; i < 6; i++) {
 // la poutre. Le passage entre les piles, sous la poutre, n'est pas listé —
 // c'est précisément par là qu'on passe.
 function placeArche(a, initial) {
-  const ang = Math.random() * Math.PI * 2;
-  const r = initial ? 700 + Math.random() * 2200 : 3000 + Math.random() * 1200;
-  const x = state.pos.x + Math.cos(ang) * r;
-  const z = state.pos.z + Math.sin(ang) * r;
+  let x, z;
+  for (let essai = 0; ; essai++) {
+    const ang = Math.random() * Math.PI * 2;
+    const r = initial ? 700 + Math.random() * 2200 : 3000 + Math.random() * 1200;
+    x = state.pos.x + Math.cos(ang) * r;
+    z = state.pos.z + Math.sin(ang) * r;
+    if (!surLaPiste(x, z) || essai > 12) break;
+  }
   const quart = Math.random() < 0.5;          // orientée à 0 ou 90 degrés, pour
   a.g.position.set(x, 0, z);                  // que les boîtes restent alignées
   a.g.rotation.y = quart ? Math.PI / 2 : 0;
@@ -2112,10 +2390,14 @@ for (let i = 0; i < 3; i++) {
 }
 
 function placeTour(t, initial) {
-  const ang = Math.random() * Math.PI * 2;
-  const r = initial ? 900 + Math.random() * 2000 : 3200 + Math.random() * 1400;
-  const x = state.pos.x + Math.cos(ang) * r;
-  const z = state.pos.z + Math.sin(ang) * r;
+  let x, z;
+  for (let essai = 0; ; essai++) {
+    const ang = Math.random() * Math.PI * 2;
+    const r = initial ? 900 + Math.random() * 2000 : 3200 + Math.random() * 1400;
+    x = state.pos.x + Math.cos(ang) * r;
+    z = state.pos.z + Math.sin(ang) * r;
+    if (!surLaPiste(x, z) || essai > 12) break;
+  }
   const quart = Math.random() < 0.5;
   t.g.position.set(x, 0, z);
   t.g.rotation.y = quart ? Math.PI / 2 : 0;
@@ -2296,6 +2578,8 @@ const state = {
   camSpin: 0,
   takeoff: null,
   auSol: true,
+  atterro: null,
+  pose: null,
   scrapeT: 0,
   fig: null,      // renversement en cours
   screenX: 0,
@@ -2339,6 +2623,7 @@ function poseAuSol() {
   for (const t of towers) placeTower(t, true);
   for (const a of arches) placeArche(a, true);
   for (const t of tours) placeTour(t, true);
+  poserMecanos();
   updateDecor();
   feedTracers(playerTracers, []);
   feedTracers(enemyTracers, []);
@@ -2348,12 +2633,36 @@ function poseAuSol() {
 // la scène vit un peu, sans que rien ne se joue
 function auRalenti(dt) {
   propMesh.rotation.z += 3.4 * dt;
+  updateMecanos(dt);
   state.screenX = window.innerWidth / 2;
   state.screenY = window.innerHeight * 0.62;
 }
 
+// Remise en l'air depuis la piste : la même séquence que le premier décollage,
+// mais sans toucher au score ni aux vagues — on n'a pas recommencé la partie,
+// on est juste allé se faire réparer.
+function redecoller() {
+  if (!state.pose) return;
+  state.pose = null;
+  redecoBtn.hidden = true;
+  chasserMecanos();
+  state.pos.set(0, SOL_Y, state.pos.z);
+  state.yaw = 0; state.pitch = 0; state.roll = 0;
+  state.takeoff = { t: 0 };
+  state.speed = 0;
+  state.boost = 0;
+  state.boostT = 0;
+  announce('DÉCOLLAGE');
+}
+
+const redecoBtn = document.getElementById('redecoBtn');
+redecoBtn.addEventListener('click', e => { e.stopPropagation(); redecoller(); });
+
 function resetGame() {
+  expliqueBtn.hidden = true;
+  plusJamais.hidden = true;
   poseAuSol();
+  chasserMecanos();
   state.takeoff = { t: 0 };
   state.auSol = false;
   state.structure = 100;
@@ -2372,6 +2681,9 @@ function resetGame() {
   state.spinT = 0;
   state.fig = null;
   state.scrapeT = 0;
+  state.atterro = null;
+  state.pose = null;
+  redecoBtn.hidden = true;
   for (const a of arches) a.prise = false;
   for (const t of tours) t.prise = false;
   state.paused = false;
@@ -2428,9 +2740,15 @@ function bilanVague() {
 }
 
 function placeTower(t, initial) {
-  const a = Math.random() * Math.PI * 2;
-  const r = initial ? 250 + Math.random() * 2400 : 2600 + Math.random() * 900;
-  t.position.set(state.pos.x + Math.cos(a) * r, 0, state.pos.z + Math.sin(a) * r);
+  let x, z;
+  for (let essai = 0; ; essai++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = initial ? 250 + Math.random() * 2400 : 2600 + Math.random() * 900;
+    x = state.pos.x + Math.cos(a) * r;
+    z = state.pos.z + Math.sin(a) * r;
+    if (!surLaPiste(x, z) || essai > 12) break;
+  }
+  t.position.set(x, 0, z);
 }
 
 // ---------------------------------------------------------------------------
@@ -3115,6 +3433,26 @@ function simulate(dt) {
   // c'est la pesanteur qui travaille pour ou contre, et le moteur qui ramène
   // doucement vers la croisière. Piquer pour reprendre de l'énergie avant de
   // remonter devient une vraie manœuvre.
+  // INTERCEPTION DE LA PISTE. Bas, au-dessus du bitume, dans l'axe et le nez
+  // pas trop haut : les quatre conditions réunies déclenchent la pose. Aucune
+  // n'est un hasard — on ne se pose pas par accident en passant par là, il faut
+  // avoir descendu, ralenti l'idée et aligné l'appareil.
+  if (!state.atterro && !state.pose && !state.takeoff && !state.fig
+      && state.spinT <= 0 && state.running
+      && state.pos.y < ATT_PLAFOND
+      && Math.abs(state.pos.x) < PISTE.demiL * 2.2
+      && state.pos.z < PISTE.z0 - 120 && state.pos.z > PISTE.z1 + 320
+      && state.forward.z < 0
+      && -state.forward.z > ATT_CONE * Math.hypot(state.forward.x, state.forward.z)
+      && Math.abs(state.forward.x) < 0.30
+      && state.forward.y < 0.16) {
+    state.atterro = { t: 0, y0: state.pos.y, x0: state.pos.x,
+                      p0: state.pitch, yaw0: state.yaw, v0: state.speed };
+    state.lock = null;
+    state.lockCharge = 0;
+    announce('POSÉ EN COURS');
+  }
+
   // la poursuite ne change pas la poussée, elle change la vitesse visée :
   // l'avion y monte donc par le même chemin que d'habitude, sans à-coup
   const croisiere = CRUISE * (1 + (BOOST_GAIN - 1) * state.boost);
@@ -3124,6 +3462,91 @@ function simulate(dt) {
   // trop lent : le nez retombe tout seul, quoi que demande le doigt
   if (state.speed < STALL && state.pitch > 0) {
     state.pitch = THREE.MathUtils.damp(state.pitch, 0, 2.2 * (STALL - state.speed) / 14, dt);
+  }
+
+  // ATTERRISSAGE. Deux temps, comme le décollage à l'envers : l'arrondi qui
+  // ramène le nez et pose les roues, puis le roulement qui s'arrête. La
+  // trajectoire découle ici encore de l'assiette, si bien que la caméra n'a
+  // rien à rattraper. Une fois arrêté, les mécaniciens accourent.
+  if (state.atterro) {
+    const A = state.atterro;
+    A.t += dt;
+    const u = Math.min(1, A.t / ATT_DUREE);
+    const lisse = x => x * x * (3 - 2 * x);
+    // l'assiette part de ce qu'elle valait et passe par un léger cabré d'arrondi
+    state.pitch = A.p0 * (1 - lisse(u)) + 0.10 * Math.sin(Math.PI * u);
+    state.yaw = A.yaw0 * (1 - lisse(u));
+    // la hauteur se rend à la piste sur la même courbe, sans jamais la traverser
+    state.pos.y = SOL_Y + (A.y0 - SOL_Y) * (1 - lisse(u));
+    state.speed = A.v0 * (1 - lisse(u)) * 0.92 + 4 * (1 - u);
+    state.pos.x = A.x0 * (1 - lisse(u));
+    state.pos.z -= state.speed * dt;
+
+    euler.set(state.pitch, state.yaw, 0);
+    state.quat.setFromEuler(euler);
+    state.forward.set(0, 0, -1).applyQuaternion(state.quat);
+    playerMesh.position.copy(state.pos);
+    playerMesh.quaternion.copy(state.quat);
+    propMesh.rotation.z += (3 + state.speed * 0.14) * dt;
+
+    state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 8, dt);
+    state.camYaw = dampAngle(state.camYaw, state.yaw, 8, dt);
+    euler.set(state.camPitch, state.camYaw, 0);
+    _qa.setFromEuler(euler);
+    euler.set(state.camPitch + CAM_DECLIN, state.camYaw, 0);
+    camera.quaternion.setFromEuler(euler);
+    _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
+    _cd.subVectors(state.pos, A.prev || state.pos).divideScalar(Math.max(dt, 1e-4));
+    if (!A.prev) A.prev = state.pos.clone(); else A.prev.copy(state.pos);
+    springCamera(_v, dt, 120, 22, _cd);
+    if (camera.position.y < 2.5) camera.position.y = 2.5;
+    majFov(dt);
+
+    if (u >= 1) {
+      state.atterro = null;
+      state.pose = { t: 0 };
+      state.speed = 0;
+      poserMecanos();
+      redecoBtn.hidden = false;
+      announce('AU SOL  ·  RÉPARATION');
+      SFX.bouclierOn();
+    }
+    updateEnemies(dt);
+    updateBullets(dt);
+    updateShots(dt);
+    updateRoquettes(dt);
+    updateMecanos(dt);
+    updateDecor(dt);
+    state.announceT = Math.max(0, state.announceT - dt);
+    refreshBars();
+    return;
+  }
+
+  // POSÉ. On répare vite et on ne peut rien faire d'autre : ni virer, ni tirer,
+  // ni esquiver. Les adversaires, eux, continuent. Dix secondes plus tard
+  // l'avion repart tout seul, et le bouton permet d'écourter.
+  if (state.pose) {
+    state.pose.t += dt;
+    // Le modèle d'énergie tourne plus haut dans la fonction et ramènerait la
+    // vitesse vers la croisière : on la maintient à zéro, l'avion est arrêté.
+    state.speed = 0;
+    state.structure = Math.min(100, state.structure + REPARE_PAR_S * dt);
+    propMesh.rotation.z += 3.4 * dt;
+    playerMesh.position.copy(state.pos);
+    _v.copy(camOffset).add(state.pos);
+    springCamera(_v, dt, 60, 16, _cv.set(0, 0, 0));
+    if (camera.position.y < 2.5) camera.position.y = 2.5;
+    majFov(dt);
+    if (state.pose.t >= REPARATION) redecoller();
+    updateEnemies(dt);
+    updateBullets(dt);
+    updateShots(dt);
+    updateRoquettes(dt);
+    updateMecanos(dt);
+    updateDecor(dt);
+    state.announceT = Math.max(0, state.announceT - dt);
+    refreshBars();
+    return;
   }
 
   // DÉCOLLAGE. Une séquence jouée d'un bloc, sans commande : le moteur monte
@@ -3202,6 +3625,7 @@ function simulate(dt) {
       state.camYaw = euler.y;
       state.camRoll = euler.z;
     }
+    updateMecanos(dt);
     updateDecor();
     state.announceT = Math.max(0, state.announceT - dt);
     refreshBars();
@@ -3987,9 +4411,13 @@ const ARROW_NEAR = 120, ARROW_FAR = 1300;
 const HUD_LOIN = 3000;
 const HUD_LARGE = 0.155;   // demi-largeur d'un barreau, en radians de cap
 
-// À quel angle de l'axe la flèche commence à s'afficher. En deçà, la cible
-// est dans le champ et porte déjà son cadre : deux repères pour la même chose
-// seraient du bruit.
+// Angle de référence du rayon minimal. Ce n'est PAS un seuil d'affichage :
+// c'en fut un, et c'était un bug. Un écran de téléphone tenu debout n'ouvre
+// que vingt degrés sur les côtés, bien moins que les vingt-six de ce cône :
+// un adversaire à vingt-deux degrés sortait donc de l'image sans recevoir de
+// flèche, et sans cadre puisqu'il n'était plus à l'écran. Il disparaissait
+// purement et simplement. C'est le fait d'être hors champ qui décide, et rien
+// d'autre — l'angle ne sert plus qu'à placer la flèche.
 const ARROW_CONE = 26 * Math.PI / 180;
 
 function edgeArrow(target, w, h, dist) {
@@ -4001,13 +4429,16 @@ function edgeArrow(target, w, h, dist) {
   // quand elle est pile dans le dos. La taille, elle, continue de dire la
   // distance : les deux informations sont portées par deux grandeurs
   // différentes et ne se marchent pas dessus.
+  const p = project(target);
+  // hors champ, et lui seul : la marge évite qu'une cible pile sur le bord
+  // clignote entre son cadre et sa flèche
+  const M = 26;
+  if (p.front && p.x > M && p.x < w - M && p.y > M && p.y < h - M) return;
   _v.subVectors(target, state.pos).normalize();
   const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
-  if (ang < ARROW_CONE) return;
-  const q = (ang - ARROW_CONE) / (Math.PI - ARROW_CONE);
+  const q = THREE.MathUtils.clamp((ang - ARROW_CONE) / (Math.PI - ARROW_CONE), 0, 1);
   const cx = w / 2, cy = h / 2;
   const r = Math.min(w, h) * (0.11 + 0.35 * q);
-  const p = project(target);
   let dx = p.x - cx, dy = p.y - cy;
   if (!p.front) { dx = -dx; dy = -dy; }
   const len = Math.hypot(dx, dy) || 1;
@@ -4149,12 +4580,35 @@ sonBtn.addEventListener('click', e => {
 
 const aide = document.getElementById('aide');
 const aideBtn = document.getElementById('aideBtn');
-aideBtn.addEventListener('click', e => {
-  e.stopPropagation();
-  aide.hidden = !aide.hidden;
+function ouvrirAide(ouvert) {
+  aide.hidden = ouvert === undefined ? !aide.hidden : !ouvert;
+  if (!aide.hidden) aide.scrollTop = 0;
   changelog.hidden = true;
   panViseurs.hidden = true;
   majPause();
+}
+aideBtn.addEventListener('click', e => { e.stopPropagation(); ouvrirAide(); });
+
+// EXPLICATIONS APRÈS LA MORT. C'est le seul moment où le joueur a une question
+// précise en tête — pourquoi ça n'a pas marché — donc le seul où il lira. Le
+// bouton mène à la même page que le point d'interrogation du bandeau : une
+// seule explication, deux portes. Et il se tait pour de bon si on le lui
+// demande, ce que le navigateur retient.
+const expliqueBtn = document.getElementById('expliqueBtn');
+const plusJamais = document.getElementById('plusJamais');
+const plusJamaisCase = document.getElementById('plusJamaisCase');
+let aideMuette = false;
+try { aideMuette = localStorage.getItem('fod_aide_muette') === '1'; } catch (e) {}
+plusJamaisCase.checked = aideMuette;
+expliqueBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  overlay.hidden = true;
+  ouvrirAide(true);
+});
+plusJamaisCase.addEventListener('change', () => {
+  aideMuette = plusJamaisCase.checked;
+  try { localStorage.setItem('fod_aide_muette', aideMuette ? '1' : '0'); } catch (e) {}
+  expliqueBtn.hidden = aideMuette;
 });
 
 function majPause() {
@@ -4219,10 +4673,11 @@ if (record.score > 0) {
   overlayScore.innerHTML = 'RECORD ' + String(record.score).padStart(6, '0')
     + '  ·  VAGUE ' + record.vague;
 }
-if (!touchMode) {
-  overlayText.innerHTML = 'Le curseur est le viseur, l\'avion le rejoint.<br>'
-    + 'Il tire tout seul quand une cible y entre.';
-}
+// L'écran d'accueil ne garde que le titre et le bouton. La consigne était
+// écrite alors que rien ne la montrait ; maintenant l'avion est sur sa piste,
+// les mécaniciens tournent autour, et l'aide reste à un clic sous le point
+// d'interrogation. Le texte de fin de partie, lui, garde sa place.
+if (!touchMode) overlayText.textContent = '';
 
 // Reprendre là où on en était, en échange d'une vidéo. Le branchement à une
 // régie publicitaire viendra plus tard ; en attendant le bouton dit
@@ -4273,6 +4728,9 @@ function gameOver() {
   if (battuScore || battuVague) sauveRecord();
   state.recordBattu = battuScore ? 'score' : (battuVague ? 'vague' : null);
   state.auSol = false;   // l'épave ne ronronne pas
+  state.atterro = null;
+  state.pose = null;
+  redecoBtn.hidden = true;
   SFX.fin();
   overlayTitle.textContent = 'ABATTU';
   overlayText.textContent = pique();
@@ -4285,6 +4743,8 @@ function gameOver() {
   videoBtn.hidden = false;
   videoBtn.disabled = false;
   videoBtn.textContent = 'REGARDER UNE VIDÉO · REPRENDRE';
+  expliqueBtn.hidden = aideMuette;
+  plusJamais.hidden = aideMuette;
   overlay.hidden = false;
   feedTracers(playerTracers, []);
   feedTracers(enemyTracers, []);

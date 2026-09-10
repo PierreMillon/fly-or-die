@@ -86,7 +86,7 @@ Un immeuble bien plus haut que les pylônes, troué d'une seule fenêtre de
 croisière. 25 % de vie, une fois par tour et par vague. Trois exemplaires
 dans le monde, recyclés au-delà de 5 000 mètres comme les arches.
 
-## Piste d'aviation, atterrissage et réparation
+## Piste d'aviation, atterrissage et réparation → fait en v0.42
 
 Une piste au sol : un rectangle, un axe pointillé au milieu, et les deux
 nombres de cap peints à chaque seuil comme sur un vrai aérodrome.
@@ -115,7 +115,7 @@ viseurs. Le tout premier avion dessiné à la main — celui d'avant le modèle
 STL — revient comme option. Suppose de sortir le modèle du joueur de son
 bloc unique : géométrie, position des canons, envergure.
 
-## Décoller toujours depuis la piste, avec des mécaniciens
+## Décoller toujours depuis la piste, avec des mécaniciens → fait en v0.42
 
 Le point de départ est tiré au hasard : on se retrouve parfois nez à nez
 avec un bâtiment, ce qui ne veut rien dire. La piste devient le point de
