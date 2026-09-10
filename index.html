@@ -26,7 +26,7 @@
      bande noire en bas. Exactement le geste qui sert à faire une figure. */
   * { touch-action: none; }
   /* seuls les panneaux doivent encore défiler au doigt */
-  #aide, #changelog { touch-action: pan-y; }
+  #aide, #changelog, #viseurs { touch-action: pan-y; }
 
   html, body {
     margin: 0;
@@ -290,7 +290,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.36</button>
+  <button id="versionBtn">v0.37</button>
 </div>
 
 <div id="bottombar">
@@ -395,6 +395,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.37</b> — les panneaux défilent enfin au doigt. L'historique des versions et la planche des viseurs s'arrêtaient à la ligne de flottaison : le touch-action posé sur eux autorisait bien le défilement, mais la ligne qui empêche la page de rebondir sous le jeu annulait tous les balayages, y compris les leurs. Le décollage devient une seule vague au lieu de trois temps. Un cosinus relevé n'a aucune couture : dérivée nulle au départ, nulle au sommet, nulle à l'arrivée, jamais nulle entre les deux. Le palier disparaît, donc le milieu ne traîne plus, et le décollage se fait plein gaz — 114 mètres par seconde au sommet contre 83 — ce qui le ramène à 4,4 secondes pour un sommet d'assiette à 57 degrés. La commande gagne en finesse là où on en manquait : la part quartique remplace la quadratique, l'autorité à mi-course tombe de 21 à 11 pour cent, soit 14 degrés par seconde au lieu de 26. C'est exactement la zone où l'on suit un adversaire qui tourne autour de vous. Le centre reste aussi fin, le plein manche donne toujours tout. Le plafond double, de 480 à 960 mètres. Et la fumée des roquettes passe au calibre de l'engin : à quatorze mètres les deux traînées se rejoignaient en un seul gros tube, à trois chacune garde son fil.</div>
   <div><b>v0.36</b> — les roquettes laissent enfin une trace. Un vrai panache n'est pas un trait mais une suite d'anneaux tourbillonnaires lâchés en place, qui gonflent et se délayent pendant que l'engin est déjà loin : chacun naît dans le plan perpendiculaire à la trajectoire, à l'endroit exact où il a été semé, et n'en bouge plus. Trois bouffées d'allumage partent sous l'aile au départ, sept autres s'ouvrent en boule à l'impact. Comme une matière ne peut porter qu'une opacité, c'est la couleur qui efface : sur fond noir, assombrir un vert revient à le faire disparaître. Le son du départ se joue en trois moments dans l'ordre où on les entend — le claquement de la mise à feu, le coup de basse, puis le sifflement qui s'éloigne en montant avant de retomber. Et l'impact prend une seconde détonation un dixième de seconde plus tard, plus grave : c'est ce décalage qui sépare un bruit d'une explosion.</div>
   <div><b>v0.35</b> — le tir ne part plus au premier effleurement : il faut que le viseur se soit resserré d'un tiers, soit une demi-seconde tenue, pendant laquelle la croix reste en demi-teinte et un cran sonore annonce l'armement. Un adversaire ordinaire demande donc environ deux secondes de verrouillage propre, le GARDIEN neuf et demie. Les arches se comptent maintenant une par une : chacune rend 10 % de vie une fois par vague, les six se cumulent, et aller chercher la deuxième c'est accepter de quitter le combat. une tour percée de 250 mètres, dont l'unique fenêtre de 45 mètres s'ouvre aux deux tiers de la hauteur — à peu près l'altitude de croisière. Elle rend 25 % de vie, deux fois plus qu'une arche pour une ouverture deux fois plus étroite. Les bâtiments troués ne montrent plus les joints entre leurs volumes : leurs arêtes viennent du contour réel de la façade et non des boîtes qui la composent, si bien qu'une façade d'un seul tenant n'est plus barrée de traits qui n'existent pas. Le soleil devient une vraie sphère, méridiens et parallèles : le disque plat s'écrasait en ellipse dès qu'on le regardait de biais, ce qu'un astre ne fait jamais, et sa couronne se retourne maintenant vers le regard. Avoir le soleil dans le dos se voit enfin — halo autour de l'avion, bandeau en clair, et un anneau qui bat autour de chaque adversaire en train de vous chercher dans la lumière. Le décollage se joue en trois temps, comme une vraie rotation : le manche tiré doucement, une assiette de cinquante degrés tenue franche, une remise à plat progressive qui s'engage pile quand ce qu'il reste à monter tient dedans. La trajectoire découle enfin de l'assiette au lieu de lui être imposée — l'avion montait 162 mètres en deux secondes le nez à vingt-quatre degrés, il lévitait. Et le saut de caméra en fin de décollage disparaît : la déclinaison était appliquée deux fois en une seule image, douze degrés d'un coup, sept cent vingt-six degrés par seconde mesurés, ramenés à soixante-quatre.</div>
   <div><b>v0.34</b> — le ciel n'est plus tiré au hasard : ce sont les 945 étoiles réellement visibles au-dessus de Bayonne dans la nuit du 6 juin 1991, calculées depuis le catalogue Yale des étoiles brillantes. Trois rangs de magnitude, des vraies constellations, et un contrôle qui ne trompe pas : la Polaire tombe à 42,8 degrés de hauteur pour un azimut de 359,8 — la hauteur du pôle, c'est la latitude du lieu. Le viseur s'ouvre à l'accrochage et se referme à mesure qu'on tient la cible, de 67 à 25 pixels : large, il dit « quelque part là-dedans » ; refermé, il dit « exactement là ». En passe rapprochée son ouverture suit la taille apparente de l'avion visé. Et les mitrailleuses descendent d'une octave : trois couches au lieu d'une, la claque du départ, un corps grave qui s'effondre, un coup de basse dessous. Le corps dure plus longtemps que la cadence, si bien qu'en rafale les coups se recouvrent au lieu de s'égrener.</div>
@@ -481,10 +482,10 @@ const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
 const SOL_Y         = 3;      // hauteur de l'avion posé, train sous le fuselage
 const ALT_DEPART    = 165;    // altitude atteinte au bout du décollage
 const ROULAGE       = 0.8;    // secondes de course au sol avant la rotation
-const ROTATION      = 0.7;    // le manche tiré progressivement, le nez qui se lève
-const ASSIETTE      = 0.87;   // assiette de montée tenue, 50 degrés
-const ARRONDI       = 0.95;   // remise à plat progressive en fin de montée
+const MONTEE        = 3.6;    // durée de la vague, de la rotation au palier
+const ASSIETTE      = 1.00;   // sommet de la vague, 57 degrés
 const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte le sol
+const PLEIN_GAZ     = 1.46;   // le décollage se fait à pleine puissance, pas en croisière
 const SPIN_TIME     = 0.42;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
@@ -508,7 +509,7 @@ const DPS_MIN       = 15;     // dégâts par seconde à l'accroche
 const DPS_MAX       = 72;     // ...et une fois le tir bien calé sur la cible
 const LOCK_SPOOL    = 1.8;    // secondes pour monter de l'un à l'autre
 const FLOOR         = 26;     // plancher : on rase le sol sans le traverser
-const CEILING       = 480;    // plafond bas volontaire : la grille au sol est le seul repère de vitesse
+const CEILING       = 960;    // doublé : il y a de quoi monter chercher les fenêtres des tours
 const BURST_GAP     = 0.1;
 const BULLET_SPEED  = 300;
 const BULLET_LIFE   = 3.2;
@@ -544,10 +545,13 @@ const ROQ_VIRAGE    = 3.4;    // rad/s de guidage
 const ROQ_DEGATS    = 55;
 const ROQ_RECHARGE  = 6.5;
 const ROQ_VIE       = 4.5;
-const FUM_VIE       = 1.55;   // secondes avant qu'un anneau de fumée s'efface
+const FUM_VIE       = 1.7;    // secondes avant qu'un anneau de fumée s'efface
 const FUM_PAS       = 0.045;  // intervalle d'émission le long de la trajectoire
-const FUM_R0        = 2.2;    // rayon à la naissance
-const FUM_R1        = 14;     // rayon en fin de vie, un peu plus qu'une envergure
+const FUM_R0        = 0.55;   // rayon à la naissance : le calibre de l'engin
+// Un panache s'ouvre, mais pas jusqu'à l'envergure : à quatorze mètres les
+// deux traînées se rejoignaient en un seul gros tube et on ne voyait plus
+// qu'il y avait deux engins. À trois, chacune garde son fil.
+const FUM_R1        = 3.1;    // rayon en fin de vie
 const FUM_MAX       = 220;    // au-delà, les plus vieux cèdent la place
 const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
@@ -1977,10 +1981,12 @@ function semerFumee(pos, dir, ecart) {
   if (Math.abs(dir.dot(_fu)) > 0.9) _fu.set(1, 0, 0);
   _fu.crossVectors(dir, _fu).normalize();
   _fv.crossVectors(dir, _fu).normalize();
-  state.fumees.push({
+  const f = {
     p: pos.clone(), u: _fu.clone(), v: _fv.clone(),
     t: 0, r0: FUM_R0 * (0.7 + Math.random() * 0.6), ec: ecart || 0
-  });
+  };
+  state.fumees.push(f);
+  return f;
 }
 
 function updateFumee(dt) {
@@ -1990,7 +1996,7 @@ function updateFumee(dt) {
     f.t += dt;
     if (f.t >= FUM_VIE) { state.fumees.splice(i, 1); continue; }
     const k = f.t / FUM_VIE;
-    const r = f.r0 + (FUM_R1 - f.r0) * Math.sqrt(k);   // gonfle vite puis ralentit
+    const r = f.r0 + (FUM_R1 * (f.r0 / FUM_R0) - f.r0) * Math.sqrt(k);  // gonfle vite puis ralentit
     const c = (1 - k) * (1 - k) * 0.95;                // et pâlit en s'étalant
     for (let j = 0; j < FUM_SEG; j++) {
       const a0 = j / FUM_SEG * Math.PI * 2, a1 = (j + 1) / FUM_SEG * Math.PI * 2;
@@ -2595,9 +2601,10 @@ function updateRoquettes(dt) {
       spawnBurst(r.pos, 13);
       // la boule de fumée de l'impact : quelques anneaux lâchés d'un coup,
       // dans des plans différents, qui gonflent ensemble
-      for (let k = 0; k < 7; k++) {
+      for (let k = 0; k < 9; k++) {
         _seg.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-        semerFumee(r.pos.clone().addScaledVector(_seg, Math.random() * 12), _seg);
+        const f = semerFumee(r.pos.clone().addScaledVector(_seg, Math.random() * 7), _seg);
+        if (f) f.r0 *= 3.4;      // seule la boule d'impact a le droit d'être large
       }
       SFX.roquetteImpact();
       state.roquettes.splice(i, 1);
@@ -2870,7 +2877,12 @@ function simulate(dt) {
   // hargne au bout pour retourner la situation. La part linéaire, volontairement
   // faible, tient le centre ; la part quadratique donne tout le reste. À
   // mi-course on obtient un cinquième de l'autorité, à fond la totalité.
-  const curve = v => v * (0.22 + 0.78 * v * v);
+  // La part quadratique devient quartique : à mi-course l'autorité tombe de
+  // 21 à 11 %, soit 14 degrés par seconde au lieu de 26. C'est là qu'on suit
+  // un adversaire qui tourne autour de vous, et c'est là qu'il fallait de la
+  // finesse. Les deux bouts ne bougent pas : le centre reste très fin, le
+  // plein manche donne toujours tout.
+  const curve = v => v * (0.17 + 0.83 * v * v * v * v);
   const yawRate   = -curve(dx) * MAX_YAW;
   const pitchRate = -curve(dy) * MAX_PITCH;
 
@@ -2905,31 +2917,21 @@ function simulate(dt) {
     const T = state.takeoff;
     T.t += dt;
     // le moteur prend ses tours : c'est lui qu'on entend d'abord
-    state.speed = THREE.MathUtils.damp(state.speed, CRUISE * 1.06, 1.5, dt);
+    // Plein gaz, et non la vitesse de croisière : un avion qui décolle
+    // pousse tout ce qu'il a. C'est ce qui rend le milieu de la montée vif,
+    // et l'excédent se dissipe tout seul une fois en palier.
+    state.speed = THREE.MathUtils.damp(state.speed, CRUISE * PLEIN_GAZ, 3.0, dt);
 
-    // TROIS TEMPS, comme une vraie rotation. Le manche se tire doucement, le
-    // nez se lève et le train décolle ; l'assiette est ensuite tenue, franche
-    // et constante, tout le temps de la montée ; puis elle se rend à plat
-    // aussi doucement qu'elle était venue. Le lissage en S donne aux deux
-    // extrémités une dérivée nulle : ni charnière au départ, ni butée à
-    // l'arrivée. Une simple rampe d'angle donnait ces deux à-coups.
-    const lisse = u => u * u * (3 - 2 * u);
-    if (T.t < ROULAGE) {
-      state.pitch = 0;                           // roulage, train au sol
-    } else if (T.t < ROULAGE + ROTATION) {
-      state.pitch = ASSIETTE * lisse((T.t - ROULAGE) / ROTATION);
-    } else if (T.arrondi === undefined) {
-      state.pitch = ASSIETTE;
-      // L'arrondi ne part pas à une date fixe mais quand ce qu'il reste à
-      // monter tient exactement dedans : l'avion arrive donc à l'altitude de
-      // croisière au moment précis où son assiette revient à zéro, sans
-      // qu'aucune position n'ait à être forcée.
-      if (state.pos.y + state.speed * ARRONDI * Math.sin(ASSIETTE) * 0.5 >= ALT_DEPART) {
-        T.arrondi = T.t;
-      }
-    } else {
-      state.pitch = ASSIETTE * (1 - lisse(Math.min(1, (T.t - T.arrondi) / ARRONDI)));
-    }
+    // UNE SEULE VAGUE. Les trois temps distincts se lisaient comme trois
+    // temps : une charnière pour monter, un palier tenu, une charnière pour
+    // redescendre. Le cosinus relevé — un demi-tour complet de cosinus, remis
+    // entre zéro et un — n'a aucune de ces coutures : sa dérivée est nulle au
+    // départ, nulle au sommet, nulle à l'arrivée, et jamais nulle entre les
+    // deux. C'est la forme d'une vague, et c'est le geste réel : on tire, ça
+    // monte, ça se recouche. Le palier disparaît, donc le milieu ne traîne
+    // plus — l'avion y passe à son assiette maximale au lieu de s'y installer.
+    const u = THREE.MathUtils.clamp((T.t - ROULAGE) / MONTEE, 0, 1);
+    state.pitch = ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * u));
 
     // La trajectoire découle maintenant de l'assiette au lieu de lui être
     // imposée. Avant, l'avion montait 162 mètres en deux secondes le nez à
@@ -2962,12 +2964,12 @@ function simulate(dt) {
     // Le ressort se détend pendant l'arrondi jusqu'aux valeurs du vol libre :
     // au décollage on veut un suivi collé, en l'air le flottement fait la
     // vie de l'image. Passer de l'un à l'autre d'un seul coup se voyait.
-    const relache = T.arrondi === undefined ? 0
-      : Math.min(1, (T.t - T.arrondi) / ARRONDI);
+    // le ressort se détend sur le dernier tiers de la vague
+    const relache = THREE.MathUtils.clamp((u - 0.66) / 0.34, 0, 1);
     springCamera(_v, dt, 150 + (44 - 150) * relache, 24 + (10.2 - 24) * relache, _cd);
     if (camera.position.y < 2.5) camera.position.y = 2.5;
 
-    if (T.arrondi !== undefined && T.t - T.arrondi >= ARRONDI) {
+    if (u >= 1) {
       state.takeoff = null;
       state.pitch = 0;
       state.waveTimer = 0.8;   // la première vague arrive juste après le décollage
@@ -4035,8 +4037,16 @@ window.addEventListener('pointercancel', releasePointer, { passive: true });
 // souris sortie de la fenêtre : plus personne ne tient le manche
 document.addEventListener('mouseleave', () => { aim.active = false; });
 
-// sans ça, un balayage fait défiler ou faire rebondir la page sous le jeu
-window.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+// Sans ça, un balayage fait défiler ou rebondir la page sous le jeu. Mais
+// annuler TOUS les touchmove annulait aussi celui des panneaux : le
+// touch-action: pan-y posé sur eux autorisait bien le défilement, et cette
+// ligne le reprenait aussitôt. L'historique des versions était donc
+// consultable jusqu'à la ligne de flottaison et pas au-delà.
+window.addEventListener('touchmove', e => {
+  const el = e.target instanceof Element ? e.target : null;
+  if (el && el.closest('#changelog, #aide, #viseurs')) return;
+  e.preventDefault();
+}, { passive: false });
 
 // iOS ignore user-scalable=no depuis longtemps, pour des raisons
 // d'accessibilité. On refuse donc explicitement ses gestes de zoom.
