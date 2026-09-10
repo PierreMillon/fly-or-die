@@ -290,7 +290,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.37</button>
+  <button id="versionBtn">v0.38</button>
 </div>
 
 <div id="bottombar">
@@ -395,6 +395,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.38</b> — la caméra reste à plat pendant un tonneau. Elle en prenait un tiers et tournait donc avec l'avion, ce qui fait perdre l'horizon pour rien : c'est l'appareil qui fait la figure, pas le joueur. Le déport, lui, est réel — mesuré, l'avion sort de 27 unités et l'image le rejoint sur 21, avec son retard. Le tonneau lui-même passe au lissage du second ordre : lent, vite, lent, dérivée et courbure nulles aux deux bouts. Et les sorties de figure ne claquent plus : la déclinaison de la caméra était appliquée deux fois en une seule image, comme en fin de décollage. Mesuré à la sortie, le tonneau tombe de 490 à 93 degrés par seconde, l'Immelmann de 766 à 149, le Split-S de 620 à 10. Les adversaires doivent maintenant viser eux aussi : une demi-seconde d'alignement tenu avant d'ouvrir le feu, entièrement reperdue dès qu'on leur sort du cône, et 0,7 seconde pour les pièces au sol qui tournent un tube. Le face-à-face était perdu d'avance depuis que le joueur attend que son viseur se referme. Les flèches de désignation creusent enfin l'écart : un pour quinze au lieu d'un pour huit, et surtout une décroissance franche — à mi-portée il ne reste que 27 % de la taille au lieu de 56. Les roquettes ralentissent à 100 mètres par seconde, trois fois moins qu'une balle : téléguidées, elles ne ratent pas, et leur lenteur est ce qui les rend lisibles.</div>
   <div><b>v0.37</b> — les panneaux défilent enfin au doigt. L'historique des versions et la planche des viseurs s'arrêtaient à la ligne de flottaison : le touch-action posé sur eux autorisait bien le défilement, mais la ligne qui empêche la page de rebondir sous le jeu annulait tous les balayages, y compris les leurs. Le décollage devient une seule vague au lieu de trois temps. Un cosinus relevé n'a aucune couture : dérivée nulle au départ, nulle au sommet, nulle à l'arrivée, jamais nulle entre les deux. Le palier disparaît, donc le milieu ne traîne plus, et le décollage se fait plein gaz — 114 mètres par seconde au sommet contre 83 — ce qui le ramène à 4,4 secondes pour un sommet d'assiette à 57 degrés. La commande gagne en finesse là où on en manquait : la part quartique remplace la quadratique, l'autorité à mi-course tombe de 21 à 11 pour cent, soit 14 degrés par seconde au lieu de 26. C'est exactement la zone où l'on suit un adversaire qui tourne autour de vous. Le centre reste aussi fin, le plein manche donne toujours tout. Le plafond double, de 480 à 960 mètres. Et la fumée des roquettes passe au calibre de l'engin : à quatorze mètres les deux traînées se rejoignaient en un seul gros tube, à trois chacune garde son fil.</div>
   <div><b>v0.36</b> — les roquettes laissent enfin une trace. Un vrai panache n'est pas un trait mais une suite d'anneaux tourbillonnaires lâchés en place, qui gonflent et se délayent pendant que l'engin est déjà loin : chacun naît dans le plan perpendiculaire à la trajectoire, à l'endroit exact où il a été semé, et n'en bouge plus. Trois bouffées d'allumage partent sous l'aile au départ, sept autres s'ouvrent en boule à l'impact. Comme une matière ne peut porter qu'une opacité, c'est la couleur qui efface : sur fond noir, assombrir un vert revient à le faire disparaître. Le son du départ se joue en trois moments dans l'ordre où on les entend — le claquement de la mise à feu, le coup de basse, puis le sifflement qui s'éloigne en montant avant de retomber. Et l'impact prend une seconde détonation un dixième de seconde plus tard, plus grave : c'est ce décalage qui sépare un bruit d'une explosion.</div>
   <div><b>v0.35</b> — le tir ne part plus au premier effleurement : il faut que le viseur se soit resserré d'un tiers, soit une demi-seconde tenue, pendant laquelle la croix reste en demi-teinte et un cran sonore annonce l'armement. Un adversaire ordinaire demande donc environ deux secondes de verrouillage propre, le GARDIEN neuf et demie. Les arches se comptent maintenant une par une : chacune rend 10 % de vie une fois par vague, les six se cumulent, et aller chercher la deuxième c'est accepter de quitter le combat. une tour percée de 250 mètres, dont l'unique fenêtre de 45 mètres s'ouvre aux deux tiers de la hauteur — à peu près l'altitude de croisière. Elle rend 25 % de vie, deux fois plus qu'une arche pour une ouverture deux fois plus étroite. Les bâtiments troués ne montrent plus les joints entre leurs volumes : leurs arêtes viennent du contour réel de la façade et non des boîtes qui la composent, si bien qu'une façade d'un seul tenant n'est plus barrée de traits qui n'existent pas. Le soleil devient une vraie sphère, méridiens et parallèles : le disque plat s'écrasait en ellipse dès qu'on le regardait de biais, ce qu'un astre ne fait jamais, et sa couronne se retourne maintenant vers le regard. Avoir le soleil dans le dos se voit enfin — halo autour de l'avion, bandeau en clair, et un anneau qui bat autour de chaque adversaire en train de vous chercher dans la lumière. Le décollage se joue en trois temps, comme une vraie rotation : le manche tiré doucement, une assiette de cinquante degrés tenue franche, une remise à plat progressive qui s'engage pile quand ce qu'il reste à monter tient dedans. La trajectoire découle enfin de l'assiette au lieu de lui être imposée — l'avion montait 162 mètres en deux secondes le nez à vingt-quatre degrés, il lévitait. Et le saut de caméra en fin de décollage disparaît : la déclinaison était appliquée deux fois en une seule image, douze degrés d'un coup, sept cent vingt-six degrés par seconde mesurés, ramenés à soixante-quatre.</div>
@@ -486,7 +487,7 @@ const MONTEE        = 3.6;    // durée de la vague, de la rotation au palier
 const ASSIETTE      = 1.00;   // sommet de la vague, 57 degrés
 const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte le sol
 const PLEIN_GAZ     = 1.46;   // le décollage se fait à pleine puissance, pas en croisière
-const SPIN_TIME     = 0.42;   // durée du tonneau au double tap
+const SPIN_TIME     = 0.48;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
 const FIG_TIME      = 1.05;   // durée d'un renversement, Immelmann ou Split-S
@@ -501,6 +502,7 @@ const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sa
 // dessus. Un cône fixe de 9 degrés laissait tirer à côté.
 const LOCK_MARGE    = 1.2 * Math.PI / 180;
 const SEUIL_TIR     = 0.3;    // charge minimale avant la première balle
+const VISEE_ENNEMI  = 0.5;    // secondes d'alignement tenu avant qu'il ouvre le feu
 const ASSIST_ETENDUE = 2.5;   // le magnétisme agit jusqu'à 2,5 fois le seuil
 const ASSIST_GAIN   = 20;     // rad/s par radian d'écart
 const ASSIST_MAX    = 0.5;    // plafond : un quart de l'autorité du joueur
@@ -540,13 +542,17 @@ const SHOT_RATE     = 0.075;  // secondes entre deux salves
 // Elles guident, frappent lourd, et se rechargent lentement : c'est la prime
 // du pilotage propre, pas une arme d'appoint.
 const ROQ_SEUIL     = 1.0;    // secondes de verrouillage avant le départ
-const ROQ_VITESSE   = 420;
-const ROQ_VIRAGE    = 3.4;    // rad/s de guidage
+// Une roquette téléguidée n'a pas besoin d'aller vite : elle ne rate pas.
+// Sa lenteur est ce qui la rend lisible — on la voit partir, tourner et
+// arriver, là où à 420 m/s elle disparaissait dans l'image suivante. Trois
+// fois plus lente qu'une balle, et pourtant c'est elle qui fait mal.
+const ROQ_VITESSE   = 100;
+const ROQ_VIRAGE    = 2.2;    // rad/s de guidage : moins vite, donc moins nerveux
 const ROQ_DEGATS    = 55;
 const ROQ_RECHARGE  = 6.5;
-const ROQ_VIE       = 4.5;
+const ROQ_VIE       = 11;     // à cent mètres par seconde, il faut du temps pour arriver
 const FUM_VIE       = 1.7;    // secondes avant qu'un anneau de fumée s'efface
-const FUM_PAS       = 0.045;  // intervalle d'émission le long de la trajectoire
+const FUM_PAS       = 0.06;   // intervalle d'émission le long de la trajectoire
 const FUM_R0        = 0.55;   // rayon à la naissance : le calibre de l'engin
 // Un panache s'ouvre, mais pas jusqu'à l'envergure : à quatorze mètres les
 // deux traînées se rejoignaient en un seul gros tube et on ne voyait plus
@@ -2289,7 +2295,8 @@ function spawnWave() {
       goalT: 0,
       reload: 0.6 + Math.random() * 1.1,
       burst: 0,
-      burstT: 0
+      burstT: 0,
+      visee: 0
     });
   }
   // le nom de l'escadrille dit tout de suite à quoi on a affaire
@@ -2358,8 +2365,11 @@ function updateEnemies(dt) {
           state.bullets.push({ pos: e.pos.clone().setY(4), dir, t: 0 });
           e.burst--; e.burstT = BURST_GAP;
         }
-      } else if (e.reload <= 0 && dist < K.portee * (1 - 0.45 * geneSol)
-                 && e.forward.dot(_v) > K.cone) {
+      } else if ((e.visee = (dist < K.portee * (1 - 0.45 * geneSol)
+                  && e.forward.dot(_v) > K.cone) ? e.visee + dt : 0)
+                 >= VISEE_ENNEMI * 1.4 && e.reload <= 0) {
+        // la pièce au sol met un peu plus longtemps à pointer que l'avion :
+        // elle tourne un tube, pas un appareil entier
         e.reload = K.recharge[0] + Math.random() * (K.recharge[1] - K.recharge[0]);
         e.burst = K.rafale;
         e.burstT = 0;
@@ -2501,11 +2511,19 @@ function updateEnemies(dt) {
     // dans le dos, la plus vieille manœuvre du combat aérien.
     const gene = e.gene = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
     e.reload -= dt;
+    // Lui aussi doit prendre le temps de viser. Depuis que le joueur attend
+    // une demi-seconde que son viseur se referme, un face-à-face était perdu
+    // d'avance : l'adversaire tirait à l'instant même où son cône s'ouvrait,
+    // sans rien avoir à tenir. Il accumule maintenant son alignement, et le
+    // perd dès qu'il vous sort du cône. Le duel de front redevient une
+    // question de qui se cale le premier, pas de qui a le droit de tirer.
+    const aligne = dist < K.portee * (1 - 0.45 * gene)
+                && e.forward.dot(_v) > K.cone + (1 - K.cone) * gene * 1.6;
+    e.visee = aligne ? e.visee + dt : 0;
     if (e.burst > 0) {
       e.burstT -= dt;
       if (e.burstT <= 0) { tirer(); e.burst--; e.burstT = BURST_GAP; }
-    } else if (e.reload <= 0 && dist < K.portee * (1 - 0.45 * gene)
-               && e.forward.dot(_v) > K.cone + (1 - K.cone) * gene * 1.6) {
+    } else if (e.reload <= 0 && e.visee >= VISEE_ENNEMI) {
       e.reload = K.recharge[0] + Math.random() * (K.recharge[1] - K.recharge[0]);
       e.burst = K.rafale;
       e.burstT = 0;
@@ -3038,7 +3056,10 @@ function simulate(dt) {
     // La caméra suit la figure de loin au début — on voit l'avion partir — puis
     // se resserre vers la fin pour être recollée au moment de rendre la main.
     // Un rattrapage à raideur constante donnait un départ sec puis une fin molle.
-    const lam = 3.5 + 6 * u * u;
+    // Lâche au départ pour qu'on voie l'avion partir, serrée à l'arrivée pour
+    // rendre la main collée. La courbe en cloche du milieu évite la reprise
+    // sèche que donnait une raideur qui montait tout du long.
+    const lam = 3.2 + 7.5 * u * u * u * (u * (u * 6 - 15) + 10);
     camera.quaternion.slerp(state.quat, 1 - Math.exp(-lam * dt));
     _v.copy(camOffset).applyQuaternion(camera.quaternion).add(state.pos);
     springCamera(_v, dt, 55, 12.5, _cv.copy(state.forward).multiplyScalar(state.speed));
@@ -3052,8 +3073,12 @@ function simulate(dt) {
       // On repart de l'orientation réelle de la caméra, pas de celle de
       // l'avion : forcer les deux à coïncider ferait claquer l'image à la
       // sortie de figure. L'amortissement habituel referme l'écart ensuite.
+      // Le quaternion suivi pendant la figure est celui de l'avion, sans
+      // déclinaison ; le vol libre en rajoute une. Sans la retirer ici, la
+      // caméra piquait de douze degrés en une image à chaque sortie de
+      // figure — le même défaut qu'en fin de décollage, au même endroit.
       euler.setFromQuaternion(camera.quaternion, 'YXZ');
-      state.camPitch = euler.x;
+      state.camPitch = euler.x - CAM_DECLIN;
       state.camYaw = euler.y;
       state.camRoll = euler.z;
       state.fig = null;
@@ -3077,10 +3102,20 @@ function simulate(dt) {
   if (state.spinT > 0) {
     state.spinT = Math.max(0, state.spinT - dt);
     const t = 1 - state.spinT / SPIN_TIME;
-    const ease = 1 - Math.pow(1 - t, 3); // départ sec, fin qui s'assoit
+    // Lent, vite, lent. L'ancienne courbe partait sec et s'asseyait : elle
+    // avait un début et pas de fin. Le lissage du second ordre a sa dérivée
+    // ET sa courbure nulles aux deux bouts — c'est le geste d'un manche
+    // qu'on pousse et qu'on ramène, pas d'un interrupteur.
+    const ease = t * t * t * (t * (t * 6 - 15) + 10);
     spinRoll = -state.spinSide * Math.PI * 2 * ease;
     _right.crossVectors(state.forward, _up).normalize();
     state.pos.addScaledVector(_right, state.spinSide * SPIN_DODGE * Math.sin(Math.PI * t) * dt);
+    // LA CAMÉRA RESTE À PLAT. Elle prenait un tiers du tonneau et tournait
+    // donc avec l'avion, ce qui fait perdre l'horizon pour rien : c'est
+    // l'avion qui fait la figure, pas le joueur. Le déport, lui, est réel —
+    // l'appareil sort vraiment de sa ligne — et le ressort de la caméra le
+    // suit avec son retard habituel. On voit donc l'avion glisser sur le
+    // côté et l'image le rejoindre, sur une ligne parallèle. Rien ne bascule.
   }
 
   // Magnétisme de visée. Il ne t'emmène pas sur une cible : il t'aide à y
@@ -3154,7 +3189,7 @@ function simulate(dt) {
   // prend maintenant un tiers, avec du retard : elle bascule après l'avion et
   // se recale après lui. Un tour complet la ferait tourner aussi, ce qui
   // désorienterait — un tiers suffit à le faire ressentir.
-  state.camSpin = THREE.MathUtils.damp(state.camSpin, spinRoll * 0.32, 5.5, dt);
+  state.camSpin = THREE.MathUtils.damp(state.camSpin, 0, 9, dt);
   euler.set(state.camPitch, state.camYaw, state.camRoll + state.camSpin);
   _qa.setFromEuler(euler);                       // repère à plat : sert au décalage
   euler.set(state.camPitch + CAM_DECLIN, state.camYaw, state.camRoll + state.camSpin);
@@ -3654,12 +3689,15 @@ function edgeArrow(target, w, h, dist) {
   const len = Math.hypot(dx, dy) || 1;
   const x = cx + dx / len * r;
   const y = cy + dy / len * r;
-  // Taille pleine au contact, huit fois moindre au bout de la portée,
-  // linéairement entre les deux. L'écart était de un à quatre : trop serré
-  // pour distinguer d'un coup d'oeil la menace immédiate du lointain.
+  // L'ÉCART DOIT SAUTER AUX YEUX. Un à huit, mais réparti linéairement, ne
+  // suffisait pas : à mi-portée la flèche faisait encore 56 % de la plus
+  // grosse, et rien ne se lisait d'un coup d'oeil. L'écart passe à un pour
+  // quinze, et surtout la décroissance devient franche — à mi-portée il ne
+  // reste que 27 %. La menace immédiate est maintenant une grosse flèche, le
+  // lointain un point. C'est tout ce que cette information doit dire.
   const t = THREE.MathUtils.clamp((dist - ARROW_NEAR) / (ARROW_FAR - ARROW_NEAR), 0, 1);
-  const k = 1 - 0.875 * t;
-  hctx.strokeStyle = 'rgba(70,255,160,' + (0.35 + 0.45 * k).toFixed(2) + ')';
+  const k = 0.10 + 1.40 * Math.pow(1 - t, 2.4);
+  hctx.strokeStyle = 'rgba(70,255,160,' + Math.min(0.95, 0.32 + 0.42 * k).toFixed(2) + ')';
   hctx.save();
   hctx.translate(x, y);
   hctx.rotate(Math.atan2(dy, dx) + Math.PI / 2);

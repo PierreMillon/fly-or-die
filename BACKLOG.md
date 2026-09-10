@@ -86,9 +86,39 @@ Un immeuble bien plus haut que les pylônes, troué d'une seule fenêtre de
 croisière. 25 % de vie, une fois par tour et par vague. Trois exemplaires
 dans le monde, recyclés au-delà de 5 000 mètres comme les arches.
 
-## Skins d'avion débloqués en abattant le type correspondant
+## Piste d'aviation, atterrissage et réparation
 
-Même principe que les viseurs, mais sur la cellule : détruire un BIPLAN
-donne le droit de piloter un BIPLAN. Suppose de pouvoir échanger le modèle,
-la position des canons et l'envergure — donc de sortir le modèle du joueur
-de son bloc unique. Pas commencé.
+Une piste au sol : un rectangle, un axe pointillé au milieu, et les deux
+nombres de cap peints à chaque seuil comme sur un vrai aérodrome.
+
+S'approcher bas et dans l'axe suffit — l'avion se pose tout seul, sans rien
+demander. Posé, on est très vulnérable, mais la vie remonte très vite. Un à
+trois petits pavés viennent se presser autour de l'appareil : les mécanos.
+Au bout de dix secondes il redécolle seul, et un bouton REDÉCOLLER permet
+de repartir avant.
+
+## Les adversaires ont les mêmes figures que le joueur
+
+Tonneau, Immelmann, Split-S. Aujourd'hui ces trois figures sont réservées
+au joueur, ce qui rend les esquives adverses lisibles et un peu pauvres.
+
+## Un seul bouton MENU
+
+La barre du haut porte VIS, SON, ?, la version. Ajouter le choix d'avion en
+ferait cinq, trop pour un téléphone étroit. Tout regroupe sous un MENU
+unique, en onglets : avions, viseurs, son, aide, historique.
+
+## Skins d'avion, dont le tout premier modèle
+
+Détruire un type d'adversaire donne le droit de le piloter, comme pour les
+viseurs. Le tout premier avion dessiné à la main — celui d'avant le modèle
+STL — revient comme option. Suppose de sortir le modèle du joueur de son
+bloc unique : géométrie, position des canons, envergure.
+
+## Questions restées ouvertes
+
+- Le chrono en haut à gauche ne sert à rien. Score au temps, ou décor.
+- Le bouclier encaisse dix coups. Absorbe-t-il aussi les frôlements et le sol ?
+- Les adversaires se traversent entre eux.
+- Un adversaire blessé fuit puis revient. Faut-il qu'il décroche pour de bon ?
+- Combien d'arches, combien de tours percées dans le monde ?
