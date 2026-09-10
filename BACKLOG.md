@@ -79,6 +79,13 @@ Contrôle : la Polaire tombe à 42,8 degrés de hauteur, azimut 359,8 — la
 hauteur du pôle vaut la latitude du lieu, à l'écart près entre la Polaire
 et le pôle vrai en 1991.
 
+## Tour percée → fait en v0.35
+
+Un immeuble bien plus haut que les pylônes, troué d'une seule fenêtre de
+45 mètres placée aux deux tiers de la hauteur, soit à peu près l'altitude de
+croisière. 25 % de vie, une fois par tour et par vague. Trois exemplaires
+dans le monde, recyclés au-delà de 5 000 mètres comme les arches.
+
 ## Skins d'avion débloqués en abattant le type correspondant
 
 Même principe que les viseurs, mais sur la cellule : détruire un BIPLAN

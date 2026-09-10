@@ -290,7 +290,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.34</button>
+  <button id="versionBtn">v0.35</button>
 </div>
 
 <div id="bottombar">
@@ -395,6 +395,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.35</b> — le tir ne part plus au premier effleurement : il faut que le viseur se soit resserré d'un tiers, soit une demi-seconde tenue, pendant laquelle la croix reste en demi-teinte et un cran sonore annonce l'armement. Un adversaire ordinaire demande donc environ deux secondes de verrouillage propre, le GARDIEN neuf et demie. Les arches se comptent maintenant une par une : chacune rend 10 % de vie une fois par vague, les six se cumulent, et aller chercher la deuxième c'est accepter de quitter le combat. une tour percée de 250 mètres, dont l'unique fenêtre de 45 mètres s'ouvre aux deux tiers de la hauteur — à peu près l'altitude de croisière. Elle rend 25 % de vie, deux fois plus qu'une arche pour une ouverture deux fois plus étroite. Les bâtiments troués ne montrent plus les joints entre leurs volumes : leurs arêtes viennent du contour réel de la façade et non des boîtes qui la composent, si bien qu'une façade d'un seul tenant n'est plus barrée de traits qui n'existent pas. Le soleil devient une vraie sphère, méridiens et parallèles : le disque plat s'écrasait en ellipse dès qu'on le regardait de biais, ce qu'un astre ne fait jamais, et sa couronne se retourne maintenant vers le regard. Avoir le soleil dans le dos se voit enfin — halo autour de l'avion, bandeau en clair, et un anneau qui bat autour de chaque adversaire en train de vous chercher dans la lumière. Le décollage se joue en trois temps, comme une vraie rotation : le manche tiré doucement, une assiette de cinquante degrés tenue franche, une remise à plat progressive qui s'engage pile quand ce qu'il reste à monter tient dedans. La trajectoire découle enfin de l'assiette au lieu de lui être imposée — l'avion montait 162 mètres en deux secondes le nez à vingt-quatre degrés, il lévitait. Et le saut de caméra en fin de décollage disparaît : la déclinaison était appliquée deux fois en une seule image, douze degrés d'un coup, sept cent vingt-six degrés par seconde mesurés, ramenés à soixante-quatre.</div>
   <div><b>v0.34</b> — le ciel n'est plus tiré au hasard : ce sont les 945 étoiles réellement visibles au-dessus de Bayonne dans la nuit du 6 juin 1991, calculées depuis le catalogue Yale des étoiles brillantes. Trois rangs de magnitude, des vraies constellations, et un contrôle qui ne trompe pas : la Polaire tombe à 42,8 degrés de hauteur pour un azimut de 359,8 — la hauteur du pôle, c'est la latitude du lieu. Le viseur s'ouvre à l'accrochage et se referme à mesure qu'on tient la cible, de 67 à 25 pixels : large, il dit « quelque part là-dedans » ; refermé, il dit « exactement là ». En passe rapprochée son ouverture suit la taille apparente de l'avion visé. Et les mitrailleuses descendent d'une octave : trois couches au lieu d'une, la claque du départ, un corps grave qui s'effondre, un coup de basse dessous. Le corps dure plus longtemps que la cadence, si bien qu'en rafale les coups se recouvrent au lieu de s'égrener.</div>
   <div><b>v0.33</b> — deux roquettes partent des ailes après une seconde de verrouillage tenu, guidées, lourdes, et longues à recharger : c'est la prime du pilotage propre. Une cible qui rompt franchement peut encore les faire manquer, elles virent à taux limité. Le bouclier n'est plus une bulle mais un halo collé à l'avion, deux copies de ses arêtes à peine plus grandes qui dépassent du contour — la cellule rayonne. Et la caméra plonge un peu : l'avion remonte du tiers inférieur au milieu de l'image sans qu'on renonce à la vue de dessus.</div>
   <div><b>v0.32</b> — l'échelle de tangage de l'horizon artificiel court maintenant d'un pôle à l'autre : en montée franche la ligne d'horizon sortait du cadran et l'instrument ne disait plus rien. La bande d'altitude remonte du milieu de l'écran vers le haut, à droite : plus bas, le pouce la recouvrait au moment même où l'on pilote. un soleil dans le ciel, direction fixe comme les étoiles : le regarder en face rend la cible plus dure à tenir et le tir moins fort ; l'avoir dans le dos gêne celui qui vous vise, qui tire alors de moins loin et doit être bien mieux aligné. C'est la plus vieille manœuvre du combat aérien, et elle tient en un produit scalaire de plus. Les vagues ne s'arrêtent plus jamais, et toutes les cinq un GARDIEN vient seul, dix-sept mètres d'envergure et six cent vingt points de structure. Des pièces au sol tirent maintenant vers le ciel : elles ne bloquent pas la vague, c'est une cible d'occasion pour qui accepte de descendre. Le meilleur score et la vague la plus haute sont gardés sur l'appareil.</div>
@@ -478,8 +479,11 @@ const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
 const SOL_Y         = 3;      // hauteur de l'avion posé, train sous le fuselage
 const ALT_DEPART    = 165;    // altitude atteinte au bout du décollage
-const ROULAGE       = 1.0;    // secondes de course au sol
-const MONTEE        = 2.0;    // secondes de rotation et de montée
+const ROULAGE       = 0.8;    // secondes de course au sol avant la rotation
+const ROTATION      = 0.7;    // le manche tiré progressivement, le nez qui se lève
+const ASSIETTE      = 0.87;   // assiette de montée tenue, 50 degrés
+const ARRONDI       = 0.95;   // remise à plat progressive en fin de montée
+const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte le sol
 const SPIN_TIME     = 0.42;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
@@ -494,6 +498,7 @@ const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sa
 // 11 m à 400 m occupe 0,8 degré ; avec la marge, il faut mettre la croix
 // dessus. Un cône fixe de 9 degrés laissait tirer à côté.
 const LOCK_MARGE    = 1.2 * Math.PI / 180;
+const SEUIL_TIR     = 0.3;    // charge minimale avant la première balle
 const ASSIST_ETENDUE = 2.5;   // le magnétisme agit jusqu'à 2,5 fois le seuil
 const ASSIST_GAIN   = 20;     // rad/s par radian d'écart
 const ASSIST_MAX    = 0.5;    // plafond : un quart de l'autorité du joueur
@@ -747,6 +752,7 @@ const SFX = {
                         ton(190, 62, 0.075, 'square', 0.085); },
   accroche:     () => ton(680, 1320, 0.11, 'sine', 0.13),
   cale:         () => ton(1320, 1760, 0.08, 'sine', 0.09),
+  arme:         () => { ton(440, 660, 0.07, 'square', 0.07); souffle(0.05, 1400, 700, 5, 0.04); },
   touche:       () => { ton(150, 62, 0.22, 'square', 0.19); souffle(0.16, 500, 160, 1.2, 0.14); },
   detruit:      () => { souffle(0.55, 900, 90, 0.9, 0.34); ton(190, 48, 0.45, 'sawtooth', 0.16); },
   eraflure:     () => souffle(0.3, 1400, 300, 1.4, 0.22),
@@ -1493,6 +1499,7 @@ const GRID_SPAN = 8400, GRID_STEP = 160;
 })();
 const grid = scene.getObjectByName('grid');
 let etoiles = [];
+let soleilMesh = null, couronneMesh = null;
 
 // Voûte céleste. Les étoiles sont posées sur une sphère qui suit la position
 // de la caméra sans jamais tourner avec elle : leur direction est donc fixe
@@ -1692,31 +1699,81 @@ const CIEL = [
   };
   etoiles = [poser(CIEL[2], 1.4, 0.42), poser(CIEL[1], 2.2, 0.7), poser(CIEL[0], 3.4, 1)];
 
-  // le disque et sa couronne, posés sur la même sphère
+  // LE SOLEIL. C'était un disque plat posé perpendiculairement à sa propre
+  // direction : vu de biais il s'écrasait en ellipse, ce qu'un astre ne fait
+  // jamais. C'est maintenant une vraie sphère filaire — méridiens et
+  // parallèles — dont le contour est un cercle sous tous les angles, quelle
+  // que soit la position du joueur.
+  const RAY = 210;
   const pts = [];
-  const c = new THREE.Vector3().copy(SOLEIL).multiplyScalar(R);
-  const u = new THREE.Vector3().crossVectors(SOLEIL, new THREE.Vector3(0, 1, 0)).normalize();
-  const v = new THREE.Vector3().crossVectors(SOLEIL, u).normalize();
-  const pos = (ang, ray) => new THREE.Vector3().copy(c)
-    .addScaledVector(u, Math.cos(ang) * ray).addScaledVector(v, Math.sin(ang) * ray);
-  const N = 48, RAY = 210;
-  for (let i = 0; i < N; i++) {
-    const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2;
-    const p0 = pos(a0, RAY), p1 = pos(a1, RAY);
-    pts.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
+  const NM = 8, NP = 5, NS = 40;
+  for (let m = 0; m < NM; m++) {                  // les méridiens
+    const lo = m / NM * Math.PI;
+    for (let i = 0; i < NS; i++) {
+      const a0 = i / NS * Math.PI * 2, a1 = (i + 1) / NS * Math.PI * 2;
+      for (const a of [a0, a1]) {
+        pts.push(Math.cos(a) * Math.cos(lo) * RAY, Math.sin(a) * RAY,
+                 Math.cos(a) * Math.sin(lo) * RAY);
+      }
+    }
   }
-  for (let i = 0; i < 16; i++) {                  // la couronne
-    const a = i / 16 * Math.PI * 2;
-    const p0 = pos(a, RAY * 1.25), p1 = pos(a, RAY * (i % 2 ? 1.6 : 2.1));
-    pts.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
+  for (let p = 1; p < NP; p++) {                  // les parallèles
+    const la = (p / NP - 0.5) * Math.PI;
+    const r = Math.cos(la) * RAY, y = Math.sin(la) * RAY;
+    for (let i = 0; i < NS; i++) {
+      const a0 = i / NS * Math.PI * 2, a1 = (i + 1) / NS * Math.PI * 2;
+      for (const a of [a0, a1]) pts.push(Math.cos(a) * r, y, Math.sin(a) * r);
+    }
   }
-  const so = new THREE.LineSegments(segGeom(pts),
+  soleilMesh = new THREE.LineSegments(segGeom(pts),
+    new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.6, fog: false }));
+  soleilMesh.frustumCulled = false;
+  soleilMesh.renderOrder = -1;
+  scene.add(soleilMesh);
+
+  // La couronne, elle, doit rester face au regard : des rayons vus de profil
+  // disparaîtraient. Elle est construite à plat dans son propre repère et
+  // tournée vers la caméra à chaque image.
+  const cp = [];
+  for (let i = 0; i < 20; i++) {
+    const a = i / 20 * Math.PI * 2;
+    const r0 = RAY * 1.22, r1 = RAY * (i % 2 ? 1.55 : 2.05);
+    cp.push(Math.cos(a) * r0, Math.sin(a) * r0, 0, Math.cos(a) * r1, Math.sin(a) * r1, 0);
+  }
+  couronneMesh = new THREE.LineSegments(segGeom(cp),
     new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.75, fog: false }));
-  so.frustumCulled = false;
-  so.renderOrder = -1;
-  scene.add(so);
-  etoiles.push(so);
+  couronneMesh.frustumCulled = false;
+  couronneMesh.renderOrder = -1;
+  scene.add(couronneMesh);
 })();
+
+// ARÊTES D'UN PRISME. Un bâtiment troué se construit en volumes pleins
+// séparés — c'est la seule façon d'avoir un vide traversable — mais ses
+// arêtes ne peuvent pas venir de ces volumes : EdgesGeometry traçait alors
+// les joints entre boîtes, c'est-à-dire des lignes en travers d'une façade
+// qui, elle, est d'un seul tenant. On décrit donc le contour réel à plat, une
+// boucle par silhouette, et on l'extrude : contour avant, contour arrière, et
+// une liaison par sommet. Rien de plus, rien qui n'existe pas.
+function prismeAretes(boucles, p) {
+  const pts = [];
+  for (const b of boucles) {
+    for (let i = 0; i < b.length; i++) {
+      const a0 = b[i], a1 = b[(i + 1) % b.length];
+      pts.push(a0[0], a0[1],  p, a1[0], a1[1],  p);
+      pts.push(a0[0], a0[1], -p, a1[0], a1[1], -p);
+      pts.push(a0[0], a0[1],  p, a0[0], a0[1], -p);
+    }
+  }
+  return segGeom(pts);
+}
+
+// un volume plein seul, sans arêtes : il ne sert qu'à masquer ce qu'il cache
+function bloc(lx, ly, lz, cx, cy) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(lx, ly, lz), solidMat);
+  m.position.set(cx, cy, 0);
+  m.frustumCulled = false;
+  return m;
+}
 
 const TOWER_H = 150;
 const towerGeom = new THREE.BoxGeometry(18, TOWER_H, 18).translate(0, TOWER_H / 2, 0);
@@ -1740,24 +1797,28 @@ ARCHE.largeur = ARCHE.ouvertureL + 2 * ARCHE.pile;
 ARCHE.hauteur = ARCHE.ouvertureH + ARCHE.poutre;
 
 const matArche = lineMat(COL_LINE, 0.85);
-const geomPile = new THREE.BoxGeometry(ARCHE.pile, ARCHE.ouvertureH, ARCHE.prof)
-  .translate(0, ARCHE.ouvertureH / 2, 0);
-const geomPoutre = new THREE.BoxGeometry(ARCHE.largeur, ARCHE.poutre, ARCHE.prof)
-  .translate(0, ARCHE.ouvertureH + ARCHE.poutre / 2, 0);
-const edgesPile = new THREE.EdgesGeometry(geomPile, 20);
-const edgesPoutre = new THREE.EdgesGeometry(geomPoutre, 20);
+// la silhouette en Pi, décrite d'un trait : deux pieds, deux faces intérieures,
+// le dessous de la poutre, et le rectangle extérieur
+const CONTOUR_ARCHE = (() => {
+  const L = ARCHE.largeur / 2, H = ARCHE.hauteur;
+  const o = ARCHE.ouvertureL / 2, oh = ARCHE.ouvertureH;
+  return [[[-L, 0], [-L, H], [L, H], [L, 0], [o, 0], [o, oh], [-o, oh], [-o, 0]]];
+})();
+const aretesArche = prismeAretes(CONTOUR_ARCHE, ARCHE.prof / 2);
 
 const arches = [];
-const ARCHE_PRIME = 10;   // pour cent de vie rendus, une seule fois par vague
+const ARCHE_PRIME = 10;   // pour cent de vie rendus, une fois par arche et par vague
 for (let i = 0; i < 6; i++) {
   const g = new THREE.Group();
   const demi = (ARCHE.ouvertureL + ARCHE.pile) / 2;
-  const pg = solidWire(geomPile, edgesPile, matArche); pg.position.x = -demi;
-  const pd = solidWire(geomPile, edgesPile, matArche); pd.position.x = demi;
-  g.add(pg, pd, solidWire(geomPoutre, edgesPoutre, matArche));
+  g.add(bloc(ARCHE.pile, ARCHE.ouvertureH, ARCHE.prof, -demi, ARCHE.ouvertureH / 2),
+        bloc(ARCHE.pile, ARCHE.ouvertureH, ARCHE.prof,  demi, ARCHE.ouvertureH / 2),
+        bloc(ARCHE.largeur, ARCHE.poutre, ARCHE.prof, 0,
+             ARCHE.ouvertureH + ARCHE.poutre / 2),
+        new THREE.LineSegments(aretesArche, matArche));
   g.frustumCulled = false;
   scene.add(g);
-  arches.push({ g, boites: [], passage: null });
+  arches.push({ g, boites: [], passage: null, prise: false });
 }
 
 // Les trois volumes solides, exprimés en coordonnées du monde : deux piles et
@@ -1784,6 +1845,73 @@ function placeArche(a, initial) {
   // le vide entre les piles et sous la poutre : c'est lui qui rapporte
   a.passage = b(0, 0, ARCHE.ouvertureL / 2, P, 4, ARCHE.ouvertureH);
 }
+// TOUR PERCÉE. Une barre bien plus haute que les pylônes, trouée d'une seule
+// ouverture placée aux deux tiers de sa hauteur — donc à peu près à l'altitude
+// de croisière, ce qui n'est pas un hasard : on la prend en palier, mais la
+// fenêtre est deux fois plus étroite qu'une arche et la tour ne pardonne rien
+// autour. Même construction que l'arche : quatre volumes pleins encadrant un
+// vide qui, lui, n'est pas un obstacle.
+const TOUR = {
+  largeur: 110,     // emprise en x
+  prof: 60,         // emprise en z
+  hauteur: 330,
+  trou: 45          // ouverture carrée
+};
+// Aux deux tiers de 330 mètres, le seuil de la fenêtre est à 197 et son
+// linteau à 242, pour un plafond de 480 et une croisière à 165. Il faut donc
+// vraiment monter la chercher. À 250 mètres de haut la fenêtre serait tombée
+// pile à l'altitude de croisière : on la traversait sans le vouloir, ce qui
+// lui retirait tout son sens.
+TOUR.y0 = TOUR.hauteur * 2 / 3 - TOUR.trou / 2;   // 197,5 m
+TOUR.y1 = TOUR.y0 + TOUR.trou;                    // 242,5 m
+TOUR.montant = (TOUR.largeur - TOUR.trou) / 2;    // 32,5 m de chaque côté
+const TOUR_PRIME = 25;   // pour cent de vie rendus, une fois par tour et par vague
+
+const matTour = lineMat(COL_LINE, 0.9);
+// deux boucles seulement : la façade et sa fenêtre. Rien entre les deux.
+const aretesTour = prismeAretes([
+  [[-TOUR.largeur / 2, 0], [TOUR.largeur / 2, 0],
+   [TOUR.largeur / 2, TOUR.hauteur], [-TOUR.largeur / 2, TOUR.hauteur]],
+  [[-TOUR.trou / 2, TOUR.y0], [TOUR.trou / 2, TOUR.y0],
+   [TOUR.trou / 2, TOUR.y1], [-TOUR.trou / 2, TOUR.y1]]
+], TOUR.prof / 2);
+const tours = [];
+for (let i = 0; i < 3; i++) {
+  const g = new THREE.Group();
+  const dx = (TOUR.trou + TOUR.montant) / 2;
+  g.add(bloc(TOUR.largeur, TOUR.y0, TOUR.prof, 0, TOUR.y0 / 2),
+        bloc(TOUR.largeur, TOUR.hauteur - TOUR.y1, TOUR.prof, 0,
+             TOUR.y1 + (TOUR.hauteur - TOUR.y1) / 2),
+        bloc(TOUR.montant, TOUR.trou, TOUR.prof, -dx, TOUR.y0 + TOUR.trou / 2),
+        bloc(TOUR.montant, TOUR.trou, TOUR.prof,  dx, TOUR.y0 + TOUR.trou / 2),
+        new THREE.LineSegments(aretesTour, matTour));
+  g.frustumCulled = false;
+  scene.add(g);
+  tours.push({ g, boites: [], passage: null, prise: false });
+}
+
+function placeTour(t, initial) {
+  const ang = Math.random() * Math.PI * 2;
+  const r = initial ? 900 + Math.random() * 2000 : 3200 + Math.random() * 1400;
+  const x = state.pos.x + Math.cos(ang) * r;
+  const z = state.pos.z + Math.sin(ang) * r;
+  const quart = Math.random() < 0.5;
+  t.g.position.set(x, 0, z);
+  t.g.rotation.y = quart ? Math.PI / 2 : 0;
+  const L = TOUR.largeur / 2, P = TOUR.prof / 2, M = TOUR.montant / 2;
+  const dx = (TOUR.trou + TOUR.montant) / 2;
+  const b = (cx, hx, hz, y0, y1) => quart
+    ? { x: x, z: z - cx, hx: hz, hz: hx, y0, y1 }
+    : { x: x + cx, z: z, hx, hz, y0, y1 };
+  t.boites = [
+    b(0, L, P, 0, TOUR.y0),
+    b(0, L, P, TOUR.y1, TOUR.hauteur),
+    b(-dx, M, P, TOUR.y0, TOUR.y1),
+    b( dx, M, P, TOUR.y0, TOUR.y1)
+  ];
+  t.passage = b(0, TOUR.trou / 2, P, TOUR.y0, TOUR.y1);
+}
+
 for (let i = 0; i < 34; i++) {
   const t = solidWire(towerGeom, towerEdges, matTower);
   t.scale.set(0.6 + Math.random() * 1.4, 0.5 + Math.random() * 2.4, 0.6 + Math.random() * 1.4);
@@ -1886,7 +2014,6 @@ const state = {
   takeoff: null,
   auSol: true,
   scrapeT: 0,
-  archePassee: false,
   fig: null,      // renversement en cours
   screenX: 0,
   screenY: 0
@@ -1928,6 +2055,7 @@ function poseAuSol() {
   camVel.set(0, 0, 0);
   for (const t of towers) placeTower(t, true);
   for (const a of arches) placeArche(a, true);
+  for (const t of tours) placeTour(t, true);
   updateDecor();
   feedTracers(playerTracers, []);
   feedTracers(enemyTracers, []);
@@ -1961,7 +2089,8 @@ function resetGame() {
   state.spinT = 0;
   state.fig = null;
   state.scrapeT = 0;
-  state.archePassee = false;
+  for (const a of arches) a.prise = false;
+  for (const t of tours) t.prise = false;
   state.paused = false;
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
@@ -2080,7 +2209,8 @@ function spawnWave() {
   // le nom de l'escadrille dit tout de suite à quoi on a affaire
   state.vagueTouche = false;
   state.vagueT = 0;
-  state.archePassee = false;
+  for (const a of arches) a.prise = false;
+  for (const t of tours) t.prise = false;
   state.vagueLimite = boss ? 55 : LIMITE_BASE + LIMITE_PAR * n;
   announce(boss ? 'VAGUE ' + state.wave + '  ·  GARDIEN'
                 : 'VAGUE ' + state.wave + '  ·  ' + [...vus].join(' + '));
@@ -2131,7 +2261,7 @@ function updateEnemies(dt) {
       e.mesh.quaternion.copy(e.quat);
       e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
       _v.multiplyScalar(-1 / dist);
-      const geneSol = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
+      const geneSol = e.gene = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
       e.reload -= dt;
       if (e.burst > 0) {
         e.burstT -= dt;
@@ -2283,7 +2413,7 @@ function updateEnemies(dt) {
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
     // être bien mieux aligné : c'est tout l'intérêt d'attaquer avec le soleil
     // dans le dos, la plus vieille manœuvre du combat aérien.
-    const gene = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
+    const gene = e.gene = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
     e.reload -= dt;
     if (e.burst > 0) {
       e.burstT -= dt;
@@ -2469,6 +2599,17 @@ function seuilLock(e, d) {
   return Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE * (1 - 0.55 * eblouissement());
 }
 
+// L'INVERSE, vu du joueur. Un ennemi placé droit devant vous vous regarde
+// dans la direction -forward ; il est ébloui quand cette direction s'approche
+// du soleil. « Avoir le soleil dans le dos » n'est donc pas une impression :
+// c'est exactement la même formule que celle qui gêne l'adversaire, lue à
+// l'envers. Elle ne dit pas que le soleil est derrière vous, elle dit que
+// celui d'en face vous cherche dedans.
+function dosSoleil() {
+  const dp = -state.forward.dot(SOLEIL);
+  return dp <= SOL_CONE_E ? 0 : (dp - SOL_CONE_E) / (1 - SOL_CONE_E);
+}
+
 // 0 quand le soleil n'est pas dans l'axe, 1 quand on le regarde en face
 function eblouissement() {
   const dp = state.forward.dot(SOLEIL);
@@ -2504,7 +2645,16 @@ function updateLock(dt) {
   best.charge = Math.min(1, best.charge + dt / LOCK_SPOOL);
   const charge = best.charge;
   if (state.lockCharge < 1 && charge >= 1) SFX.cale();
+  if (state.lockCharge < SEUIL_TIR && charge >= SEUIL_TIR) SFX.arme();
   state.lockCharge = charge;
+
+  // Rien ne part tant que le viseur ne s'est pas resserré. Une demi-seconde
+  // d'attente, pendant laquelle l'accrochage est déjà annoncé et la croix
+  // déjà en train de se fermer : on voit venir le tir sans pouvoir l'avancer.
+  // Sans ce seuil, effleurer une cible suffisait à l'entamer, et il n'y avait
+  // aucune raison de soigner son placement.
+  if (charge < SEUIL_TIR) return;
+
   best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge) * (1 - 0.6 * eblouissement()) * dt;
 
   // deux roquettes après une seconde de verrouillage tenu
@@ -2660,16 +2810,37 @@ function simulate(dt) {
     // le moteur prend ses tours : c'est lui qu'on entend d'abord
     state.speed = THREE.MathUtils.damp(state.speed, CRUISE * 1.06, 1.5, dt);
 
+    // TROIS TEMPS, comme une vraie rotation. Le manche se tire doucement, le
+    // nez se lève et le train décolle ; l'assiette est ensuite tenue, franche
+    // et constante, tout le temps de la montée ; puis elle se rend à plat
+    // aussi doucement qu'elle était venue. Le lissage en S donne aux deux
+    // extrémités une dérivée nulle : ni charnière au départ, ni butée à
+    // l'arrivée. Une simple rampe d'angle donnait ces deux à-coups.
+    const lisse = u => u * u * (3 - 2 * u);
     if (T.t < ROULAGE) {
-      state.pos.y = SOL_Y;                       // roulage, train au sol
-      state.pitch = 0;
+      state.pitch = 0;                           // roulage, train au sol
+    } else if (T.t < ROULAGE + ROTATION) {
+      state.pitch = ASSIETTE * lisse((T.t - ROULAGE) / ROTATION);
+    } else if (T.arrondi === undefined) {
+      state.pitch = ASSIETTE;
+      // L'arrondi ne part pas à une date fixe mais quand ce qu'il reste à
+      // monter tient exactement dedans : l'avion arrive donc à l'altitude de
+      // croisière au moment précis où son assiette revient à zéro, sans
+      // qu'aucune position n'ait à être forcée.
+      if (state.pos.y + state.speed * ARRONDI * Math.sin(ASSIETTE) * 0.5 >= ALT_DEPART) {
+        T.arrondi = T.t;
+      }
     } else {
-      const k = Math.min(1, (T.t - ROULAGE) / MONTEE);
-      const e = 1 - Math.pow(1 - k, 2.2);        // montée qui s'assoit
-      state.pos.y = SOL_Y + (ALT_DEPART - SOL_Y) * e;
-      state.pitch = Math.sin(Math.PI * k) * 0.42; // cabré puis remis à plat
+      state.pitch = ASSIETTE * (1 - lisse(Math.min(1, (T.t - T.arrondi) / ARRONDI)));
     }
-    state.pos.z -= state.speed * dt;
+
+    // La trajectoire découle maintenant de l'assiette au lieu de lui être
+    // imposée. Avant, l'avion montait 162 mètres en deux secondes le nez à
+    // 24 degrés : il fallait 77 degrés de pente pour cela, l'avion lévitait.
+    // La caméra, elle, suivait la vraie trajectoire — et perdait d'un coup
+    // ses 80 m/s de montée au passage en vol libre. C'était tout le saut.
+    if (state.pitch > ROUE_LEVE) state.pos.y += state.speed * Math.sin(state.pitch) * dt;
+    state.pos.z -= state.speed * Math.cos(state.pitch) * dt;
 
     euler.set(state.pitch, 0, 0);
     state.quat.setFromEuler(euler);
@@ -2691,18 +2862,26 @@ function simulate(dt) {
     // un suivi collé, le flottement reprendra en l'air.
     _cd.subVectors(state.pos, T.prev || state.pos).divideScalar(Math.max(dt, 1e-4));
     if (!T.prev) T.prev = state.pos.clone(); else T.prev.copy(state.pos);
-    springCamera(_v, dt, 150, 24, _cd);
+    // Le ressort se détend pendant l'arrondi jusqu'aux valeurs du vol libre :
+    // au décollage on veut un suivi collé, en l'air le flottement fait la
+    // vie de l'image. Passer de l'un à l'autre d'un seul coup se voyait.
+    const relache = T.arrondi === undefined ? 0
+      : Math.min(1, (T.t - T.arrondi) / ARRONDI);
+    springCamera(_v, dt, 150 + (44 - 150) * relache, 24 + (10.2 - 24) * relache, _cd);
     if (camera.position.y < 2.5) camera.position.y = 2.5;
 
-    if (T.t >= ROULAGE + MONTEE) {
+    if (T.arrondi !== undefined && T.t - T.arrondi >= ARRONDI) {
       state.takeoff = null;
-      state.pos.y = ALT_DEPART;
       state.pitch = 0;
-      state.speed = CRUISE;
       state.waveTimer = 0.8;   // la première vague arrive juste après le décollage
-      // la boucle normale reprend l'orientation là où la caméra est vraiment
+      // La boucle normale reprend l'orientation là où la caméra est vraiment.
+      // Le quaternion lu contient déjà la déclinaison, que le vol libre va
+      // rajouter par-dessus : sans la retirer ici, la caméra piquait de
+      // CAM_DECLIN une seconde fois en une seule image — douze degrés d'un
+      // coup, soit les sept cents degrés par seconde qu'on mesurait. C'était
+      // tout le saut de fin de décollage.
       euler.setFromQuaternion(camera.quaternion, 'YXZ');
-      state.camPitch = euler.x;
+      state.camPitch = euler.x - CAM_DECLIN;
       state.camYaw = euler.y;
       state.camRoll = euler.z;
     }
@@ -2968,6 +3147,24 @@ function scrape(dt) {
       return;
     }
   }
+  // La tour percée d'abord : sa fenêtre est la plus étroite du jeu, et c'est
+  // la seule structure dont les montants encadrent l'altitude de croisière.
+  for (const t of tours) {
+    for (const b of t.boites) {
+      if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) {
+        repousse(b.x, b.z);
+        return;
+      }
+    }
+    const q = t.passage;
+    if (q && !t.prise && heurte(q.x, q.z, q.hx, q.hz, q.y0, q.y1)) {
+      t.prise = true;
+      state.structure = Math.min(100, state.structure + TOUR_PRIME);
+      state.score += 400;
+      announce('TOUR TRAVERSÉE  ·  +' + TOUR_PRIME);
+      SFX.vagueNette();
+    }
+  }
   for (const a of arches) {
     for (const b of a.boites) {
       if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) {
@@ -2975,12 +3172,14 @@ function scrape(dt) {
         return;
       }
     }
-    // Traverser rapporte de la vie, mais une seule fois par vague : sinon il
-    // suffirait de faire des allers-retours sous la même arche.
+    // Traverser rapporte de la vie, mais chaque arche ne se laisse prendre
+    // qu'une fois par vague : on ne peut pas faire d'allers-retours sous la
+    // même, en revanche les six arches se cumulent. Aller chercher la
+    // deuxième, c'est accepter de quitter le combat pour la trouver.
     const p = a.passage;
-    if (p && !state.archePassee &&
+    if (p && !a.prise &&
         heurte(p.x, p.z, p.hx, p.hz, p.y0, p.y1)) {
-      state.archePassee = true;
+      a.prise = true;
       state.structure = Math.min(100, state.structure + ARCHE_PRIME);
       state.score += 150;
       announce('ARCHE FRANCHIE  ·  +' + ARCHE_PRIME);
@@ -2993,6 +3192,11 @@ function updateDecor() {
   // la sphère se translate avec la caméra mais ne tourne jamais : les
   // étoiles restent donc à leur place dans le ciel
   for (const e of etoiles) e.position.copy(camera.position);
+  if (soleilMesh) {
+    soleilMesh.position.copy(camera.position).addScaledVector(SOLEIL, 4500);
+    couronneMesh.position.copy(soleilMesh.position);
+    couronneMesh.lookAt(camera.position);
+  }
   grid.position.set(
     Math.round(state.pos.x / GRID_STEP) * GRID_STEP,
     0,
@@ -3003,6 +3207,9 @@ function updateDecor() {
   }
   for (const a of arches) {
     if (a.g.position.distanceTo(state.pos) > 4600) placeArche(a, false);
+  }
+  for (const t of tours) {
+    if (t.g.position.distanceTo(state.pos) > 5000) placeTour(t, false);
   }
 }
 
@@ -3040,6 +3247,27 @@ function drawHud() {
   state.screenX = pSelf.x;
   state.screenY = pSelf.y;
 
+  // SOLEIL DANS LE DOS. Tant que la condition tient, un halo doux s'allume
+  // autour de l'avion et un bandeau le dit en clair. Ce n'est pas un effet :
+  // c'est l'affichage d'un état qui existait déjà dans le calcul depuis la
+  // v0.32 sans que rien à l'écran ne le signale — on en profitait sans
+  // pouvoir le chercher.
+  const dos = dosSoleil();
+  if (dos > 0.02) {
+    // La condition est franche : soit l'adversaire vous cherche dans le soleil,
+    // soit non. Le halo est donc déjà lisible dès qu'elle s'ouvre, et se
+    // renforce ensuite — un fondu proportionnel l'aurait rendu invisible
+    // pile au moment où il devient vrai.
+    const f = 0.4 + 0.6 * dos;
+    const R0 = 58 + 34 * dos;
+    const g = hctx.createRadialGradient(pSelf.x, pSelf.y, R0 * 0.25, pSelf.x, pSelf.y, R0);
+    g.addColorStop(0, 'rgba(190,255,220,' + (0.26 * f).toFixed(3) + ')');
+    g.addColorStop(0.55, 'rgba(120,255,190,' + (0.13 * f).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(70,255,160,0)');
+    hctx.fillStyle = g;
+    hctx.beginPath(); hctx.arc(pSelf.x, pSelf.y, R0, 0, Math.PI * 2); hctx.fill();
+  }
+
   hctx.lineWidth = 1.5;
   hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
   hctx.textAlign = 'center';
@@ -3058,9 +3286,14 @@ function drawHud() {
     const ch = state.lock ? state.lockCharge : 0;
     const jit = () => (Math.random() - 0.5) * 2.4 * ch;
     const cx = nose.x + jit(), cy = nose.y + jit();
+    // Tant que la charge n'atteint pas le seuil de tir, le viseur reste en
+    // demi-teinte : il se ferme, mais rien ne part encore. C'est la seule
+    // information que le joueur a besoin de lire pendant cette demi-seconde.
+    const arme = ch >= SEUIL_TIR;
+    const alpha = ch > 0 ? (arme ? 0.85 + 0.15 * ch : 0.4 + 0.5 * ch / SEUIL_TIR) : 0.85;
     hctx.strokeStyle = ch > 0
       ? 'rgba(' + Math.round(143 + 112 * ch) + ', 255, ' + Math.round(196 + 59 * ch) + ', '
-        + (0.85 + 0.15 * ch).toFixed(2) + ')'
+        + alpha.toFixed(2) + ')'
       : 'rgba(143,252,196,0.85)';
     hctx.fillStyle = hctx.strokeStyle;
     // Le viseur s'ouvre large à l'accrochage puis se referme : large, il dit
@@ -3172,6 +3405,15 @@ function drawHud() {
     hctx.moveTo(joy.ox, joy.oy); hctx.lineTo(joy.x, joy.y); hctx.stroke();
   }
 
+  if (dos > 0.02) {
+    hctx.save();
+    hctx.font = '12px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.fillStyle = 'rgba(190,255,220,' + (0.55 + 0.4 * dos).toFixed(2) + ')';
+    // sous le cadran d'assiette, qui occupe le coin haut gauche
+    hctx.fillText('SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS', w / 2, h * 0.215);
+    hctx.restore();
+  }
+
   // cadres de désignation, et flèche vers la cible la plus proche hors champ
   for (const e of state.enemies) {
     const d = e.pos.distanceTo(state.pos);
@@ -3180,6 +3422,17 @@ function drawHud() {
     if (!onScreen) continue;
     const size = THREE.MathUtils.clamp(2200 / d, 12, 60);
     const locked = state.lock === e;
+    // Un adversaire qui vous cherche dans le soleil bat lentement : on voit
+    // lequel ne vous voit pas, donc lequel on peut aborder sans risque.
+    const aveugle = (e.gene || 0) > 0.03;
+    if (aveugle) {
+      const bat = 0.45 + 0.4 * Math.sin(performance.now() / 190);
+      hctx.save();
+      hctx.strokeStyle = 'rgba(190,255,220,' + (bat * e.gene).toFixed(2) + ')';
+      hctx.lineWidth = 1;
+      hctx.beginPath(); hctx.arc(p.x, p.y, size * 1.45, 0, Math.PI * 2); hctx.stroke();
+      hctx.restore();
+    }
     hctx.strokeStyle = locked ? '#ffffff' : 'rgba(70,255,160,0.75)';
     if (locked) {
       const ch = state.lockCharge;
