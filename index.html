@@ -349,7 +349,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.47</button>
+  <button id="versionBtn">v0.48</button>
 </div>
 
 <div id="bottombar">
@@ -517,6 +517,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.48</b> — les adversaires ne traversent plus les bâtiments. Le décollage part pile sur l'axe de la piste, les roquettes lâchent quatre fois plus de fumée au départ, et l'échelle de tangage ne monte plus qu'en montée. Boussole : la forme dit le type, la taille dit la distance.</div>
   <div><b>v0.47</b> — le manche répond à la distance au centre et non à chaque axe : il était très inégal hors des axes. L'avion ne disparaît plus une fois posé cap au sud, et la caméra ne fait plus le tour au redécollage.</div>
   <div><b>v0.46</b> — le décollage respecte le cap où l'on est posé : après une réparation faite cap au sud, l'appareil basculait de 180 degrés en une image. Le moteur prend ses tours une demi-seconde pendant que les mécaniciens dégagent, puis la vitesse monte en S. La caméra rejoint sa place au ressort au lieu d'y sauter — 27 unités de bond, il en reste 4. Le boost double, ne s'arme qu'au-delà de 600 mètres, s'attend deux fois moins et tient encore trois quarts de seconde après l'accrochage : on arrive en tirant. Les flèches gardent un cercle fixe, c'est leur finesse qui dit l'angle. Le premier adversaire de la vague 1 arrive pile dans l'axe, en guise de leçon ; ensuite il reste devant, décalé. Les roquettes atteignent enfin les pièces au sol — elles s'ouvraient sur le plancher juste avant. Tanks trois fois plus rares. Les caps de la piste sont de vrais contours fermés, et son pourtour redevient visible.</div>
   <div><b>v0.45</b> — taper un mur fait maintenant tourner l'avion du côté où il y a de la place : on tapait, on reculait, on repartait droit dessus, on retapait. On peut monter jusqu'à 85 degrés au lieu de 68, mais au-delà de 58 le moteur ne suit plus et la cellule vacille — même chose sous le plafond. On peut aller à la verticale, on ne peut pas y rester. L'arrondi du décollage s'adoucit : le sommet de la vague arrive à 42 % au lieu de 50, la remise à plat a donc plus de temps. Les caps de la piste sont creux, contour seul.</div>
@@ -2315,7 +2316,7 @@ function poserMecanos() {
 }
 
 function chasserMecanos() {
-  for (const m of mecanos) m.fuite = 0.55;
+  for (const m of mecanos) m.fuite = 0.9;
 }
 
 function updateMecanos(dt) {
@@ -2324,7 +2325,8 @@ function updateMecanos(dt) {
     if (m.fuite > 0) {
       // ils dégagent perpendiculairement à la piste, puis disparaissent
       m.fuite -= dt;
-      m.p.x += m.cote * 62 * dt;
+      // moitié moins vite : ils s'écartent, ils ne détalent pas
+      m.p.x += m.cote * 31 * dt;
       m.g.position.copy(m.p);
       m.g.rotation.y = m.cote > 0 ? -Math.PI / 2 : Math.PI / 2;
       if (m.fuite <= 0) m.g.visible = false;
@@ -2688,7 +2690,8 @@ const euler = new THREE.Euler(0, 0, 0, 'YXZ'); // lacet d'abord, puis tangage : 
 // même de commencer.
 function poseAuSol() {
   state.auSol = true;
-  state.pos.set(0, SOL_Y, 0);
+  // pile sur l'axe, au seuil : la piste est là pour être suivie
+  state.pos.set(0, SOL_Y, PISTE.z0 - 90);
   state.yaw = 0; state.pitch = 0; state.roll = 0;
   state.camYaw = 0; state.camPitch = 0; state.camRoll = 0; state.camSpin = 0;
   state.speed = 0;
@@ -3112,6 +3115,8 @@ function updateEnemies(dt) {
 
     e.mesh.position.copy(e.pos);
     e.mesh.quaternion.copy(e.quat);
+    if (!K.sol) ecarterDuDecor(e);
+    e.mesh.position.copy(e.pos);
     e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
 
     // tir ennemi : même test de cône que le joueur, plus ou moins large selon
@@ -3233,6 +3238,37 @@ function updateChutes(dt) {
       scene.remove(c.mesh);
       state.chutes.splice(i, 1);
     }
+  }
+}
+
+// LE DÉCOR EST SOLIDE POUR TOUT LE MONDE. Les adversaires traversaient les
+// pylônes et les arches comme s'ils n'existaient pas, ce qui d'un coup faisait
+// du décor une illusion. Ils en sont maintenant écartés, et remontés au-dessus
+// des toits plutôt que rejetés sur le côté quand c'est le plus court : un
+// avion qui rencontre un bâtiment passe par-dessus, il ne recule pas.
+function ecarterDuDecor(e) {
+  const R = e.kind.envergure * 0.5 + 6;
+  const test = (bx, bz, hx, hz, y0, y1) => {
+    if (e.pos.y < y0 - R || e.pos.y > y1 + R) return false;
+    const dx = e.pos.x - bx, dz = e.pos.z - bz;
+    if (Math.abs(dx) > hx + R || Math.abs(dz) > hz + R) return false;
+    const parHaut = y1 + R - e.pos.y;
+    const parX = hx + R - Math.abs(dx);
+    const parZ = hz + R - Math.abs(dz);
+    if (parHaut < Math.min(parX, parZ) * 1.6) e.pos.y = y1 + R;
+    else if (parX < parZ) e.pos.x = bx + Math.sign(dx || 1) * (hx + R);
+    else e.pos.z = bz + Math.sign(dz || 1) * (hz + R);
+    return true;
+  };
+  for (const t of towers) {
+    if (test(t.position.x, t.position.z, 9 * t.scale.x, 9 * t.scale.z,
+             0, TOWER_H * t.scale.y)) return;
+  }
+  for (const a of arches) for (const b of a.boites) {
+    if (test(b.x, b.z, b.hx, b.hz, b.y0, b.y1)) return;
+  }
+  for (const t of tours) for (const b of t.boites) {
+    if (test(b.x, b.z, b.hx, b.hz, b.y0, b.y1)) return;
   }
 }
 
@@ -4520,8 +4556,11 @@ function drawHud() {
     // depuis ce centre s'ouvrait déjà en palier. L'angle de la caméra à
     // l'horizontale, lui, vaut zéro quand on vole à plat, quoi qu'il arrive.
     // Rien avant douze degrés, plein à trente.
+    // Seulement le nez haut : en piqué on voit le sol, qui dit tout ce qu'il
+    // y a à savoir. C'est en montée qu'on perd ses repères, quand il n'y a
+    // plus que du ciel.
     const aide = THREE.MathUtils.clamp(
-      (Math.abs(state.camPitch) * 180 / Math.PI - 12) / 18, 0, 1);
+      (state.camPitch * 180 / Math.PI - 12) / 18, 0, 1);
     if (aide > 0.01) {
       hctx.save();
       hctx.lineWidth = 1.5;
@@ -4630,7 +4669,7 @@ function drawHud() {
       const x = px(d);
       hctx.strokeStyle = bord(d) ? 'rgba(143,252,196,0.35)' : 'rgba(143,252,196,0.85)';
       hctx.lineWidth = 1;
-      hctx.strokeRect(x - 8, by + 3, 16, 7);
+      hctx.strokeRect(x - 3.5, by + 2, 7, 13);
       hctx.lineWidth = 1.5;
     }
 
@@ -4641,20 +4680,27 @@ function drawHud() {
       hctx.strokeStyle = state.lock === e ? '#ffffff'
                        : bord(d) ? 'rgba(70,255,160,0.4)' : 'rgba(70,255,160,0.9)';
       hctx.lineWidth = 1.1;
+      const kt = 0.45 + 0.55 * THREE.MathUtils.clamp(
+        1 - e.pos.distanceTo(state.pos) / 2200, 0, 1);
       hctx.beginPath();
-      hctx.moveTo(x, L_ENN - 5.5); hctx.lineTo(x - 4.5, L_ENN + 2.5);
-      hctx.lineTo(x + 4.5, L_ENN + 2.5);
+      hctx.moveTo(x, L_ENN - 5.5 * kt); hctx.lineTo(x - 4.5 * kt, L_ENN + 2.5 * kt);
+      hctx.lineTo(x + 4.5 * kt, L_ENN + 2.5 * kt);
       hctx.closePath(); hctx.stroke();
       hctx.lineWidth = 1.5;
     }
 
-    // LES POINTS DE VIE — une astérisque par arche et par tour encore à prendre
-    const etoile = (x, y, r, a) => {
+    // LES POINTS DE VIE. La FORME dit le type — trois branches pour les dix
+    // pour cent d'une arche, quatre pour les vingt-cinq d'une tour — et la
+    // TAILLE dit la distance, comme pour tout le reste du HUD. Deux
+    // informations, deux grandeurs, jamais la même deux fois.
+    const proche = v => THREE.MathUtils.clamp(
+      1 - v.distanceTo(state.pos) / 3000, 0.18, 1);
+    const etoile = (x, y, r, n, a) => {
       hctx.strokeStyle = 'rgba(190,255,220,' + a + ')';
       hctx.lineWidth = 0.8;
       hctx.beginPath();
-      for (let k = 0; k < 3; k++) {
-        const t = k * Math.PI / 3 + Math.PI / 2;
+      for (let k = 0; k < n; k++) {
+        const t = k * Math.PI / n + Math.PI / 2;
         hctx.moveTo(x - Math.cos(t) * r, y - Math.sin(t) * r);
         hctx.lineTo(x + Math.cos(t) * r, y + Math.sin(t) * r);
       }
@@ -4664,12 +4710,12 @@ function drawHud() {
     for (const a of arches) {
       if (a.prise) continue;
       const d = dc(capDe(a.g.position));
-      etoile(px(d), L_VIE, 4, bord(d) ? '0.3' : '0.7');
+      etoile(px(d), L_VIE, 2 + 4 * proche(a.g.position), 3, bord(d) ? '0.3' : '0.75');
     }
     for (const t of tours) {
       if (t.prise) continue;
       const d = dc(capDe(t.g.position));
-      etoile(px(d), L_VIE, 5.5, bord(d) ? '0.35' : '0.95');
+      etoile(px(d), L_VIE, 2.4 + 4.6 * proche(t.g.position), 4, bord(d) ? '0.35' : '0.95');
     }
 
     // le repère du cap courant, au-dessus de tout

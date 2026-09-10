@@ -150,6 +150,47 @@ déplace exactement le long de son nez. Le vecteur vitesse tomberait donc pile
 sur le viseur et ne dirait rien. Suppose d'abord de donner une incidence au
 modèle — l'aile portant à un angle différent de celui du fuselage.
 
+## Coop à deux en ligne
+
+Deux joueurs sur le même site, dans la même partie, contre les mêmes vagues.
+Bouton COOP au menu, un code court à partager. WebRTC en pair à pair, sans
+serveur de jeu — reste à trancher le rôle d'hôte, ce qui est synchronisé et
+ce qui ne l'est pas.
+
+## Troisième halo : le boost de tir
+
+Un état où l'on tire deux fois plus vite et où l'écran vibre. Le déclencheur
+reste à trouver. À ajouter à la planche d'essai des halos, avec le bouclier
+et le soleil dans le dos.
+
+## Traduction anglaise
+
+Option de langue au menu, et détection automatique : français si le
+téléphone est en français, anglais sinon.
+
+## Easter egg du soleil
+
+Fixer le soleil six secondes déclenche quelque chose. Dix propositions à
+faire.
+
+## Le premier avion en option
+
+Le tout premier modèle dessiné à la main, avant le STL, revient comme skin.
+
+## Un mécanicien qui n'a pas le temps
+
+S'il est encore devant l'avion au moment du départ, il se jette à terre et
+se couche pour laisser passer.
+
+## Caps de piste tricheurs
+
+Une direction pointe vers Hangzhou, l'autre vers Arcachon, calculées depuis
+Bayonne — donc pas à 180 degrés l'une de l'autre.
+
+## Bouton DÉCOLLER sous l'avion
+
+Dans la zone du pouce, en bas de l'écran.
+
 ## Questions restées ouvertes
 
 - Le chrono en haut à gauche ne sert à rien. Score au temps, ou décor.
