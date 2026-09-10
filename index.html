@@ -349,7 +349,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.46</button>
+  <button id="versionBtn">v0.47</button>
 </div>
 
 <div id="bottombar">
@@ -517,6 +517,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.47</b> — le manche répond à la distance au centre et non à chaque axe : il était très inégal hors des axes. L'avion ne disparaît plus une fois posé cap au sud, et la caméra ne fait plus le tour au redécollage.</div>
   <div><b>v0.46</b> — le décollage respecte le cap où l'on est posé : après une réparation faite cap au sud, l'appareil basculait de 180 degrés en une image. Le moteur prend ses tours une demi-seconde pendant que les mécaniciens dégagent, puis la vitesse monte en S. La caméra rejoint sa place au ressort au lieu d'y sauter — 27 unités de bond, il en reste 4. Le boost double, ne s'arme qu'au-delà de 600 mètres, s'attend deux fois moins et tient encore trois quarts de seconde après l'accrochage : on arrive en tirant. Les flèches gardent un cercle fixe, c'est leur finesse qui dit l'angle. Le premier adversaire de la vague 1 arrive pile dans l'axe, en guise de leçon ; ensuite il reste devant, décalé. Les roquettes atteignent enfin les pièces au sol — elles s'ouvraient sur le plancher juste avant. Tanks trois fois plus rares. Les caps de la piste sont de vrais contours fermés, et son pourtour redevient visible.</div>
   <div><b>v0.45</b> — taper un mur fait maintenant tourner l'avion du côté où il y a de la place : on tapait, on reculait, on repartait droit dessus, on retapait. On peut monter jusqu'à 85 degrés au lieu de 68, mais au-delà de 58 le moteur ne suit plus et la cellule vacille — même chose sous le plafond. On peut aller à la verticale, on ne peut pas y rester. L'arrondi du décollage s'adoucit : le sommet de la vague arrive à 42 % au lieu de 50, la remise à plat a donc plus de temps. Les caps de la piste sont creux, contour seul.</div>
   <div><b>v0.44</b> — le saut après le décollage est corrigé. La caméra ne suivait pas la séquence, elle la poursuivait : un ressort traîne toujours un peu, et la place idéale balaie vingt unités quand le nez revient à plat. L'avion montait puis redescendait de 139 pixels à l'écran ; il n'en bouge plus que de 40, et reste rigoureusement fixe pendant toute la montée. la boussole gagne deux étages : un triangle par adversaire, une astérisque par arche et par tour encore à prendre, un rectangle pour la piste. On peut se poser dans les deux sens, tant qu'on touche avant la moitié, et une jauge POSÉ dit à quel point on y est. La surface de la piste est pleine et noire, elle masque la grille dessous ; il ne reste que l'axe et les caps, tracés en trait épais. Se frôler ne fait plus de bruit et ne coûte rien : c'est lui qui s'écarte, jamais nous. Biplan et chasseur accélérés, on les doublait sans le vouloir. POURSUITE devient BOOST.</div>
@@ -2733,6 +2734,7 @@ function redecoller() {
   // on repart dans le sens où l'on s'est posé
   state.pos.set(0, SOL_Y, state.pos.z);
   state.pitch = 0; state.roll = 0;
+  state.camYaw = state.yaw; state.camPitch = 0; state.camRoll = 0; state.camSpin = 0;
   state.takeoff = { t: 0 };
   state.regime = 0;
   state.speed = 0;
@@ -3603,14 +3605,19 @@ function simulate(dt) {
   // hargne au bout pour retourner la situation. La part linéaire, volontairement
   // faible, tient le centre ; la part quadratique donne tout le reste. À
   // mi-course on obtient un cinquième de l'autorité, à fond la totalité.
-  // La part quadratique devient quartique : à mi-course l'autorité tombe de
-  // 21 à 11 %, soit 14 degrés par seconde au lieu de 26. C'est là qu'on suit
-  // un adversaire qui tourne autour de vous, et c'est là qu'il fallait de la
-  // finesse. Les deux bouts ne bougent pas : le centre reste très fin, le
-  // plein manche donne toujours tout.
-  const curve = v => v * (0.17 + 0.83 * v * v * v * v);
-  const yawRate   = -curve(dx) * MAX_YAW;
-  const pitchRate = -curve(dy) * MAX_PITCH;
+  // LA COURBE PORTE SUR LA DISTANCE AU CENTRE, PAS SUR CHAQUE AXE. Appliquée
+  // séparément à x et à y, elle rendait le manche inégal dès qu'on sortait des
+  // axes : à fond à gauche en train de suivre quelqu'un, un même geste
+  // vertical donnait beaucoup en s'éloignant du centre et presque rien en s'en
+  // rapprochant, puisque seule l'ordonnée comptait et qu'elle passait par sa
+  // zone fine. On calcule donc un gain unique sur le rayon, et on le répartit
+  // sur les deux axes : la réponse ne dépend plus que de l'écart au centre,
+  // dans toutes les directions également.
+  const rayon = Math.min(1, Math.hypot(dx, dy));
+  const courbe = v => v * (0.17 + 0.83 * v * v * v * v);
+  const gain = rayon > 1e-4 ? courbe(rayon) / rayon : 0;
+  const yawRate   = -dx * gain * MAX_YAW;
+  const pitchRate = -dy * gain * MAX_PITCH;
 
   state.yaw   += yawRate * dt;
   state.pitch = THREE.MathUtils.clamp(state.pitch + pitchRate * dt, -PITCH_LIMIT, PITCH_LIMIT);
@@ -3767,10 +3774,27 @@ function simulate(dt) {
     // Le modèle d'énergie tourne plus haut dans la fonction et ramènerait la
     // vitesse vers la croisière : on la maintient à zéro, l'avion est arrêté.
     state.speed = 0;
+    state.pitch = 0; state.roll = 0;
+    euler.set(0, state.yaw, 0);
+    state.quat.setFromEuler(euler);
+    state.forward.set(0, 0, -1).applyQuaternion(state.quat);
+    playerMesh.quaternion.copy(state.quat);
     state.structure = Math.min(100, state.structure + REPARE_PAR_S * dt);
     propMesh.rotation.z += 3.4 * dt;
     playerMesh.position.copy(state.pos);
-    _v.copy(camOffset).add(state.pos);
+    // LE DÉCALAGE DE CAMÉRA DOIT TOURNER AVEC LE CAP. Il était ajouté tel quel,
+    // en axes du monde : posé cap au sud, l'appareil se retrouvait DEVANT sa
+    // caméra, qui regardait donc l'horizon vide — l'avion avait disparu. Et au
+    // redécollage la caméra devait faire le tour complet pour se remettre
+    // derrière, ce qui donnait la révolution qu'on voyait. Elle se place
+    // maintenant dans le repère de l'appareil, comme partout ailleurs.
+    euler.set(0, state.yaw, 0);
+    _qa.setFromEuler(euler);
+    euler.set(CAM_DECLIN, state.yaw, 0);
+    camera.quaternion.setFromEuler(euler);
+    state.camPitch = 0; state.camYaw = state.yaw;
+    state.camRoll = 0; state.camSpin = 0;
+    _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
     springCamera(_v, dt, 60, 16, _cv.set(0, 0, 0));
     if (camera.position.y < 2.5) camera.position.y = 2.5;
     majFov(dt);
@@ -3897,13 +3921,22 @@ function simulate(dt) {
       state.takeoff = null;
       state.pitch = 0;
       if (state.wave === 0) state.waveTimer = 0.8;
-      // Le quaternion lu contient déjà la déclinaison, que le vol libre va
-      // rajouter par-dessus : sans la retirer ici, la caméra piquerait de
-      // CAM_DECLIN une seconde fois en une seule image.
-      euler.setFromQuaternion(camera.quaternion, 'YXZ');
-      state.camPitch = euler.x - CAM_DECLIN;
-      state.camYaw = euler.y;
-      state.camRoll = euler.z;
+      // ON NE RELIT PAS LE QUATERNION. On connaît les trois angles : ce sont
+      // ceux qu'on vient d'écrire. Les redéduire d'un quaternion est un
+      // aller-retour qui ne peut que perdre — la décomposition en YXZ borne le
+      // tangage à quatre-vingt-dix degrés et compense en retournant le lacet
+      // d'un demi-tour. C'est exactement ce qui arrivait : la caméra repartait
+      // en vol libre avec un tangage de moins quatre-vingt-cinq degrés et un
+      // cap inversé, puis remontait lentement en tournant autour de l'avion.
+      // Le tour complet qu'on voyait après une réparation venait de là.
+      // On ne relit pas le quaternion pour en redéduire les angles : ce sont
+      // ceux qu'on vient d'écrire. L'aller-retour par une décomposition YXZ
+      // borne le tangage à quatre-vingt-dix degrés et compense en retournant
+      // le lacet d'un demi-tour, ce qui est exactement le genre de bascule
+      // qu'on cherche à éviter ici.
+      state.camYaw = T.yaw;
+      state.camRoll = 0;
+      state.camSpin = 0;
     }
     updateMecanos(dt);
     updateDecor();
@@ -5261,7 +5294,13 @@ window.addEventListener('pointerdown', e => {
 window.addEventListener('pointermove', e => {
   // une souris garde sa position quand elle s'arrête : elle reste donc
   // « posée ». Seul un doigt se lève, et c'est lui seul qui rend la main.
-  if (e.pointerType === 'mouse') { touchMode = false; aim.active = true; setAimDirect(e); return; }
+  if (e.pointerType === 'mouse') {
+    // ... mais elle ne pilote pas quand elle survole l'interface. Passer sur
+    // REDÉCOLLER, posé en bas de l'écran, commandait un piqué à fond.
+    const el = e.target instanceof Element ? e.target : null;
+    if (el && el.closest('#overlay, #changelog, #aide, #viseurs, button')) return;
+    touchMode = false; aim.active = true; setAimDirect(e); return;
+  }
   if (!joy.on) return;
   joy.x = e.clientX; joy.y = e.clientY;
   setAimFromJoy();
