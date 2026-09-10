@@ -214,7 +214,7 @@
   <span class="spacer"></span>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.18</button>
+  <button id="versionBtn">v0.19</button>
 </div>
 
 <div id="bottombar">
@@ -232,6 +232,11 @@
   tout seul.</p>
   <p>Le décor ne t'arrête pas : le sol et les pylônes t'éraflent, tu rebondis
   et tu perds un peu de vie. On peut raser.</p>
+
+  <p>Une unité vaut un mètre. La vitesse de croisière, 92 m/s, fait 331 km/h ;
+  le plafond est à 480 mètres. Les envergures sont réelles : 8,5 m pour le
+  biplan comme un Sopwith Camel, 11,2 m pour le chasseur comme un Spitfire,
+  12 m pour toi.</p>
 
   <h2>FIGURES</h2>
   <p>Deux appuis rapprochés déclenchent une figure, dans la direction du geste
@@ -303,6 +308,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.19</b> — les avions passent aux dimensions réelles, une unité valant un mètre. Le joueur mesurait 14,4 m d'envergure contre 4,4 à 7,8 à ses adversaires : il écrasait tout. Chaque appareil déclare maintenant son envergure et sa maquette s'y plie — 8,5 m pour le biplan comme un Sopwith Camel, 11,2 m pour le chasseur comme un Spitfire, 7,5 m pour l'intercepteur à aile courte, 6 m pour le drone, 12 m pour le joueur. La caméra se rapproche d'autant pour que le cadrage ne bouge pas, et les rayons de collision reviennent à des tailles d'avion.</div>
   <div><b>v0.18</b> — caméra rapprochée, l'avion occupe deux fois plus d'écran : le ressort traînait d'un écart constant de 21 unités, il réinjecte maintenant 80 % de la vitesse de l'avion et ne garde que le flottement. Première vague ramenée à un seul biplan, la montée se fait sur onze vagues. Et du son, entièrement synthétisé, sans un fichier : moteur qui monte avec la vitesse, tir sec, accroche, mise en puissance, impacts, destructions, souffles de figures, éraflures. Bouton SON pour couper.</div>
   <div><b>v0.17</b> — quatre adversaires au lieu d'un, chacun avec sa silhouette et sa manière de poursuivre : le biplan en poursuite pure, la courbe du chien de Bouguer ; le chasseur qui se colle dans les six heures ; l'intercepteur en poursuite anticipée, qui résout l'équation du second degré du point de rencontre ; le drone en navigation proportionnelle, celle des missiles, qui braque trois fois plus vite que ne pivote la ligne de visée. Les vagues traversent le siècle : biplans seuls au début, drones à la fin, et les anciens restent en minorité.</div>
   <div><b>v0.16</b> — le jeu se met en pause quand un panneau est ouvert : lire l'aide ne coûte plus la partie. une flèche par ennemi désormais, et sa taille dit la distance : la plus grosse est la plus proche. L'altitude passe d'un chiffre à un curseur entre plancher et plafond. Le décor n'arrête plus l'avion, il l'érafle : on rebondit sur le sol et sur les pylônes en perdant un peu de vie, donc le Split-S bas et le rase-mottes deviennent possibles au lieu d'être refusés. Un bouton d'aide explique le pilotage, le verrouillage et la théorie des courbes de poursuite.</div>
@@ -386,17 +392,24 @@ const CEILING       = 480;    // plafond bas volontaire : la grille au sol est l
 const BURST_GAP     = 0.1;
 const BULLET_SPEED  = 300;
 const BULLET_LIFE   = 3.2;
-const BULLET_HIT    = 10;
-const RAM_DIST      = 13;
+const BULLET_HIT    = 8;     // une balle qui passe à 8 m touche la cellule
+const RAM_DIST      = 11;    // demi-envergure du joueur plus celle d'en face
 // Bouches des deux mitrailleuses, relevées sur le modèle lui-même : ce sont
 // les nacelles d'aile, à 30 % de la demi-envergure. Les traçantes partent de
 // là et convergent sur la cible — c'est le réglage d'harmonisation des armes
 // d'aile, réglées pour se croiser à distance de tir plutôt que rester
 // parallèles.
-// Taille de l'avion du joueur. Un seul nombre : la maquette est décrite pour
-// une envergure de 7,2, ce facteur la porte à 14,4. Les bouches de canon
-// suivent, et les rayons de collision plus bas sont calés dessus.
-const PLANE_SCALE   = 2;
+// ÉCHELLE DU MONDE : une unité vaut un mètre.
+//
+// Le reste du jeu était déjà à cette échelle sans qu'on l'ait dit : 92 m/s
+// font 331 km/h, le plafond est à 480 m, un pylône monte à 360 m. Seuls les
+// avions ne l'étaient pas — le joueur mesurait 14,4 m d'envergure quand ses
+// adversaires en faisaient 4,4 à 7,8. Chaque appareil a maintenant une
+// envergure déclarée en mètres, et sa maquette est mise à l'échelle pour la
+// respecter, quelles que soient les dimensions dans lesquelles elle a été
+// dessinée.
+const ENVERGURE_JOUEUR = 12;   // bimoteur léger à hélice
+const PLANE_SCALE   = ENVERGURE_JOUEUR / 7.2;
 const GUN_L         = { x: -1.077, y: 0.082, z: -2.015 };
 const GUN_R         = { x:  1.071, y: 0.082, z: -2.015 };
 const SHOT_SPEED    = 900;
@@ -785,6 +798,7 @@ const KINDS = [
        0.0, 1.0, 2.2
     ],
     tris: [0,1,2, 0,2,3,  4,5,6, 4,6,7,  8,9,10, 8,10,11,  12,13,14,  9,15,10],
+    envergure: 8.5,   // Sopwith Camel : 8,53 m
     vitesse: [56, 70], virage: 0.75, vie: 70, recharge: [2.3, 3.9],
     cone: Math.cos(12 * Math.PI / 180), portee: 520, rafale: 2
   },
@@ -796,6 +810,7 @@ const KINDS = [
        0, 0, 0.5,   -3.6, 0.95, 1.7, 3.6, 0.95, 1.7
     ],
     tris: [0,1,3, 0,3,2, 1,4,3, 2,3,5],
+    envergure: 11.2,  // Spitfire Mk I : 11,23 m
     vitesse: [74, 90], virage: 1.25, vie: 100, recharge: [0.9, 1.8],
     cone: Math.cos(15 * Math.PI / 180), portee: 900, rafale: 3
   },
@@ -808,6 +823,7 @@ const KINDS = [
       -0.9, 0, 2.2,  0.9, 0, 2.2
     ],
     tris: [0,1,3, 0,3,2, 3,4,5, 6,3,7],
+    envergure: 7.5,   // aile courte, comme tout intercepteur supersonique
     vitesse: [92, 108], virage: 0.95, vie: 90, recharge: [1.0, 2.0],
     cone: Math.cos(12 * Math.PI / 180), portee: 1050, rafale: 3
   },
@@ -820,6 +836,7 @@ const KINDS = [
        0, 0.8, 0.2
     ],
     tris: [0,1,2, 0,2,3,  3,0,4,  0,1,5,  1,2,6,  2,3,7,  0,8,2],
+    envergure: 6.0,   // engin compact, plus petit que tout ce qui est piloté
     vitesse: [98, 116], virage: 1.75, vie: 80, recharge: [0.7, 1.4],
     cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
   }
@@ -844,6 +861,14 @@ const planeEdges = new THREE.EdgesGeometry(planeGeom, 20);
 for (const k of KINDS) {
   k.geom = idxGeom(k.verts, k.tris);
   k.edges = new THREE.EdgesGeometry(k.geom, 20);
+  // la maquette est ramenée à son envergure réelle, quelle que soit celle
+  // dans laquelle elle a été dessinée
+  let xmin = Infinity, xmax = -Infinity;
+  for (let i = 0; i < k.verts.length; i += 3) {
+    if (k.verts[i] < xmin) xmin = k.verts[i];
+    if (k.verts[i] > xmax) xmax = k.verts[i];
+  }
+  k.echelle = k.envergure / (xmax - xmin);
 }
 
 const playerMesh = solidWire(planeGeom, planeEdges, matPlayer);
@@ -1027,6 +1052,7 @@ function spawnWave() {
     const a = Math.random() * Math.PI * 2;
     const d = 520 + Math.random() * 420;
     const mesh = solidWire(k.geom, k.edges, matEnemy);
+    mesh.scale.setScalar(k.echelle);
     scene.add(mesh);
     state.enemies.push({
       kind: k,
@@ -1330,7 +1356,7 @@ function updateLock(dt) {
 // ---------------------------------------------------------------------------
 // le modèle est un avion à panneaux plats : vu strictement de derrière il
 // se réduit à un trait. La caméra le surplombe un peu pour montrer la voilure.
-const camOffset = new THREE.Vector3(0, 5.0, 16.0);
+const camOffset = new THREE.Vector3(0, 5.0, 16.0).multiplyScalar(ENVERGURE_JOUEUR / 14.4);
 
 // La caméra ne se colle plus à sa place idéale : elle y est rappelée par un
 // ressort amorti et garde sa propre vitesse. Elle se comporte donc comme un
