@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#04070a">
 <title>Fly or Die</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fly or Die">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -33,7 +39,8 @@
      défilement, et seule la mince bande de la barre de défilement — qui, elle,
      appartient au panneau lui-même — répondait. */
   #aide, #aide *, #changelog, #changelog *, #viseurs, #viseurs *,
-  #coop, #coop *, #overlay, #overlay * { touch-action: pan-y; }
+  #coop, #coop *, #overlay, #overlay *,
+  #install, #install * { touch-action: pan-y; }
 
   html, body {
     margin: 0;
@@ -218,7 +225,7 @@
     margin-top: 2px;
   }
 
-  #changelog, #aide, #viseurs, #coop {
+  #changelog, #aide, #viseurs, #coop, #install {
     /* et les panneaux par-dessus tout */
     position: fixed;
     top: calc(38px + env(safe-area-inset-top));
@@ -236,7 +243,65 @@
     font-size: 12px;
     line-height: 1.5;
   }
-  #changelog[hidden], #aide[hidden], #viseurs[hidden], #coop[hidden] { display: none; }
+  #changelog[hidden], #aide[hidden], #viseurs[hidden], #coop[hidden],
+  #install[hidden] { display: none; }
+
+  /* INSTALLATION. Trois pas numérotés, parce qu'aucun navigateur ne sait
+     expliquer ça et qu'on ne peut pas le faire à la place du joueur sur iOS :
+     Apple n'expose aucune interface pour le proposer. On décrit donc le geste,
+     à l'endroit et au moment où il est utile. */
+  #install ol { margin: 0 0 12px; padding: 0; list-style: none; counter-reset: pas; }
+  #install ol li {
+    display: flex; gap: 11px; align-items: flex-start;
+    margin: 0 0 11px; counter-increment: pas; line-height: 1.55;
+  }
+  #install ol li::before {
+    content: counter(pas);
+    flex: 0 0 auto;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--ph-fill); border: 1px solid var(--ph-line);
+    color: var(--ph-line); font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #install .fin { color: var(--ph-dim); font-size: 11px; line-height: 1.6; margin: 0; }
+  #install .fin b { color: var(--ph-text); font-weight: 500; }
+
+  /* La pastille du haut : elle ne se montre qu'après une première partie, et
+     une seule fois — un rappel n'est pas un harcèlement. */
+  #installPastille {
+    position: fixed;
+    top: calc(44px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 39;
+    background: rgba(7, 24, 18, 0.94);
+    border: 1px solid var(--ph-dim);
+    border-radius: 20px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    padding: 7px 15px;
+  }
+  #installPastille[hidden] { display: none; }
+
+  /* La bascule de version : le seul moment où le hors-ligne peut tromper. */
+  #majPastille {
+    position: fixed;
+    bottom: calc(52px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 44;
+    background: var(--ph-line);
+    border: 1px solid var(--ph-line);
+    border-radius: 20px;
+    color: #04070a;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    padding: 9px 18px;
+  }
+  #majPastille[hidden] { display: none; }
   #coopHote[hidden], #coopInvite[hidden], #coopEtape2[hidden] { display: none; }
   #viseurs .grille {
     display: grid;
@@ -450,6 +515,8 @@
 
 <button id="redecoBtn" hidden data-en="TAKE OFF AGAIN">REDÉCOLLER</button>
 <button id="poserBtn" hidden data-en="LAND">POSER</button>
+<button id="installPastille" hidden data-en="INSTALL · NO NETWORK NEEDED">INSTALLER · SANS RÉSEAU</button>
+<button id="majPastille" hidden data-en="NEW VERSION · RELOAD">NOUVELLE VERSION · RECHARGER</button>
 
 <div id="topbar">
   <span id="scoreLbl">000000</span>
@@ -459,7 +526,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.55</button>
+  <button id="versionBtn">v0.56</button>
 </div>
 
 <div id="bottombar">
@@ -787,6 +854,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.56</b> — le jeu s'installe sur l'écran d'accueil, se lance plein écran et vole sans réseau.</div>
   <div><b>v0.55</b> — l'atterrissage se pilote : huit feux PAPI, un arrondi, quatre cents mètres de roulage et la remise de gaz.</div>
   <div><b>v0.54</b> — on vise là où la cible sera : viseur, magnétisme et balles suivent le point de déflexion.</div>
   <div><b>v0.53</b> — au tonneau, la caméra part avec l'avion, se laisse distancer, puis se recale sur la nouvelle ligne.</div>
@@ -844,6 +912,13 @@
   <div><b>v0.1</b> — premier vol : avion filaire, pilotage à un doigt, vagues d'intercepteurs, jauge de structure.</div>
 </div>
 
+<div id="install" hidden>
+  <h2 data-en="INSTALL THE GAME">INSTALLER LE JEU</h2>
+  <p class="aide" id="installIntro">Fly or Die s'installe comme une application, sans passer par un magasin : une icône sur ton écran d'accueil, plein écran sans barres de navigateur, et il fonctionne <b>sans réseau</b> une fois posé.</p>
+  <ol id="installPas"></ol>
+  <p class="fin" id="installFin"></p>
+</div>
+
 <div id="overlay">
   <h1>FLY OR DIE</h1>
   <p id="overlayText"></p>
@@ -851,6 +926,7 @@
   <button id="startBtn" data-en="TAKE OFF">DÉCOLLER</button>
   <button id="videoBtn" hidden data-en="WATCH A VIDEO · CONTINUE">REGARDER UNE VIDÉO · REPRENDRE</button>
   <button id="coopBtn" data-en="CO-OP">COOP</button>
+  <button id="installBtn" hidden data-en="INSTALL THE GAME">INSTALLER LE JEU</button>
   <button id="expliqueBtn" hidden data-en="NEED AN EXPLANATION?">BESOIN D'EXPLICATIONS ?</button>
   <label id="plusJamais" hidden><input type="checkbox" id="plusJamaisCase"> <span data-en="don't show again">ne plus afficher</span></label>
 </div>
@@ -6405,7 +6481,8 @@ plusJamaisCase.addEventListener('change', () => {
 function majPause() {
   // en coopération le monde ne s'arrête pas : les autres continuent de voler
   state.paused = !coop.actif
-    && (!aide.hidden || !changelog.hidden || !panViseurs.hidden || !panCoop.hidden);
+    && (!aide.hidden || !changelog.hidden || !panViseurs.hidden || !panCoop.hidden
+        || !panInstall.hidden);
 }
 
 document.addEventListener('pointerdown', e => {
@@ -6420,6 +6497,10 @@ document.addEventListener('pointerdown', e => {
   }
   if (!panCoop.hidden && !panCoop.contains(e.target) && e.target !== coopBtn) {
     panCoop.hidden = true;
+  }
+  if (!panInstall.hidden && !panInstall.contains(e.target)
+      && e.target !== installBtn && e.target !== installPastille) {
+    panInstall.hidden = true;
   }
   majPause();
 });
@@ -6539,6 +6620,7 @@ startBtn.addEventListener('click', () => {
   resetGame();
   state.running = true;
   last = performance.now();
+  proposeApresCoup();
 });
 
 function gameOver() {
@@ -6701,7 +6783,7 @@ document.addEventListener('mouseleave', () => { aim.active = false; });
 // consultable jusqu'à la ligne de flottaison et pas au-delà.
 window.addEventListener('touchmove', e => {
   const el = e.target instanceof Element ? e.target : null;
-  if (el && el.closest('#changelog, #aide, #viseurs, #overlay')) return;
+  if (el && el.closest('#changelog, #aide, #viseurs, #overlay, #install')) return;
   e.preventDefault();
 }, { passive: false });
 
@@ -6751,6 +6833,168 @@ if (window.visualViewport) {
 resize();
 aim.x = window.innerWidth / 2;
 aim.y = window.innerHeight / 2;
+
+// ---------------------------------------------------------------------------
+// INSTALLATION. Le jeu tient en un fichier et une bibliothèque : posé sur
+// l'écran d'accueil, il se lance plein écran, sans barre d'adresse, et vole
+// sans réseau. Encore faut-il que le joueur sache que c'est possible.
+//
+// Chrome sait le proposer lui-même : il envoie « beforeinstallprompt », on le
+// met de côté, et le bouton déclenche sa fenêtre native. Safari, lui, n'expose
+// rien du tout — c'est un choix d'Apple, pas un oubli. Sur iPhone il n'y a donc
+// qu'une chose honnête à faire : décrire le geste, à l'endroit et au moment où
+// il sert.
+// ---------------------------------------------------------------------------
+const panInstall = document.getElementById('install');
+const installBtn = document.getElementById('installBtn');
+const installPastille = document.getElementById('installPastille');
+const majPastille = document.getElementById('majPastille');
+
+let inviteNative = null;
+
+const estInstalle = () =>
+  matchMedia('(display-mode: standalone)').matches
+  || matchMedia('(display-mode: fullscreen)').matches
+  || matchMedia('(display-mode: minimal-ui)').matches
+  || navigator.standalone === true;
+
+// Les iPad récents se déclarent « Macintosh » dans leur signature : c'est le
+// nombre de points de contact qui les trahit.
+const estIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+            || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
+
+const PAS_INSTALL = {
+  fr: {
+    ios: ['Touche le bouton <b>Partager</b>, en bas du navigateur — le carré avec la flèche qui monte.',
+          'Fais défiler la liste et choisis <b>Sur l\u2019écran d\u2019accueil</b>.',
+          'Touche <b>Ajouter</b>, en haut à droite.'],
+    autre: ['Ouvre le menu du navigateur — les trois points.',
+            'Choisis <b>Installer l\u2019application</b>, ou <b>Ajouter à l\u2019écran d\u2019accueil</b>.',
+            'Confirme. L\u2019icône se range avec tes autres applications.'],
+    fin: 'Une fois posé, le jeu se lance <b>plein écran</b>, sans barre d\u2019adresse, et <b>sans réseau</b> : le jeu et sa bibliothèque 3D restent sur l\u2019appareil.',
+    intro: 'Fly or Die s\u2019installe comme une application, sans passer par un magasin : une icône sur ton écran d\u2019accueil, plein écran sans barres de navigateur, et il fonctionne <b>sans réseau</b> une fois posé.'
+  },
+  en: {
+    ios: ['Tap the <b>Share</b> button at the bottom of the browser — the square with the arrow.',
+          'Scroll down and pick <b>Add to Home Screen</b>.',
+          'Tap <b>Add</b>, top right.'],
+    autre: ['Open the browser menu — the three dots.',
+            'Pick <b>Install app</b>, or <b>Add to Home screen</b>.',
+            'Confirm. The icon lands with your other apps.'],
+    fin: 'Once installed, the game opens <b>full screen</b>, with no address bar, and <b>works offline</b>: the game and its 3D library stay on the device.',
+    intro: 'Fly or Die installs like an app, with no store in between: an icon on your home screen, full screen with no browser bars, and it <b>works offline</b> once it is there.'
+  }
+};
+
+function ouvreInstall() {
+  const jeu = PAS_INSTALL[langue] || PAS_INSTALL.fr;
+  const pas = estIOS ? jeu.ios : jeu.autre;
+  document.getElementById('installPas').innerHTML =
+    pas.map(p => '<li><span>' + p + '</span></li>').join('');
+  document.getElementById('installFin').innerHTML = jeu.fin;
+  document.getElementById('installIntro').innerHTML = jeu.intro;
+  panInstall.hidden = false;
+  aide.hidden = true; changelog.hidden = true;
+  panViseurs.hidden = true; panCoop.hidden = true;
+  installPastille.hidden = true;
+  majPause();
+}
+
+installBtn.addEventListener('click', async e => {
+  e.stopPropagation();
+  if (inviteNative) {
+    // Chrome sait faire : on ne lui explique rien, on lui demande.
+    inviteNative.prompt();
+    try { await inviteNative.userChoice; } catch (err) {}
+    inviteNative = null;
+    majInstall();
+    return;
+  }
+  ouvreInstall();
+});
+installPastille.addEventListener('click', e => { e.stopPropagation(); ouvreInstall(); });
+
+function majInstall() {
+  const aProposer = !estInstalle();
+  installBtn.hidden = !aProposer;
+  if (!aProposer) { installPastille.hidden = true; panInstall.hidden = true; }
+}
+
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  inviteNative = e;
+  majInstall();
+});
+addEventListener('appinstalled', () => { inviteNative = null; majInstall(); });
+matchMedia('(display-mode: standalone)').addEventListener('change', majInstall);
+majInstall();
+
+// LA PASTILLE. Une seule fois dans la vie du joueur, après une deuxième
+// partie, et neuf secondes. Un rappel qui revient n'est plus un rappel.
+function proposeApresCoup() {
+  if (estInstalle()) return;
+  let n = 0;
+  try {
+    n = (+localStorage.getItem('fod-parties') || 0) + 1;
+    localStorage.setItem('fod-parties', n);
+    if (localStorage.getItem('fod-install-vu')) return;
+  } catch (e) { return; }
+  if (n < 2) return;
+  try { localStorage.setItem('fod-install-vu', '1'); } catch (e) {}
+  setTimeout(() => {
+    if (!state.running || estInstalle()) return;
+    installPastille.hidden = false;
+    setTimeout(() => { installPastille.hidden = true; }, 9000);
+  }, 9000);
+}
+
+// ---------------------------------------------------------------------------
+// LE HORS-LIGNE, et le piège qui va avec : un jeu qui se met en cache est un
+// jeu qui peut rester bloqué sur une vieille version sans que personne ne
+// comprenne pourquoi. D'où cette pastille — dès qu'une version neuve est prête
+// dans son coin, elle le dit et attend qu'on la laisse prendre la main.
+// ---------------------------------------------------------------------------
+// On ne recharge JAMAIS de sa propre initiative. La première version de ce
+// bloc rechargeait à chaque changement de contrôleur — or il en survient un au
+// tout premier passage, quand le service worker fraîchement posé prend la
+// main. La page se rechargeait donc au milieu de son propre démarrage, le
+// module ne finissait jamais de s'exécuter, et le jeu ne partait pas. Mesuré :
+// avec le service worker bloqué le jeu démarre, avec lui il ne démarre plus.
+// La recharge n'a lieu que si le joueur a touché la pastille.
+let rechargeDemandee = false;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!rechargeDemandee) return;
+    rechargeDemandee = false;
+    location.reload();
+  });
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const neuf = reg.installing;
+        if (!neuf) return;
+        neuf.addEventListener('statechange', () => {
+          // « installed » avec un contrôleur déjà en place : c'est une
+          // remplaçante, pas la première venue.
+          if (neuf.state === 'installed' && navigator.serviceWorker.controller) {
+            majPastille.hidden = false;
+          }
+        });
+      });
+      if (reg.waiting && navigator.serviceWorker.controller) majPastille.hidden = false;
+    }).catch(() => {});
+  });
+}
+majPastille.addEventListener('click', async e => {
+  e.stopPropagation();
+  majPastille.hidden = true;
+  rechargeDemandee = true;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg && reg.waiting) { reg.waiting.postMessage('SAUTER'); return; }
+  } catch (err) {}
+  location.reload();
+});
 
 poseAuSol();
 refreshBars();

@@ -228,6 +228,32 @@ donne 22 °/s sur le rayon contre 5 °/s par axe.
 Toutes les entrées passées réécrites en une phrase courte. Le détail vit
 dans ce fichier et dans les messages de commit.
 
+## Installation sur l'écran d'accueil → fait en v0.56
+
+Manifeste, icônes tirées du vrai avion, service worker. Bouton INSTALLER à
+l'accueil, pastille discrète une seule fois après une deuxième partie, et
+un panneau qui décrit le geste — Safari n'expose aucune interface pour le
+proposer, c'est un choix d'Apple. Plein écran, portrait, hors-ligne complet.
+
+Piège trouvé à la mesure : la page se rechargeait au premier passage, au
+milieu de son propre démarrage, parce qu'elle réagissait au changement de
+contrôleur. Le jeu ne partait plus du tout. La recharge n'a lieu que si le
+joueur touche la pastille de nouvelle version.
+
+## Les trois halos retenus → à faire
+
+Choisis sur la planche :
+
+- bouclier : 1 SOUFFLE — étendue 100, intensité 31, battement 17
+- soleil : 14 ÉCLAT — étendue 169, intensité 176, battement 0
+- canons : 14 ÉCLAT — étendue 49, intensité 200, battement 17
+
+## Les canons chauds ne font rien aux dégâts → à trancher
+
+CHAUFFE_CADENCE ne touche que l'intervalle entre deux traçantes, qui sont
+décoratives. Les dégâts sont continus (DPS_MIN à DPS_MAX selon la charge) et
+ne lisent jamais state.chauffe. L'état est donc purement visuel et sonore.
+
 ## Questions restées ouvertes
 
 - Le chrono en haut à gauche ne sert à rien. Score au temps, ou décor.

@@ -1,0 +1,20 @@
+{
+  "name": "Fly or Die",
+  "short_name": "Fly or Die",
+  "description": "Un chasseur filaire, un doigt, et des vagues d'intercepteurs. Terminal vert sur noir.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "/fly-or-die/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#04070a",
+  "theme_color": "#04070a",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icone-512-masquable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
