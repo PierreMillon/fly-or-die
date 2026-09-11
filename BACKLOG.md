@@ -191,6 +191,41 @@ Bayonne — donc pas à 180 degrés l'une de l'autre.
 
 Dans la zone du pouce, en bas de l'écran.
 
+## Refonte de l'atterrissage → fait en v0.55
+
+Le PAPI : huit feux au sol, quatre de chaque côté, au milieu du bitume.
+Deux blancs deux rouges, on est sur les trois degrés. Un seul jeu sert les
+deux sens de piste. Rampe d'approche devant chaque seuil. Témoin de quatre
+carrés au collimateur. Bouton POSER qui bat quand on est sur le plan, et
+que le manche coupe à tout instant. Arrondi automatique sous seize mètres.
+Roulage de quatre cents mètres, remise de gaz possible. Un mauvais posé
+coûte de la structure, la réparation coûte du score.
+
+## Mécaniciens tuables au sol → fait en v0.55
+
+Les balles ennemies les atteignent pendant la réparation, et chacun emporte
+un tiers de la cadence avec lui.
+
+## Page d'essai du PAPI → fait
+
+https://claude.ai/code/artifact/a32b3558-2b35-4ff0-b0c6-fe3e3b3df221 —
+approche pilotable au doigt, les huit feux en direct, l'atterrissage noté.
+
+## Planche des halos → fait
+
+https://claude.ai/code/artifact/aacab539-d250-4106-b091-a84f2d8c98af —
+quatorze halos littéraux, réglables, en trois teintes.
+
+## Page d'essai des zones du joystick
+
+Voir en direct où le doigt se trouve dans le manche et ce que ça commande.
+Demandée, pas encore faite.
+
+## Changelog en une phrase → fait en v0.55
+
+Toutes les entrées passées réécrites en une phrase courte. Le détail vit
+dans ce fichier et dans les messages de commit.
+
 ## Questions restées ouvertes
 
 - Le chrono en haut à gauche ne sert à rien. Score au temps, ou décor.
