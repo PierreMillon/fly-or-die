@@ -216,10 +216,12 @@ approche pilotable au doigt, les huit feux en direct, l'atterrissage noté.
 https://claude.ai/code/artifact/aacab539-d250-4106-b091-a84f2d8c98af —
 quatorze halos littéraux, réglables, en trois teintes.
 
-## Page d'essai des zones du joystick
+## Page d'essai des zones du manche → fait
 
-Voir en direct où le doigt se trouve dans le manche et ce que ça commande.
-Demandée, pas encore faite.
+https://claude.ai/code/artifact/f9abbda1-bab3-4a15-827f-7e176066a256 —
+le doigt en direct, les anneaux d'autorité, la courbe de commande, et les
+deux modes côte à côte : doigt à fond à gauche, un quart de geste vertical
+donne 22 °/s sur le rayon contre 5 °/s par axe.
 
 ## Changelog en une phrase → fait en v0.55
 
