@@ -566,7 +566,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.60</button>
+  <button id="versionBtn">v0.61</button>
 </div>
 
 <div id="bottombar">
@@ -905,6 +905,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.61</b> — le manche d'avant revient ; deux portes en l'air ouvrent l'atterrissage, les roquettes partent en une demi-seconde, on vise l'avion et les canons visent devant.</div>
   <div><b>v0.60</b> — le manche redevient deux axes independants et perd 30 % de nervosite ; le son revient meme sonnerie coupee.</div>
   <div><b>v0.59</b> — un carnet de vol qui dit où l'on meurt, une seule reprise par partie, et three.js embarqué.</div>
   <div><b>v0.58</b> — le panneau de coopération défile enfin au doigt, et l'on peut revenir sur son choix.</div>
@@ -1091,7 +1092,12 @@ const SHOT_RATE     = 0.075;  // secondes entre deux salves
 // Roquettes. Tenir une cible une seconde pleine en lâche deux, une par aile.
 // Elles guident, frappent lourd, et se rechargent lentement : c'est la prime
 // du pilotage propre, pas une arme d'appoint.
-const ROQ_SEUIL     = 1.0;    // secondes de verrouillage avant le départ
+// Mesure en vol instrumente : sous visee parfaite, les roquettes partent et
+// abattent un avion en 1,2 s, un tank en 1,8 s. Elles « ne marchaient pas »
+// parce qu'il fallait une seconde de verrouillage CONTINU, et qu'un doigt ne
+// la tient jamais — la charge retombe au premier tremblement. Une demi-seconde
+// suffit a dire qu'on tenait bien la cible.
+const ROQ_SEUIL     = 0.5;    // secondes de verrouillage avant le départ
 // Une roquette téléguidée n'a pas besoin d'aller vite : elle ne rate pas.
 // Sa lenteur est ce qui la rend lisible — on la voit partir, tourner et
 // arriver, là où à 420 m/s elle disparaissait dans l'image suivante. Trois
@@ -2749,7 +2755,7 @@ const PISTE = {
 // reprendre de la vie en quantité, et c'est aussi le seul où l'on ne peut ni
 // esquiver ni riposter. Le marché est net.
 const ARRONDI_H = 16;         // hauteur à laquelle le nez commence à remonter
-const ROULAGE_M = 400;        // mètres de piste pour s'arrêter
+const ROULAGE_M = 133;        // metres de piste pour s'arreter : trois fois moins qu'avant, le temps de freinage avec
 const TOUCHER_DUR = 4.5;      // m/s de descente au-delà desquels ça casse
 const REPARATION = 10;        // secondes avant que ça reparte tout seul
 const REPARE_PAR_S = 17;      // points de structure rendus par seconde
@@ -2891,6 +2897,78 @@ let papiMesh = null, papiCouleurs = null;
   scene.add(rampe);
 })();
 
+// ---------------------------------------------------------------------------
+// LES DEUX PORTES. Un cercle en l'air devant chaque seuil, pose sur le plan
+// des trois degres : le franchir dans le bon sens — vers la piste — est ce qui
+// ouvre le droit de se poser. C'est plus franc qu'un couloir invisible : on
+// voit la porte de loin, on voit qu'on la passe, et le bouton apparait a ce
+// moment precis et a aucun autre.
+//
+// Elle est a 1 100 m du point vise, donc a 58 m de haut sur la pente, et fait
+// 72 m de diametre : six envergures. Assez large pour ne pas etre un examen,
+// assez etroite pour qu'on arrive a peu pres aligne.
+// ---------------------------------------------------------------------------
+const PORTE_DIST = 1100;                              // du point vise (le PAPI)
+const PORTE_R = 36;
+const PORTE_H = PISTE.y + PORTE_DIST * Math.tan(PENTE_CIBLE);
+const PORTE_VALIDE = 10;                              // secondes pendant lesquelles POSER reste offert
+const PORTES = [
+  { z: PAPI_Z + PORTE_DIST, sens: -1 },   // on la passe en volant vers le nord (z decroissant)
+  { z: PAPI_Z - PORTE_DIST, sens:  1 },   // et celle-ci vers le sud
+];
+let portesMat = null;
+(function poserPortes() {
+  const r = [];
+  for (const P of PORTES) {
+    // le cercle, et quatre repères aux points cardinaux pour lire l'echelle
+    const n = 64;
+    for (let i = 0; i < n; i++) {
+      const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
+      r.push(Math.cos(a0) * PORTE_R, PORTE_H + Math.sin(a0) * PORTE_R, P.z,
+             Math.cos(a1) * PORTE_R, PORTE_H + Math.sin(a1) * PORTE_R, P.z);
+    }
+    for (const [cx, cy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      r.push(cx * PORTE_R, PORTE_H + cy * PORTE_R, P.z,
+             cx * (PORTE_R + 7), PORTE_H + cy * (PORTE_R + 7), P.z);
+    }
+    // un mat jusqu'au sol, sinon un cercle en l'air n'a pas de hauteur lisible
+    r.push(0, PISTE.y, P.z, 0, PORTE_H - PORTE_R, P.z);
+  }
+  portesMat = lineMat(COL_LINE, 0.55);
+  const li = new THREE.LineSegments(segGeom(r), portesMat);
+  li.frustumCulled = false;
+  scene.add(li);
+})();
+
+// LE FRANCHISSEMENT. On regarde si, entre deux images, l'avion a traverse le
+// plan de la porte, dans le bon sens, et a l'interieur du cercle. Le test se
+// fait sur le segment parcouru et non sur la position : a cent metres par
+// seconde on saute quatre metres par image, et un test « suis-je dans le
+// disque » pouvait manquer la porte.
+const _zAvant = { v: null };
+function majPortes() {
+  const z = state.pos.z;
+  if (_zAvant.v !== null && state.running) {
+    for (const P of PORTES) {
+      const a = _zAvant.v - P.z, b = z - P.z;
+      if (a * b > 0) continue;                             // pas traverse
+      const versPiste = (P.sens < 0 && b < a) || (P.sens > 0 && b > a);
+      if (!versPiste) continue;
+      const u = Math.abs(a) / Math.max(1e-6, Math.abs(a - b));
+      // hauteur et laterale au moment du passage, interpolees sur le segment
+      const y = state.pos.y - (state.pos.y - _yAvant.v) * (1 - u);
+      const x = state.pos.x - (state.pos.x - _xAvant.v) * (1 - u);
+      if (Math.hypot(x, y - PORTE_H) <= PORTE_R) {
+        state.porteT = PORTE_VALIDE;
+        announce(t('porte'));
+        SFX.cale();
+      }
+    }
+  }
+  _zAvant.v = z; _yAvant.v = state.pos.y; _xAvant.v = state.pos.x;
+}
+const _yAvant = { v: 0 }, _xAvant = { v: 0 };
+
 // L'ÉTAT DU PLAN DE DESCENTE, relu à chaque image. Tout l'atterrissage tient
 // dans ces quelques nombres : l'angle sous lequel le PAPI voit l'appareil, son
 // écart au plan, le nombre de feux blancs qui en découle, et de quel côté on
@@ -2913,10 +2991,12 @@ function majPlan() {
   // bon côté, à portée, à peu près dans l'axe. Ailleurs ils restent allumés
   // mais le témoin du collimateur se tait plutôt que de mentir.
   PLAN.lisible = devant && dh < 4200 && dh > 60 && capOk && !state.pose && !state.roulage;
-  PLAN.pret = PLAN.lisible && PLAN.blancs === 2
-            && PLAN.axe < PISTE.demiL * 2.4
-            && Math.abs(state.forward.z) > Math.cos(24 * Math.PI / 180)
-            && dh > 140 && state.pos.y > PISTE.y + 5;
+  // C'est la porte qui ouvre POSER, pendant dix secondes, et rien d'autre. Le
+  // couloir des deux blancs reste ce qu'il est — une aide a lire au
+  // collimateur — mais il ne decide plus : on voyait le bouton apparaitre sans
+  // savoir pourquoi, et disparaitre de meme. La porte, on la voit passer.
+  PLAN.pret = state.porteT > 0 && devant && !state.pose && !state.roulage
+            && state.pos.y > PISTE.y + 5;
 }
 
 // les huit feux prennent leur couleur du même calcul que le témoin : ils ne
@@ -3447,6 +3527,7 @@ const state = {
   auSol: true,
   roulage: null,
   assist: false,
+  porteT: 0,          // secondes restantes pendant lesquelles la porte franchie ouvre POSER
   pose: null,
   approche: 0,
   scrapeT: 0,
@@ -3567,6 +3648,7 @@ function toucherPiste() {
 }
 
 function resetGame() {
+  _zAvant.v = null;     // sinon la premiere image compare avec la partie d'avant
   state.dureeVol = 0;
   state.reprises = 0;
   expliqueBtn.hidden = true;
@@ -3594,6 +3676,7 @@ function resetGame() {
   state.scrapeT = 0;
   state.roulage = null;
   state.assist = false;
+  state.porteT = 0;
   state.pose = null;
   redecoBtn.hidden = true;
   for (const a of arches) a.prise = false;
@@ -3689,7 +3772,10 @@ function spawnWave() {
   // Trois fois plus rares : une pièce au sol est une cible d'occasion, pas un
   // rendez-vous. Quand il y en avait à chaque vague, descendre les traiter
   // devenait une corvée obligatoire.
-  const tanks = boss ? 0 : (state.wave >= 2 && Math.random() < 0.34 ? 1 : 0);
+  // Une piece au sol a chaque vague des la deuxieme, et non une fois sur
+  // trois : a ce rythme-la, on pouvait faire dix parties sans en croiser une,
+  // et conclure qu'elles n'existaient pas.
+  const tanks = boss ? 0 : (state.wave >= 2 ? 1 : 0);
   for (let i = 0; i < n + tanks; i++) {
     const auSol = i >= n;
     const k = auSol ? KINDS[iTank] : KINDS[pool[Math.floor(Math.random() * pool.length)]];
@@ -4420,15 +4506,19 @@ function eblouissement() {
 function updateLock(dt) {
   let best = null, bestEcart = Infinity;
   for (const e of state.enemies) {
-    // C'est le POINT DE DÉFLEXION qu'on cherche à tenir dans le viseur, pas la
-    // cible : viser l'avion revenait à tirer systématiquement derrière lui dès
-    // qu'il traversait, et il fallait compenser à l'oeil sans savoir de combien.
+    // ON VISE L'AVION. Le point de deflexion existe toujours — c'est la que
+    // les canons tirent, et le losange le montre — mais ce n'est plus lui
+    // qu'il faut tenir dans le viseur. Demander au joueur de viser un point
+    // vide devant une cible qui traverse, c'etait lui demander de predire ; et
+    // de pres, ce point s'ecartait tant de l'avion que le verrouillage
+    // lachait alors que l'appareil etait en plein dans la croix. Le joueur
+    // vise ce qu'il voit, l'avance est l'affaire des canons.
     pointVise(e, state.pos, _vise);
     e.vise = e.vise || new THREE.Vector3();
     e.vise.copy(_vise);
-    _v.subVectors(_vise, state.pos);
+    _v.subVectors(e.pos, state.pos);
     const d = _v.length();
-    if (e.pos.distanceTo(state.pos) > LOCK_RANGE) continue;
+    if (d > LOCK_RANGE) continue;
     _v.divideScalar(d || 1);
     const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
     const ecart = ang - seuilLock(e, d);
@@ -4602,25 +4692,16 @@ function simulate(dt) {
   // zone fine. On calcule donc un gain unique sur le rayon, et on le répartit
   // sur les deux axes : la réponse ne dépend plus que de l'écart au centre,
   // dans toutes les directions également.
-  // LA COURBE REVIENT SUR CHAQUE AXE, et c'est un aveu : la version au rayon
-  // etait une erreur.
-  //
-  // Elle rendait bien la reponse egale dans toutes les directions, mais au prix
-  // de la seule chose qui compte vraiment sur un manche : L'INDEPENDANCE DES
-  // AXES. Le doigt pose un centimetre a droite pour virer, on monte d'un
-  // centimetre pour ajuster, et le rayon passe de 0,30 a 0,42. La courbe etant
-  // quartique, le gain bondit, et le virage a droite s'accelere alors que le
-  // doigt n'a pas bouge horizontalement. On demandait de la montee, on
-  // recevait de la montee ET du virage.
-  //
-  // Sur un vrai manche, tangage et roulis sont independants : tirer ne fait pas
-  // tourner. C'est ce qu'on retrouve ici. Le prix est connu et assume : plein
-  // manche en diagonale donne un peu plus qu'en ligne droite.
-  const courbe = v => v * (0.17 + 0.83 * v * v * v * v);
-  const parAxe = v => Math.sign(v) * courbe(Math.min(1, Math.abs(v)));
+  // LA COURBE PORTE SUR LA DISTANCE AU CENTRE, comme en v0.47. La v0.60 l'a
+  // remise par axe une demi-journee, sur un malentendu : le joueur a dit tout
+  // de suite que c'etait pire. On revient exactement a ce qu'il y avait, et le
+  // vrai probleme de commande — qui n'est pas celui-la — reste a comprendre
+  // avec lui avant de toucher a quoi que ce soit.
   const rayon = Math.min(1, Math.hypot(dx, dy));
-  const yawRate   = -parAxe(dx) * MAX_YAW;
-  const pitchRate = -parAxe(dy) * MAX_PITCH;
+  const courbe = v => v * (0.17 + 0.83 * v * v * v * v);
+  const gain = rayon > 1e-4 ? courbe(rayon) / rayon : 0;
+  const yawRate   = -dx * gain * MAX_YAW;
+  const pitchRate = -dy * gain * MAX_PITCH;
 
   // Le lacet est ramené dans un tour à chaque image. Laissé libre il dérive
   // indéfiniment, et tout ce qui l'interpole — l'alignement sur la piste, la
@@ -4668,6 +4749,8 @@ function simulate(dt) {
   // coupe. Ce qui déclenche l'atterrissage, ce sont les roues sur le bitume,
   // rien d'autre.
   // ---------------------------------------------------------------------
+  majPortes();
+  if (state.porteT > 0) state.porteT -= dt;
   majPlan();
   majPapi();
 
@@ -4955,7 +5038,12 @@ function simulate(dt) {
     playerMesh.quaternion.copy(state.quat);
     propMesh.rotation.z += (6 + state.speed * 0.16) * dt;
 
-    state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 9, dt);
+    // MEME RAISONNEMENT POUR L'ASSIETTE QUE POUR LA POSITION, juste en
+    // dessous : le decollage est ecrit d'avance, la camera n'a rien a
+    // rattraper. Amortie a 9, elle trainait d'un dixieme de seconde derriere
+    // le nez — a plat quand il se levait, encore levee quand il revenait. On
+    // la pose sur l'assiette, image par image.
+    state.camPitch = state.pitch;
     poseCam(state.camPitch);
     _cd.subVectors(state.pos, T.prev || state.pos).divideScalar(Math.max(dt, 1e-4));
     if (!T.prev) T.prev = state.pos.clone(); else T.prev.copy(state.pos);
@@ -5142,11 +5230,9 @@ function simulate(dt) {
   if (!state.fig && !enFinale) {
     let cible = null, cAng = 0, cSeuil = 0;
     for (const e of state.enemies) {
-      // le magnétisme tient le POINT DE DÉFLEXION, pas l'avion : c'est là
-      // qu'il faut être pour que les balles arrivent, et c'est donc là qu'une
-      // aide doit aider
-      pointVise(e, state.pos, _vise);
-      _v.subVectors(_vise, state.pos);
+      // le magnetisme tient L'AVION, comme le viseur : les canons se chargent
+      // seuls de l'avance
+      _v.subVectors(e.pos, state.pos);
       const d = _v.length();
       if (e.pos.distanceTo(state.pos) > LOCK_RANGE) continue;
       _v.divideScalar(d || 1);
@@ -5158,7 +5244,7 @@ function simulate(dt) {
     }
     if (cible) {
       // écart exprimé dans le repère de l'avion : le nez regarde vers -Z
-      _los.subVectors(cible.vise || cible.pos, state.pos).normalize()
+      _los.subVectors(cible.pos, state.pos).normalize()
         .applyQuaternion(_qa.copy(state.quat).invert());
       const errLacet = -Math.atan2(_los.x, -_los.z);
       const errTangage = Math.atan2(_los.y, Math.hypot(_los.x, _los.z));
@@ -6576,6 +6662,7 @@ const T = {
     surLePlan: 'SUR LE PLAN', tropHaut: 'TROP HAUT', tropBas: 'TROP BAS',
     poser: 'POSER', manette: 'MANETTE RECONNUE',
     manque1: 'Il te manquait ', manque2: ' points.',
+    porte: 'PORTE FRANCHIE  ·  POSER',
     redecoller: 'REDÉCOLLER', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
     pasDeVideo: "Aucune vidéo disponible pour l'instant. Reprise offerte.",
     scoreMot: 'SCORE ', nouveauRecord: 'NOUVEAU RECORD', recordMot: 'RECORD '
@@ -6603,6 +6690,7 @@ const T = {
     surLePlan: 'ON SLOPE', tropHaut: 'TOO HIGH', tropBas: 'TOO LOW',
     poser: 'LAND', manette: 'GAMEPAD DETECTED',
     manque1: 'You were ', manque2: ' points short.',
+    porte: 'GATE CLEARED  ·  LAND',
     redecoller: 'TAKE OFF AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
     pasDeVideo: 'No video available yet. Continue is on the house.',
     scoreMot: 'SCORE ', nouveauRecord: 'NEW RECORD', recordMot: 'RECORD '
@@ -7098,6 +7186,7 @@ function gameOver() {
   state.auSol = false;   // l'épave ne ronronne pas
   state.roulage = null;
   state.assist = false;
+  state.porteT = 0;
   state.pose = null;
   redecoBtn.hidden = true;
   SFX.fin();
