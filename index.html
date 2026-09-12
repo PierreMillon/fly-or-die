@@ -212,6 +212,34 @@
     margin: 0 8px 10px 0;
   }
   #coopChoix { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Le carnet : des chiffres, donc des chiffres alignés. */
+  #carnet { border-top: 1px solid var(--ph-dim); margin-top: 14px; padding-top: 12px; }
+  #carnet dl {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 12px;
+    margin: 0 0 10px;
+    font-size: 11.5px;
+  }
+  #carnet dt { color: var(--ph-dim); }
+  #carnet dd {
+    margin: 0;
+    color: var(--ph-text);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  #carnet button {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 4px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    padding: 7px 12px;
+    margin-right: 6px;
+  }
   /* Une branche sans porte de sortie est une impasse : on avait choisi une fois
      pour toutes, et même en refermant le panneau on y revenait. */
   #coop button.retour {
@@ -538,7 +566,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.58</button>
+  <button id="versionBtn">v0.59</button>
 </div>
 
 <div id="bottombar">
@@ -865,9 +893,19 @@
   the FIGHTER aims behind you and the INTERCEPTOR ahead — and why the DRONE
   does not aim at all.</p>
   </div>
+
+  <div id="carnet">
+    <h2 data-en="FLIGHT LOG">CARNET DE VOL</h2>
+    <p class="aide" data-en="Everything stays on this device. Nothing is sent anywhere — there is no server, and there will not be one.">Tout reste sur cet appareil. Rien n'est envoyé nulle part : il n'y a pas de serveur, et il n'y en aura pas.</p>
+    <dl id="carnetChiffres"></dl>
+    <p class="aide" id="carnetMorts"></p>
+    <button id="carnetCopier" data-en="COPY THE LOG">COPIER LE CARNET</button>
+    <button id="carnetVider" data-en="ERASE">EFFACER</button>
+  </div>
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.59</b> — un carnet de vol qui dit où l'on meurt, une seule reprise par partie, et three.js embarqué.</div>
   <div><b>v0.58</b> — le panneau de coopération défile enfin au doigt, et l'on peut revenir sur son choix.</div>
   <div><b>v0.57</b> — les canons chauds frappent enfin deux fois plus fort, les trois halos sont posés, et une manette suffit à piloter.</div>
   <div><b>v0.56</b> — le jeu s'installe sur l'écran d'accueil, se lance plein écran et vole sans réseau.</div>
@@ -963,8 +1001,8 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/"
   }
 }
 </script>
@@ -3307,6 +3345,8 @@ const state = {
   bouclier: 0,
   vagueTouche: false,
   vagueT: 0,
+  dureeVol: 0,        // secondes de vol de la partie en cours, pour le carnet
+  reprises: 0,        // reprises consommées dans cette partie
   vagueLimite: 0,
   paused: false,
   enemies: [],
@@ -3442,13 +3482,15 @@ function toucherPiste() {
   state.lock = null;
   state.lockCharge = 0;
   announce(t(mot));
-  if (degat > 0) damagePlayer(Math.round(degat), null);
+  if (degat > 0) damagePlayer(Math.round(degat), null, 'pose');
   // damagePlayer peut avoir mis fin à la partie : on ne met en roulage que ce
   // qui roule encore
   if (state.running) state.roulage = { t: 0, v0: state.speed, sens, degat, vz, restant };
 }
 
 function resetGame() {
+  state.dureeVol = 0;
+  state.reprises = 0;
   expliqueBtn.hidden = true;
   plusJamais.hidden = true;
   poseAuSol();
@@ -4116,7 +4158,7 @@ function updateBullets(dt) {
       // la direction d'où vient le coup se lit sur la trajectoire de la balle,
       // pas sur le point d'impact : au contact les deux se confondent et
       // l'écran ne saurait plus de quel côté s'allumer
-      damagePlayer(7, _impactSrc.copy(state.pos).addScaledVector(b.dir, -40));
+      damagePlayer(7, _impactSrc.copy(state.pos).addScaledVector(b.dir, -40), 'balles');
       continue;
     }
     // LES HOMMES AU SOL NE SONT PLUS DU DÉCOR. Se poser sous le feu n'était
@@ -4167,8 +4209,9 @@ function noteImpact(source) {
   if (state.impacts.length > 4) state.impacts.shift();
 }
 
-function damagePlayer(amount, source) {
+function damagePlayer(amount, source, cause) {
   if (!state.running) return;
+  if (cause) noteDegat(cause, amount);
   noteImpact(source);
 
   // le bouclier encaisse, coup par coup, puis s'évapore
@@ -4428,6 +4471,11 @@ function step(now) {
 }
 
 function simulate(dt) {
+  // Le carnet compte TOUT le temps passé en l'air, pas seulement celui où un
+  // adversaire est en vue : le décollage, les trajets et les atterrissages font
+  // partie de la partie, et sans eux la durée moyenne restait à zéro.
+  if (state.running) state.dureeVol += dt;
+
   // La manette écrit dans « aim » comme le ferait un pouce : elle doit donc
   // parler avant qu'on lise la commande, pas après.
   litManette();
@@ -4608,6 +4656,7 @@ function simulate(dt) {
         state.roulage = null;
         state.speed = 0;
         state.pose = { t: 0, structure0: state.structure };
+        carnet.poses++;
         poserMecanos();
         coopReanime();
         redecoBtn.hidden = false;
@@ -5165,7 +5214,7 @@ function scrape(dt) {
 
   if (state.pos.y <= FLOOR + 0.5 && !auDessusDuBitume(60)) {
     state.pos.y = FLOOR + 0.5;
-    if (state.scrapeT <= 0) { damagePlayer(5, null); state.scrapeT = 0.45; SFX.eraflure(); }
+    if (state.scrapeT <= 0) { damagePlayer(5, null, 'sol'); state.scrapeT = 0.45; SFX.eraflure(); }
     state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
     state.speed *= 0.99;
   }
@@ -5182,7 +5231,7 @@ function scrape(dt) {
   // ferait, et c'est surtout ce qui permet d'en sortir. Le lacet est
   // volontairement modeste : il oriente, il ne pilote pas à notre place.
   const repousse = (bx, bz) => {
-    if (state.scrapeT <= 0) { damagePlayer(7, _impactSrc.set(bx, state.pos.y, bz)); state.scrapeT = 0.45; SFX.eraflure(); }
+    if (state.scrapeT <= 0) { damagePlayer(7, _impactSrc.set(bx, state.pos.y, bz), 'decor'); state.scrapeT = 0.45; SFX.eraflure(); }
     _right.set(state.pos.x - bx, 0, state.pos.z - bz);
     if (_right.lengthSq() < 1e-4) _right.set(1, 0, 0);
     _right.normalize();
@@ -6243,6 +6292,96 @@ const chronoLbl = document.getElementById('chronoLbl');
 const gaugeFill = document.getElementById('gaugeFill');
 const structLbl = document.getElementById('structLbl');
 
+// ---------------------------------------------------------------------------
+// LE CARNET DE VOL.
+//
+// Ce qui manquait pour régler quoi que ce soit : savoir où les gens meurent.
+// Le concepteur est le pire cobaye de son propre jeu — il connaît chaque
+// pylône, chaque trajectoire d'intercepteur, et son ressenti de difficulté n'a
+// aucun rapport avec celui d'un inconnu à sa troisième partie.
+//
+// Tout reste sur l'appareil. Rien n'est envoyé nulle part, il n'y a pas de
+// serveur et il n'y en aura pas : c'est un carnet, pas un mouchard.
+// ---------------------------------------------------------------------------
+const CARNET_VIDE = {
+  parties: 0,          // parties commencées
+  secondes: 0,         // temps de vol cumulé
+  mortsParVague: {},   // vague -> nombre de morts, le chiffre qui décide de tout
+  vagueMax: 0,
+  reprises: 0,         // reprises après la mort
+  poses: 0,            // atterrissages menés jusqu'à l'arrêt
+  degats: { balles: 0, decor: 0, sol: 0, pose: 0 },
+  pluslongue: 0,       // la partie la plus longue, en secondes
+};
+let carnet = JSON.parse(JSON.stringify(CARNET_VIDE));
+try {
+  const lu = JSON.parse(localStorage.getItem('fod_carnet') || 'null');
+  if (lu) carnet = Object.assign(carnet, lu,
+    { degats: Object.assign({}, carnet.degats, lu.degats) });
+} catch (e) {}
+
+// On n'écrit qu'à la fin d'une partie : une écriture par image userait le
+// stockage pour rien et coûterait des images perdues.
+function sauveCarnet() {
+  try { localStorage.setItem('fod_carnet', JSON.stringify(carnet)); } catch (e) {}
+}
+
+// Le carnet se lit dans l'aide, et se copie d'un bouton : c'est comme ça qu'il
+// sort de l'appareil quand tu veux me le montrer — à la main, et jamais autrement.
+const duree = sec => {
+  const m = Math.floor(sec / 60);
+  return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min'
+       : m >= 1 ? m + ' min' : Math.round(sec) + ' s';
+};
+
+function texteCarnet() {
+  const l = [];
+  const fr = langue !== 'en';
+  l.push('FLY OR DIE — ' + (fr ? 'CARNET DE VOL' : 'FLIGHT LOG'));
+  l.push((fr ? 'parties' : 'games') + ' : ' + carnet.parties);
+  l.push((fr ? 'vol cumulé' : 'total flight') + ' : ' + duree(carnet.secondes));
+  l.push((fr ? 'partie la plus longue' : 'longest game') + ' : ' + duree(carnet.pluslongue));
+  l.push((fr ? 'vague la plus loin' : 'furthest wave') + ' : ' + carnet.vagueMax);
+  l.push((fr ? 'reprises' : 'continues') + ' : ' + carnet.reprises);
+  l.push((fr ? 'atterrissages' : 'landings') + ' : ' + carnet.poses);
+  const d = carnet.degats;
+  l.push((fr ? 'vie perdue' : 'life lost') + ' — '
+    + (fr ? 'balles ' : 'bullets ') + Math.round(d.balles)
+    + ', ' + (fr ? 'décor ' : 'scenery ') + Math.round(d.decor)
+    + ', ' + (fr ? 'sol ' : 'ground ') + Math.round(d.sol)
+    + ', ' + (fr ? 'posés ' : 'landings ') + Math.round(d.pose));
+  const vagues = Object.keys(carnet.mortsParVague).map(Number).sort((a, b) => a - b);
+  l.push((fr ? 'morts par vague' : 'deaths per wave') + ' : '
+    + (vagues.length ? vagues.map(v => v + '×' + carnet.mortsParVague[v]).join('  ') : '—'));
+  return l.join('\n');
+}
+
+function majCarnet() {
+  const fr = langue !== 'en';
+  const dl = document.getElementById('carnetChiffres');
+  if (!dl) return;
+  const moy = carnet.parties ? carnet.secondes / carnet.parties : 0;
+  const lignes = [
+    [fr ? 'parties' : 'games', carnet.parties],
+    [fr ? 'vol cumulé' : 'total flight', duree(carnet.secondes)],
+    [fr ? 'partie moyenne' : 'average game', duree(moy)],
+    [fr ? 'la plus longue' : 'longest', duree(carnet.pluslongue)],
+    [fr ? 'vague la plus loin' : 'furthest wave', carnet.vagueMax],
+    [fr ? 'reprises' : 'continues', carnet.reprises],
+    [fr ? 'atterrissages' : 'landings', carnet.poses],
+  ];
+  dl.innerHTML = lignes.map(([k, v]) =>
+    '<dt>' + k + '</dt><dd>' + v + '</dd>').join('');
+  const vagues = Object.keys(carnet.mortsParVague).map(Number).sort((a, b) => a - b);
+  document.getElementById('carnetMorts').textContent =
+    (fr ? 'Morts par vague : ' : 'Deaths per wave: ')
+    + (vagues.length ? vagues.map(v => v + '×' + carnet.mortsParVague[v]).join('   ') : '—');
+}
+function noteDegat(cause, montant) {
+  if (carnet.degats[cause] === undefined) return;
+  carnet.degats[cause] += montant;
+}
+
 function refreshBars() {
   scoreLbl.textContent = String(Math.floor(state.score)).padStart(6, '0');
   waveLbl.textContent  = 'V' + state.wave;
@@ -6313,6 +6452,7 @@ const T = {
     poseLong: 'POSÉ LONG', remiseGaz: 'REMISE DE GAZ',
     surLePlan: 'SUR LE PLAN', tropHaut: 'TROP HAUT', tropBas: 'TROP BAS',
     poser: 'POSER', manette: 'MANETTE RECONNUE',
+    manque1: 'Il te manquait ', manque2: ' points.',
     redecoller: 'REDÉCOLLER', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
     pasDeVideo: "Aucune vidéo disponible pour l'instant. Reprise offerte.",
     scoreMot: 'SCORE ', nouveauRecord: 'NOUVEAU RECORD', recordMot: 'RECORD '
@@ -6339,6 +6479,7 @@ const T = {
     poseLong: 'LONG LANDING', remiseGaz: 'GOING AROUND',
     surLePlan: 'ON SLOPE', tropHaut: 'TOO HIGH', tropBas: 'TOO LOW',
     poser: 'LAND', manette: 'GAMEPAD DETECTED',
+    manque1: 'You were ', manque2: ' points short.',
     redecoller: 'TAKE OFF AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
     pasDeVideo: 'No video available yet. Continue is on the house.',
     scoreMot: 'SCORE ', nouveauRecord: 'NEW RECORD', recordMot: 'RECORD '
@@ -6380,6 +6521,23 @@ coopBtn.addEventListener('click', e => {
   if (!panCoop.hidden && !coop.actif) coopRevientAuChoix();
   aide.hidden = true; changelog.hidden = true; panViseurs.hidden = true;
   majPause();
+});
+
+document.getElementById('carnetCopier').addEventListener('click', async e => {
+  e.stopPropagation();
+  const txt = texteCarnet();
+  const b = e.currentTarget;
+  let ok = false;
+  try { await navigator.clipboard.writeText(txt); ok = true; } catch (err) {}
+  b.textContent = ok ? (langue === 'en' ? 'COPIED' : 'COPIÉ')
+                     : (langue === 'en' ? 'REFUSED' : 'REFUSÉ');
+  setTimeout(() => { b.textContent = langue === 'en' ? 'COPY THE LOG' : 'COPIER LE CARNET'; }, 1800);
+});
+document.getElementById('carnetVider').addEventListener('click', e => {
+  e.stopPropagation();
+  carnet = JSON.parse(JSON.stringify(CARNET_VIDE));
+  sauveCarnet();
+  majCarnet();
 });
 
 const copier = (el) => {
@@ -6571,6 +6729,7 @@ const aide = document.getElementById('aide');
 const aideBtn = document.getElementById('aideBtn');
 function ouvrirAide(ouvert) {
   aide.hidden = ouvert === undefined ? !aide.hidden : !ouvert;
+  if (!aide.hidden) majCarnet();
   if (!aide.hidden) aide.scrollTop = 0;
   changelog.hidden = true;
   panViseurs.hidden = true;
@@ -6732,11 +6891,38 @@ if (!touchMode) overlayText.textContent = '';
 // honnêtement qu'aucune vidéo n'est disponible et accorde quand même la
 // reprise, ce qui permet d'éprouver la boucle de jeu dès maintenant.
 const videoBtn = document.getElementById('videoBtn');
-videoBtn.addEventListener('click', () => {
+// ---------------------------------------------------------------------------
+// LA REPRISE, et le seul point de passage vers la régie publicitaire.
+//
+// Le jour où la candidature aboutit, on remplace l'intérieur de cette fonction
+// par un appel à adBreak() et rien d'autre ne bouge dans le jeu. Elle rend une
+// promesse : vrai si la vidéo est allée au bout et que la reprise est méritée,
+// faux sinon. C'est exactement la forme des rappels de l'API d'emplacement —
+// adViewed d'un côté, adDismissed de l'autre — de sorte que le branchement se
+// fera sans rien retourner ailleurs.
+//
+// Elle est comptée : UNE par partie. Une reprise gratuite et sans fin, c'est
+// une mort qui ne veut plus rien dire, et un score qui ne mesure plus rien.
+const REPRISES_MAX = 1;
+
+function demandeVideo() {
+  return new Promise(resolve => {
+    // Pas encore de régie. On accorde la reprise, et on le dit honnêtement
+    // plutôt que de faire semblant d'avoir montré quelque chose.
+    overlayText.textContent = t('pasDeVideo');
+    setTimeout(() => resolve(true), 900);
+  });
+}
+
+videoBtn.addEventListener('click', async () => {
   audioDemarre();
-  overlayText.textContent = t('pasDeVideo');
   videoBtn.disabled = true;
-  setTimeout(() => {
+  const accordee = await demandeVideo();
+  if (!accordee) { videoBtn.disabled = false; return; }
+  state.reprises++;
+  carnet.reprises++;
+  sauveCarnet();
+  {
     overlay.hidden = true;
     state.structure = 100;
     state.bouclier = BOUCLIER_COUPS;
@@ -6755,7 +6941,7 @@ videoBtn.addEventListener('click', () => {
     state.auSol = false;
     last = performance.now();
     SFX.bouclierOn();
-  }, 900);
+  }
 });
 
 startBtn.addEventListener('click', () => {
@@ -6765,6 +6951,7 @@ startBtn.addEventListener('click', () => {
   resetGame();
   state.running = true;
   last = performance.now();
+  carnet.parties++;
   proposeApresCoup();
 });
 
@@ -6776,6 +6963,15 @@ function gameOver() {
   if (battuVague) record.vague = state.wave;
   if (battuScore || battuVague) sauveRecord();
   state.recordBattu = battuScore ? 'score' : (battuVague ? 'vague' : null);
+
+  // C'EST ICI QUE TOUT SE JOUE. La vague où l'on meurt, répétée sur des
+  // dizaines de parties, dit à elle seule si la courbe est bonne — un pic sur
+  // une vague, c'est un mur ; un plateau, c'est un palier.
+  carnet.mortsParVague[state.wave] = (carnet.mortsParVague[state.wave] || 0) + 1;
+  carnet.secondes += state.dureeVol;
+  carnet.pluslongue = Math.max(carnet.pluslongue, state.dureeVol);
+  carnet.vagueMax = Math.max(carnet.vagueMax, state.wave);
+  sauveCarnet();
   state.auSol = false;   // l'épave ne ronronne pas
   state.roulage = null;
   state.assist = false;
@@ -6783,7 +6979,15 @@ function gameOver() {
   redecoBtn.hidden = true;
   SFX.fin();
   overlayTitle.textContent = t('abattu');
-  overlayText.textContent = pique();
+  // LE QUASI-RECORD. Rater de peu est le plus fort des rappels : il transforme
+  // une fin de partie en début de la suivante. Il passe donc AVANT la pique,
+  // qui est drôle une fois et sans effet la deuxième.
+  const manque = record.score - Math.floor(state.score);
+  const deJustesse = !battuScore && manque > 0
+                   && manque <= Math.max(120, record.score * 0.12);
+  overlayText.textContent = deJustesse
+    ? t('manque1') + manque + t('manque2')
+    : pique();
   overlayScore.hidden = false;
   overlayScore.innerHTML = t('scoreMot') + String(Math.floor(state.score)).padStart(6, '0')
     + '  ·  ' + t('vague') + state.wave
@@ -6791,7 +6995,7 @@ function gameOver() {
     + '<br>' + t('recordMot') + String(record.score).padStart(6, '0')
     + '  ·  ' + t('vague') + record.vague;
   startBtn.textContent = t('redecoller');
-  videoBtn.hidden = false;
+  videoBtn.hidden = state.reprises >= REPRISES_MAX;
   videoBtn.disabled = false;
   videoBtn.textContent = t('videoReprendre');
   expliqueBtn.hidden = aideMuette;

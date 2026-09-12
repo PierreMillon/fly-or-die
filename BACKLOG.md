@@ -265,6 +265,24 @@ tonneaux, boutons du pouce pour les renversements, croix pour POSER et
 REDÉCOLLER. Quatre-vingts lignes, parce que toute la commande passait déjà
 par un seul point.
 
+## Carnet de vol → fait en v0.59
+
+Compteur local : parties, temps de vol, partie moyenne et la plus longue,
+vague la plus loin, reprises, atterrissages, vie perdue par cause, et
+surtout LES MORTS PAR VAGUE. Lisible dans l'aide, copiable d'un bouton,
+effaçable. Rien ne sort de l'appareil sans un geste volontaire.
+
+## Reprise unique → fait en v0.59
+
+Une par partie. L'appel est isolé dans demandeVideo(), qui rend une
+promesse vrai/faux : le jour où la régie répond, on remplace son intérieur
+par adBreak() et rien d'autre ne bouge.
+
+## three.js embarqué → fait en v0.59
+
+vendor/three/. Le jeu n'a plus aucune dépendance réseau — exigence des
+portails, et le hors-ligne ne dépend plus d'un CDN.
+
 ## Questions restées ouvertes
 
 - Le chrono en haut à gauche ne sert à rien. Score au temps, ou décor.

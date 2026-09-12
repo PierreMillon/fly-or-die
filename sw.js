@@ -11,12 +11,14 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v0.58';
+const VERSION = 'v0.59';
 const BOITE = 'fly-or-die-' + VERSION;
 
-// Le strict nécessaire pour décoller sans réseau. Les polices viennent d'un
-// autre domaine et leurs URL sont écrites dans une feuille de style qu'on ne
-// lit pas ici : elles se mettent en cache toutes seules au premier passage.
+// Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
+// le dépôt, tout ce qui compte est de la même origine : plus rien à demander à
+// un CDN, donc plus rien qui puisse tomber. Les polices viennent d'ailleurs et
+// leurs URL sont écrites dans une feuille de style qu'on ne lit pas ici : elles
+// se mettent en cache toutes seules au premier passage.
 const SOCLE = [
   './',
   './index.html',
@@ -24,7 +26,8 @@ const SOCLE = [
   './manifest.webmanifest',
   './icone-192.png',
   './icone-512.png',
-  'https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js',
+  './vendor/three/three.module.js',
+  './vendor/three/three.core.js',
 ];
 
 self.addEventListener('install', e => {
