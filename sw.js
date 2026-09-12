@@ -11,7 +11,7 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v0.56';
+const VERSION = 'v0.58';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Les polices viennent d'un

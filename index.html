@@ -212,6 +212,18 @@
     margin: 0 8px 10px 0;
   }
   #coopChoix { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* Une branche sans porte de sortie est une impasse : on avait choisi une fois
+     pour toutes, et même en refermant le panneau on y revenait. */
+  #coop button.retour {
+    background: none;
+    border: 0;
+    color: var(--ph-dim);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    padding: 0 0 8px;
+    display: block;
+  }
   #coopEtat { color: var(--ph-line); }
   #coopBtn {
     background: none;
@@ -526,7 +538,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.57</button>
+  <button id="versionBtn">v0.58</button>
 </div>
 
 <div id="bottombar">
@@ -544,6 +556,7 @@
     <button id="coopRejoindre" data-en="JOIN">REJOINDRE</button>
   </div>
   <div id="coopHote" hidden>
+    <button class="retour" id="coopRetour1" data-en="&lt; BACK">&lt; RETOUR</button>
     <p class="aide"><b>1.</b> Envoie ce code à qui veut te rejoindre.</p>
     <textarea id="coopMonCode" readonly rows="3"></textarea>
     <button id="coopCopier" data-en="COPY">COPIER</button>
@@ -553,6 +566,7 @@
     <button id="coopValider" data-en="ADD THIS PLAYER">AJOUTER CE JOUEUR</button>
   </div>
   <div id="coopInvite" hidden>
+    <button class="retour" id="coopRetour2" data-en="&lt; BACK">&lt; RETOUR</button>
     <p class="aide"><b>1.</b> Colle le code reçu.</p>
     <textarea id="coopCodeRecu" rows="3" placeholder="code de l'hôte"></textarea>
     <button id="coopAccepter" data-en="ANSWER">RÉPONDRE</button>
@@ -854,6 +868,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.58</b> — le panneau de coopération défile enfin au doigt, et l'on peut revenir sur son choix.</div>
   <div><b>v0.57</b> — les canons chauds frappent enfin deux fois plus fort, les trois halos sont posés, et une manette suffit à piloter.</div>
   <div><b>v0.56</b> — le jeu s'installe sur l'écran d'accueil, se lance plein écran et vole sans réseau.</div>
   <div><b>v0.55</b> — l'atterrissage se pilote : huit feux PAPI, un arrondi, quatre cents mètres de roulage et la remise de gaz.</div>
@@ -6360,6 +6375,9 @@ const coopMaReponse = document.getElementById('coopMaReponse');
 coopBtn.addEventListener('click', e => {
   e.stopPropagation();
   panCoop.hidden = !panCoop.hidden;
+  // On rouvre sur le choix, pas sur la branche d'il y a dix minutes — sauf si
+  // une partie commune tourne vraiment, auquel cas il n'y a rien à rechoisir.
+  if (!panCoop.hidden && !coop.actif) coopRevientAuChoix();
   aide.hidden = true; changelog.hidden = true; panViseurs.hidden = true;
   majPause();
 });
@@ -6407,6 +6425,34 @@ document.getElementById('coopValider').onclick = async e => {
     coopEtat.textContent = t('illisible');
   }
 };
+
+// RETOUR AU CHOIX. Il n'y en avait aucun : une fois CRÉER ou REJOINDRE touché,
+// le bouton de l'autre branche disparaissait avec le bloc de choix, et rien ne
+// le ramenait — pas même en refermant le panneau, puisque rien ne remettait son
+// état à zéro. On restait enfermé dans la branche prise en premier.
+//
+// La connexion en attente est fermée au passage. Une RTCPeerConnection
+// abandonnée continue de sonder le réseau pour rien.
+function coopRevientAuChoix() {
+  if (attente) {
+    try { attente.pc.close(); } catch (err) {}
+    attente = null;
+  }
+  coopHote.hidden = true;
+  coopInvite.hidden = true;
+  document.getElementById('coopEtape2').hidden = true;
+  coopMaReponse.hidden = true;
+  document.getElementById('coopCopier2').hidden = true;
+  coopMonCode.value = '';
+  coopReponse.value = '';
+  coopCodeRecu.value = '';
+  coopMaReponse.value = '';
+  coopChoix.hidden = false;
+  coopEtat.textContent = '';
+  if (!coop.actif) { coop.hote = false; coop.moi = 0; }
+}
+document.getElementById('coopRetour1').onclick = e => { e.stopPropagation(); coopRevientAuChoix(); };
+document.getElementById('coopRetour2').onclick = e => { e.stopPropagation(); coopRevientAuChoix(); };
 
 // REJOINDRE : un seul échange, avec l'hôte.
 document.getElementById('coopRejoindre').onclick = e => {
@@ -6882,7 +6928,11 @@ document.addEventListener('mouseleave', () => { aim.active = false; });
 // consultable jusqu'à la ligne de flottaison et pas au-delà.
 window.addEventListener('touchmove', e => {
   const el = e.target instanceof Element ? e.target : null;
-  if (el && el.closest('#changelog, #aide, #viseurs, #overlay, #install')) return;
+  // #coop manquait à l'appel. Le touch-action: pan-y posé sur lui autorisait
+  // bien le défilement, et cette ligne le reprenait aussitôt : le panneau
+  // s'arrêtait à la ligne de flottaison, exactement le défaut corrigé en v0.37
+  // pour les trois autres. Une liste d'exceptions est une dette : on l'oublie.
+  if (el && el.closest('#changelog, #aide, #viseurs, #overlay, #install, #coop')) return;
   e.preventDefault();
 }, { passive: false });
 
