@@ -566,7 +566,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.59</button>
+  <button id="versionBtn">v0.60</button>
 </div>
 
 <div id="bottombar">
@@ -905,6 +905,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.60</b> — le manche redevient deux axes independants et perd 30 % de nervosite ; le son revient meme sonnerie coupee.</div>
   <div><b>v0.59</b> — un carnet de vol qui dit où l'on meurt, une seule reprise par partie, et three.js embarqué.</div>
   <div><b>v0.58</b> — le panneau de coopération défile enfin au doigt, et l'on peut revenir sur son choix.</div>
   <div><b>v0.57</b> — les canons chauds frappent enfin deux fois plus fort, les trois halos sont posés, et une manette suffit à piloter.</div>
@@ -1032,8 +1033,11 @@ const SPIN_TIME     = 0.48;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
 const FIG_TIME      = 1.05;   // durée d'un renversement, Immelmann ou Split-S
-const MAX_YAW       = 2.15;   // rad/s, autorité en lacet à pleine déflexion — 123 degrés par seconde
-const MAX_PITCH     = 1.9;    // rad/s, autorité en tangage
+// Deux joueurs d'essai ont trouve le manche trop nerveux : tout baisse de
+// trente pour cent, lineairement, sans toucher a la forme de la courbe. Le
+// centre reste aussi fin, le plein manche donne simplement moins.
+const MAX_YAW       = 1.50;   // rad/s, autorité en lacet à pleine déflexion — 123 degrés par seconde
+const MAX_PITCH     = 1.33;    // rad/s, autorité en tangage
 const PITCH_LIMIT   = 85 * Math.PI / 180;
 // Au-delà de cette assiette, et à l'approche du plafond, l'appareil peine :
 // le moteur ne suit plus et la cellule se met à vaciller. Rien ne l'interdit,
@@ -1047,9 +1051,9 @@ const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sa
 // 11 m à 400 m occupe 0,8 degré ; avec la marge, il faut mettre la croix
 // dessus. Un cône fixe de 9 degrés laissait tirer à côté.
 const LOCK_MARGE    = 1.2 * Math.PI / 180;
-const SEUIL_TIR     = 0.3;    // charge minimale avant la première balle
+const SEUIL_TIR     = 0.15;    // charge minimale avant la première balle
 const VISEE_ENNEMI  = 0.5;    // secondes d'alignement tenu avant qu'il ouvre le feu
-const ASSIST_ETENDUE = 2.5;   // le magnétisme agit jusqu'à 2,5 fois le seuil
+const ASSIST_ETENDUE = 5.0;   // le magnétisme agit jusqu'à 2,5 fois le seuil
 const ASSIST_GAIN   = 20;     // rad/s par radian d'écart
 const ASSIST_MAX    = 0.5;    // plafond : un quart de l'autorité du joueur
 const LOCK_RANGE    = 1250;
@@ -1298,7 +1302,52 @@ function appliqueTimbre() {
 }
 let muet = localStorage.getItem('fod_muet') === '1';
 
+// ---------------------------------------------------------------------------
+// LE PETIT INTERRUPTEUR DE SONNERIE.
+//
+// Sur iPhone, une page web demarre en session audio « ambient » : celle d'un
+// son d'ambiance, que le commutateur lateral coupe. C'est voulu, et c'est meme
+// une bonne idee : on ne veut pas qu'une page de journal se mette a parler dans
+// une salle d'attente. Mais un jeu n'est pas un son d'ambiance, et iOS le sait
+// deja : les balises <audio> ne sont PAS coupees par le commutateur. Seul le
+// Web Audio l'est, et le jeu n'utilise que du Web Audio.
+//
+// D'ou deux reparations, dans cet ordre.
+//
+// La propre : navigator.audioSession, que Safari expose depuis iOS 16.4. On
+// declare « playback », la categorie d'un lecteur de musique, et le
+// commutateur cesse de nous concerner.
+//
+// L'ancienne, pour les iPhone plus vieux : faire jouer un silence par une
+// balise <audio> pendant le geste du joueur. iOS bascule alors la categorie de
+// la page entiere, et le Web Audio qui suit s'entend. Le fichier est un WAV de
+// huit cents octets, ecrit ici meme : un silence en huit bits non signes vaut
+// 128 et non zero, un tampon de zeros serait un creneau a fond.
+const SILENCE_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+let silence = null;
+
+function regleSessionAudio() {
+  try {
+    if ('audioSession' in navigator) {
+      navigator.audioSession.type = 'playback';
+      return;
+    }
+  } catch (e) { /* la propriete existe mais refuse la valeur : on retombe */ }
+  try {
+    if (!silence) {
+      silence = new Audio(SILENCE_WAV);
+      silence.setAttribute('playsinline', '');
+      silence.loop = true;
+    }
+    const j = silence.play();
+    if (j && j.catch) j.catch(() => {});
+  } catch (e) { /* rien a faire : le joueur entendra ou n'entendra pas */ }
+}
+
 function audioDemarre() {
+  // La categorie se regle AVANT tout : elle decide si l'on s'entend, et elle
+  // doit etre posee pendant le geste qui a lance le son.
+  regleSessionAudio();
   if (actx) { actx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
@@ -1372,13 +1421,40 @@ function parDistance(pos) {
 // s'arrête, la dernière valeur de gain reste, et le moteur continue de
 // tourner alors qu'on a quitté la page. Il faut donc suspendre le contexte
 // sur les événements du cycle de vie de la page, seuls à être encore émis.
+// LE PETIT BRUIT AIGU EN QUITTANT. Couper un oscillateur en pleine oscillation
+// laisse une marche dans le signal, et une marche est un claquement : tout le
+// spectre d'un coup, c'est-a-dire un « tac » aigu. On descend donc le volume
+// general en quarante millisecondes avant de suspendre. C'est inaudible comme
+// fondu, et c'est ce qui supprime le clic.
 function audioPause() {
+  if (!actx) return;
   if (moteurG) moteurG.gain.value = 0;
-  if (actx && actx.state === 'running') actx.suspend();
+  if (master) {
+    try {
+      const t = actx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(master.gain.value, t);
+      master.gain.linearRampToValueAtTime(0.0001, t + 0.04);
+    } catch (e) {}
+  }
+  setTimeout(() => {
+    if (actx && actx.state === 'running') actx.suspend();
+  }, 60);
 }
 
 function audioReprend() {
-  if (actx && actx.state === 'suspended' && !document.hidden && state.running) actx.resume();
+  if (!actx) return;
+  regleSessionAudio();
+  // le volume avait ete descendu pour eviter le clic : on le remonte
+  if (master) {
+    try {
+      const t = actx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(0.0001, t);
+      master.gain.linearRampToValueAtTime(muet ? 0 : 0.55, t + 0.08);
+    } catch (e) {}
+  }
+  if (actx.state === 'suspended' && !document.hidden && state.running) actx.resume();
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -1428,9 +1504,11 @@ const SFX = {
   // départ, le corps grave qui s'effondre, et un coup de basse dessous qui
   // donne la masse. Le corps dure un peu plus que la cadence maximale, si
   // bien que les coups se recouvrent en rafale au lieu de s'égrener.
-  tir:          () => { souffle(0.028, 3000, 1900, 7, 0.03);
-                        souffle(0.085, 760, 120, 1.0, 0.10);
-                        ton(190, 62, 0.075, 'square', 0.085); },
+  // Une octave plus bas, partout : le claquement passe de sec a sourd, ce qui
+  // est le son d'un calibre et pas d'un jouet.
+  tir:          () => { souffle(0.028, 1500, 950, 7, 0.03);
+                        souffle(0.085, 380, 60, 1.0, 0.10);
+                        ton(95, 31, 0.075, 'square', 0.085); },
   accroche:     () => ton(680, 1320, 0.11, 'sine', 0.13),
   cale:         () => ton(1320, 1760, 0.08, 'sine', 0.09),
   arme:         () => { ton(440, 660, 0.07, 'square', 0.07); souffle(0.05, 1400, 700, 5, 0.04); },
@@ -2074,7 +2152,7 @@ const KINDS = [
     ],
     tris: [0,1,2, 0,2,3,  4,5,6, 4,6,7,  8,9,10, 8,10,11,  12,13,14,  9,15,10],
     envergure: 8.5,   // Sopwith Camel : 8,53 m
-    vitesse: [72, 80], virage: 0.8, vie: 70, recharge: [2.3, 3.9],
+    vitesse: [72, 80], virage: 0.40, vie: 70, recharge: [2.3, 3.9],
     cone: Math.cos(12 * Math.PI / 180), portee: 520, rafale: 2
   },
   {
@@ -2086,7 +2164,7 @@ const KINDS = [
     ],
     tris: [0,1,3, 0,3,2, 1,4,3, 2,3,5],
     envergure: 11.2,  // Spitfire Mk I : 11,23 m
-    vitesse: [75, 84], virage: 1.25, vie: 100, recharge: [0.9, 1.8],
+    vitesse: [75, 84], virage: 0.62, vie: 100, recharge: [0.9, 1.8],
     cone: Math.cos(15 * Math.PI / 180), portee: 900, rafale: 3
   },
   {
@@ -2099,7 +2177,7 @@ const KINDS = [
     ],
     tris: [0,1,3, 0,3,2, 3,4,5, 6,3,7],
     envergure: 7.5,   // aile courte, comme tout intercepteur supersonique
-    vitesse: [80, 90], virage: 0.95, vie: 90, recharge: [1.0, 2.0],
+    vitesse: [80, 90], virage: 0.48, vie: 90, recharge: [1.0, 2.0],
     cone: Math.cos(12 * Math.PI / 180), portee: 1050, rafale: 3
   },
   {
@@ -2112,7 +2190,7 @@ const KINDS = [
     ],
     tris: [0,1,2, 0,2,3,  3,0,4,  0,1,5,  1,2,6,  2,3,7,  0,8,2],
     envergure: 6.0,   // engin compact, plus petit que tout ce qui est piloté
-    vitesse: [82, 94], virage: 1.75, vie: 80, recharge: [0.7, 1.4],
+    vitesse: [82, 94], virage: 0.88, vie: 80, recharge: [0.7, 1.4],
     cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
   },
   {
@@ -2126,7 +2204,7 @@ const KINDS = [
     ],
     tris: [0,1,2, 0,2,3,  3,0,4,  0,1,5,  1,2,6,  2,3,7,  0,8,2,  0,9,2],
     envergure: 17,
-    vitesse: [78, 86], virage: 1.5, vie: 620, recharge: [0.55, 1.1],
+    vitesse: [78, 86], virage: 0.75, vie: 620, recharge: [0.55, 1.1],
     cone: Math.cos(16 * Math.PI / 180), portee: 1250, rafale: 6
   },
   {
@@ -3848,7 +3926,16 @@ function updateEnemies(dt) {
       // un pilote fait sa passe et dégage sur le côté. Sans ce réflexe, les
       // biplans en poursuite pure devenaient des kamikazes, puisque viser le
       // joueur et le percuter sont la même chose.
-      if (dist < 140) e.goal.addScaledVector(_right, e.cote * 110);
+      // ILS ONT PEUR, ET DE PLUS LOIN. Cent quarante metres, c'etait deux
+      // secondes avant le choc : trop tard pour degager. On commence a
+      // s'ecarter des deux cent soixante, d'autant plus fort qu'on est pres,
+      // et on ajoute du haut ou du bas, sans quoi l'esquive reste dans le plan
+      // du joueur et il suffit de tourner avec eux.
+      if (dist < 260) {
+        const peur = 1 - dist / 260;
+        e.goal.addScaledVector(_right, e.cote * (90 + 260 * peur * peur));
+        e.goal.y += e.cote * 110 * peur;
+      }
       e.goal.y = THREE.MathUtils.clamp(e.goal.y, 70, CEILING);
       _m4.lookAt(e.pos, e.goal, _up);
       _q.setFromRotationMatrix(_m4);
@@ -3863,6 +3950,22 @@ function updateEnemies(dt) {
     e.mesh.quaternion.copy(e.quat);
     if (!K.sol) ecarterDuDecor(e);
     e.mesh.position.copy(e.pos);
+
+    // LE CHOC. Deux avions qui se touchent a deux cents kilometres-heure, il
+    // n'y en a qu'un qui repart : le plus petit part en morceaux, le plus gros
+    // rentre cabosse. Dix points de structure, et l'adversaire est abattu comme
+    // s'il avait ete descendu, score compris. C'est cher paye pour lui, et
+    // c'est bien pourquoi ils s'ecartent maintenant de si loin.
+    if (!K.sol && state.running && !state.pose && !state.roulage && !state.takeoff) {
+      const contact = (ENVERGURE_JOUEUR + K.envergure) * 0.42;
+      if (e.pos.distanceTo(state.pos) < contact) {
+        spawnBurst(e.pos, 9);
+        SFX.detruit(e.pos);
+        damagePlayer(10, e.pos.clone(), 'choc');
+        abattre(e);
+        continue;
+      }
+    }
     e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
 
     // tir ennemi : même test de cône que le joueur, plus ou moins large selon
@@ -4499,11 +4602,25 @@ function simulate(dt) {
   // zone fine. On calcule donc un gain unique sur le rayon, et on le répartit
   // sur les deux axes : la réponse ne dépend plus que de l'écart au centre,
   // dans toutes les directions également.
-  const rayon = Math.min(1, Math.hypot(dx, dy));
+  // LA COURBE REVIENT SUR CHAQUE AXE, et c'est un aveu : la version au rayon
+  // etait une erreur.
+  //
+  // Elle rendait bien la reponse egale dans toutes les directions, mais au prix
+  // de la seule chose qui compte vraiment sur un manche : L'INDEPENDANCE DES
+  // AXES. Le doigt pose un centimetre a droite pour virer, on monte d'un
+  // centimetre pour ajuster, et le rayon passe de 0,30 a 0,42. La courbe etant
+  // quartique, le gain bondit, et le virage a droite s'accelere alors que le
+  // doigt n'a pas bouge horizontalement. On demandait de la montee, on
+  // recevait de la montee ET du virage.
+  //
+  // Sur un vrai manche, tangage et roulis sont independants : tirer ne fait pas
+  // tourner. C'est ce qu'on retrouve ici. Le prix est connu et assume : plein
+  // manche en diagonale donne un peu plus qu'en ligne droite.
   const courbe = v => v * (0.17 + 0.83 * v * v * v * v);
-  const gain = rayon > 1e-4 ? courbe(rayon) / rayon : 0;
-  const yawRate   = -dx * gain * MAX_YAW;
-  const pitchRate = -dy * gain * MAX_PITCH;
+  const parAxe = v => Math.sign(v) * courbe(Math.min(1, Math.abs(v)));
+  const rayon = Math.min(1, Math.hypot(dx, dy));
+  const yawRate   = -parAxe(dx) * MAX_YAW;
+  const pitchRate = -parAxe(dy) * MAX_PITCH;
 
   // Le lacet est ramené dans un tour à chaque image. Laissé libre il dérive
   // indéfiniment, et tout ce qui l'interpole — l'alignement sur la piste, la
@@ -6310,7 +6427,7 @@ const CARNET_VIDE = {
   vagueMax: 0,
   reprises: 0,         // reprises après la mort
   poses: 0,            // atterrissages menés jusqu'à l'arrêt
-  degats: { balles: 0, decor: 0, sol: 0, pose: 0 },
+  degats: { balles: 0, decor: 0, sol: 0, pose: 0, choc: 0 },
   pluslongue: 0,       // la partie la plus longue, en secondes
 };
 let carnet = JSON.parse(JSON.stringify(CARNET_VIDE));
@@ -6349,7 +6466,8 @@ function texteCarnet() {
     + (fr ? 'balles ' : 'bullets ') + Math.round(d.balles)
     + ', ' + (fr ? 'décor ' : 'scenery ') + Math.round(d.decor)
     + ', ' + (fr ? 'sol ' : 'ground ') + Math.round(d.sol)
-    + ', ' + (fr ? 'posés ' : 'landings ') + Math.round(d.pose));
+    + ', ' + (fr ? 'posés ' : 'landings ') + Math.round(d.pose)
+    + ', ' + (fr ? 'chocs ' : 'collisions ') + Math.round(d.choc));
   const vagues = Object.keys(carnet.mortsParVague).map(Number).sort((a, b) => a - b);
   l.push((fr ? 'morts par vague' : 'deaths per wave') + ' : '
     + (vagues.length ? vagues.map(v => v + '×' + carnet.mortsParVague[v]).join('  ') : '—'));
@@ -6396,8 +6514,13 @@ function refreshBars() {
   // POSER ne se montre que quand la piste est devant et lisible, et ne bat que
   // quand on est réellement sur le plan. Un bouton toujours là qu'on ne peut
   // presque jamais utiliser n'apprend rien.
-  const montrer = PLAN.lisible && state.running && !state.pose && !state.roulage
-                && !state.takeoff && !state.fig;
+  // IL NE S'AFFICHE QUE S'IL SERT. Un bouton grise qu'on ne peut pas presser
+  // n'apprend rien : on le voit, on essaie, il ne se passe rien, et l'on ne
+  // sait toujours pas ce qui manque. Il apparait donc au moment ou l'on est
+  // reellement sur le plan, et disparait des qu'on le quitte. Ce sont les
+  // quatre carres du collimateur qui disent pourquoi, eux sont toujours la.
+  const montrer = (PLAN.pret || state.assist) && state.running
+                && !state.pose && !state.roulage && !state.takeoff && !state.fig;
   poserBtn.hidden = !montrer;
   poserBtn.classList.toggle('pret', montrer && PLAN.pret && !state.assist);
   poserBtn.classList.toggle('actif', montrer && state.assist);
