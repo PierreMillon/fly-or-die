@@ -240,7 +240,7 @@ milieu de son propre démarrage, parce qu'elle réagissait au changement de
 contrôleur. Le jeu ne partait plus du tout. La recharge n'a lieu que si le
 joueur touche la pastille de nouvelle version.
 
-## Les trois halos retenus → à faire
+## Les trois halos retenus → fait en v0.57
 
 Choisis sur la planche :
 
@@ -248,11 +248,22 @@ Choisis sur la planche :
 - soleil : 14 ÉCLAT — étendue 169, intensité 176, battement 0
 - canons : 14 ÉCLAT — étendue 49, intensité 200, battement 17
 
-## Les canons chauds ne font rien aux dégâts → à trancher
+Posés tels quels. Réserve : à 31 % d'intensité, le bouclier ne se voit
+quasiment pas en jeu — la planche a un fond noir pur, le jeu a une grille,
+des étoiles et du brouillard. Opacité mesurée en vol : 0,30 sur le panneau,
+donc environ 0,14 une fois le dégradé appliqué. À remonter s'il le confirme.
 
-CHAUFFE_CADENCE ne touche que l'intervalle entre deux traçantes, qui sont
-décoratives. Les dégâts sont continus (DPS_MIN à DPS_MAX selon la charge) et
-ne lisent jamais state.chauffe. L'état est donc purement visuel et sonore.
+## Les canons chauds ne font rien aux dégâts → fait en v0.57
+
+Ils font maintenant deux fois plus de dégâts, et le facteur se déduit de la
+cadence (1 / CHAUFFE_CADENCE) pour que les deux ne puissent plus diverger.
+
+## Manette → fait en v0.57
+
+Stick gauche dans « aim », comme le ferait un pouce. Gâchettes pour les
+tonneaux, boutons du pouce pour les renversements, croix pour POSER et
+REDÉCOLLER. Quatre-vingts lignes, parce que toute la commande passait déjà
+par un seul point.
 
 ## Questions restées ouvertes
 

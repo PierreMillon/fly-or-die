@@ -526,7 +526,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.56</button>
+  <button id="versionBtn">v0.57</button>
 </div>
 
 <div id="bottombar">
@@ -854,6 +854,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.57</b> — les canons chauds frappent enfin deux fois plus fort, les trois halos sont posés, et une manette suffit à piloter.</div>
   <div><b>v0.56</b> — le jeu s'installe sur l'écran d'accueil, se lance plein écran et vole sans réseau.</div>
   <div><b>v0.55</b> — l'atterrissage se pilote : huit feux PAPI, un arrondi, quatre cents mètres de roulage et la remise de gaz.</div>
   <div><b>v0.54</b> — on vise là où la cible sera : viseur, magnétisme et balles suivent le point de déflexion.</div>
@@ -2471,6 +2472,12 @@ const BOOST_APRES = 0.75;     // ce qui reste de poussée une fois la cible accr
 const CHAUFFE_PAR = 3.0;      // secondes gagnées par appareil abattu
 const CHAUFFE_MAX = 9.0;      // au-delà, on ne cumule plus
 const CHAUFFE_CADENCE = 0.5;  // ce que devient l'intervalle entre deux salves
+// Et les dégâts suivent. Ils ne suivaient pas : les traçantes sont décoratives,
+// les dégâts sont continus, et la surchauffe ne touchait que l'intervalle entre
+// deux traits. On tirait deux fois plus vite pour exactement le même résultat —
+// une récompense qui n'en était pas une. Le facteur se déduit de la cadence
+// plutôt que de s'écrire à côté, pour que les deux ne puissent plus diverger.
+const CHAUFFE_DEGATS = 1 / CHAUFFE_CADENCE;
 const CHAUFFE_SECOUSSE = 3.4; // pixels d'amplitude au maximum
 
 const VIT_SEUIL = 88;         // m/s : en dessous, l'air est invisible
@@ -3141,20 +3148,106 @@ function feedTracers(layer, pts) {
 // ---------------------------------------------------------------------------
 const burstGeom = new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 0));
 
-// Le bouclier n'est pas une bulle autour de l'avion : c'est l'avion lui-même
-// qui rayonne. Deux copies de ses arêtes, à peine plus grandes, dépassent du
-// contour et donnent ce halo — comme une cellule légèrement radioactive.
-const matHaloA = lineMat(COL_TEXT, 0.5);
-const matHaloB = lineMat(COL_LINE, 0.22);
-matHaloA.depthWrite = false;
-matHaloB.depthWrite = false;
-const haloA = new THREE.LineSegments(planeEdges, matHaloA);
-const haloB = new THREE.LineSegments(planeEdges, matHaloB);
-haloA.scale.setScalar(1.045);
-haloB.scale.setScalar(1.11);
-haloA.frustumCulled = haloB.frustumCulled = false;
-haloA.visible = haloB.visible = false;
-playerMesh.add(haloA, haloB);
+// ---------------------------------------------------------------------------
+// LES TROIS HALOS, choisis sur la planche d'essai.
+//
+// Ce ne sont plus des copies des arêtes de l'avion — deux coques à peine plus
+// grandes, ce qui faisait un contour et pas une lumière. Ce sont de vrais
+// halos : des dégradés peints une fois pour toutes dans une texture, portés
+// par un panneau qui fait toujours face à la caméra.
+//
+//   bouclier  SOUFFLE  étendue 100  intensité  31  battement 17
+//   soleil    ÉCLAT    étendue 169  intensité 176  battement  0
+//   canons    ÉCLAT    étendue  49  intensité 200  battement 17
+//
+// Le soleil et les canons partagent la même forme et s'opposent par l'échelle :
+// un grand voile pâle pour l'astre dans le dos, un noyau serré et brûlant pour
+// des canons poussés à bout. La même figure dit deux choses contraires.
+// ---------------------------------------------------------------------------
+const TEX_HALO = 256;
+// Dans la texture, le rayon apparent de l'avion vaut cette part du côté. Tout
+// le reste s'exprime par rapport à lui, comme sur la planche.
+const HALO_R = 0.22;
+
+function peintHalo(forme, col, vif) {
+  const c = document.createElement('canvas');
+  c.width = c.height = TEX_HALO;
+  const x = c.getContext('2d');
+  const S = TEX_HALO, R = HALO_R * S;
+  const rgba = (t, a) => 'rgba(' + t[0] + ',' + t[1] + ',' + t[2] + ',' + a.toFixed(3) + ')';
+
+  const bulle = (r, arrets) => {
+    const g = x.createRadialGradient(S/2, S/2, 0, S/2, S/2, r);
+    for (const [p, o] of arrets) g.addColorStop(p, rgba(col, o));
+    x.fillStyle = g;
+    x.beginPath(); x.arc(S/2, S/2, r, 0, 7); x.fill();
+  };
+
+  if (forme === 'souffle') {
+    bulle(R * 2.1, [[0, 0], [.30, .46], [.62, .16], [1, 0]]);
+  } else {
+    // ÉCLAT : le souffle, plus seize rayons courts, un sur deux plus long.
+    // Ce n'est plus une lumière posée, c'est une lumière qui sort.
+    bulle(R * 1.9, [[0, 0], [.30, .42], [.62, .14], [1, 0]]);
+    x.globalCompositeOperation = 'lighter';
+    x.strokeStyle = rgba(vif, 0.38);
+    x.lineWidth = Math.max(1, S / 320);
+    x.beginPath();
+    for (let k = 0; k < 16; k++) {
+      const a = k / 16 * Math.PI * 2, l = (k % 2) ? 1 : 0.62;
+      const r0 = R * 1.05, r1 = R * (1.05 + 1.15 * l);
+      x.moveTo(S/2 + Math.cos(a) * r0, S/2 + Math.sin(a) * r0);
+      x.lineTo(S/2 + Math.cos(a) * r1, S/2 + Math.sin(a) * r1);
+    }
+    x.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Le rayon de l'avion dans le monde : une demi-envergure. La texture le place
+// à HALO_R du côté, donc le panneau mesure cette largeur-là.
+const HALO_MONDE = (ENVERGURE_JOUEUR / 2) / HALO_R;
+
+function faitHalo(forme, col, vif, etendue, intensite, battement) {
+  const m = new THREE.SpriteMaterial({
+    map: peintHalo(forme, col, vif),
+    transparent: true,
+    depthWrite: false,          // il ne masque rien de ce qui est derrière
+    blending: THREE.AdditiveBlending,
+    fog: false,
+    opacity: 0,
+  });
+  const sp = new THREE.Sprite(m);
+  sp.frustumCulled = false;
+  sp.visible = false;
+  sp.renderOrder = -2;          // avant la cellule, donc derrière elle
+  scene.add(sp);
+  return { sp, m, etendue, intensite, battement, base: HALO_MONDE * etendue };
+}
+
+const HALOS = {
+  bouclier: faitHalo('souffle', [96, 255, 176], [214, 255, 236], 1.00, 0.31, 0.17),
+  soleil:   faitHalo('eclat',   [255, 226, 138], [255, 252, 236], 1.69, 1.76, 0.00),
+  canons:   faitHalo('eclat',   [255, 122,  70], [255, 226, 198], 0.49, 2.00, 0.17),
+};
+
+// Un halo se règle en trois nombres et rien d'autre : sa force du moment, le
+// battement de la planche, et une rotation lente pour les rayons.
+function majHalo(h, force, t) {
+  if (force <= 0.002) { h.sp.visible = false; return; }
+  // la même formule que la planche : le battement porte sur l'intensité ET sur
+  // l'étendue, parce que sur la seule intensité un dégradé doux ne montre rien
+  const p = Math.sin(t * 3.4);
+  const vif = 1 + 0.40 * h.battement * p;
+  const large = 1 + 0.12 * h.battement * p;
+  h.sp.visible = true;
+  h.sp.position.copy(state.pos);
+  h.sp.scale.setScalar(h.base * large);
+  h.m.opacity = Math.min(1, h.intensite * force * vif);
+  h.m.rotation = t * 0.25;
+}
 
 const bursts = [];
 function spawnBurst(pos, scale) {
@@ -4208,7 +4301,9 @@ function updateLock(dt) {
   // aucune raison de soigner son placement.
   if (charge < SEUIL_TIR) return;
 
-  best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge) * (1 - 0.6 * eblouissement()) * dt;
+  best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge)
+           * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1)
+           * (1 - 0.6 * eblouissement()) * dt;
 
   // deux roquettes après une seconde de verrouillage tenu
   state.roqT -= dt;
@@ -4318,6 +4413,10 @@ function step(now) {
 }
 
 function simulate(dt) {
+  // La manette écrit dans « aim » comme le ferait un pouce : elle doit donc
+  // parler avant qu'on lise la commande, pas après.
+  litManette();
+
   // --- commande : l'écart entre le doigt et le centre pilote les vitesses
   const w = window.innerWidth, h = window.innerHeight;
   const ref = Math.min(w, h) * 0.42;
@@ -4952,15 +5051,15 @@ function simulate(dt) {
   playerMesh.quaternion.copy(state.quat);
   propMesh.rotation.z += 16 * dt;
 
-  haloA.visible = haloB.visible = state.bouclier > 0;
-  if (state.bouclier > 0) {
-    const reste = state.bouclier / BOUCLIER_COUPS;
+  // LES TROIS HALOS. Chacun lit une seule chose, déjà calculée ailleurs : le
+  // bouclier qui reste, l'alignement au soleil, les secondes de surchauffe.
+  {
     const t = performance.now() / 1000;
-    // le rayonnement respire et s'éteint à mesure qu'il encaisse
-    haloA.scale.setScalar(1.03 + 0.03 * reste + Math.sin(t * 9) * 0.006);
-    haloB.scale.setScalar(1.07 + 0.07 * reste + Math.sin(t * 6.3) * 0.012);
-    matHaloA.opacity = 0.14 + 0.4 * reste + Math.sin(t * 12) * 0.05;
-    matHaloB.opacity = 0.05 + 0.2 * reste + Math.sin(t * 8) * 0.03;
+    majHalo(HALOS.bouclier,
+            state.bouclier > 0 ? 0.3 + 0.7 * (state.bouclier / BOUCLIER_COUPS) : 0, t);
+    majHalo(HALOS.soleil, dosSoleil(), t);
+    majHalo(HALOS.canons,
+            state.chauffe > 0 ? Math.min(1, state.chauffe / CHAUFFE_PAR) : 0, t);
   }
 
   // --- caméra : elle traîne derrière et ne prend qu'une part du roulis,
@@ -6198,7 +6297,7 @@ const T = {
     poseBon: 'POSÉ', poseDur: 'POSÉ DUR', poseHors: 'POSÉ HORS AXE',
     poseLong: 'POSÉ LONG', remiseGaz: 'REMISE DE GAZ',
     surLePlan: 'SUR LE PLAN', tropHaut: 'TROP HAUT', tropBas: 'TROP BAS',
-    poser: 'POSER',
+    poser: 'POSER', manette: 'MANETTE RECONNUE',
     redecoller: 'REDÉCOLLER', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
     pasDeVideo: "Aucune vidéo disponible pour l'instant. Reprise offerte.",
     scoreMot: 'SCORE ', nouveauRecord: 'NOUVEAU RECORD', recordMot: 'RECORD '
@@ -6224,7 +6323,7 @@ const T = {
     poseBon: 'DOWN', poseDur: 'HARD LANDING', poseHors: 'OFF CENTRELINE',
     poseLong: 'LONG LANDING', remiseGaz: 'GOING AROUND',
     surLePlan: 'ON SLOPE', tropHaut: 'TOO HIGH', tropBas: 'TOO LOW',
-    poser: 'LAND',
+    poser: 'LAND', manette: 'GAMEPAD DETECTED',
     redecoller: 'TAKE OFF AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
     pasDeVideo: 'No video available yet. Continue is on the house.',
     scoreMot: 'SCORE ', nouveauRecord: 'NEW RECORD', recordMot: 'RECORD '
@@ -6833,6 +6932,87 @@ if (window.visualViewport) {
 resize();
 aim.x = window.innerWidth / 2;
 aim.y = window.innerHeight / 2;
+
+// ---------------------------------------------------------------------------
+// LA MANETTE.
+//
+// Facile, et pour une raison précise : le jeu ne connaît qu'une chose, l'écart
+// entre le doigt et le centre de l'écran. Une manette donne exactement ça, en
+// mieux — deux axes déjà normalisés entre moins un et un. On écrit donc dans
+// « aim » comme le ferait un pouce, et tout ce qui suit — la courbe de
+// commande, le roulis, le verrouillage, les figures — n'a rien à savoir.
+//
+// Quatre-vingts lignes pour un deuxième mode de pilotage complet. C'est le
+// bénéfice d'avoir fait passer toute la commande par un seul point.
+// ---------------------------------------------------------------------------
+const MANETTE_MORT = 0.14;   // un stick au repos n'est jamais tout à fait à zéro
+let manetteVue = false, manetteTient = false;
+let boutonsAvant = [];
+
+// La zone morte ne se contente pas d'ignorer le centre : elle réétale ce qui
+// reste. Sans cela la commande sauterait de zéro à quatorze pour cent dès que
+// le stick sort du creux, et le centre serait inutilisable.
+function horsZoneMorte(v) {
+  const a = Math.abs(v);
+  if (a < MANETTE_MORT) return 0;
+  return Math.sign(v) * (a - MANETTE_MORT) / (1 - MANETTE_MORT);
+}
+
+function litManette() {
+  if (!navigator.getGamepads) return;
+  let p = null;
+  for (const g of navigator.getGamepads()) if (g && g.connected) { p = g; break; }
+  if (!p) { manetteVue = false; return; }
+  if (!manetteVue) { manetteVue = true; announce(t('manette')); }
+
+  const ax = horsZoneMorte(p.axes[0] || 0);
+  const ay = horsZoneMorte(p.axes[1] || 0);
+  if (ax || ay) {
+    // le même repère que le doigt : le centre de l'écran, et le même rayon de
+    // référence, si bien que plein manche veut dire la même chose des deux côtés
+    const w = window.innerWidth, h = window.innerHeight;
+    const ref = Math.min(w, h) * 0.42;
+    aim.x = w / 2 + ax * ref;
+    aim.y = h / 2 + ay * ref;
+    aim.active = true;          // sinon le rappel au centre lutterait contre nous
+    manetteTient = true;
+  } else if (manetteTient) {
+    // On ne relâche que ce qu'on tenait. Lire l'état du doigt pour décider
+    // serait fragile — et faux dès qu'on pose le pouce sur l'écran alors que la
+    // manette est branchée. On se souvient simplement de qui parlait.
+    manetteTient = false;
+    aim.active = false;         // le viseur revient au centre tout seul
+  }
+
+  // Les figures, qui se font au double appui du doigt, se font ici d'un bouton.
+  // Gâchettes hautes pour les tonneaux, boutons du pouce pour les renversements.
+  const b = p.buttons.map(x => x.pressed);
+  const neuf = i => b[i] && !boutonsAvant[i];
+  const libre = state.running && state.spinT <= 0 && !state.fig
+             && !state.takeoff && !state.pose && !state.roulage;
+  if (libre) {
+    if (neuf(4) || neuf(6)) { state.spinT = SPIN_TIME; state.spinSide = -1; SFX.tonneau(); }
+    else if (neuf(5) || neuf(7)) { state.spinT = SPIN_TIME; state.spinSide = 1; SFX.tonneau(); }
+    else if (neuf(3)) {          // triangle / Y : renversement par le haut
+      state.fig = { t: 0, side: 1, type: 'imm', base: state.quat.clone(), yaw0: state.yaw };
+      SFX.renversement();
+    } else if (neuf(1)) {        // rond / B : renversement par le bas
+      state.fig = { t: 0, side: 1, type: 'split', base: state.quat.clone(), yaw0: state.yaw };
+      SFX.renversement();
+    }
+  }
+  // croix / A : POSER, et au sol REDÉCOLLER — le même bouton pour les deux
+  // moments où l'on décide de toucher le bitume ou de le quitter.
+  if (neuf(0)) {
+    if (state.pose) redecoller();
+    else if (!poserBtn.hidden) state.assist = !state.assist;
+    else if (!overlay.hidden) startBtn.click();
+  }
+  boutonsAvant = b;
+}
+
+
+addEventListener('gamepadconnected', () => { manetteVue = false; });
 
 // ---------------------------------------------------------------------------
 // INSTALLATION. Le jeu tient en un fichier et une bibliothèque : posé sur
