@@ -566,7 +566,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.62</button>
+  <button id="versionBtn">v0.63</button>
 </div>
 
 <div id="bottombar">
@@ -905,6 +905,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.63</b> — les bâtiments encaissent les balles et s'effondrent, le soleil suit la partie et cache trois secrets.</div>
   <div><b>v0.62</b> — la caméra suit enfin le tonneau, les mécaniciens ripostent au fusil, la cellule encaisse 30 % de mieux, et on peut monter à 80°.</div>
   <div><b>v0.61</b> — le manche d'avant revient ; deux portes en l'air ouvrent l'atterrissage, les roquettes partent en une demi-seconde, on vise l'avion et les canons visent devant.</div>
   <div><b>v0.60</b> — le manche redevient deux axes independants et perd 30 % de nervosite ; le son revient meme sonnerie coupee.</div>
@@ -2255,6 +2256,66 @@ const PN_GAIN = 3.2;
 // C'est la manœuvre la plus vieille du combat aérien, et elle tient en un
 // produit scalaire de plus.
 const SOLEIL = new THREE.Vector3(0.62, 0.42, -0.66).normalize();
+// LE SOLEIL SUIT LA PARTIE. Il se lève à la première vague, culmine vers la
+// huitième et se couche de l'autre côté vers la quinzième : une partie est une
+// journée. Bas sur l'horizon il éblouit en palier, haut il ne gêne qu'en
+// montée. Il glisse d'un cran à chaque vague, lentement, jamais d'un bloc.
+const SOLEIL_AZ0 = Math.atan2(0.62, 0.66);
+const _solCible = SOLEIL.clone();
+function soleilCible(vague, out) {
+  const s = THREE.MathUtils.clamp((vague - 1) / 14, 0, 1);
+  const az = SOLEIL_AZ0 - Math.PI / 3 + (2 * Math.PI / 3) * s;
+  const el = (5 + 55 * Math.sin(Math.PI * s)) * Math.PI / 180;
+  return out.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+}
+function majSoleil(dt) {
+  if (SOLEIL.distanceToSquared(_solCible) < 1e-8) return;
+  SOLEIL.lerp(_solCible, 1 - Math.exp(-0.45 * dt)).normalize();
+}
+// LES SECRETS DU SOLEIL. Rien n'est écrit dans l'aide : on les trouve en
+// jouant avec lui. Tirer dix secondes en plein éblouissement l'éteint vingt
+// secondes — l'ÉCLIPSE, et plus personne n'y voit. Le tenir en plein centre
+// deux secondes et demie, c'est le TRAVERSER : un bouclier doré, une fois par
+// vague. Un tonneau le nez dans le soleil décroche une ÉTOILE FILANTE.
+const ECLIPSE_SEUIL = 10, ECLIPSE_DUREE = 20;
+const DORE_TENUE = 2.5, DORE_DUREE = 8;
+const ETOILE_PRIME = 500, ETOILE_REPOS = 30;
+let etoile = null;
+function declencheEclipse() {
+  state.eclipse = ECLIPSE_DUREE;
+  state.solTir = 0;
+  announce(t('eclipse'));
+  SFX.bouclierOn();
+}
+function tonneauSoleil() {
+  if (state.etoileT > 0 || eblouissement() <= 0.5) return;
+  state.etoileT = ETOILE_REPOS;
+  state.score += ETOILE_PRIME;
+  announce(t('etoile') + ETOILE_PRIME);
+  SFX.vagueNette();
+  // elle part du soleil et file en travers du ciel pendant deux secondes
+  _v.set(-SOLEIL.z, 0, SOLEIL.x).normalize();
+  etoile = { t: 0, dir: SOLEIL.clone(), perp: _v.clone().multiplyScalar(Math.random() < 0.5 ? -1 : 1) };
+}
+function secretsSoleil(dt) {
+  if (state.eclipse > 0) state.eclipse = Math.max(0, state.eclipse - dt);
+  if (state.etoileT > 0) state.etoileT -= dt;
+  if (state.dore > 0) {
+    state.dore -= dt;
+    if (state.dore <= 0) { state.dore = 0; state.bouclier = 0; announce(t('bouclierFin')); SFX.bouclierFin(); }
+  }
+  const enVol = !state.pose && !state.auSol && !state.takeoff && !state.roulage;
+  if (enVol && state.eclipse <= 0 && eblouissement() >= 0.98) {
+    state.solDans += dt;
+    if (state.solDans >= DORE_TENUE && state.doreVague !== state.wave) {
+      state.doreVague = state.wave;
+      state.dore = DORE_DUREE;
+      state.bouclier = BOUCLIER_COUPS;
+      announce(t('dore'));
+      SFX.bouclierOn();
+    }
+  } else state.solDans = 0;
+}
 const SOL_CONE = Math.cos(24 * Math.PI / 180);   // au-delà, on est ébloui
 const SOL_CONE_E = Math.cos(20 * Math.PI / 180); // et l'adversaire aussi
 const ESQUIVE_DUREE = [1.0, 1.6];  // secondes de dégagement quand on est visé
@@ -2316,6 +2377,13 @@ const GRID_SPAN = 8400, GRID_STEP = 160;
 const grid = scene.getObjectByName('grid');
 let etoiles = [];
 let soleilMesh = null, couronneMesh = null;
+// l'étoile filante : un seul trait, redessiné chaque image tant qu'elle file
+const etoileMesh = new THREE.LineSegments(segGeom([0, 0, 0, 0, 0, 0]),
+  new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0, fog: false }));
+etoileMesh.frustumCulled = false;
+etoileMesh.renderOrder = -1;
+etoileMesh.visible = false;
+scene.add(etoileMesh);
 
 // Voûte céleste. Les étoiles sont posées sur une sphère qui suit la position
 // de la caméra sans jamais tourner avec elle : leur direction est donc fixe
@@ -3243,6 +3311,7 @@ function placeArche(a, initial) {
   ];
   // le vide entre les piles et sous la poutre : c'est lui qui rapporte
   a.passage = b(0, 0, ARCHE.ouvertureL / 2, P, 4, ARCHE.ouvertureH);
+  rebatir(a);
 }
 // TOUR PERCÉE. Une barre bien plus haute que les pylônes, trouée d'une seule
 // ouverture placée aux deux tiers de sa hauteur — donc à peu près à l'altitude
@@ -3313,6 +3382,7 @@ function placeTour(t, initial) {
     b( dx, M, P, TOUR.y0, TOUR.y1)
   ];
   t.passage = b(0, TOUR.trou / 2, P, TOUR.y0, TOUR.y1);
+  rebatir(t);
 }
 
 for (let i = 0; i < 34; i++) {
@@ -3320,6 +3390,121 @@ for (let i = 0; i < 34; i++) {
   t.scale.set(0.6 + Math.random() * 1.4, 0.5 + Math.random() * 2.4, 0.6 + Math.random() * 1.4);
   scene.add(t);
   towers.push(t);
+}
+
+// ---------------------------------------------------------------------------
+// LE DÉCOR ENCAISSE. Un ennemi caché derrière un bâtiment était touché quand
+// même : les balles ne connaissaient que les avions. Chaque volume a
+// maintenant une structure. Ce qu'on tire dedans s'y arrête, avec de la
+// poussière au point d'impact, et quand la structure tombe le bâtiment
+// s'EFFONDRE — l'ennemi qui se cachait derrière est alors à découvert.
+// Pylône, arche, tour : même règle, structures différentes. Les balles d'en
+// face s'arrêtent de la même façon : un bâtiment protège les deux camps.
+// ---------------------------------------------------------------------------
+const BAT_HP = { pylone: 90, arche: 160, tour: 260 };
+const BAT_CHUTE = 1.3;              // secondes d'effondrement
+const BAT_PRIME = 80;               // points pour un bâtiment abattu
+const _b0 = new THREE.Vector3(), _b1 = new THREE.Vector3();
+const pylones = towers.map(g => ({ type: 'pylone', g, boites: [], sy: g.scale.y,
+                                   hp: BAT_HP.pylone, mort: false, chute: 0, poussT: 0 }));
+for (const a of arches) Object.assign(a, { type: 'arche', sy: 1, hp: BAT_HP.arche, mort: false, chute: 0, poussT: 0 });
+for (const t of tours)  Object.assign(t, { type: 'tour',  sy: 1, hp: BAT_HP.tour,  mort: false, chute: 0, poussT: 0 });
+const BATIMENTS = [...pylones, ...arches, ...tours];
+
+function rebatir(b) {
+  b.hp = BAT_HP[b.type];
+  b.mort = false;
+  b.chute = 0;
+  b.g.visible = true;
+  b.g.scale.y = b.sy;
+}
+
+// Segment p0→p1 contre une boîte alignée sur les axes : la méthode des
+// tranches. Sur chaque axe, l'intervalle de temps pendant lequel le segment
+// est entre les deux faces ; l'intersection des trois intervalles est le
+// passage dans la boîte. Renvoie la fraction d'entrée, ou -1.
+function segmentBoite(p0, p1, b) {
+  let t0 = 0, t1 = 1;
+  const tranche = (a0, a1, lo, hi) => {
+    const d = a1 - a0;
+    if (Math.abs(d) < 1e-9) return a0 >= lo && a0 <= hi;
+    let ta = (lo - a0) / d, tb = (hi - a0) / d;
+    if (ta > tb) { const c = ta; ta = tb; tb = c; }
+    if (ta > t0) t0 = ta;
+    if (tb < t1) t1 = tb;
+    return t0 <= t1;
+  };
+  if (!tranche(p0.x, p1.x, b.x - b.hx, b.x + b.hx)) return -1;
+  if (!tranche(p0.z, p1.z, b.z - b.hz, b.z + b.hz)) return -1;
+  if (!tranche(p0.y, p1.y, b.y0, b.y1)) return -1;
+  return t0;
+}
+
+// le premier bâtiment debout que traverse le segment, et où
+const _obst = { bat: null, t: 0 };
+function obstacleEntre(p0, p1) {
+  _obst.bat = null; _obst.t = 2;
+  const L = p0.distanceTo(p1) + 400;
+  for (const b of BATIMENTS) {
+    if (b.mort) continue;
+    if (b.g.position.distanceTo(p0) > L) continue;
+    for (const bo of b.boites) {
+      const t = segmentBoite(p0, p1, bo);
+      if (t >= 0 && t < _obst.t) { _obst.t = t; _obst.bat = b; }
+    }
+  }
+  return _obst.bat ? _obst : null;
+}
+
+const _pouss = new THREE.Vector3();
+function toucheBat(b, point, degats) {
+  if (b.mort) return;
+  b.hp -= degats;
+  // la poussière au point d'impact, à cadence bornée : un tir continu ne
+  // doit pas semer cent bouffées par seconde
+  if (b.poussT <= 0) {
+    b.poussT = 0.11;
+    spawnBurst(point, 2.2);
+    _pouss.set((Math.random() - 0.5) * 0.6, 0.7 + Math.random() * 0.5, (Math.random() - 0.5) * 0.6).normalize();
+    const f = semerFumee(point.clone(), _pouss);
+    if (f) f.r0 *= 1.6;
+  }
+  if (b.hp <= 0) effondrer(b);
+}
+
+function effondrer(b) {
+  b.mort = true;
+  b.chute = BAT_CHUTE;
+  b.hp = 0;
+  state.score += BAT_PRIME;
+  announce(t('effondre') + BAT_PRIME);
+  _pouss.copy(b.g.position); _pouss.y += 6;
+  SFX.roquetteImpact(_pouss);
+}
+
+// L'effondrement : le volume s'écrase sur sa base pendant une bonne seconde,
+// en semant de la poussière au pied, puis disparaît. Ses boîtes ont déjà
+// cessé d'exister à la première image — on peut tirer et passer à travers.
+function updateBatiments(dt) {
+  for (const b of BATIMENTS) {
+    b.poussT -= dt;
+    if (b.chute <= 0) continue;
+    b.chute -= dt;
+    const k = Math.max(0, b.chute / BAT_CHUTE);
+    b.g.scale.y = b.sy * (0.02 + 0.98 * k * k);
+    if (b.poussT <= 0) {
+      b.poussT = 0.08;
+      const bo = b.boites[0];
+      const r = bo ? Math.max(bo.hx, bo.hz) : 10;
+      _pouss.set(b.g.position.x + (Math.random() - 0.5) * 2 * r, 3 + Math.random() * 6,
+                 b.g.position.z + (Math.random() - 0.5) * 2 * r);
+      spawnBurst(_pouss, 4);
+      const d = new THREE.Vector3((Math.random() - 0.5), 0.2, (Math.random() - 0.5)).normalize();
+      const f = semerFumee(_pouss.clone(), d);
+      if (f) f.r0 *= 3;
+    }
+    if (b.chute <= 0) b.g.visible = false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -3490,6 +3675,7 @@ const HALOS = {
   bouclier: faitHalo('souffle', [96, 255, 176], [214, 255, 236], 1.00, 0.31, 0.17),
   soleil:   faitHalo('eclat',   [255, 226, 138], [255, 252, 236], 1.69, 1.76, 0.00),
   canons:   faitHalo('eclat',   [255, 122,  70], [255, 226, 198], 0.49, 2.00, 0.17),
+  dore:     faitHalo('souffle', [255, 204,  60], [255, 246, 200], 1.00, 0.45, 0.17),
 };
 
 // Un halo se règle en trois nombres et rien d'autre : sa force du moment, le
@@ -3549,6 +3735,12 @@ const state = {
   recordBattu: null,
   impacts: [],
   bouclier: 0,
+  eclipse: 0,         // secondes d'éclipse restantes
+  solTir: 0,          // secondes de tir cumulées en plein éblouissement
+  dore: 0,            // secondes de bouclier doré restantes
+  doreVague: -1,      // la vague où le bouclier doré a déjà été pris
+  solDans: 0,         // secondes tenues le nez dans le disque
+  etoileT: 0,         // repos avant la prochaine étoile filante
   vagueTouche: false,
   vagueT: 0,
   dureeVol: 0,        // secondes de vol de la partie en cours, pour le carnet
@@ -3731,6 +3923,10 @@ function resetGame() {
   redecoBtn.hidden = true;
   for (const a of arches) a.prise = false;
   for (const t of tours) t.prise = false;
+  for (const b of BATIMENTS) rebatir(b);
+  state.eclipse = 0; state.solTir = 0; state.dore = 0; state.doreVague = -1; state.solDans = 0;
+  state.etoileT = 0;
+  soleilCible(1, SOLEIL);      // l'aube : le soleil repart bas, sans transition
   state.paused = false;
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
@@ -3797,6 +3993,9 @@ function placeTower(t, initial) {
     if (!surLaPiste(x, z) || essai > 12) break;
   }
   t.position.set(x, 0, z);
+  const p = pylones[towers.indexOf(t)];
+  p.boites = [{ x, z, hx: 9 * t.scale.x, hz: 9 * t.scale.z, y0: 0, y1: TOWER_H * t.scale.y }];
+  rebatir(p);
 }
 
 // ---------------------------------------------------------------------------
@@ -3804,6 +4003,15 @@ function placeTower(t, initial) {
 // ---------------------------------------------------------------------------
 function spawnWave() {
   state.wave++;
+  // le soleil avance d'un cran, et les ruines de la vague précédente sont
+  // rebâties loin d'ici
+  soleilCible(state.wave, _solCible);
+  for (const b of BATIMENTS) {
+    if (!b.mort) continue;
+    if (b.type === 'pylone') placeTower(b.g, false);
+    else if (b.type === 'arche') placeArche(b, false);
+    else placeTour(b, false);
+  }
   // Montée en charge : on ouvre sur un seul adversaire, le temps de prendre
   // l'avion en main. Le tableau remplace la formule qui donnait déjà quatre
   // biplans dès la première vague.
@@ -3933,7 +4141,8 @@ function updateEnemies(dt) {
       e.mesh.quaternion.copy(e.quat);
       e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
       _v.multiplyScalar(-1 / dist);
-      const geneSol = e.gene = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
+      const geneSol = e.gene = state.eclipse > 0 ? 1
+        : Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
       e.reload -= dt;
       if (e.burst > 0) {
         e.burstT -= dt;
@@ -4117,12 +4326,18 @@ function updateEnemies(dt) {
     const tirer = () => {
       const lead = state.forward.clone().multiplyScalar(state.speed * (dist / BULLET_SPEED) * 0.8);
       const dir = _v.clone().multiplyScalar(dist).add(lead).normalize();
+      // dans le noir de l'éclipse, il tire au jugé
+      if (state.eclipse > 0) {
+        dir.x += (Math.random() - 0.5) * 0.14; dir.y += (Math.random() - 0.5) * 0.14;
+        dir.z += (Math.random() - 0.5) * 0.14; dir.normalize();
+      }
       state.bullets.push({ pos: e.pos.clone(), dir, t: 0 });
     };
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
     // être bien mieux aligné : c'est tout l'intérêt d'attaquer avec le soleil
     // dans le dos, la plus vieille manœuvre du combat aérien.
-    const gene = e.gene = Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
+    const gene = e.gene = state.eclipse > 0 ? 1
+      : Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
     e.reload -= dt;
     // Lui aussi doit prendre le temps de viser. Depuis que le joueur attend
     // une demi-seconde que son viseur se referme, un face-à-face était perdu
@@ -4255,15 +4470,9 @@ function ecarterDuDecor(e) {
     else e.pos.z = bz + Math.sign(dz || 1) * (hz + R);
     return true;
   };
-  for (const t of towers) {
-    if (test(t.position.x, t.position.z, 9 * t.scale.x, 9 * t.scale.z,
-             0, TOWER_H * t.scale.y)) return;
-  }
-  for (const a of arches) for (const b of a.boites) {
-    if (test(b.x, b.z, b.hx, b.hz, b.y0, b.y1)) return;
-  }
-  for (const t of tours) for (const b of t.boites) {
-    if (test(b.x, b.z, b.hx, b.hz, b.y0, b.y1)) return;
+  for (const b of BATIMENTS) {
+    if (b.mort) continue;
+    for (const bo of b.boites) if (test(bo.x, bo.z, bo.hx, bo.hz, bo.y0, bo.y1)) return;
   }
 }
 
@@ -4294,7 +4503,9 @@ function updateShots(dt) {
     const sh = state.shots[i];
     sh.t += dt;
     if (sh.t > 0.85) { state.shots.splice(i, 1); continue; }
+    _b0.copy(sh.pos);
     sh.pos.addScaledVector(sh.dir, SHOT_SPEED * dt);
+    if (obstacleEntre(_b0, sh.pos)) { state.shots.splice(i, 1); continue; }
     pts.push(
       sh.pos.x, sh.pos.y, sh.pos.z,
       sh.pos.x - sh.dir.x * SHOT_LEN, sh.pos.y - sh.dir.y * SHOT_LEN, sh.pos.z - sh.dir.z * SHOT_LEN
@@ -4344,6 +4555,16 @@ function updateRoquettes(dt) {
     }
     _segB.copy(r.pos);
     r.pos.addScaledVector(r.dir, ROQ_VITESSE * dt);
+    // un bâtiment sur la trajectoire : elle s'y ouvre, et il le sent
+    const mur = obstacleEntre(_segB, r.pos);
+    if (mur) {
+      _b1.lerpVectors(_segB, r.pos, mur.t);
+      toucheBat(mur.bat, _b1, ROQ_DEGATS * 2);
+      spawnBurst(_b1, 11);
+      SFX.roquetteImpact(_b1);
+      state.roquettes.splice(i, 1);
+      continue;
+    }
 
     // Le panache est lâché à intervalle de temps, pas d'image : à cadence
     // basse il resterait sinon plus clairsemé, alors que la fumée d'une
@@ -4394,6 +4615,13 @@ function updateBullets(dt) {
     _segA.copy(b.pos);
     b.pos.addScaledVector(b.dir, BULLET_SPEED * dt);
     if (b.t > BULLET_LIFE || b.pos.y < 0) { state.bullets.splice(i, 1); continue; }
+    const mur = obstacleEntre(_segA, b.pos);
+    if (mur) {
+      _b1.lerpVectors(_segA, b.pos, mur.t);
+      toucheBat(mur.bat, _b1, 3);
+      state.bullets.splice(i, 1);
+      continue;
+    }
     _seg.subVectors(b.pos, _segA);
     const L2 = _seg.lengthSq();
     let u = L2 > 1e-6 ? _segB.subVectors(state.pos, _segA).dot(_seg) / L2 : 0;
@@ -4562,6 +4790,7 @@ function dosSoleil() {
 
 // 0 quand le soleil n'est pas dans l'axe, 1 quand on le regarde en face
 function eblouissement() {
+  if (state.eclipse > 0) return 0;
   const dp = state.forward.dot(SOLEIL);
   return dp <= SOL_CONE ? 0 : (dp - SOL_CONE) / (1 - SOL_CONE);
 }
@@ -4615,9 +4844,24 @@ function updateLock(dt) {
   // aucune raison de soigner son placement.
   if (charge < SEUIL_TIR) return;
 
-  best.hp -= (DPS_MIN + (DPS_MAX - DPS_MIN) * charge)
-           * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1)
-           * (1 - 0.6 * eblouissement()) * dt;
+  const dps = (DPS_MIN + (DPS_MAX - DPS_MIN) * charge)
+            * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1)
+            * (1 - 0.6 * eblouissement());
+  // DERRIÈRE UN BÂTIMENT. Le viseur tient, la charge monte, mais les balles
+  // s'arrêtent sur le mur : c'est lui qui encaisse, jusqu'à tomber.
+  const mur = obstacleEntre(state.pos, best.pos);
+  if (mur) {
+    _b1.lerpVectors(state.pos, best.pos, mur.t);
+    toucheBat(mur.bat, _b1, dps * dt);
+  } else {
+    best.hp -= dps * dt;
+    // TIRER SUR LE SOLEIL. Tenir le feu en plein éblouissement, dix secondes
+    // en tout : le soleil finit par s'éteindre.
+    if (state.eclipse <= 0 && eblouissement() > 0.5) {
+      state.solTir += dt;
+      if (state.solTir >= ECLIPSE_SEUIL) declencheEclipse();
+    }
+  }
 
   // deux roquettes après une seconde de verrouillage tenu
   state.roqT -= dt;
@@ -5388,7 +5632,8 @@ function simulate(dt) {
   {
     const t = performance.now() / 1000;
     majHalo(HALOS.bouclier,
-            state.bouclier > 0 ? 0.3 + 0.7 * (state.bouclier / BOUCLIER_COUPS) : 0, t);
+            state.bouclier > 0 && state.dore <= 0 ? 0.3 + 0.7 * (state.bouclier / BOUCLIER_COUPS) : 0, t);
+    majHalo(HALOS.dore, state.dore > 0 ? Math.min(1, state.dore / 1.5) : 0, t);
     majHalo(HALOS.soleil, dosSoleil(), t);
     majHalo(HALOS.canons,
             state.chauffe > 0 ? Math.min(1, state.chauffe / CHAUFFE_PAR) : 0, t);
@@ -5459,6 +5704,9 @@ function simulate(dt) {
   updateAmis(dt);
 
   updateDecor(dt);
+  updateBatiments(dt);
+  majSoleil(dt);
+  secretsSoleil(dt);
 
   // --- combat. L'invité ne simule ni les adversaires ni les vagues : il les
   // reçoit de l'hôte. Il garde en revanche ses balles, ses roquettes et son
@@ -5547,7 +5795,9 @@ function scrape(dt) {
     state.roll = THREE.MathUtils.clamp(state.roll + (cote >= 0 ? -0.5 : 0.5), -1.2, 1.2);
   };
 
-  for (const t of towers) {
+  for (const p of pylones) {
+    if (p.mort) continue;
+    const t = p.g;
     if (heurte(t.position.x, t.position.z, 9 * t.scale.x + 8, 9 * t.scale.z + 8,
                -1, TOWER_H * t.scale.y + 6)) {
       repousse(t.position.x, t.position.z);
@@ -5557,6 +5807,7 @@ function scrape(dt) {
   // La tour percée d'abord : sa fenêtre est la plus étroite du jeu, et c'est
   // la seule structure dont les montants encadrent l'altitude de croisière.
   for (const t of tours) {
+    if (t.mort) continue;
     for (const b of t.boites) {
       if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) {
         repousse(b.x, b.z);
@@ -5574,6 +5825,7 @@ function scrape(dt) {
     }
   }
   for (const a of arches) {
+    if (a.mort) continue;
     for (const b of a.boites) {
       if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) {
         repousse(b.x, b.z);
@@ -5605,6 +5857,30 @@ function updateDecor() {
     soleilMesh.position.copy(camera.position).addScaledVector(SOLEIL, 4500);
     couronneMesh.position.copy(soleilMesh.position);
     couronneMesh.lookAt(camera.position);
+    // l'éclipse : le disque s'éteint, la couronne seule reste et s'élargit
+    const noir = state.eclipse > 0 ? 1 : 0;
+    soleilMesh.material.opacity += (0.6 - 0.54 * noir - soleilMesh.material.opacity) * 0.08;
+    couronneMesh.material.opacity += (0.75 + 0.25 * noir - couronneMesh.material.opacity) * 0.08;
+    const ech = 1 + 0.5 * noir;
+    couronneMesh.scale.x += (ech - couronneMesh.scale.x) * 0.08;
+    couronneMesh.scale.y = couronneMesh.scale.x;
+  }
+  if (etoile) {
+    etoile.t += 1 / 60;
+    const k = etoile.t / 2.2;
+    if (k >= 1) { etoile = null; etoileMesh.visible = false; }
+    else {
+      _v.copy(etoile.dir).addScaledVector(etoile.perp, k * 0.9).normalize();
+      _v.y -= k * k * 0.35;
+      _v.normalize();
+      const a = etoileMesh.geometry.attributes.position.array;
+      const px = camera.position.x + _v.x * 4200, py = camera.position.y + _v.y * 4200, pz = camera.position.z + _v.z * 4200;
+      a[0] = px; a[1] = py; a[2] = pz;
+      a[3] = px - etoile.perp.x * 320 - etoile.dir.x * 60; a[4] = py + 110; a[5] = pz - etoile.perp.z * 320 - etoile.dir.z * 60;
+      etoileMesh.geometry.attributes.position.needsUpdate = true;
+      etoileMesh.material.opacity = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85;
+      etoileMesh.visible = true;
+    }
   }
   grid.position.set(
     Math.round(state.pos.x / GRID_STEP) * GRID_STEP,
@@ -6751,6 +7027,8 @@ const T = {
     vague: 'VAGUE ', gardien: 'GARDIEN', abattu: 'ABATTU',
     canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
+    effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
+    dore: 'SOLEIL TRAVERSÉ  ·  BOUCLIER DORÉ', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
     prepare: 'préparation du code...', pret: 'code prêt. Envoie-le, puis colle la réponse.',
     ajoute: 'joueur ajouté. Recommence pour le suivant.',
@@ -6779,6 +7057,8 @@ const T = {
     vague: 'WAVE ', gardien: 'GUARDIAN', abattu: 'SHOT DOWN',
     canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
+    effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
+    dore: 'THROUGH THE SUN  ·  GOLDEN SHIELD', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
     prepare: 'preparing the code...', pret: 'code ready. Send it, then paste the answer.',
     ajoute: 'player added. Do it again for the next one.',
@@ -7391,6 +7671,7 @@ window.addEventListener('pointerdown', e => {
       state.spinT = SPIN_TIME;
       state.spinSide = side;
       SFX.tonneau();
+      tonneauSoleil();
     }
     lastTapT = 0;
   } else {
@@ -7557,8 +7838,8 @@ function litManette() {
   const libre = state.running && state.spinT <= 0 && !state.fig
              && !state.takeoff && !state.pose && !state.roulage;
   if (libre) {
-    if (neuf(4) || neuf(6)) { state.spinT = SPIN_TIME; state.spinSide = -1; SFX.tonneau(); }
-    else if (neuf(5) || neuf(7)) { state.spinT = SPIN_TIME; state.spinSide = 1; SFX.tonneau(); }
+    if (neuf(4) || neuf(6)) { state.spinT = SPIN_TIME; state.spinSide = -1; SFX.tonneau(); tonneauSoleil(); }
+    else if (neuf(5) || neuf(7)) { state.spinT = SPIN_TIME; state.spinSide = 1; SFX.tonneau(); tonneauSoleil(); }
     else if (neuf(3)) {          // triangle / Y : renversement par le haut
       state.fig = { t: 0, side: 1, type: 'imm', base: state.quat.clone(), yaw0: state.yaw };
       SFX.renversement();

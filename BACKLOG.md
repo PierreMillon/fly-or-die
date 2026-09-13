@@ -168,10 +168,15 @@ et le soleil dans le dos.
 Option de langue au menu, et détection automatique : français si le
 téléphone est en français, anglais sinon.
 
-## Easter egg du soleil
+## Easter egg du soleil → fait en v0.63, quatre secrets
 
-Fixer le soleil six secondes déclenche quelque chose. Dix propositions à
-faire.
+Il n'avait jamais existé. Quatre proposés, quatre retenus, tous mesurés :
+tirer dix secondes en plein éblouissement éteint le soleil vingt secondes
+(éclipse, les adversaires visent au jugé) ; tenir le disque au centre 2,5 s
+donne un bouclier doré de huit secondes, une fois par vague ; un tonneau le
+nez dans le soleil décroche une étoile filante à 500 points, toutes les
+trente secondes ; et le soleil se lève à la vague 1 (5°), culmine à la
+vague 8 (60°) et se couche vers la quinzième. Rien n'est écrit dans l'aide.
 
 ## Le premier avion en option
 
@@ -292,6 +297,9 @@ glissante au-delà de 17 % du petit côté). Page d'essai avec quatre
 manches côte à côte, dont le jeu tel quel :
 https://claude.ai/code/artifact/41077097-77b6-4904-aa0b-1e943ee77dd2
 Il retient une lettre, on applique. Nervosité : −15 % gardés.
+Sa réponse : « exemple pas jouable, faut un test un écran à la suite ».
+Nouvelle page : un manche par écran, plein écran, des anneaux à traverser,
+SUIVANT puis le choix à la fin.
 
 ## La caméra au tonneau → fait en v0.62
 
@@ -324,14 +332,22 @@ décollage. Montée à 80° avant que le moteur peine. +30 % de résistance.
 Rampe d'approche retirée. Son malgré la sonnerie coupée. Plus de clic en
 quittant. Le choc abat l'adversaire et coûte 10.
 
+## Bâtiments destructibles → fait en v0.63
+
+Il a choisi « bâtiment destructible ». Pylône 90, arche 160, tour 260 de
+structure ; nos balles, nos roquettes (×2) et les balles d'en face (3) s'y
+arrêtent avec de la poussière. À zéro, le volume s'écrase sur sa base en
+1,3 s, +80 points, et l'adversaire derrière est à découvert. Mesuré : un
+pylône entre nous et un biplan, le biplan reste à 70 pv jusqu'à
+l'effondrement (73 images), puis tombe. Les ruines sont rebâties au loin à
+la vague suivante.
+
 ## À vérifier avec lui
 
-- Un ennemi derrière un bâtiment : le bâtiment prend les dégâts avec de
-  la poussière et l'ennemi n'en prend pas. Il l'a signalé sans dire si
-  c'est voulu ou non.
 - Le verrouillage de très près : non démontré corrigé (23/80 → 24/80
   images sur un adversaire qui traverse à 70 m, harnais imparfait).
-- L'easter egg du soleil n'a jamais existé : dix propositions à faire.
+- Les fusils des mécaniciens ignorent encore les bâtiments (rare : la
+  piste est dégagée).
 
 ## Questions restées ouvertes
 
