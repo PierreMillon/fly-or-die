@@ -300,6 +300,7 @@ Il retient une lettre, on applique. Nervosité : −15 % gardés.
 Sa réponse : « exemple pas jouable, faut un test un écran à la suite ».
 Nouvelle page : un manche par écran, plein écran, des anneaux à traverser,
 SUIVANT puis le choix à la fin.
+https://claude.ai/code/artifact/0576ada3-2064-4b18-b1aa-87e50057e5eb
 
 ## La caméra au tonneau → fait en v0.62
 
@@ -341,6 +342,30 @@ arrêtent avec de la poussière. À zéro, le volume s'écrase sur sa base en
 pylône entre nous et un biplan, le biplan reste à 70 pv jusqu'à
 l'effondrement (73 images), puis tombe. Les ruines sont rebâties au loin à
 la vague suivante.
+
+## Courbe de difficulté → fait en v0.64
+
+Plus de palier : au-delà de la table, un appareil de plus toutes les deux
+vagues (jusqu'à seize), cellules +5 % et cadence +3 % par vague. La courbe
+s'adapte à la forme (−1 à +1) : une vague nette la monte de 0,3, une vague
+arrachée la descend de 0,3, une reprise de 0,4 ; l'effectif varie de ±18 %
+à partir de la vague 3, la cellule de ±10 %, la cadence de ∓12 %. Mesuré :
+vague 13 → 13 appareils, vague 14 en forme → 15, en méforme → 11.
+Reste à faire : un mode défi explicite, lisible depuis le menu.
+
+## Objectif du jour et partage → fait en v0.64
+
+Un objectif par jour, tiré de la date (même pour tout le monde), à tenir
+dans une partie : +1000 et un jour de série. Sept familles : abattre N,
+franchir des arches, une vague sans faute, se poser, abattre un bâtiment,
+atteindre une vague, faire des tonneaux. Affiché à l'accueil et à la fin.
+Le bouton PARTAGER LE SCORE passe par la feuille de partage du téléphone,
+sinon copie le texte. Au passage : le bouton INSTALLER n'avait aucun style.
+
+## Monnaie persistante → à faire
+
+Des options seulement (viseurs, couleurs), jamais de puissance. Il faut
+d'abord décider ce qu'elle achète.
 
 ## À vérifier avec lui
 
