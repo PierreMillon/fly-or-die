@@ -283,6 +283,56 @@ par adBreak() et rien d'autre ne bouge.
 vendor/three/. Le jeu n'a plus aucune dépendance réseau — exigence des
 portails, et le hors-ligne ne dépend plus d'un CDN.
 
+## Le manche : origine flottante, et la page des quatre manches → à trancher
+
+La v0.60 a mis la courbe par axe sur un malentendu, retirée le jour même.
+Le joueur dit que le vrai problème est ailleurs et a choisi « le centre là
+où mon doigt se pose » — ce que le jeu fait DÉJÀ (origine au contact,
+glissante au-delà de 17 % du petit côté). Page d'essai avec quatre
+manches côte à côte, dont le jeu tel quel :
+https://claude.ai/code/artifact/41077097-77b6-4904-aa0b-1e943ee77dd2
+Il retient une lettre, on applique. Nervosité : −15 % gardés.
+
+## La caméra au tonneau → fait en v0.62
+
+Mesuré à l'écran : l'avion se décalait de 513 px sur 430 — il sortait du
+cadre, la caméra restait. Deux causes : le décalage était ajouté à la
+cible du ressort, qui le mangeait ; et une fois posé après le ressort, il
+s'accumulait d'image en image (70 m). La camera fait maintenant le même
+pas latéral que l'avion avant le ressort, et le retard dessiné est posé
+après, retiré à l'image suivante. Excursion : 180 px, retour exact à 0.
+
+## Mécaniciens armés → fait en v0.62
+
+Posé, dès qu'un avion ennemi passe à 650 m, ils sortent le fusil, tirent
+(7 points par seconde chacun, traçantes visibles) et le HARCÈLENT : pris
+sous le feu du sol, il décroche 2,6 s. Un mécanicien qui tire ne répare
+pas.
+
+## Portes d'atterrissage → fait en v0.61, resserrées en v0.62
+
+Un cercle de 16 m de rayon (32 m de diamètre) devant chaque seuil, centré
+sur le plan à 3°. Juste un cercle, sans traits ni mât. Le franchir vers la
+piste ouvre POSER dix secondes. Roulage 133 m.
+
+## Faits en v0.61–v0.62, en vrac
+
+Roquettes à 0,5 s de verrouillage (mesuré : elles marchaient, le seuil
+d'une seconde continue ne se tenait pas au doigt). Un tank par vague.
+Viseur sur l'avion, canons en avance. Caméra sans retard d'assiette au
+décollage. Montée à 80° avant que le moteur peine. +30 % de résistance.
+Rampe d'approche retirée. Son malgré la sonnerie coupée. Plus de clic en
+quittant. Le choc abat l'adversaire et coûte 10.
+
+## À vérifier avec lui
+
+- Un ennemi derrière un bâtiment : le bâtiment prend les dégâts avec de
+  la poussière et l'ennemi n'en prend pas. Il l'a signalé sans dire si
+  c'est voulu ou non.
+- Le verrouillage de très près : non démontré corrigé (23/80 → 24/80
+  images sur un adversaire qui traverse à 70 m, harnais imparfait).
+- L'easter egg du soleil n'a jamais existé : dix propositions à faire.
+
 ## Questions restées ouvertes
 
 - Le chrono en haut à gauche ne sert à rien. Score au temps, ou décor.

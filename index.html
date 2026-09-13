@@ -566,7 +566,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.61</button>
+  <button id="versionBtn">v0.62</button>
 </div>
 
 <div id="bottombar">
@@ -905,6 +905,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.62</b> — la caméra suit enfin le tonneau, les mécaniciens ripostent au fusil, la cellule encaisse 30 % de mieux, et on peut monter à 80°.</div>
   <div><b>v0.61</b> — le manche d'avant revient ; deux portes en l'air ouvrent l'atterrissage, les roquettes partent en une demi-seconde, on vise l'avion et les canons visent devant.</div>
   <div><b>v0.60</b> — le manche redevient deux axes independants et perd 30 % de nervosite ; le son revient meme sonnerie coupee.</div>
   <div><b>v0.59</b> — un carnet de vol qui dit où l'on meurt, une seule reprise par partie, et three.js embarqué.</div>
@@ -1032,18 +1033,23 @@ const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte 
 const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas en croisière
 const SPIN_TIME     = 0.48;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
+const CAM_TONNEAU   = 1.0;    // part du deport que la camera laisse filer avant de se recaler
+const _camDecal = { dir: null, val: 0 };   // le decalage pose a l'image precedente, a retirer avant le ressort
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
 const FIG_TIME      = 1.05;   // durée d'un renversement, Immelmann ou Split-S
 // Deux joueurs d'essai ont trouve le manche trop nerveux : tout baisse de
-// trente pour cent, lineairement, sans toucher a la forme de la courbe. Le
-// centre reste aussi fin, le plein manche donne simplement moins.
-const MAX_YAW       = 1.50;   // rad/s, autorité en lacet à pleine déflexion — 123 degrés par seconde
-const MAX_PITCH     = 1.33;    // rad/s, autorité en tangage
+// quinze pour cent, lineairement, sans toucher a la forme de la courbe. Le
+// centre reste aussi fin, le plein manche donne simplement moins — 105
+// degres par seconde en lacet au lieu de 123.
+const MAX_YAW       = 1.83;   // rad/s, autorité en lacet à pleine déflexion — 123 degrés par seconde
+const MAX_PITCH     = 1.62;    // rad/s, autorité en tangage
 const PITCH_LIMIT   = 85 * Math.PI / 180;
 // Au-delà de cette assiette, et à l'approche du plafond, l'appareil peine :
 // le moteur ne suit plus et la cellule se met à vaciller. Rien ne l'interdit,
 // tout le décourage — c'est plus juste qu'une butée, et ça oblige à doser.
-const PEINE_ANGLE = 58 * Math.PI / 180;
+// Quatre-vingts degres, presque a la verticale, avant que le moteur ne
+// commence a peiner : on peut chandelle pour de bon.
+const PEINE_ANGLE = 78 * Math.PI / 180;
 const PEINE_PLAFOND = 190;    // mètres sous le plafond où la gêne commence // jamais la verticale : au-delà l'orientation devient ambiguë
 const PITCH_TRIM    = 0.95;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
 const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
@@ -1515,6 +1521,7 @@ const SFX = {
   tir:          () => { souffle(0.028, 1500, 950, 7, 0.03);
                         souffle(0.085, 380, 60, 1.0, 0.10);
                         ton(95, 31, 0.075, 'square', 0.085); },
+  fusil:        () => { ton(210, 70, 0.05, 'square', 0.06); souffle(0.04, 1800, 600, 3, 0.05); },
   accroche:     () => ton(680, 1320, 0.11, 'sine', 0.13),
   cale:         () => ton(1320, 1760, 0.08, 'sine', 0.09),
   arme:         () => { ton(440, 660, 0.07, 'square', 0.07); souffle(0.05, 1400, 700, 5, 0.04); },
@@ -2881,20 +2888,6 @@ let papiMesh = null, papiCouleurs = null;
   scene.add(papiMesh);
   papiCouleurs = g.getAttribute('color');
 
-  // LA RAMPE D'APPROCHE. Des barrettes au sol devant chaque seuil : de nuit
-  // c'est ce qui donne l'axe avant que la piste elle-même soit lisible, et de
-  // loin c'est la seule chose qui dise où elle commence.
-  const r = [];
-  const barre = (z, demi) => r.push(-demi, PISTE.y + 0.05, z, demi, PISTE.y + 0.05, z);
-  for (let d = 40; d <= 320; d += 40) {
-    barre(PISTE.z0 + d, d < 170 ? 11 : 7);
-    barre(PISTE.z1 - d, d < 170 ? 11 : 7);
-  }
-  r.push(0, PISTE.y + 0.05, PISTE.z0 + 40, 0, PISTE.y + 0.05, PISTE.z0 + 320);
-  r.push(0, PISTE.y + 0.05, PISTE.z1 - 40, 0, PISTE.y + 0.05, PISTE.z1 - 320);
-  const rampe = new THREE.LineSegments(segGeom(r), lineMat(0xffffff, 0.38));
-  rampe.frustumCulled = false;
-  scene.add(rampe);
 })();
 
 // ---------------------------------------------------------------------------
@@ -2905,11 +2898,15 @@ let papiMesh = null, papiCouleurs = null;
 // moment precis et a aucun autre.
 //
 // Elle est a 1 100 m du point vise, donc a 58 m de haut sur la pente, et fait
-// 72 m de diametre : six envergures. Assez large pour ne pas etre un examen,
-// assez etroite pour qu'on arrive a peu pres aligne.
+// 32 m de diametre : presque trois envergures.
 // ---------------------------------------------------------------------------
 const PORTE_DIST = 1100;                              // du point vise (le PAPI)
-const PORTE_R = 36;
+// Seize metres de rayon et non trente-six : le centre est sur le plan, mais
+// avec trente-six on pouvait passer par le haut du cercle a 94 m, soit 4,9
+// degres — quatre blancs, « trop haut ». A seize, le haut du cercle fait 3,8
+// degres et le bas 2,2 : au pire un peu haut ou un peu bas, jamais hors du
+// plan. Passer la porte veut dire etre a la bonne hauteur, ou ca ne veut rien.
+const PORTE_R = 16;
 const PORTE_H = PISTE.y + PORTE_DIST * Math.tan(PENTE_CIBLE);
 const PORTE_VALIDE = 10;                              // secondes pendant lesquelles POSER reste offert
 const PORTES = [
@@ -2920,19 +2917,14 @@ let portesMat = null;
 (function poserPortes() {
   const r = [];
   for (const P of PORTES) {
-    // le cercle, et quatre repères aux points cardinaux pour lire l'echelle
     const n = 64;
     for (let i = 0; i < n; i++) {
       const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
       r.push(Math.cos(a0) * PORTE_R, PORTE_H + Math.sin(a0) * PORTE_R, P.z,
              Math.cos(a1) * PORTE_R, PORTE_H + Math.sin(a1) * PORTE_R, P.z);
     }
-    for (const [cx, cy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      r.push(cx * PORTE_R, PORTE_H + cy * PORTE_R, P.z,
-             cx * (PORTE_R + 7), PORTE_H + cy * (PORTE_R + 7), P.z);
-    }
-    // un mat jusqu'au sol, sinon un cercle en l'air n'a pas de hauteur lisible
-    r.push(0, PISTE.y, P.z, 0, PORTE_H - PORTE_R, P.z);
+    // juste un cercle : les reperes et le mat brouillaient plus qu'ils ne
+    // situaient
   }
   portesMat = lineMat(COL_LINE, 0.55);
   const li = new THREE.LineSegments(segGeom(r), portesMat);
@@ -3044,13 +3036,67 @@ const geomMecano = new THREE.BoxGeometry(0.62, MECANO_H, 0.42)
   .translate(0, MECANO_H / 2, 0);
 const edgesMecano = new THREE.EdgesGeometry(geomMecano, 20);
 const matMecano = lineMat(COL_TEXT, 0.85);
+// LE FUSIL. Un petit rectangle a l'epaule, pointe vers l'avant du bonhomme.
+// Cache tant qu'on ne tire pas : au travail, un mecanicien n'est pas arme.
+const geomFusil = new THREE.BoxGeometry(0.07, 0.07, 0.95).translate(0.30, 1.32, -0.35);
+const edgesFusil = new THREE.EdgesGeometry(geomFusil, 20);
 const mecanos = [];
 for (let i = 0; i < 3; i++) {
   const g = solidWire(geomMecano, edgesMecano, matMecano);
   g.visible = false;
   scene.add(g);
-  mecanos.push({ g, p: new THREE.Vector3(), but: new THREE.Vector3(),
-                 t: 0, fuite: 0, cote: i % 2 ? 1 : -1 });
+  const fusil = solidWire(geomFusil, edgesFusil, matMecano);
+  fusil.visible = false;
+  g.add(fusil);
+  mecanos.push({ g, fusil, p: new THREE.Vector3(), but: new THREE.Vector3(),
+                 t: 0, fuite: 0, cote: i % 2 ? 1 : -1, fusilT: 0, tire: false });
+}
+
+// ---------------------------------------------------------------------------
+// ILS RIPOSTENT. Pose, on est une cible fixe : un adversaire pouvait rester
+// au-dessus de la piste a nous arroser tout le temps de la reparation. Les
+// mecaniciens sortent donc le fusil des qu'un avion ennemi passe a portee,
+// lui tirent dessus, et — c'est ce qui compte — le HARCELENT : un avion pris
+// sous le feu du sol decroche et va voir ailleurs quelques secondes. Il ne
+// peut plus tirer longtemps, et ce n'est pas nous qui le chassons.
+//
+// Un mecanicien qui tire ne repare pas : la cadence de reparation baisse
+// d'autant. C'est le prix, et c'est un vrai choix pour l'adversaire aussi.
+// ---------------------------------------------------------------------------
+const FUSIL_PORTEE = 650;
+const FUSIL_DPS = 7;            // par mecanicien : trois fusils font 21 par seconde
+const FUSIL_CADENCE = 0.26;     // secondes entre deux tracantes
+const HARCELE = 2.6;            // secondes pendant lesquelles l'avion pris a partie decroche
+const _fusil = new THREE.Vector3();
+function mecanoTire(m, dt) {
+  m.tire = false;
+  if (!state.pose || m.mort || m.fuite > 0) { m.fusil.visible = false; return; }
+  let cible = null, dMin = FUSIL_PORTEE;
+  for (const e of state.enemies) {
+    if (e.kind.sol) continue;
+    const d = e.pos.distanceTo(m.p);
+    if (d < dMin) { dMin = d; cible = e; }
+  }
+  if (!cible) { m.fusil.visible = false; return; }
+  m.tire = true;
+  m.fusil.visible = true;
+  // il fait face : l'avant du bonhomme est son -z, donc le lacet vaut
+  // atan2(-dx, -dz)
+  _fusil.subVectors(cible.pos, m.p);
+  m.g.rotation.set(0, Math.atan2(-_fusil.x, -_fusil.z), 0);
+  cible.hp -= FUSIL_DPS * dt;
+  cible.harcele = HARCELE;
+  m.fusilT -= dt;
+  if (m.fusilT <= 0) {
+    m.fusilT = FUSIL_CADENCE;
+    // la tracante part de la bouche du canon, avec un peu de dispersion
+    const bouche = _fusil.set(0.30, 1.32, -0.83).applyAxisAngle(_up, m.g.rotation.y).add(m.p).clone();
+    const dir = new THREE.Vector3().subVectors(cible.pos, bouche).normalize();
+    dir.x += (Math.random() - 0.5) * 0.04; dir.y += (Math.random() - 0.5) * 0.04; dir.z += (Math.random() - 0.5) * 0.04;
+    state.shots.push({ pos: bouche, dir: dir.normalize(), t: 0 });
+    SFX.fusil();
+  }
+  if (cible.hp <= 0) { spawnBurst(cible.pos, 9); SFX.detruit(cible.pos); abattre(cible); }
 }
 
 // les postes de travail : deux à hauteur de nacelle, un devant le nez
@@ -3081,6 +3127,8 @@ const _mec = new THREE.Vector3();
 function updateMecanos(dt) {
   for (const m of mecanos) {
     if (!m.g.visible || m.mort) continue;
+    mecanoTire(m, dt);
+    if (m.tire) continue;            // il tire : il ne s'affaire pas au moteur
     if (m.fuite > 0) {
       m.fuite -= dt;
       // CELUI QUI EST DEVANT N'A PAS LE TEMPS. Plutôt que de courir vers un
@@ -3521,6 +3569,7 @@ const state = {
   spinT: 0,
   spinDep: 0,
   spinDepCam: 0,
+  spinPas: 0,          // le pas lateral de cette image, que la camera doit faire aussi
   spinSide: 0,
   camSpin: 0,
   takeoff: null,
@@ -3648,6 +3697,7 @@ function toucherPiste() {
 }
 
 function resetGame() {
+  _camDecal.val = 0;
   _zAvant.v = null;     // sinon la premiere image compare avec la partie d'avant
   state.dureeVol = 0;
   state.reprises = 0;
@@ -4021,6 +4071,13 @@ function updateEnemies(dt) {
         const peur = 1 - dist / 260;
         e.goal.addScaledVector(_right, e.cote * (90 + 260 * peur * peur));
         e.goal.y += e.cote * 110 * peur;
+      }
+      // PRIS SOUS LE FEU DU SOL, il decroche : cap a l'oppose du joueur, et de
+      // la hauteur. Tant que les fusils le tiennent, il ne revient pas.
+      if (e.harcele > 0) {
+        e.harcele -= dt;
+        e.goal.addScaledVector(_v, 520 / dist);
+        e.goal.y += 140;
       }
       e.goal.y = THREE.MathUtils.clamp(e.goal.y, 70, CEILING);
       _m4.lookAt(e.pos, e.goal, _up);
@@ -4398,8 +4455,14 @@ function noteImpact(source) {
   if (state.impacts.length > 4) state.impacts.shift();
 }
 
+// La cellule encaisse trente pour cent de mieux : chaque coup compte pour
+// 0,77 de sa valeur. La jauge reste sur cent, ce sont les coups qui pesent
+// moins — un choc a dix, une balle a sept, une eraflure a cinq, comme avant,
+// mais il en faut un tiers de plus pour tomber.
+const RESISTANCE = 1 / 1.3;
 function damagePlayer(amount, source, cause) {
   if (!state.running) return;
+  amount *= RESISTANCE;
   if (cause) noteDegat(cause, amount);
   noteImpact(source);
 
@@ -4598,6 +4661,7 @@ function updateLock(dt) {
 // ---------------------------------------------------------------------------
 // le modèle est un avion à panneaux plats : vu strictement de derrière il
 // se réduit à un trait. La caméra le surplombe un peu pour montrer la voilure.
+_camDecal.dir = new THREE.Vector3();
 const camOffset = new THREE.Vector3(0, 5.0, 16.0).multiplyScalar(ENVERGURE_JOUEUR / 14.4);
 
 // La caméra ne se colle plus à sa place idéale : elle y est rappelée par un
@@ -4915,7 +4979,7 @@ function simulate(dt) {
     // qui passent atteignent aussi les hommes, et chacun emporte un tiers de
     // la cadence de réparation. À trois morts, la piste ne rend plus rien et
     // il faut redécoller.
-    const debout = mecanos.filter(m => !m.mort).length;
+    const debout = mecanos.filter(m => !m.mort && !m.tire).length;
     const avant = state.structure;
     state.structure = Math.min(100, state.structure + REPARE_PAR_S * (debout / 3) * dt);
     // ET ELLE SE PAIE. Cinq points de score par point de structure rendu :
@@ -5196,7 +5260,7 @@ function simulate(dt) {
     // l'appareil partir, l'image suivre, et les deux se retrouver alignés sur
     // la nouvelle parallèle exactement quand le tonneau s'achève.
     const lisseC = u => u * u * u * (u * (u * 6 - 15) + 10);
-    const RETARD = 0.20;
+    const RETARD = 0.28;
     state.spinDep = SPIN_DODGE * SPIN_TIME * 0.5 * lisseC(t);
     state.spinDepCam = SPIN_DODGE * SPIN_TIME * 0.5
                      * lisseC(THREE.MathUtils.clamp((t - RETARD) / (1 - RETARD), 0, 1));
@@ -5207,7 +5271,8 @@ function simulate(dt) {
     const ease = t * t * t * (t * (t * 6 - 15) + 10);
     spinRoll = -state.spinSide * Math.PI * 2 * ease;
     _right.crossVectors(state.forward, _up).normalize();
-    state.pos.addScaledVector(_right, state.spinSide * SPIN_DODGE * Math.sin(Math.PI * t) * dt);
+    state.spinPas = state.spinSide * SPIN_DODGE * Math.sin(Math.PI * t) * dt;
+    state.pos.addScaledVector(_right, state.spinPas);
   } else if (state.spinDep) {
     state.spinDep = 0;
     state.spinDepCam = 0;
@@ -5345,13 +5410,48 @@ function simulate(dt) {
   camera.quaternion.setFromEuler(euler);         // et la visée seule plonge
   majFov(dt);
   _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
-  // le retard voulu de la caméra sur le déport de l'avion, en travers de sa
-  // route : nul au repos, nul à la fin du tonneau, maximal au milieu
-  if (state.spinDep) {
+  // Le ressort integre la position de la camera d'une image a l'autre : ce
+  // qu'on lui ajoute apres coup, il le retrouve au depart de l'image suivante
+  // et le prend pour un ecart a rattraper. Le decalage du tonneau, pose
+  // directement, s'accumulait donc : soixante-dix metres mesures au lieu de
+  // sept. On retire celui de l'image precedente avant de faire tourner le
+  // ressort, et on pose le nouveau apres. Le ressort ne voit jamais rien.
+  if (_camDecal.val) camera.position.addScaledVector(_camDecal.dir, -_camDecal.val);
+  _camDecal.val = 0;
+  // LE RESSORT FAIT LE MEME PAS QUE L'AVION. Mesure : en masquant l'ecart
+  // pendant le tonneau, le ressort gardait sept metres de retard cache, qui
+  // ressortaient d'un coup a la fin — 300 pixels, apres la figure. On deplace
+  // donc la camera du pas lateral exact de l'avion AVANT de faire tourner le
+  // ressort : il ne voit aucun ecart, il n'a rien a rattraper, et le seul
+  // mouvement a l'ecran est celui qu'on dessine juste en dessous.
+  if (state.spinPas) {
     _right.crossVectors(state.forward, _up).normalize();
-    _v.addScaledVector(_right, state.spinSide * (state.spinDepCam - state.spinDep));
+    camera.position.addScaledVector(_right, state.spinPas);
+    state.spinPas = 0;
   }
   springCamera(_v, dt, 44, 10.2, _cv.copy(state.forward).multiplyScalar(state.speed));
+  // LE RETARD DE LA CAMERA AU TONNEAU, POSE APRES LE RESSORT. Il etait ajoute
+  // a la cible du ressort, et le ressort le mangeait : avec une raideur de 44,
+  // sa periode propre fait presque une seconde, et le tonneau dure 0,48 s. Une
+  // consigne de trois metres pendant une demi-seconde en donnait moins d'un a
+  // l'ecran — « la camera ne bouge pas du tout ». Pose directement sur la
+  // position, apres le ressort, le decalage est exact image par image : nul au
+  // repos, nul a la fin, maximal au milieu, et le ressort n'en sait rien.
+  //
+  // ET ELLE SUIT, AU LIEU DE TRAINER. Mesure a l'ecran : pendant le tonneau
+  // l'avion se decalait de 513 pixels sur un ecran de 430 — il SORTAIT du
+  // cadre. Le ressort ne peut pas suivre quinze metres de deport en une demi-
+  // seconde, et « la camera ne bouge pas » etait exactement ca : elle restait
+  // la, l'avion partait. On impose donc l'ecart lateral camera-avion : celui
+  // qu'on a dessine, spinDep moins spinDepCam, le retard voulu et rien
+  // d'autre. La camera part avec l'avion, se laisse distancer de quelques
+  // metres au milieu, et se recale a la fin.
+  if (state.spinDep) {
+    _right.crossVectors(state.forward, _up).normalize();
+    _camDecal.val = state.spinSide * CAM_TONNEAU * (state.spinDepCam - state.spinDep);
+    _camDecal.dir.copy(_right);
+    camera.position.addScaledVector(_camDecal.dir, _camDecal.val);
+  }
   updateBoost(dt);
   updateChauffe(dt);
   updateTraits(dt);
