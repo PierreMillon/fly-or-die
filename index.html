@@ -266,6 +266,18 @@
   }
 
   #viseurBtn, #sonBtn, #aideBtn, #versionBtn { display: none; }
+  #vagueBtn {
+    background: none;
+    border: 1px solid var(--ph-line);
+    border-radius: 5px;
+    color: var(--ph-line);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    flex-shrink: 0;
+  }
+  #vagueBtn[hidden] { display: none; }
   #menuBtn {
     background: none;
     border: 1px solid var(--ph-dim);
@@ -624,7 +636,8 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.71</button>
+  <button id="versionBtn">v0.72</button>
+  <button id="vagueBtn" hidden data-en="NEXT WAVE · +500">VAGUE SUIVANTE · +500</button>
   <button id="menuBtn">MENU</button>
 </div>
 
@@ -647,6 +660,7 @@
 
 <div id="bottombar">
   <span><span class="dim">LIFE</span> <span id="gauge"><span id="gaugeFill"></span></span> <span id="structLbl">100%</span></span>
+  <span id="bouclierLbl" class="dim"></span>
   <span class="spacer"></span>
 </div>
 
@@ -981,6 +995,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.72</b> — LOCKED et WARNING ROCKET à l'écran, roquettes à 50 qu'on esquive aussi à la manœuvre, boost de portail violent et invincible, tanks qui roulent, chasseurs dans le soleil et ailiers en formation, le faucheur pour qui fuit, et VAGUE SUIVANTE +500.</div>
   <div><b>v0.71</b> — on meurt vraiment à zéro, une vague ne passe que quand tout est mort, le défi du jour change chaque jour et la série rend du bouclier, l'écran de fin dit tout en chiffres.</div>
   <div><b>v0.70</b> — en coop les invités blessent enfin les ennemis, voient tomber les mêmes bâtiments et les mêmes roquettes, et sont prévenus si leur carte diffère.</div>
   <div><b>v0.69</b> — pas de collision pendant l'approche, jamais plus de deux tanks debout, et les mécaniciens ne se passent plus le fusil à chaque image.</div>
@@ -1164,7 +1179,7 @@ const BURST_GAP     = 0.1;
 const BULLET_SPEED  = 300;    // celles d'en face
 const BULLET_LIFE   = 3.2;
 const BULLET_HIT    = 8;     // une balle qui passe à 8 m touche la cellule
-const RAM_DIST      = 13;    // distance de frôlement : on se croise de près, sans plus
+const RAM_DIST      = 42;    // distance sous laquelle un ennemi s'écarte de nous : ils font tout pour ne pas nous toucher
 // Bouches des deux mitrailleuses, relevées sur le modèle lui-même : ce sont
 // les nacelles d'aile, à 30 % de la demi-envergure. Les traçantes partent de
 // là et convergent sur la cible — c'est le réglage d'harmonisation des armes
@@ -1209,8 +1224,9 @@ const ROQ_VIE       = 7;      // à deux cents mètres par seconde, la portée r
 // sonne, et un tonneau dans la dernière seconde la fait décrocher. Même règle
 // pour eux : leur figure fait décrocher les nôtres.
 const ROQ_E_VITESSE = 170;
+const TANK_VITESSE  = 28;     // m/s : cent kilomètres-heure, il nous suit au sol
 const ROQ_E_VIRAGE  = 1.5;    // rad/s : moins agile que la nôtre, sinon rien ne l'esquive
-const ROQ_E_DEGATS  = 26;
+const ROQ_E_DEGATS  = 50;
 const ROQ_E_RECHARGE = 9;
 const ROQ_E_PORTEE  = [320, 950];
 const ROQ_E_ESQUIVE = 300;    // en deçà, un tonneau la fait décrocher
@@ -2401,7 +2417,7 @@ const PN_GAIN = 3.2;
 // protège : celui qui vous vise l'a alors en pleine figure et tire moins bien.
 // C'est la manœuvre la plus vieille du combat aérien, et elle tient en un
 // produit scalaire de plus.
-const SOLEIL = new THREE.Vector3(0.62, 0.42, -0.66).normalize();
+const SOLEIL = new THREE.Vector3(0.669, 0.215, -0.712).normalize();   // 12,4° de hauteur : deux fois plus bas qu'avant
 // LE SOLEIL SUIT LA PARTIE. Il se lève à la première vague, culmine vers la
 // huitième et se couche de l'autre côté vers la quinzième : une partie est une
 // journée. Bas sur l'horizon il éblouit en palier, haut il ne gêne qu'en
@@ -2870,7 +2886,9 @@ function bloc(lx, ly, lz, cx, cy) {
 const BOOST_ATTENTE = 1.25;   // secondes d'alignement tenu avant que ça pousse
 const BOOST_COS = Math.cos(13 * Math.PI / 180);
 const BOOST_GAIN = 2.0;       // ce que devient la vitesse de croisière visée
-const BOOST_GAIN_LOIN = 2.6;  // ...et tant qu'on reste loin, ça continue de monter, jusqu'à ceci
+const BOOST_GAIN_LOIN = 2.6;
+const BOOST_PORTAIL_GAIN = 3.4;   // le coup de fouet d'un portail franchi
+const BOOST_INVINCIBLE = 0.5;     // au-dessus de cette poussée, les ennemis ne nous font rien  // ...et tant qu'on reste loin, ça continue de monter, jusqu'à ceci
 const BOOST_MONTEE = 8;       // secondes pour aller de l'un à l'autre
 const BOOST_LOIN = 620;       // en deçà, il n'y a plus rien à rattraper
 const BOOST_APRES = 0.75;     // ce qui reste de poussée une fois la cible accrochée
@@ -2960,7 +2978,7 @@ function updateBoost(dt) {
   if (state.lock && state.boostFin > BOOST_APRES) vise = false;
 
   // un portail franchi pousse deux secondes, sans attente
-  if (state.boostPortail > 0) { state.boostPortail -= dt; vise = true; state.boostT = Math.max(state.boostT, BOOST_ATTENTE); }
+  if (state.boostPortail > 0) { state.boostPortail -= dt; vise = true; state.boostT = Math.max(state.boostT, BOOST_ATTENTE); state.boost = Math.max(state.boost, 0.85); }
   state.boostT = vise ? state.boostT + dt : Math.max(0, state.boostT - dt * 3);
   const cible = state.boostT >= BOOST_ATTENTE ? 1 : 0;
   // le coup au cul : il vient vite et retombe plus lentement
@@ -3286,6 +3304,8 @@ function majPlan() {
 // peuvent pas se contredire
 function majPapi() {
   if (!papiCouleurs) return;
+  // les feux ne se montrent que vus de l'axe : de côté, ils ne disent rien
+  papiMesh.visible = PLAN.lisible && PLAN.axe < 160;
   const a = papiCouleurs.array;
   for (const [d, base] of [[0, 0], [1, 4]]) {
     for (let i = 0; i < 4; i++) {
@@ -3379,13 +3399,15 @@ function mecanoTire(m, dt) {
     const d = e.pos.distanceTo(m.p);
     if (d < dMin) { dMin = d; cible = e; }
   }
-  if (!cible) { m.fusil.visible = false; return; }
+  if (!cible) { m.fusil.visible = false; m.fusil.rotation.x = 0; return; }
   m.tire = true;
   m.fusil.visible = true;
   // il fait face : l'avant du bonhomme est son -z, donc le lacet vaut
   // atan2(-dx, -dz)
   _fusil.subVectors(cible.pos, m.p);
   m.g.rotation.set(0, Math.atan2(-_fusil.x, -_fusil.z), 0);
+  // le canon se lève vers l'appareil : on voit sur qui il tire
+  m.fusil.rotation.x = -Math.atan2(_fusil.y, Math.hypot(_fusil.x, _fusil.z));
   cible.hp -= FUSIL_DPS * dt;
   cible.harcele = HARCELE;
   m.fusilT -= dt;
@@ -3506,7 +3528,7 @@ const aretesArche = prismeAretes(CONTOUR_ARCHE, ARCHE.prof / 2);
 
 const arches = [];
 const ARCHE_PRIME = 20;   // pour cent de vie rendus a chaque passage
-const VIE_MAX = 150;      // au-dela de cent, c'est de la vie de bonus
+const VIE_MAX = 1e9;      // au-dela de cent, c'est de la vie de bonus, sans plafond pour l'instant
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
 for (let i = 0; i < CARTE.arches.length; i++) {
   const g = new THREE.Group();
@@ -4014,6 +4036,10 @@ const state = {
   roquettes: [],
   roqEnnemies: [],    // les leurs
   alerte: 0,          // secondes d'alerte roquette à l'écran
+  lockedT: 0,         // repos entre deux avertissements LOCKED
+  lockTenu: 0,        // secondes de verrouillage plein tenu : ça vibre
+  fuiteT: 0,          // secondes passées trop loin de la piste
+  faucheur: false,    // le faucheur est lâché
   chutes: [],
   fumees: [],
   roqT: 0,
@@ -4190,7 +4216,7 @@ function resetGame() {
   state.forme = 0; state.objN = 0; state.defi = false;
   state.stats = statsVides();
   state.bouclierT = 0;
-  SOLEIL.set(0.62, 0.42, -0.66).normalize();   // le soleil ne bouge plus : il a fait un tour, il revient
+  SOLEIL.set(0.669, 0.215, -0.712).normalize();   // le soleil ne bouge plus, et il est bas
   _solCible.copy(SOLEIL);
   state.paused = false;
   state.enemies.forEach(e => scene.remove(e.mesh));
@@ -4248,6 +4274,23 @@ function texteStats() {
 // une fois et demie. Pas une autre partie : la même, prise plus haut, pour
 // qui n'a plus rien à apprendre des quatre premières vagues.
 const DEFI_VAGUE = 5, DEFI_FACTEUR = 1.5;
+const FUITE_DIST = 3500, FUITE_ALERTE = 40, FUITE_DUREE = 60;
+function lacherFaucheur() {
+  state.faucheur = true;
+  const k = KINDS.find(x => x.nom === 'GARDIEN');
+  const mesh = solidWire(k.geom, k.edges, matEnemy);
+  mesh.scale.setScalar(k.echelle * 1.3);
+  scene.add(mesh);
+  const e = { id: ++coopSeqEnnemi, kind: k, mesh, pos: state.pos.clone().addScaledVector(state.forward, -1400),
+    quat: new THREE.Quaternion(), forward: new THREE.Vector3(0, 0, -1), los: new THREE.Vector3(), losOk: false,
+    speed: 230, hp: 4000, hpMax: 4000, cadence: 0.4, goal: new THREE.Vector3(), cote: 1, frolT: 0, charge: 0,
+    evadeT: 0, evadeCd: 0, evadeSide: 1, evadeUp: 1, goalT: 0, reload: 1, roqCd: 2, figT: 0, figCd: 0, figSide: 1,
+    burst: 0, burstT: 0, visee: 0, faucheur: true };
+  e.pos.y = Math.max(120, e.pos.y);
+  state.enemies.push(e);
+  announce(t('faucheur'));
+  SFX.alerte();
+}
 function marque(n) { state.score += n * (state.defi ? DEFI_FACTEUR : 1); }
 // LE DÉFI DU JOUR. Une variante par jour, la même pour tout le monde, chaque
 // point vaut une fois et demie. La série compte les jours d'affilée où l'on
@@ -4390,6 +4433,18 @@ function spawnWave() {
             : capNez + (state.wave === 1 ? 0
                        : (Math.random() < 0.5 ? -1 : 1) * (0.20 + Math.random() * 0.16));
     const d = boss ? 900 : 520 + Math.random() * 420;
+    // LE PREMIER DE LA PREMIÈRE VAGUE ATTEND DEVANT UNE ARCHE, pas loin de la
+    // piste : on le voit, on voit le trou, on a envie d'y aller.
+    let archeDevant = null;
+    if (state.wave === 1 && i === 0 && !auSol) {
+      let dm = Infinity;
+      for (const a of arches) {
+        if (a.mort || !a.passage) continue;
+        const dz = a.g.position.z - (PISTE.z1 - 700);
+        const dd = Math.hypot(a.g.position.x, dz);
+        if (a.g.position.z < PISTE.z1 - 200 && dd < dm) { dm = dd; archeDevant = a; }
+      }
+    }
     const mesh = solidWire(k.geom, k.edges, matEnemy);
     mesh.scale.setScalar(k.echelle);
     scene.add(mesh);
@@ -4397,7 +4452,9 @@ function spawnWave() {
       id: ++coopSeqEnnemi,
       kind: k,
       mesh,
-      pos: auSol
+      pos: archeDevant
+        ? new THREE.Vector3(archeDevant.passage.x, archeDevant.passage.y1 + 40, archeDevant.passage.z + 260)
+        : auSol
         ? new THREE.Vector3(state.pos.x + Math.cos(a) * (500 + Math.random() * 700), 0,
                             state.pos.z + Math.sin(a) * (500 + Math.random() * 700))
         : new THREE.Vector3(
@@ -4426,6 +4483,8 @@ function spawnWave() {
       reload: 0.6 + Math.random() * 1.1,
       roqCd: 3 + Math.random() * 4,
       figT: 0, figCd: 0, figSide: 1,
+      chef: (!auSol && i > 0 && state.enemies.length && state.enemies[state.enemies.length - 1].kind === k
+             && (k.nom === 'DRONE' || k.nom === 'INTERCEPTEUR')) ? state.enemies[state.enemies.length - 1] : null,
       burst: 0,
       burstT: 0,
       visee: 0
@@ -4476,7 +4535,16 @@ function updateEnemies(dt) {
     // Pièce au sol : elle reste où elle est, tourne sa tourelle vers le ciel
     // et n'entre dans aucune logique de poursuite. Trop loin, on la remplace.
     if (K.sol) {
-      // elle reste où elle est : trop loin, elle ne compte simplement plus
+      // ELLE ROULE. À cent kilomètres-heure, elle vient sous nous et nous
+      // suit : on ne la laisse plus derrière soi sans y penser.
+      if (dist > 260) {
+        _v.copy(state.pos).sub(e.pos); _v.y = 0;
+        const dh = _v.length() || 1;
+        e.pos.addScaledVector(_v.divideScalar(dh), TANK_VITESSE * dt);
+        if (surLaPiste(e.pos.x, e.pos.z)) e.pos.addScaledVector(_v, -TANK_VITESSE * dt);   // jamais sur le bitume
+        e.pos.y = 0;
+        _v.subVectors(e.pos, state.pos);
+      }
       _m4.lookAt(e.pos, state.pos, _up);
       _q.setFromRotationMatrix(_m4);
       e.quat.rotateTowards(_q, 1.4 * dt);
@@ -4579,10 +4647,22 @@ function updateEnemies(dt) {
 
       } else if (K.tactique === 'queue') {
         // Se placer dans les six heures et y rester. Il ne vise pas l'avion,
-        // il vise un point derrière lui.
-        e.goal.copy(state.pos).addScaledVector(state.forward, -190);
+        // il vise un point derrière lui — et, tant qu'il est loin, il passe
+        // par le soleil : il arrive de là où on ne le voit pas.
+        if (dist > 650) e.goal.copy(state.pos).addScaledVector(SOLEIL, 520);
+        else e.goal.copy(state.pos).addScaledVector(state.forward, -190);
         e.goal.y = Math.max(70, e.goal.y);
 
+      } else if (K.tactique === 'anticipee' && dist > 750) {
+        // L'INTERCEPTEUR PREND DE LA HAUTEUR. Loin, il monte au-dessus de nous
+        // et attend ; c'est de là qu'il piquera.
+        e.goal.copy(state.pos).addScaledVector(state.forward, 300);
+        e.goal.y = Math.min(CEILING, state.pos.y + 320);
+      } else if (e.chef && state.enemies.includes(e.chef) && dist > 520) {
+        // EN FORMATION : l'ailier tient sa place à droite de son chef tant que
+        // la cible est loin, puis chacun attaque.
+        _right.crossVectors(e.chef.forward, _up).normalize();
+        e.goal.copy(e.chef.pos).addScaledVector(_right, 42).addScaledVector(e.chef.forward, -30);
       } else {
         // Poursuite anticipée : on vise où la cible SERA. Le temps d'impact
         // est la racine positive de |R + V t| = S t, une simple équation du
@@ -4695,7 +4775,7 @@ function updateEnemies(dt) {
         dir.x += (Math.random() - 0.5) * 0.14; dir.y += (Math.random() - 0.5) * 0.14;
         dir.z += (Math.random() - 0.5) * 0.14; dir.normalize();
       }
-      state.bullets.push({ pos: e.pos.clone(), dir, t: 0 });
+      state.bullets.push({ pos: e.pos.clone(), dir, t: 0, faucheur: !!e.faucheur });
       stat('ballesEnnemies');
     };
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
@@ -4716,6 +4796,9 @@ function updateEnemies(dt) {
     const aligne = !zoneSure && dist < K.portee * (1 - 0.45 * gene)
                 && e.forward.dot(_v) > K.cone + (1 - K.cone) * gene * 1.6;
     e.visee = aligne ? e.visee + dt : 0;
+    // LOCKED. Dès qu'il tient son alignement assez pour tirer, l'écran le dit,
+    // pas plus d'une fois toutes les trois secondes.
+    if (aligne && e.visee >= VISEE_ENNEMI && state.lockedT <= 0) { state.lockedT = 3; announce(t('locked')); SFX.arme(); }
     // LA ROQUETTE. Alignement tenu, distance moyenne, et l'alerte sonne.
     if (e.roqCd > 0) e.roqCd -= dt;
     if (K.roquettes && aligne && e.visee >= VISEE_ENNEMI && e.roqCd <= 0
@@ -4744,7 +4827,12 @@ function updateEnemies(dt) {
     // possible, juste de quoi ne pas se traverser à l'écran, et il se fait
     // progressivement plutôt que d'un bloc.
     if (dist < RAM_DIST) {
-      e.pos.addScaledVector(_v, -(RAM_DIST - dist) * Math.min(1, 7 * dt) - 0.05);
+      e.pos.addScaledVector(_v, -(RAM_DIST - dist) * Math.min(1, 10 * dt) - 0.05);
+    }
+    // et ils voient venir : à moins de 120 m en rapprochement, le but s'écarte
+    if (dist < 120 && !K.sol && e.forward.dot(_v) < -0.7) {
+      _right.crossVectors(e.forward, _up).normalize();
+      e.pos.addScaledVector(_right, (e.cote || 1) * 26 * dt);
     }
   }
 
@@ -4784,7 +4872,10 @@ function abattre(e) {
   const i = state.enemies.indexOf(e);
   if (i < 0) return;
   state.enemies.splice(i, 1);
-  if (state.lock === e) { state.lock = null; state.lockCharge = 0; }
+  // LE SUIVANT HÉRITE. Au milieu d'un groupe, la charge acquise sur celui qui
+  // tombe passe au prochain qu'on accroche dans la seconde : on enchaîne au
+  // lieu de repartir de zéro.
+  if (state.lock === e) { state.lock = null; state.lockCharge = 0; state.heritage = { charge: e.charge, t: 1.0 }; }
   marque(100 + state.wave * 10);
   objCompte('abattus');
   stat('abattus');
@@ -5018,6 +5109,7 @@ function updateRoquettes(dt) {
 function updateRoqEnnemies(dt) {
   const pts = [];
   if (state.alerte > 0) state.alerte -= dt;
+  if (state.lockedT > 0) state.lockedT -= dt;
   if (coop.actif && !coop.hote) {
     // l'invité n'en simule aucune : il dessine celles que l'hôte lui décrit
     for (const r of coop.roqDistantes) pts.push(r.x, r.y, r.z, r.x - r.dx * 5, r.y - r.dy * 5, r.z - r.dz * 5);
@@ -5028,20 +5120,31 @@ function updateRoqEnnemies(dt) {
     const r = state.roqEnnemies[i];
     r.t += dt;
     const d = r.pos.distanceTo(state.pos);
-    if (!r.perdue && state.spinT > 0 && d < ROQ_E_ESQUIVE) r.perdue = true;   // le tonneau l'a semée
-    if (r.perdue) r.dir.y -= 0.12 * dt;
-    else {
+    r.dMin = Math.min(r.dMin === undefined ? 1e9 : r.dMin, d);
+    // le tonneau la sème ; une manœuvre franche aussi, si elle passe à côté
+    const semee = (state.spinT > 0 && d < ROQ_E_ESQUIVE) || (r.dMin < 140 && d > r.dMin + 30);
+    if (!r.perdue && semee) {
+      r.perdue = true;
+      stat('roquettesEsquivees');
+      announce(t('esquivee'));
+      SFX.vagueNette();
+    }
+    // PERDUE, ELLE CONTINUE TOUT DROIT : elle nous passe devant et va s'ouvrir
+    // plus loin. On la voit filer, c'est la récompense.
+    if (!r.perdue) {
       _seg.subVectors(state.pos, r.pos).normalize();
       const ang = Math.acos(THREE.MathUtils.clamp(r.dir.dot(_seg), -1, 1));
       const pas = Math.min(ang, ROQ_E_VIRAGE * dt);
       if (ang > 1e-4) { _segA.crossVectors(r.dir, _seg).normalize(); r.dir.applyAxisAngle(_segA, pas).normalize(); }
     }
     _segB.copy(r.pos);
-    r.pos.addScaledVector(r.dir, ROQ_E_VITESSE * dt);
+    // quelle que soit notre vitesse, elle arrive : elle va toujours plus vite que nous
+    r.pos.addScaledVector(r.dir, Math.max(ROQ_E_VITESSE, state.speed + 70) * dt);
     r.fum -= dt;
     while (r.fum <= 0) { semerFumee(_segB.clone().addScaledVector(r.dir, -10), r.dir); r.fum += FUM_PAS; }
     const mur = obstacleEntre(_segB, r.pos);
     const touche = !r.perdue && d < 14 && !(state.assist || state.roulage || state.pose || state.takeoff);
+    if (touche) stat('roquettesRecues');
     if (touche || mur || r.t > ROQ_VIE || r.pos.y <= 1.2) {
       if (mur) { _b1.lerpVectors(_segB, r.pos, mur.t); toucheBat(mur.bat, _b1, ROQ_E_DEGATS); r.pos.copy(_b1); }
       spawnBurst(r.pos, touche ? 12 : 8);
@@ -5085,7 +5188,7 @@ function updateBullets(dt) {
       // la direction d'où vient le coup se lit sur la trajectoire de la balle,
       // pas sur le point d'impact : au contact les deux se confondent et
       // l'écran ne saurait plus de quel côté s'allumer
-      damagePlayer(7, _impactSrc.copy(state.pos).addScaledVector(b.dir, -40), 'balles');
+      damagePlayer(b.faucheur ? 45 : 7, _impactSrc.copy(state.pos).addScaledVector(b.dir, -40), 'balles');
       stat('ballesRecues');
       continue;
     }
@@ -5154,6 +5257,11 @@ function damagePlayer(amount, source, cause) {
 
   // le bouclier de la série : tant qu'il dure, rien ne passe
   if (state.bouclierT > 0) { state.hitFlash = Math.max(state.hitFlash, 0.4); SFX.bouclier(); return; }
+  // EN PLEINE POUSSÉE, INVINCIBLE face aux ennemis : balles, roquettes et
+  // chocs glissent. Le décor et le sol, eux, restent durs.
+  if (state.boost > BOOST_INVINCIBLE && (cause === 'balles' || cause === 'roquette' || cause === 'choc')) {
+    state.hitFlash = Math.max(state.hitFlash, 0.3); SFX.bouclier(); return;
+  }
   // le bouclier encaisse, coup par coup, puis s'évapore
   if (state.bouclier > 0) {
     state.bouclier--;
@@ -5285,8 +5393,12 @@ function updateLock(dt) {
 
   if (best !== state.lock) {
     state.lock = best;
-    if (best) SFX.accroche();
+    if (best) {
+      SFX.accroche();
+      if (state.heritage && state.heritage.t > 0) { best.charge = Math.max(best.charge, state.heritage.charge * 0.85); state.heritage = null; }
+    }
   }
+  if (state.heritage) state.heritage.t -= dt;
 
   // La montée en puissance appartient à la cible, pas au tireur. Perdre
   // brièvement une cible qui rompt ne remet donc pas tout à zéro : sa charge
@@ -5295,13 +5407,20 @@ function updateLock(dt) {
   for (const e of state.enemies) {
     if (e !== best) e.charge = Math.max(0, e.charge - CHARGE_DECROIT * dt);
   }
-  if (!best) { state.lockCharge = 0; return; }
+  if (!best) { state.lockCharge = 0; state.lockTenu = 0; return; }
 
   best.charge = Math.min(1, best.charge + dt / LOCK_SPOOL);
   const charge = best.charge;
   if (state.lockCharge < 1 && charge >= 1) SFX.cale();
   if (state.lockCharge < SEUIL_TIR && charge >= SEUIL_TIR) SFX.arme();
   state.lockCharge = charge;
+  // TENIR, ET SENTIR. Le verrouillage plein qui dure fait vibrer le cadran,
+  // la caméra, et le téléphone : plus on tient, plus ça monte.
+  if (charge >= 1) {
+    state.lockTenu += dt;
+    state.vibreT = (state.vibreT || 0) - dt;
+    if (state.lockTenu > 1 && state.vibreT <= 0 && navigator.vibrate) { navigator.vibrate(6); state.vibreT = 0.22; }
+  } else state.lockTenu = 0;
 
   // Rien ne part tant que le viseur ne s'est pas resserré. Une demi-seconde
   // d'attente, pendant laquelle l'accrochage est déjà annoncé et la croix
@@ -5454,6 +5573,15 @@ function simulate(dt) {
     if (d > S.distMax) S.distMax = d;
   }
   if (state.pose) stat('tempsPose', dt);
+  // LE FAUCHEUR. Qui s'éloigne trop longtemps du combat — plus de 3,5 km de la
+  // piste pendant une minute — est prévenu à mi-chemin, puis un appareil
+  // spécial vient le chercher, et il ne rate pas.
+  if (state.running && !state.faucheur) {
+    const loin = Math.hypot(state.pos.x, state.pos.z - PAPI_Z) > FUITE_DIST;
+    state.fuiteT = loin ? state.fuiteT + dt : Math.max(0, state.fuiteT - dt * 2);
+    if (state.fuiteT > FUITE_ALERTE && state.fuiteT - dt <= FUITE_ALERTE) { announce(t('fuite')); SFX.alerte(); }
+    if (state.fuiteT > FUITE_DUREE) lacherFaucheur();
+  }
   if (state.bouclierT > 0) state.bouclierT -= dt;
 
   // La manette écrit dans « aim » comme le ferait un pouce : elle doit donc
@@ -5590,7 +5718,9 @@ function simulate(dt) {
   const montee = THREE.MathUtils.clamp(state.forward.y / 0.5, 0, 1);
   // l'approche assistée se fait vite : de la porte à l'arrêt, le temps est
   // divisé par trois par rapport à la v0.65
-  const croisiere = CRUISE * (1 + (gainBoost - 1) * state.boost) * (1 - 0.2 * montee)
+  // un portail pousse bien plus fort qu'une poursuite : c'est un coup de fouet
+  const gainEff = state.boostPortail > 0 ? Math.max(gainBoost, BOOST_PORTAIL_GAIN) : gainBoost;
+  const croisiere = CRUISE * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
                   * (state.assist ? APPROCHE_GAIN : 1);
   const pesanteur = state.forward.y < 0 ? 2 : 1;
   state.speed += (-state.forward.y * GRAV * pesanteur + (croisiere - state.speed) * THRUST) * dt;
@@ -6053,12 +6183,16 @@ function simulate(dt) {
         && state.pos.y < SOL_Y + 70);
   if (!state.fig && !enFinale) {
     let cible = null, cAng = 0, cSeuil = 0;
-    for (const e of state.enemies) {
+    // LES AMIS AUSSI. En coopération le magnétisme tient un coéquipier comme
+    // il tient un adversaire — on peut le suivre — mais rien ne part : le
+    // verrouillage, lui, ne connaît que les ennemis.
+    const candidats = coop.actif ? [...state.enemies, ...[...coop.autres.values()].map(a => ({ pos: a.pos, kind: { envergure: ENVERGURE_JOUEUR } }))] : state.enemies;
+    for (const e of candidats) {
       // le magnetisme tient L'AVION, comme le viseur : les canons se chargent
       // seuls de l'avance
       _v.subVectors(e.pos, state.pos);
       const d = _v.length();
-      if (e.pos.distanceTo(state.pos) > LOCK_RANGE) continue;
+      if (d > LOCK_RANGE) continue;
       _v.divideScalar(d || 1);
       const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
       const seuil = seuilLock(e, d) * ASSIST_ETENDUE;
@@ -6795,11 +6929,14 @@ function drawHud() {
   // trembler le monde brouillerait la visée au moment précis où elle compte,
   // alors qu'un cadran qui vibre se lit comme une machine poussée à bout.
   const kch = Math.min(1, state.chauffe / CHAUFFE_PAR);
-  if (kch > 0.01) {
+  // et le verrouillage tenu longtemps fait vibrer aussi, de plus en plus
+  const ktenu = Math.min(1, state.lockTenu / 3);
+  const ksec = Math.max(kch, ktenu * 0.8);
+  if (ksec > 0.01) {
     const t = performance.now() / 1000;
     hctx.save();
-    hctx.translate(Math.sin(t * 47) * CHAUFFE_SECOUSSE * kch,
-                   Math.sin(t * 39 + 1.7) * CHAUFFE_SECOUSSE * kch);
+    hctx.translate(Math.sin(t * 47) * CHAUFFE_SECOUSSE * ksec,
+                   Math.sin(t * 39 + 1.7) * CHAUFFE_SECOUSSE * ksec);
   }
 
   const pSelf = project(state.pos);
@@ -7367,18 +7504,17 @@ function drawHud() {
     im.t -= 1 / 34;
     if (im.t <= 0) { state.impacts.splice(i, 1); continue; }
     const a = im.t * im.t * 0.55;
-    const prof = Math.min(w, h) * 0.34;
-    const poser = (x0, y0, x1, y1, sx, sy, sw, sh) => {
-      const g = hctx.createLinearGradient(x0, y0, x1, y1);
-      g.addColorStop(0, 'rgba(143,252,196,' + a.toFixed(3) + ')');
-      g.addColorStop(1, 'rgba(143,252,196,0)');
-      hctx.fillStyle = g;
-      hctx.fillRect(sx, sy, sw, sh);
-    };
-    if (im.x < -0.35) poser(0, 0, prof, 0, 0, 0, prof, h);
-    if (im.x > 0.35) poser(w, 0, w - prof, 0, w - prof, 0, prof, h);
-    if (im.y < -0.35) poser(0, 0, 0, prof, 0, 0, w, prof);
-    if (im.y > 0.35) poser(0, h, 0, h - prof, 0, h - prof, w, prof);
+    // RADIAL, PAS EN BANDE. Une bande verticale rappelle qu'on regarde un
+    // écran ; un arc qui monte du côté touché se lit comme un coup reçu.
+    const n = Math.hypot(im.x, im.y) || 1;
+    const cx = w / 2 + (im.x / n) * w * 0.85, cy = h / 2 + (im.y / n) * h * 0.85;
+    const R = Math.hypot(w, h) * 0.62;
+    const g = hctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    g.addColorStop(0, 'rgba(143,252,196,' + a.toFixed(3) + ')');
+    g.addColorStop(0.45, 'rgba(143,252,196,' + (a * 0.35).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(143,252,196,0)');
+    hctx.fillStyle = g;
+    hctx.fillRect(0, 0, w, h);
   }
 
   // Le liseré plein tout autour du cadre a sauté : il barrait l'image de
@@ -7389,7 +7525,7 @@ function drawHud() {
   // CANONS CHAUDS. Un chiffre au-dessus de la jauge de vie dit ce qu'il reste,
   // et deux traits en chevron l'encadrent : on sait qu'on est dans la fenêtre
   // et combien de temps elle dure encore.
-  if (kch > 0.01) {
+  if (ksec > 0.01) {
     hctx.restore();
     const cy2 = h * 0.885, lg = Math.min(w, h) * 0.13;
     hctx.save();
@@ -7656,6 +7792,11 @@ function refreshBars() {
   waveLbl.textContent  = (state.defi ? (langue === 'en' ? 'CHALLENGE · ' : 'DÉFI · ') : '') + 'WAVE ' + state.wave;
   scoreLbl.textContent = 'SCORE ' + Math.floor(state.score);
   document.body.classList.toggle('accueil', !state.running);
+  // APPELER LA VAGUE SUIVANTE. Cinq cents points tout de suite, et une vague
+  // de plus dans le ciel : dix appuis, dix vagues à la fois. C'est le seul
+  // moyen d'aller très haut au score, et il faut tout maîtriser pour survivre.
+  vagueBtn.hidden = !(state.running && !state.takeoff && !state.pose && !state.roulage
+                     && state.wave >= 1 && state.wave < CHAPITRE && (!coop.actif || coop.hote));
   // le chrono ne sert qu'à savoir si la prime est encore accessible : il
   // s'efface dès qu'elle est perdue, plutôt que de compter dans le vide
   const reste = state.vagueLimite - state.vagueT;
@@ -7664,6 +7805,10 @@ function refreshBars() {
   gaugeFill.style.width = Math.min(100, st) + '%';
   gaugeFill.classList.toggle('bonus', st > 100);
   structLbl.textContent = st + '%';
+  // le bouclier se compte : un carré par coup encaissable, ou ses secondes
+  const bl = document.getElementById('bouclierLbl');
+  bl.textContent = state.bouclierT > 0 ? 'SHIELD ' + Math.ceil(state.bouclierT) + 's'
+                 : state.bouclier > 0 ? 'SHIELD ' + '▮'.repeat(Math.min(10, state.bouclier)) : '';
 
   // POSER ne se montre que quand la piste est devant et lisible, et ne bat que
   // quand on est réellement sur le plan. Un bouton toujours là qu'on ne peut
@@ -7723,7 +7868,7 @@ const T = {
     canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
-    alerte: 'ROQUETTE  ·  TONNEAU !', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
+    alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', locked: 'LOCKED  ·  ROLL !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
     rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
@@ -7757,7 +7902,7 @@ const T = {
     canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
-    alerte: 'ROCKET  ·  ROLL !', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
+    alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', locked: 'LOCKED  ·  ROLL!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
     rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
@@ -8051,6 +8196,14 @@ aideBtn.addEventListener('click', e => { e.stopPropagation(); ouvrirAide(); });
 // ---------------------------------------------------------------------------
 const panMenu = document.getElementById('menu');
 const menuBtn = document.getElementById('menuBtn');
+const vagueBtn = document.getElementById('vagueBtn');
+vagueBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!state.running || state.wave >= CHAPITRE) return;
+  marque(500);
+  spawnWave();
+  announce(t('vague') + state.wave + '  ·  +500');
+});
 function fermeMenu() { panMenu.hidden = true; majPause(); }
 function majMenu() {
   const fr = langue !== 'en';
