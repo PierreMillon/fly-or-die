@@ -617,7 +617,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.67</button>
+  <button id="versionBtn">v0.68</button>
   <button id="menuBtn">MENU</button>
 </div>
 
@@ -972,6 +972,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.68</b> — la caméra reste à plat au tonneau et serpente vers le côté de la figure avant de revenir.</div>
   <div><b>v0.67</b> — les intercepteurs et le gardien tirent des roquettes qu'un tonneau fait décrocher, et les appareils avancés font de même avec les nôtres.</div>
   <div><b>v0.66</b> — la carte est fixe, dix vagues pour entrer dans la légende, la vie qui résiste en baissant, des portails plus nombreux et plus généreux, un atterrissage plus court qui s'engage seul, et plus aucun ennemi qui disparaît.</div>
   <div><b>v0.65</b> — un seul bouton MENU, le mode DÉFI dès la vague 5, les éclats qui achètent viseurs, teinte et traînée, et les ennemis s'évitent.</div>
@@ -1108,7 +1109,8 @@ const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte 
 const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas en croisière
 const SPIN_TIME     = 0.48;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
-const CAM_ROULIS_TONNEAU = 1.0;   // part du tour que la caméra fait avec l'avion
+const CAM_ROULIS_TONNEAU = 0;     // la caméra reste à plat pendant le tonneau : l'avion fait la figure, pas le joueur
+const CAM_SERPENT = 26;           // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_TONNEAU   = 1.0;    // part du deport que la camera laisse filer avant de se recaler
 const _camDecal = { dir: null, val: 0 };   // le decalage pose a l'image precedente, a retirer avant le ressort
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
@@ -6089,9 +6091,14 @@ function simulate(dt) {
   // qu'on a dessine, spinDep moins spinDepCam, le retard voulu et rien
   // d'autre. La camera part avec l'avion, se laisse distancer de quelques
   // metres au milieu, et se recale a la fin.
-  if (state.spinDep) {
+  // ELLE SERPENTE. À plat, la caméra part vers le côté du tonneau, dépasse
+  // l'avion, et revient se ranger derrière lui quand la figure s'achève : une
+  // sinusoïde sur la durée du tonneau, ajoutée au suivi du déport.
+  if (state.spinDep || state.spinT > 0) {
     _right.crossVectors(state.forward, _up).normalize();
-    _camDecal.val = state.spinSide * CAM_TONNEAU * (state.spinDepCam - state.spinDep);
+    const u = state.spinT > 0 ? 1 - state.spinT / SPIN_TIME : 1;
+    _camDecal.val = state.spinSide * (CAM_TONNEAU * (state.spinDepCam - state.spinDep)
+                                    + CAM_SERPENT * Math.sin(Math.PI * u));
     _camDecal.dir.copy(_right);
     camera.position.addScaledVector(_camDecal.dir, _camDecal.val);
   }

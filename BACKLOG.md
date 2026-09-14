@@ -404,6 +404,16 @@ Faits, mesurés :
   drone et gardien font un tonneau devant nos roquettes, qui décrochent.
 
 À faire ou à préciser :
+- L'éditeur de carte dans le jeu, débloqué contre une vidéo (« C'est génial
+  l'éditeur ! On l'ajoutera en jeu après contre une pub »). Il faudra que le
+  jeu lise une carte gardée sur l'appareil (localStorage) en plus de celle du
+  code.
+- Caméra au tonneau, sa réponse : « elle reste sur le plan horizontal mais
+  serpente vers le côté du tonneau et revient » → fait en v0.68 (à plat,
+  sinusoïde de 26 m, mesuré : 21 m d'excursion, retour à 0, roulis 0).
+- « Des portes qui n'activent pas le bonus de vie » : la correction de v0.66
+  (passage testé avant les murs, comptage à chaque traversée) devrait
+  suffire ; à lui de confirmer.
 - Chapitre 2 : cinq à dix vagues, un deuxième avion plus rapide, chrono et
   cibles à détruire, des cibles en haut des tours à différents étages.
 - « Il y en a qui te les portes, c'est pas bon » : à préciser.
