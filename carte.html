@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carte de Fly or Die</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root { --fond: #050907; --trait: #46ffa0; --sourd: #1f6b45; --texte: #cfffe3; --or: #ffd166; --rouge: #ff7a5c; color-scheme: dark; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--fond); color: var(--texte); font-family: 'IBM Plex Mono', Menlo, Consolas, monospace; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+#vue { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#haut, #bas { position: fixed; left: 0; right: 0; display: flex; gap: 8px; padding: 10px 16px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+#haut { top: 0; padding-top: max(10px, env(safe-area-inset-top)); }
+#bas { bottom: 0; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+button, select { font: inherit; font-size: 12px; letter-spacing: .08em; background: var(--fond); color: var(--trait); border: 1px solid var(--trait); padding: 7px 10px; border-radius: 3px; pointer-events: auto; cursor: pointer; }
+button.actif { background: var(--trait); color: var(--fond); font-weight: 600; }
+button.rouge { color: var(--rouge); border-color: var(--rouge); }
+button:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+#etat { font-size: 11px; color: var(--sourd); letter-spacing: .06em; pointer-events: none; flex: 1; min-width: 12ch; }
+#panneau { position: fixed; inset: 0; background: rgba(5,9,7,.96); display: none; flex-direction: column; gap: 10px; padding: 24px 16px; }
+#panneau.ouvert { display: flex; }
+#panneau h1 { font-size: 14px; letter-spacing: .12em; font-weight: 600; margin: 0; }
+#panneau p { margin: 0; font-size: 12px; color: var(--sourd); line-height: 1.6; max-width: 60ch; }
+#json { flex: 1; width: 100%; box-sizing: border-box; background: #071109; color: var(--texte); border: 1px solid var(--sourd); border-radius: 3px; padding: 10px; font: inherit; font-size: 11px; resize: none; }
+#panneau .rangee { display: flex; gap: 8px; flex-wrap: wrap; }
+#taille { display: none; gap: 6px; align-items: center; font-size: 11px; color: var(--sourd); pointer-events: auto; }
+#taille.visible { display: flex; }
+#taille input { width: 70px; accent-color: var(--trait); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<canvas id="vue"></canvas>
+
+<div id="haut">
+  <button id="oPylone" class="outil actif" data-outil="pylone">PYLÔNE</button>
+  <button id="oArche" class="outil" data-outil="arche">ARCHE</button>
+  <button id="oTour" class="outil" data-outil="tour">TOUR</button>
+  <button id="oMain" class="outil" data-outil="main">DÉPLACER</button>
+  <span id="taille"><label>H <input id="hauteur" type="range" min="0.5" max="3" step="0.1" value="1.5"></label><label>L <input id="largeur" type="range" min="0.6" max="2" step="0.1" value="1"></label></span>
+</div>
+
+<div id="bas">
+  <span id="etat"></span>
+  <button id="tourner">TOURNER</button>
+  <button id="supprimer" class="rouge">SUPPRIMER</button>
+  <button id="ouvrir">PLAN · COPIER</button>
+</div>
+
+<div id="panneau">
+  <h1>LE PLAN</h1>
+  <p>Copie ce texte et envoie-le-moi : je le colle tel quel dans le jeu. Tu peux aussi coller ici un plan existant puis CHARGER pour le retoucher. L'origine est le milieu de la piste, x vers l'est, z vers le sud.</p>
+  <textarea id="json" spellcheck="false"></textarea>
+  <div class="rangee">
+    <button id="copier">COPIER</button>
+    <button id="charger">CHARGER</button>
+    <button id="essayer">ESSAYER DANS LE JEU</button>
+    <button id="oublier" class="rouge">REVENIR À LA CARTE DU JEU</button>
+    <button id="fermer">RETOUR À LA CARTE</button>
+  </div>
+</div>
+
+<script>
+// ---- les mesures du jeu, telles quelles ----
+const PISTE = { demiL: 23, z0: 260, z1: -900 };
+const GARDE = { x: 150, z0: 420, z1: -1150 };        // couloir interdit au décor
+const PYLONE = 18, TOUR = { largeur: 110, prof: 60 }, ARCHE = { largeur: 144, prof: 32 };
+const CARTE_DEFAUT = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":4,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":6,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":110,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
+
+let carte = JSON.parse(JSON.stringify(CARTE_DEFAUT));
+let outil = 'pylone', choisi = null;
+
+const cv = document.getElementById('vue'), cx = cv.getContext('2d');
+let W = 0, H = 0;
+const vue = { x: 0, z: -320, ech: 0.12 };            // centre et pixels par mètre
+function taille() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  vue.ech = Math.min(W, H) / 5200;
+  dessine();
+}
+addEventListener('resize', taille);
+const versEcran = (x, z) => ({ x: W / 2 + (x - vue.x) * vue.ech, y: H / 2 + (z - vue.z) * vue.ech });
+const versMonde = (px, py) => ({ x: Math.round((px - W / 2) / vue.ech + vue.x), z: Math.round((py - H / 2) / vue.ech + vue.z) });
+const surLaPiste = (x, z) => Math.abs(x) < GARDE.x && z < GARDE.z0 && z > GARDE.z1;
+
+function objets() {
+  const l = [];
+  carte.pylones.forEach((o, i) => l.push({ type: 'pylone', i, o }));
+  carte.arches.forEach((o, i) => l.push({ type: 'arche', i, o }));
+  carte.tours.forEach((o, i) => l.push({ type: 'tour', i, o }));
+  return l;
+}
+function empreinte(t, o) {
+  if (t === 'pylone') return { w: PYLONE * o.sx, h: PYLONE * o.sz };
+  const b = t === 'tour' ? TOUR : ARCHE;
+  return o.q ? { w: b.prof, h: b.largeur } : { w: b.largeur, h: b.prof };
+}
+
+function dessine() {
+  cx.clearRect(0, 0, W, H);
+  cx.lineWidth = 1;
+  // la grille de 160 m, comme au sol dans le jeu
+  cx.strokeStyle = '#46ffa0'; cx.globalAlpha = 0.14;
+  for (let m = -4000; m <= 4000; m += 160) {
+    const a = versEcran(m, -4000), b = versEcran(m, 4000);
+    cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke();
+    const c = versEcran(-4000, m), d = versEcran(4000, m);
+    cx.beginPath(); cx.moveTo(c.x, c.y); cx.lineTo(d.x, d.y); cx.stroke();
+  }
+  // le couloir interdit, puis la piste
+  cx.globalAlpha = 0.25; cx.setLineDash([4, 4]);
+  let p = versEcran(-GARDE.x, GARDE.z1), q = versEcran(GARDE.x, GARDE.z0);
+  cx.strokeRect(p.x, p.y, q.x - p.x, q.y - p.y); cx.setLineDash([]);
+  cx.globalAlpha = 0.9;
+  p = versEcran(-PISTE.demiL, PISTE.z1); q = versEcran(PISTE.demiL, PISTE.z0);
+  cx.strokeRect(p.x, p.y, q.x - p.x, q.y - p.y);
+  cx.globalAlpha = 1; cx.fillStyle = '#1f6b45'; cx.font = '10px IBM Plex Mono, monospace'; cx.textAlign = 'center';
+  cx.fillText('N', versEcran(0, PISTE.z1 - 80).x, versEcran(0, PISTE.z1 - 80).y);
+  // les bâtiments
+  for (const it of objets()) {
+    const e = empreinte(it.type, it.o);
+    const c = versEcran(it.o.x, it.o.z);
+    const w = e.w * vue.ech, h = e.h * vue.ech;
+    const est = choisi && choisi.type === it.type && choisi.i === it.i;
+    cx.strokeStyle = surLaPiste(it.o.x, it.o.z) ? '#ff7a5c' : est ? '#ffd166' : '#46ffa0';
+    cx.lineWidth = est ? 2 : 1;
+    cx.globalAlpha = 0.95;
+    cx.strokeRect(c.x - w / 2, c.y - h / 2, Math.max(3, w), Math.max(3, h));
+    if (it.type !== 'pylone') {           // le passage : un trait dans l'axe du trou
+      cx.beginPath();
+      if (it.o.q) { cx.moveTo(c.x, c.y - h / 2 - 6); cx.lineTo(c.x, c.y + h / 2 + 6); }
+      else { cx.moveTo(c.x - w / 2 - 6, c.y); cx.lineTo(c.x + w / 2 + 6, c.y); }
+      cx.stroke();
+    }
+    if (it.type === 'pylone') { cx.fillStyle = '#46ffa0'; cx.globalAlpha = 0.25 + 0.25 * (it.o.sy / 3); cx.fillRect(c.x - w / 2, c.y - h / 2, Math.max(3, w), Math.max(3, h)); }
+  }
+  cx.globalAlpha = 1; cx.lineWidth = 1;
+  document.getElementById('etat').textContent = carte.pylones.length + ' PYLÔNES · ' + carte.arches.length + ' ARCHES · ' + carte.tours.length + ' TOURS'
+    + (choisi ? '  ·  ' + choisi.type.toUpperCase() + ' x ' + choisi.o.x + ' z ' + choisi.o.z : '');
+  document.getElementById('taille').classList.toggle('visible', !!choisi && choisi.type === 'pylone');
+}
+
+// ---- le doigt : poser, choisir, glisser ----
+let glisse = null, presse = null;
+function sous(px, py) {
+  const m = versMonde(px, py);
+  let meilleur = null, dm = 40 / vue.ech;           // 40 px de tolérance
+  for (const it of objets()) {
+    const e = empreinte(it.type, it.o);
+    const dx = Math.abs(m.x - it.o.x) - e.w / 2, dz = Math.abs(m.z - it.o.z) - e.h / 2;
+    const d = Math.max(dx, dz, 0);
+    if (d < dm) { dm = d; meilleur = it; }
+  }
+  return meilleur;
+}
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  presse = { x: e.clientX, y: e.clientY, t: performance.now(), bouge: false };
+  const it = sous(e.clientX, e.clientY);
+  if (it) { choisi = it; glisse = { it, dx: 0, dz: 0, x0: e.clientX, y0: e.clientY, ox: it.o.x, oz: it.o.z }; }
+  else if (outil === 'main') glisse = { vue: true, x0: e.clientX, y0: e.clientY, vx: vue.x, vz: vue.z };
+  else glisse = null;
+  dessine();
+});
+cv.addEventListener('pointermove', e => {
+  if (!glisse) return;
+  const dx = e.clientX - glisse.x0, dy = e.clientY - glisse.y0;
+  if (Math.hypot(dx, dy) > 4) presse.bouge = true;
+  if (glisse.vue) { vue.x = glisse.vx - dx / vue.ech; vue.z = glisse.vz - dy / vue.ech; }
+  else { glisse.it.o.x = Math.round(glisse.ox + dx / vue.ech); glisse.it.o.z = Math.round(glisse.oz + dy / vue.ech); }
+  dessine();
+});
+for (const ev of ['pointerup', 'pointercancel']) cv.addEventListener(ev, e => {
+  if (presse && !presse.bouge && !glisse?.it && outil !== 'main') {
+    const m = versMonde(e.clientX, e.clientY);
+    if (outil === 'pylone') { carte.pylones.push({ x: m.x, z: m.z, sx: +document.getElementById('largeur').value, sy: +document.getElementById('hauteur').value, sz: +document.getElementById('largeur').value }); choisi = { type: 'pylone', i: carte.pylones.length - 1, o: carte.pylones[carte.pylones.length - 1] }; }
+    else if (outil === 'arche') { carte.arches.push({ x: m.x, z: m.z, q: 0 }); choisi = { type: 'arche', i: carte.arches.length - 1, o: carte.arches[carte.arches.length - 1] }; }
+    else if (outil === 'tour') { carte.tours.push({ x: m.x, z: m.z, q: 0 }); choisi = { type: 'tour', i: carte.tours.length - 1, o: carte.tours[carte.tours.length - 1] }; }
+  }
+  glisse = null; presse = null; dessine();
+});
+cv.addEventListener('wheel', e => { vue.ech *= e.deltaY < 0 ? 1.1 : 0.9; dessine(); }, { passive: true });
+
+for (const b of document.querySelectorAll('.outil')) b.addEventListener('click', () => {
+  outil = b.dataset.outil;
+  for (const q of document.querySelectorAll('.outil')) q.classList.toggle('actif', q === b);
+});
+document.getElementById('tourner').addEventListener('click', () => { if (choisi && choisi.type !== 'pylone') { choisi.o.q = choisi.o.q ? 0 : 1; dessine(); } });
+document.getElementById('supprimer').addEventListener('click', () => {
+  if (!choisi) return;
+  const liste = choisi.type === 'pylone' ? carte.pylones : choisi.type === 'arche' ? carte.arches : carte.tours;
+  liste.splice(choisi.i, 1); choisi = null; dessine();
+});
+for (const id of ['hauteur', 'largeur']) document.getElementById(id).addEventListener('input', e => {
+  if (!choisi || choisi.type !== 'pylone') return;
+  if (id === 'hauteur') choisi.o.sy = +e.target.value; else { choisi.o.sx = +e.target.value; choisi.o.sz = +e.target.value; }
+  dessine();
+});
+
+// ---- le plan en texte ----
+const panneau = document.getElementById('panneau'), zone = document.getElementById('json');
+document.getElementById('ouvrir').addEventListener('click', () => { zone.value = JSON.stringify(carte); panneau.classList.add('ouvert'); });
+document.getElementById('fermer').addEventListener('click', () => panneau.classList.remove('ouvert'));
+document.getElementById('copier').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(zone.value); document.getElementById('copier').textContent = 'COPIÉ'; } catch (e) { zone.select(); }
+});
+document.getElementById('charger').addEventListener('click', () => {
+  try { const c = JSON.parse(zone.value); if (c.pylones && c.arches && c.tours) { carte = c; choisi = null; panneau.classList.remove('ouvert'); dessine(); } }
+  catch (e) { document.getElementById('charger').textContent = 'PLAN ILLISIBLE'; }
+});
+// ESSAYER : la carte est gardée sur l'appareil, et le jeu la lit au lieu de la
+// sienne tant qu'on ne l'a pas oubliée. Même origine, même stockage.
+document.getElementById('essayer').addEventListener('click', () => {
+  try { localStorage.setItem('fod_carte', JSON.stringify(carte)); location.href = './'; } catch (e) {}
+});
+document.getElementById('oublier').addEventListener('click', () => {
+  try { localStorage.removeItem('fod_carte'); } catch (e) {}
+  document.getElementById('oublier').textContent = 'LE JEU REPREND SA CARTE';
+});
+try { const g = localStorage.getItem('fod_carte_brouillon'); if (g) carte = JSON.parse(g); } catch (e) {}
+setInterval(() => { try { localStorage.setItem('fod_carte_brouillon', JSON.stringify(carte)); } catch (e) {} }, 3000);
+taille();
+</script>
+</body>
+</html>

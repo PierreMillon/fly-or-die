@@ -405,9 +405,12 @@ Faits, mesurés :
 
 À faire ou à préciser :
 - L'éditeur de carte dans le jeu, débloqué contre une vidéo (« C'est génial
-  l'éditeur ! On l'ajoutera en jeu après contre une pub »). Il faudra que le
-  jeu lise une carte gardée sur l'appareil (localStorage) en plus de celle du
-  code.
+  l'éditeur ! On l'ajoutera en jeu après contre une pub »). Première marche
+  faite en v0.68 : carte.html est dans le dépôt
+  (https://pierremillon.github.io/fly-or-die/carte.html), le bouton ESSAYER
+  DANS LE JEU garde la carte sur l'appareil et le jeu la lit à la place de la
+  sienne ; REVENIR À LA CARTE DU JEU l'oublie. Reste : l'entrée dans le menu
+  et la vidéo devant.
 - Caméra au tonneau, sa réponse : « elle reste sur le plan horizontal mais
   serpente vers le côté du tonneau et revient » → fait en v0.68 (à plat,
   sinusoïde de 26 m, mesuré : 21 m d'excursion, retour à 0, roulis 0).

@@ -22,6 +22,7 @@ const BOITE = 'fly-or-die-' + VERSION;
 const SOCLE = [
   './',
   './index.html',
+  './carte.html',
   './favicon.svg',
   './manifest.webmanifest',
   './icone-192.png',
