@@ -484,6 +484,7 @@
   #overlayText { margin: 0; font-size: 13px; line-height: 1.7; color: var(--ph-text); max-width: 30em; }
   #overlayScore { margin: 0; font-size: 13px; color: var(--ph-dim); letter-spacing: 0.15em; line-height: 1.9; }
   #overlayScore b { color: var(--ph-line); font-weight: 500; }
+  #gaugeFill.bonus { background: #ffd166; box-shadow: 0 0 8px #ffd166; }
   #objectif { margin: 0; font-size: 12px; color: var(--ph-dim); letter-spacing: 0.12em; line-height: 1.8; max-width: 30em; }
   #objectif b { color: var(--ph-line); font-weight: 500; }
   #objectif[hidden] { display: none; }
@@ -540,6 +541,7 @@
     padding: 13px 30px;
   }
   #poserBtn[hidden] { display: none; }
+  #poserBtn { background-image: linear-gradient(90deg, var(--ph-fill) 0, var(--ph-fill) calc(var(--charge, 0) * 100%), transparent calc(var(--charge, 0) * 100%)); }
   #poserBtn.pret {
     color: #04070a;
     background: var(--ph-line);
@@ -615,7 +617,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.65</button>
+  <button id="versionBtn">v0.66</button>
   <button id="menuBtn">MENU</button>
 </div>
 
@@ -970,6 +972,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.66</b> — la carte est fixe, dix vagues pour entrer dans la légende, la vie qui résiste en baissant, des portails plus nombreux et plus généreux, un atterrissage plus court qui s'engage seul, et plus aucun ennemi qui disparaît.</div>
   <div><b>v0.65</b> — un seul bouton MENU, le mode DÉFI dès la vague 5, les éclats qui achètent viseurs, teinte et traînée, et les ennemis s'évitent.</div>
   <div><b>v0.64</b> — la difficulté ne plafonne plus et s'adapte à la forme, un objectif du jour avec sa série, et le score se partage.</div>
   <div><b>v0.63</b> — les bâtiments encaissent les balles et s'effondrent, le soleil suit la partie et cache trois secrets.</div>
@@ -1089,7 +1092,7 @@ import * as THREE from 'three';
 // ---------------------------------------------------------------------------
 const CRUISE        = 78;     // vitesse d'équilibre en palier
 const SPEED_MIN     = 46;     // sous cette valeur l'aile ne porte plus vraiment
-const SPEED_MAX     = 148;
+const SPEED_MAX     = 205;
 const GRAV          = 48;     // ce que la pesanteur donne ou reprend selon l'assiette
 const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
@@ -1104,6 +1107,7 @@ const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte 
 const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas en croisière
 const SPIN_TIME     = 0.48;   // durée du tonneau au double tap
 const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
+const CAM_ROULIS_TONNEAU = 1.0;   // part du tour que la caméra fait avec l'avion
 const CAM_TONNEAU   = 1.0;    // part du deport que la camera laisse filer avant de se recaler
 const _camDecal = { dir: null, val: 0 };   // le decalage pose a l'image precedente, a retirer avant le ressort
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
@@ -2352,11 +2356,15 @@ const KINDS = [
 // Composition des vagues : on traverse un siècle d'aviation. Biplans seuls au
 // début, puis chaque tactique nouvelle s'ajoute au lot sans faire disparaître
 // les précédentes — les vieux coucous restent, en minorité.
+// LE PREMIER CHAPITRE TIENT EN DIX VAGUES, réglées une à une, à la main. La
+// cinquième et la dixième sont des gardiens. Tenir les dix, c'est entrer dans
+// la légende ; le deuxième chapitre viendra avec un autre avion.
+const CHAPITRE = 10;
 const VAGUES = [
-  [0], [0], [0, 0, 1], [0, 1, 1], [0, 1, 1, 2],
-  [0, 1, 2, 2], [1, 1, 2, 2, 3], [1, 2, 2, 3, 3], [1, 2, 3, 3, 3], [2, 2, 3, 3, 3, 3]
+  [0], [0], [0, 0, 1], [0, 1, 1], [4],
+  [0, 1, 2, 2], [1, 1, 2, 2, 3], [1, 2, 2, 3, 3], [1, 2, 3, 3, 3], [4]
 ];
-const EFFECTIF = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12];
+const EFFECTIF = [1, 2, 3, 4, 1, 5, 6, 7, 8, 1];
 const PN_GAIN = 3.2;
 
 // LE SOLEIL. Une direction fixe dans le ciel, comme les étoiles. Le regarder
@@ -2833,6 +2841,8 @@ function bloc(lx, ly, lz, cx, cy) {
 const BOOST_ATTENTE = 1.25;   // secondes d'alignement tenu avant que ça pousse
 const BOOST_COS = Math.cos(13 * Math.PI / 180);
 const BOOST_GAIN = 2.0;       // ce que devient la vitesse de croisière visée
+const BOOST_GAIN_LOIN = 2.6;  // ...et tant qu'on reste loin, ça continue de monter, jusqu'à ceci
+const BOOST_MONTEE = 8;       // secondes pour aller de l'un à l'autre
 const BOOST_LOIN = 620;       // en deçà, il n'y a plus rien à rattraper
 const BOOST_APRES = 0.75;     // ce qui reste de poussée une fois la cible accrochée
 
@@ -2920,6 +2930,8 @@ function updateBoost(dt) {
   if (state.lock) state.boostFin = (state.boostFin || 0) + dt; else state.boostFin = 0;
   if (state.lock && state.boostFin > BOOST_APRES) vise = false;
 
+  // un portail franchi pousse deux secondes, sans attente
+  if (state.boostPortail > 0) { state.boostPortail -= dt; vise = true; state.boostT = Math.max(state.boostT, BOOST_ATTENTE); }
   state.boostT = vise ? state.boostT + dt : Math.max(0, state.boostT - dt * 3);
   const cible = state.boostT >= BOOST_ATTENTE ? 1 : 0;
   // le coup au cul : il vient vite et retombe plus lentement
@@ -2991,7 +3003,7 @@ const PISTE = {
 // reprendre de la vie en quantité, et c'est aussi le seul où l'on ne peut ni
 // esquiver ni riposter. Le marché est net.
 const ARRONDI_H = 16;         // hauteur à laquelle le nez commence à remonter
-const ROULAGE_M = 133;        // metres de piste pour s'arreter : trois fois moins qu'avant, le temps de freinage avec
+const ROULAGE_M = 44;        // metres de piste pour s'arreter : trois fois moins qu'avant, le temps de freinage avec
 const TOUCHER_DUR = 4.5;      // m/s de descente au-delà desquels ça casse
 const REPARATION = 10;        // secondes avant que ça reparte tout seul
 const REPARE_PAR_S = 17;      // points de structure rendus par seconde
@@ -3000,6 +3012,16 @@ const REPARE_COUT = 5;        // points de score par point de structure rendu
 const PISTE_GARDE_X = 150;    // couloir interdit au décor, de part et d'autre
 const PISTE_GARDE_Z0 = 420;
 const PISTE_GARDE_Z1 = -1150;
+
+// ---------------------------------------------------------------------------
+// LA CARTE. Le décor n'est plus tiré au sort à chaque partie : pylônes, arches
+// et tours percées sont posés une fois pour toutes, aux mêmes endroits, pour
+// qu'on apprenne le terrain et qu'on s'amuse à enchaîner les trous. La carte
+// se dessine sur la page d'édition et se colle ici telle quelle. L'origine est
+// le milieu de la piste ; x vers l'est, z vers le sud (le nord est en -z).
+// ---------------------------------------------------------------------------
+const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":4,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":6,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":110,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
+CARTE.fixe = true;
 
 // Chiffres au trait, décrits une fois pour toutes : chaque segment est une
 // paire de points dans un carré de 1 sur 2, à la manière d'un afficheur.
@@ -3129,7 +3151,7 @@ let papiMesh = null, papiCouleurs = null;
 // Elle est a 1 100 m du point vise, donc a 58 m de haut sur la pente, et fait
 // 32 m de diametre : presque trois envergures.
 // ---------------------------------------------------------------------------
-const PORTE_DIST = 1100;                              // du point vise (le PAPI)
+const PORTE_DIST = 750;                              // du point vise (le PAPI)
 // Seize metres de rayon et non trente-six : le centre est sur le plan, mais
 // avec trente-six on pouvait passer par le haut du cercle a 94 m, soit 4,9
 // degres — quatre blancs, « trop haut ». A seize, le haut du cercle fait 3,8
@@ -3137,7 +3159,9 @@ const PORTE_DIST = 1100;                              // du point vise (le PAPI)
 // plan. Passer la porte veut dire etre a la bonne hauteur, ou ca ne veut rien.
 const PORTE_R = 16;
 const PORTE_H = PISTE.y + PORTE_DIST * Math.tan(PENTE_CIBLE);
-const PORTE_VALIDE = 10;                              // secondes pendant lesquelles POSER reste offert
+const PORTE_VALIDE = 10;
+const ALIGN_TENUE = 2;
+const APPROCHE_GAIN = 1.45;                           // vitesse de l'approche assistée, en part de la croisière                                // secondes d'alignement parfait avant que l'approche s'engage seule                              // secondes pendant lesquelles POSER reste offert
 const PORTES = [
   { z: PAPI_Z + PORTE_DIST, sens: -1 },   // on la passe en volant vers le nord (z decroissant)
   { z: PAPI_Z - PORTE_DIST, sens:  1 },   // et celle-ci vers le sud
@@ -3300,6 +3324,13 @@ const _fusil = new THREE.Vector3();
 function mecanoTire(m, dt) {
   m.tire = false;
   if (!state.pose || m.mort || m.fuite > 0) { m.fusil.visible = false; return; }
+  // AU MOINS UN RÉPARE. Un fusil par avion ennemi à portée, deux au plus, et
+  // jamais le dernier homme valide : lui garde la clé à molette.
+  const vivants = mecanos.filter(x => !x.mort && x.g.visible);
+  const tireurs = vivants.filter(x => x.tire && x !== m).length;
+  const enPortee = state.enemies.filter(e => !e.kind.sol && e.pos.distanceTo(m.p) < FUSIL_PORTEE).length;
+  const voulus = Math.min(2, enPortee, Math.max(0, vivants.length - 1));
+  if (tireurs >= voulus) { m.fusil.visible = false; return; }
   let cible = null, dMin = FUSIL_PORTEE;
   for (const e of state.enemies) {
     if (e.kind.sol) continue;
@@ -3431,8 +3462,10 @@ const CONTOUR_ARCHE = (() => {
 const aretesArche = prismeAretes(CONTOUR_ARCHE, ARCHE.prof / 2);
 
 const arches = [];
-const ARCHE_PRIME = 10;   // pour cent de vie rendus, une fois par arche et par vague
-for (let i = 0; i < 6; i++) {
+const ARCHE_PRIME = 20;   // pour cent de vie rendus a chaque passage
+const VIE_MAX = 150;      // au-dela de cent, c'est de la vie de bonus
+const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
+for (let i = 0; i < 12; i++) {
   const g = new THREE.Group();
   const demi = (ARCHE.ouvertureL + ARCHE.pile) / 2;
   g.add(bloc(ARCHE.pile, ARCHE.ouvertureH, ARCHE.prof, -demi, ARCHE.ouvertureH / 2),
@@ -3450,14 +3483,16 @@ for (let i = 0; i < 6; i++) {
 // c'est précisément par là qu'on passe.
 function placeArche(a, initial) {
   let x, z;
-  for (let essai = 0; ; essai++) {
+  const c = CARTE.arches[arches.indexOf(a)];
+  if (c) { x = c.x; z = c.z; }
+  else for (let essai = 0; ; essai++) {
     const ang = Math.random() * Math.PI * 2;
-    const r = initial ? 700 + Math.random() * 2200 : 3000 + Math.random() * 1200;
+    const r = initial ? 450 + Math.random() * 1500 : 1900 + Math.random() * 900;
     x = state.pos.x + Math.cos(ang) * r;
     z = state.pos.z + Math.sin(ang) * r;
     if (!surLaPiste(x, z) || essai > 12) break;
   }
-  const quart = Math.random() < 0.5;          // orientée à 0 ou 90 degrés, pour
+  const quart = c ? !!c.q : Math.random() < 0.5;   // orientée à 0 ou 90 degrés, pour
   a.g.position.set(x, 0, z);                  // que les boîtes restent alignées
   a.g.rotation.y = quart ? Math.PI / 2 : 0;
   const demi = (ARCHE.ouvertureL + ARCHE.pile) / 2;
@@ -3494,7 +3529,7 @@ const TOUR = {
 TOUR.y0 = TOUR.hauteur * 2 / 3 - TOUR.trou / 2;   // 197,5 m
 TOUR.y1 = TOUR.y0 + TOUR.trou;                    // 242,5 m
 TOUR.montant = (TOUR.largeur - TOUR.trou) / 2;    // 32,5 m de chaque côté
-const TOUR_PRIME = 25;   // pour cent de vie rendus, une fois par tour et par vague
+const TOUR_PRIME = 50;   // pour cent de vie rendus, une fois par tour et par vague
 
 const matTour = lineMat(COL_LINE, 0.9);
 // deux boucles seulement : la façade et sa fenêtre. Rien entre les deux.
@@ -3521,14 +3556,16 @@ for (let i = 0; i < 3; i++) {
 
 function placeTour(t, initial) {
   let x, z;
-  for (let essai = 0; ; essai++) {
+  const c = CARTE.tours[tours.indexOf(t)];
+  if (c) { x = c.x; z = c.z; }
+  else for (let essai = 0; ; essai++) {
     const ang = Math.random() * Math.PI * 2;
     const r = initial ? 900 + Math.random() * 2000 : 3200 + Math.random() * 1400;
     x = state.pos.x + Math.cos(ang) * r;
     z = state.pos.z + Math.sin(ang) * r;
     if (!surLaPiste(x, z) || essai > 12) break;
   }
-  const quart = Math.random() < 0.5;
+  const quart = c ? !!c.q : Math.random() < 0.5;
   t.g.position.set(x, 0, z);
   t.g.rotation.y = quart ? Math.PI / 2 : 0;
   const L = TOUR.largeur / 2, P = TOUR.prof / 2, M = TOUR.montant / 2;
@@ -3892,6 +3929,7 @@ const state = {
   chauffe: 0,
   regime: 0,
   boostFin: 0,
+  boostPortail: 0,    // secondes de poussée offertes par un portail
   boost: 0,
   boostT: 0,
   recordBattu: null,
@@ -3934,6 +3972,7 @@ const state = {
   roulage: null,
   assist: false,
   porteT: 0,          // secondes restantes pendant lesquelles la porte franchie ouvre POSER
+  alignT: 0,          // secondes tenues pile sur le plan : la barre d'approche automatique
   pose: null,
   approche: 0,
   scrapeT: 0,
@@ -4092,7 +4131,7 @@ function resetGame() {
   state.eclipse = 0; state.solTir = 0; state.dore = 0; state.doreVague = -1; state.solDans = 0;
   state.etoileT = 0;
   state.forme = 0; state.objN = 0; state.defi = false;
-  soleilCible(1, SOLEIL);      // l'aube : le soleil repart bas, sans transition
+  SOLEIL.set(0.62, 0.42, -0.66).normalize();   // le soleil ne bouge plus : il a fait un tour, il revient
   _solCible.copy(SOLEIL);
   state.paused = false;
   state.enemies.forEach(e => scene.remove(e.mesh));
@@ -4125,10 +4164,7 @@ function marque(n) { state.score += n * (state.defi ? DEFI_FACTEUR : 1); }
 // indépendantes : la tenir dans le chrono, et n'être pas touché une seule
 // fois. Chacune rend quelque chose, les deux ensemble rendent tout.
 function bilanVague() {
-  // les pièces au sol restées debout s'effacent avec la vague
-  for (let i = state.enemies.length - 1; i >= 0; i--) {
-    if (state.enemies[i].kind.sol) { scene.remove(state.enemies[i].mesh); state.enemies.splice(i, 1); }
-  }
+  // les pièces au sol restent : rien ne disparaît sans avoir été abattu
   const dansTemps = state.vagueT <= state.vagueLimite;
   const intact = !state.vagueTouche;
   state.vagueLimite = 0;
@@ -4140,14 +4176,14 @@ function bilanVague() {
   state.forme = THREE.MathUtils.clamp(state.forme + forme, -1, 1);
 
   if (dansTemps && intact) {
-    state.structure = 100;
+    state.structure = Math.max(state.structure, 100);
     state.bouclier = BOUCLIER_COUPS;
     marque(750);
     announce(t('sansFaute'));
     SFX.vagueNette(); SFX.bouclierOn();
     objCompte('sansFaute');
   } else if (dansTemps) {
-    state.structure = 100;
+    state.structure = Math.max(state.structure, 100);
     marque(400);
     announce(t('dansTemps'));
     SFX.vagueNette();
@@ -4164,7 +4200,9 @@ function bilanVague() {
 
 function placeTower(t, initial) {
   let x, z;
-  for (let essai = 0; ; essai++) {
+  const c = CARTE.pylones[towers.indexOf(t)];
+  if (c) { x = c.x; z = c.z; t.scale.set(c.sx, c.sy, c.sz); }
+  else for (let essai = 0; ; essai++) {
     const a = Math.random() * Math.PI * 2;
     const r = initial ? 250 + Math.random() * 2400 : 2600 + Math.random() * 900;
     x = state.pos.x + Math.cos(a) * r;
@@ -4173,6 +4211,7 @@ function placeTower(t, initial) {
   }
   t.position.set(x, 0, z);
   const p = pylones[towers.indexOf(t)];
+  p.sy = t.scale.y;
   p.boites = [{ x, z, hx: 9 * t.scale.x, hz: 9 * t.scale.z, y0: 0, y1: TOWER_H * t.scale.y }];
   rebatir(p);
 }
@@ -4184,7 +4223,6 @@ function spawnWave() {
   state.wave++;
   // le soleil avance d'un cran, et les ruines de la vague précédente sont
   // rebâties loin d'ici
-  soleilCible(state.wave, _solCible);
   for (const b of BATIMENTS) {
     if (!b.mort) continue;
     if (b.type === 'pylone') placeTower(b.g, false);
@@ -4200,6 +4238,8 @@ function spawnWave() {
   const boss = state.wave % 5 === 0;
   const pool = boss ? [4] : VAGUES[Math.min(state.wave - 1, VAGUES.length - 1)];
   let n = boss ? 1 : EFFECTIF[Math.min(state.wave - 1, EFFECTIF.length - 1)];
+  // le dernier gardien ne vient pas seul
+  const escorte = boss && state.wave >= CHAPITRE ? 3 : 0;
   // PLUS DE PALIER. Au-delà du tableau, la vague continuait au même effectif
   // pour toujours : un plateau, donc une fin de fait. Un appareil de plus
   // toutes les deux vagues, jusqu'à seize, et des cellules plus dures.
@@ -4223,10 +4263,11 @@ function spawnWave() {
   // Une piece au sol a chaque vague des la deuxieme, et non une fois sur
   // trois : a ce rythme-la, on pouvait faire dix parties sans en croiser une,
   // et conclure qu'elles n'existaient pas.
-  const tanks = boss ? 0 : (state.wave >= 2 ? 1 : 0);
-  for (let i = 0; i < n + tanks; i++) {
-    const auSol = i >= n;
-    const k = auSol ? KINDS[iTank] : KINDS[pool[Math.floor(Math.random() * pool.length)]];
+  // une pièce au sol une vague sur deux, à partir de la deuxième
+  const tanks = boss ? 0 : (state.wave >= 2 && state.wave % 2 === 0 ? 1 : 0);
+  for (let i = 0; i < n + escorte + tanks; i++) {
+    const auSol = i >= n + escorte;
+    const k = auSol ? KINDS[iTank] : i >= n ? KINDS[2] : KINDS[pool[Math.floor(Math.random() * pool.length)]];
     vus.add(k.nom);
     // LE PREMIER SE PRÉSENTE DANS L'AXE. La vague d'ouverture sert de leçon :
     // on décolle, on regarde devant, il est là. À partir de la deuxième, le
@@ -4321,10 +4362,7 @@ function updateEnemies(dt) {
     // Pièce au sol : elle reste où elle est, tourne sa tourelle vers le ciel
     // et n'entre dans aucune logique de poursuite. Trop loin, on la remplace.
     if (K.sol) {
-      if (dist > 2600) {
-        const ang = Math.random() * Math.PI * 2, r = 900 + Math.random() * 700;
-        e.pos.set(state.pos.x + Math.cos(ang) * r, 0, state.pos.z + Math.sin(ang) * r);
-      }
+      // elle reste où elle est : trop loin, elle ne compte simplement plus
       _m4.lookAt(e.pos, state.pos, _up);
       _q.setFromRotationMatrix(_m4);
       e.quat.rotateTowards(_q, 1.4 * dt);
@@ -4363,10 +4401,11 @@ function updateEnemies(dt) {
     // se coller derrière est précisément son métier.
     const limite = K.tactique === 'queue' ? 1350 : 1250;
     const lache = K.tactique === 'queue' ? -1.1 : -0.2;
-    if (dist > limite || (bearing < lache && dist > 480)) {
-      reenter(e);
-      continue;
-    }
+    // PLUS DE TÉLÉPORTATION. Un appareil qui apparaît existe jusqu'à sa mort.
+    // Décroché trop loin ou passé derrière, il revient de lui-même — avec un
+    // surcroît de vitesse tant qu'il rattrape, sinon il ne nous rejoindrait
+    // jamais.
+    e.rattrape = dist > limite || (bearing < lache && dist > 480);
 
     // ---- Esquive. Se faire tirer dessus se remarque : la cible tenue rompt
     // perpendiculairement à la ligne de tir, c'est le chemin le plus court
@@ -4486,8 +4525,14 @@ function updateEnemies(dt) {
       e.quat.rotateTowards(_q, K.virage * dt);
     }
 
+    if (e.rattrape) {
+      // il revient : cap sur nous, plus vite que d'habitude
+      _m4.lookAt(e.pos, state.pos, _up);
+      _q.setFromRotationMatrix(_m4);
+      e.quat.rotateTowards(_q, K.virage * 1.2 * dt);
+    }
     e.forward.set(0, 0, -1).applyQuaternion(e.quat);
-    e.pos.addScaledVector(e.forward, e.speed * dt);
+    e.pos.addScaledVector(e.forward, e.speed * (e.rattrape ? 1.6 : 1) * dt);
     if (e.pos.y < 60) e.pos.y = 60;
 
     e.mesh.position.copy(e.pos);
@@ -4537,7 +4582,10 @@ function updateEnemies(dt) {
     // sans rien avoir à tenir. Il accumule maintenant son alignement, et le
     // perd dès qu'il vous sort du cône. Le duel de front redevient une
     // question de qui se cale le premier, pas de qui a le droit de tirer.
-    const aligne = dist < K.portee * (1 - 0.45 * gene)
+    // ZONE SÛRE. Dès que l'approche est engagée et jusqu'à ce que les roues
+    // quittent le bitume, personne ne tire sur nous.
+    const zoneSure = state.assist || state.roulage || state.pose || state.takeoff;
+    const aligne = !zoneSure && dist < K.portee * (1 - 0.45 * gene)
                 && e.forward.dot(_v) > K.cone + (1 - K.cone) * gene * 1.6;
     e.visee = aligne ? e.visee + dt : 0;
     if (e.burst > 0) {
@@ -4905,6 +4953,10 @@ const RESISTANCE = 1 / 1.3;
 function damagePlayer(amount, source, cause) {
   if (!state.running) return;
   amount *= RESISTANCE;
+  // PLUS ELLE BAISSE, PLUS ELLE TIENT. À pleine vie un point d'attaque coûte
+  // un point ; sous dix pour cent il en faut deux. On voit donc venir la fin,
+  // au lieu de la découvrir d'un coup.
+  amount *= 0.5 + 0.5 * THREE.MathUtils.clamp((state.structure - 10) / 90, 0, 1);
   if (cause) noteDegat(cause, amount);
   noteImpact(source);
 
@@ -4988,7 +5040,10 @@ function pointVise(e, depuis, out) {
 const _vise = new THREE.Vector3();
 
 function seuilLock(e, d) {
-  return Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE * (1 - 0.55 * eblouissement());
+  // pendant un tonneau le viseur s'élargit : la cible ne se perd pas parce
+  // qu'on s'est déporté de soixante mètres en une demi-seconde
+  return (Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE * (1 - 0.55 * eblouissement()))
+       * (state.spinT > 0 ? 2 : 1);
 }
 
 // L'INVERSE, vu du joueur. Un ennemi placé droit devant vous vous regarde
@@ -5277,9 +5332,23 @@ function simulate(dt) {
   majPapi();
 
   // le manche reprend toujours le dessus, et sortir du plan coupe aussi
-  if (state.assist && (Math.abs(dx) > 0.14 || Math.abs(dy) > 0.14
+  // il faut TIRER FRANCHEMENT pour annuler : un frôlement du manche ne
+  // coupe plus l'approche
+  if (state.assist && (Math.abs(dx) > 0.6 || Math.abs(dy) > 0.6
       || !PLAN.devant || state.pos.y <= SOL_Y + 1)) {
     state.assist = false;
+    state.alignT = 0;
+  }
+  // LA BARRE. Pile dans l'axe et sur le plan, sans rien faire, deux secondes :
+  // l'approche s'engage seule, comme si le bouton avait été pressé.
+  {
+    const capVoulu = PLAN.sens < 0 ? 0 : Math.PI;
+    let dCap = (state.yaw - capVoulu) % (Math.PI * 2);
+    if (dCap > Math.PI) dCap -= Math.PI * 2; if (dCap < -Math.PI) dCap += Math.PI * 2;
+    const aligne = PLAN.pret && !state.assist && Math.abs(PLAN.ecart) < 0.007
+                && Math.abs(state.pos.x) < PISTE.demiL && Math.abs(dCap) < 0.06;
+    state.alignT = aligne ? (state.alignT || 0) + dt : 0;
+    if (state.alignT >= ALIGN_TENUE) { state.assist = true; state.alignT = 0; SFX.arme(); }
   }
   if (state.assist) {
     // On ne téléporte rien, on tire doucement sur le manche à ta place. La
@@ -5304,8 +5373,17 @@ function simulate(dt) {
 
   // la poursuite ne change pas la poussée, elle change la vitesse visée :
   // l'avion y monte donc par le même chemin que d'habitude, sans à-coup
-  const croisiere = CRUISE * (1 + (BOOST_GAIN - 1) * state.boost);
-  state.speed += (-state.forward.y * GRAV + (croisiere - state.speed) * THRUST) * dt;
+  // TANT QU'ON EST LOIN, ÇA CONTINUE D'ACCÉLÉRER : le gain monte avec le temps
+  // de poursuite. Piquer rend deux fois plus qu'avant ; monter baisse le régime
+  // du moteur d'un cinquième.
+  const gainBoost = BOOST_GAIN + (BOOST_GAIN_LOIN - BOOST_GAIN) * Math.min(1, Math.max(0, state.boostT - BOOST_ATTENTE) / BOOST_MONTEE);
+  const montee = THREE.MathUtils.clamp(state.forward.y / 0.5, 0, 1);
+  // l'approche assistée se fait vite : de la porte à l'arrêt, le temps est
+  // divisé par trois par rapport à la v0.65
+  const croisiere = CRUISE * (1 + (gainBoost - 1) * state.boost) * (1 - 0.2 * montee)
+                  * (state.assist ? APPROCHE_GAIN : 1);
+  const pesanteur = state.forward.y < 0 ? 2 : 1;
+  state.speed += (-state.forward.y * GRAV * pesanteur + (croisiere - state.speed) * THRUST) * dt;
   state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_MAX);
 
   // PEINE. Deux causes, une seule mesure : le nez trop haut, ou le plafond
@@ -5344,6 +5422,9 @@ function simulate(dt) {
     R.t += dt;
     state.assist = false;
     state.pos.y = SOL_Y;
+    // pile dans l'axe : le lacet et l'écart latéral se referment en roulant
+    state.yaw = dampAngle(state.yaw, state.forward.z < 0 ? 0 : Math.PI, 4, dt);
+    state.pos.x = THREE.MathUtils.damp(state.pos.x, 0, 3, dt);
     state.pitch = THREE.MathUtils.damp(state.pitch, 0, 5, dt);
     state.roll = THREE.MathUtils.damp(state.roll, 0, 7, dt);
 
@@ -5483,8 +5564,10 @@ function simulate(dt) {
     // LE CAP EST CELUI OÙ L'ON EST POSÉ. La séquence le supposait nul : après
     // une réparation faite en s'étant posé cap au sud, l'appareil basculait de
     // cent quatre-vingts degrés en une seule image au moment de repartir.
-    if (T.yaw === undefined) T.yaw = state.yaw;
+    // et il est PILE dans l'axe de la piste : nord ou sud, rien entre
+    if (T.yaw === undefined) T.yaw = Math.cos(state.yaw) >= 0 ? 0 : Math.PI;
     state.yaw = T.yaw;
+    state.roll = 0;
     const cy = Math.cos(T.yaw), sy = Math.sin(T.yaw);
     const poseCam = (pit) => {
       state.camYaw = T.yaw; state.camRoll = 0; state.camSpin = 0;
@@ -5793,7 +5876,9 @@ function simulate(dt) {
   const surLeBitume = auDessusDuBitume(60);
   const hauteur = state.pos.y - SOL_Y;
   if (surLeBitume && hauteur < ARRONDI_H && state.forward.y < 0 && state.running) {
-    const vzMax = Math.max(0.7, 0.85 * hauteur);
+    // l'arrondi assisté est deux fois plus franc : c'est lui qui prenait la
+    // moitié du temps entre la porte et l'arrêt
+    const vzMax = Math.max(0.7, (state.assist ? 2.0 : 0.85) * hauteur);
     const gMin = -Math.asin(Math.min(1, vzMax / Math.max(1, state.speed)));
     if (state.pitch < gMin) {
       state.pitch = Math.min(gMin, state.pitch + 1.2 * dt);
@@ -5863,7 +5948,16 @@ function simulate(dt) {
   // prend maintenant un tiers, avec du retard : elle bascule après l'avion et
   // se recale après lui. Un tour complet la ferait tourner aussi, ce qui
   // désorienterait — un tiers suffit à le faire ressentir.
-  state.camSpin = THREE.MathUtils.damp(state.camSpin, 0, 9, dt);
+  // LA CAMÉRA ROULE AVEC LE TONNEAU. Elle suit le tour complet, avec un rien
+  // de retard, et l'image tourne avec l'avion. À la sortie, l'angle est
+  // ramené sur [-pi, pi] : deux pi et zéro sont la même image, sans quoi la
+  // caméra referait le tour à l'envers pour « revenir ».
+  if (state.spinT > 0) {
+    state.camSpin = THREE.MathUtils.damp(state.camSpin, spinRoll * CAM_ROULIS_TONNEAU, 26, dt);
+  } else {
+    state.camSpin = Math.atan2(Math.sin(state.camSpin), Math.cos(state.camSpin));
+    state.camSpin = THREE.MathUtils.damp(state.camSpin, 0, 12, dt);
+  }
   euler.set(state.camPitch, state.camYaw, state.camRoll + state.camSpin);
   _qa.setFromEuler(euler);                       // repère à plat : sert au décalage
   euler.set(state.camPitch + CAM_DECLIN, state.camYaw, state.camRoll + state.camSpin);
@@ -5944,6 +6038,7 @@ function simulate(dt) {
     state.vagueT += dt;
   } else {
     if (state.vagueLimite > 0) bilanVague();
+    if (state.wave >= CHAPITRE && !coop.actif) { legende(); return; }
     state.waveTimer -= dt;
     if (state.waveTimer <= 0) {
       state.waveTimer = 3.0;
@@ -6011,6 +6106,39 @@ function scrape(dt) {
     state.roll = THREE.MathUtils.clamp(state.roll + (cote >= 0 ? -0.5 : 0.5), -1.2, 1.2);
   };
 
+  // LES PASSAGES D'ABORD. Un passage pris de biais éraflait un montant, et
+  // l'éraflure repoussait l'avion hors du trou avant que le passage ne soit
+  // compté : on traversait sans rien gagner. Le passage se teste donc avant
+  // les murs, et il compte à chaque traversée, pas une fois par vague.
+  for (const t of tours) {
+    if (t.mort) continue;
+    if (t.priseT > 0) t.priseT -= dt;
+    const q = t.passage;
+    if (q && !(t.priseT > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+      t.priseT = PASSAGE_REPOS;
+      state.structure = Math.min(VIE_MAX, state.structure + TOUR_PRIME);
+      state.boostPortail = 2;
+      coopReanime();
+      marque(400);
+      announce(t('tour') + TOUR_PRIME);
+      SFX.vagueNette();
+    }
+  }
+  for (const a of arches) {
+    if (a.mort) continue;
+    if (a.priseT > 0) a.priseT -= dt;
+    const q = a.passage;
+    if (q && !(a.priseT > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+      a.priseT = PASSAGE_REPOS;
+      objCompte('arches');
+      state.structure = Math.min(VIE_MAX, state.structure + ARCHE_PRIME);
+      state.boostPortail = 2;
+      coopReanime();
+      marque(150);
+      announce(t('arche') + ARCHE_PRIME);
+      SFX.vagueNette();
+    }
+  }
   for (const p of pylones) {
     if (p.mort) continue;
     const t = p.g;
@@ -6030,15 +6158,6 @@ function scrape(dt) {
         return;
       }
     }
-    const q = t.passage;
-    if (q && !t.prise && heurte(q.x, q.z, q.hx, q.hz, q.y0, q.y1)) {
-      t.prise = true;
-      state.structure = Math.min(100, state.structure + TOUR_PRIME);
-      coopReanime();
-      marque(400);
-      announce(t('tour') + TOUR_PRIME);
-      SFX.vagueNette();
-    }
   }
   for (const a of arches) {
     if (a.mort) continue;
@@ -6052,17 +6171,6 @@ function scrape(dt) {
     // qu'une fois par vague : on ne peut pas faire d'allers-retours sous la
     // même, en revanche les six arches se cumulent. Aller chercher la
     // deuxième, c'est accepter de quitter le combat pour la trouver.
-    const p = a.passage;
-    if (p && !a.prise &&
-        heurte(p.x, p.z, p.hx, p.hz, p.y0, p.y1)) {
-      a.prise = true;
-      objCompte('arches');
-      state.structure = Math.min(100, state.structure + ARCHE_PRIME);
-      coopReanime();
-      marque(150);
-      announce(t('arche') + ARCHE_PRIME);
-      SFX.vagueNette();
-    }
   }
 }
 
@@ -6104,14 +6212,17 @@ function updateDecor() {
     0,
     Math.round(state.pos.z / GRID_STEP) * GRID_STEP
   );
-  for (const t of towers) {
-    if (t.position.distanceTo(state.pos) > 3700) placeTower(t, false);
-  }
-  for (const a of arches) {
-    if (a.g.position.distanceTo(state.pos) > 4600) placeArche(a, false);
-  }
-  for (const t of tours) {
-    if (t.g.position.distanceTo(state.pos) > 5000) placeTour(t, false);
+  // la carte est fixe : rien ne se déplace dans le dos du joueur
+  if (!CARTE.fixe) {
+    for (const t of towers) {
+      if (t.position.distanceTo(state.pos) > 3700) placeTower(t, false);
+    }
+    for (const a of arches) {
+      if (a.g.position.distanceTo(state.pos) > 3100) placeArche(a, false);
+    }
+    for (const t of tours) {
+      if (t.g.position.distanceTo(state.pos) > 5000) placeTour(t, false);
+    }
   }
 }
 
@@ -7242,7 +7353,8 @@ function refreshBars() {
   const reste = state.vagueLimite - state.vagueT;
   chronoLbl.textContent = (state.vagueLimite > 0 && reste > 0) ? reste.toFixed(0) + 's' : '';
   const st = Math.max(0, Math.round(state.structure));
-  gaugeFill.style.width = st + '%';
+  gaugeFill.style.width = Math.min(100, st) + '%';
+  gaugeFill.classList.toggle('bonus', st > 100);
   structLbl.textContent = st + '%';
 
   // POSER ne se montre que quand la piste est devant et lisible, et ne bat que
@@ -7253,11 +7365,14 @@ function refreshBars() {
   // sait toujours pas ce qui manque. Il apparait donc au moment ou l'on est
   // reellement sur le plan, et disparait des qu'on le quitte. Ce sont les
   // quatre carres du collimateur qui disent pourquoi, eux sont toujours la.
-  const montrer = (PLAN.pret || state.assist) && state.running
+  // le bouton disparaît dès que l'approche est engagée : pour l'annuler, on
+  // tire sur le manche, pas sur un bouton
+  const montrer = PLAN.pret && !state.assist && state.running
                 && !state.pose && !state.roulage && !state.takeoff && !state.fig;
   poserBtn.hidden = !montrer;
-  poserBtn.classList.toggle('pret', montrer && PLAN.pret && !state.assist);
-  poserBtn.classList.toggle('actif', montrer && state.assist);
+  poserBtn.classList.toggle('pret', montrer);
+  poserBtn.classList.remove('actif');
+  poserBtn.style.setProperty('--charge', Math.min(1, (state.alignT || 0) / ALIGN_TENUE).toFixed(3));
 }
 
 const changelog = document.getElementById('changelog');
@@ -7299,7 +7414,9 @@ const T = {
     vague: 'VAGUE ', gardien: 'GARDIEN', abattu: 'ABATTU',
     canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
-    objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
+    objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
+    rempart: 'Tu es le dernier rempart. Tiens dix vagues et tu entreras dans la légende.',
+    legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
     dore: 'SOLEIL TRAVERSÉ  ·  BOUCLIER DORÉ', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
@@ -7330,7 +7447,9 @@ const T = {
     vague: 'WAVE ', gardien: 'GUARDIAN', abattu: 'SHOT DOWN',
     canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
-    objReussi: 'TODAY’S GOAL DONE  ·  +', partage: 'SHARE THE SCORE', copie: 'COPIED',
+    objReussi: 'TODAY’S GOAL DONE  ·  +',
+    rempart: 'You are the last line. Hold ten waves and you enter the legend.',
+    legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
     dore: 'THROUGH THE SUN  ·  GOLDEN SHIELD', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
@@ -7820,7 +7939,7 @@ if (record.score > 0) {
 // écrite alors que rien ne la montrait ; maintenant l'avion est sur sa piste,
 // les mécaniciens tournent autour, et l'aide reste à un clic sous le point
 // d'interrogation. Le texte de fin de partie, lui, garde sa place.
-if (!touchMode) overlayText.textContent = '';
+overlayText.textContent = t('rempart');
 majObjectif();
 
 // LA CARTE DE PARTAGE. Un score qu'on ne peut pas montrer n'existe que pour
@@ -7913,8 +8032,6 @@ function decolle(defi) {
   if (defi) {
     state.defi = true;
     state.wave = DEFI_VAGUE - 1;      // la première vague lancée sera la cinquième
-    soleilCible(DEFI_VAGUE, SOLEIL);
-    _solCible.copy(SOLEIL);
   }
   state.running = true;
   last = performance.now();
@@ -7925,7 +8042,15 @@ const defiBtn = document.getElementById('defiBtn');
 startBtn.addEventListener('click', () => decolle(false));
 defiBtn.addEventListener('click', () => decolle(true));
 
-function gameOver() {
+// LA LÉGENDE. Dix vagues tenues : la partie s'arrête sur une victoire, pas
+// sur une mort. Même écran, autre titre, et le carnet s'en souvient.
+function legende() {
+  state.running = false;
+  carnet.legendes = (carnet.legendes || 0) + 1;
+  gameOver(true);
+}
+
+function gameOver(victoire) {
   state.running = false;
   const battuScore = Math.floor(state.score) > record.score;
   const battuVague = state.wave > record.vague;
@@ -7937,7 +8062,7 @@ function gameOver() {
   // C'EST ICI QUE TOUT SE JOUE. La vague où l'on meurt, répétée sur des
   // dizaines de parties, dit à elle seule si la courbe est bonne — un pic sur
   // une vague, c'est un mur ; un plateau, c'est un palier.
-  carnet.mortsParVague[state.wave] = (carnet.mortsParVague[state.wave] || 0) + 1;
+  if (!victoire) carnet.mortsParVague[state.wave] = (carnet.mortsParVague[state.wave] || 0) + 1;
   carnet.secondes += state.dureeVol;
   carnet.pluslongue = Math.max(carnet.pluslongue, state.dureeVol);
   carnet.vagueMax = Math.max(carnet.vagueMax, state.wave);
@@ -7955,15 +8080,15 @@ function gameOver() {
   state.pose = null;
   redecoBtn.hidden = true;
   SFX.fin();
-  overlayTitle.textContent = t('abattu');
+  overlayTitle.textContent = victoire ? t('legende') : t('abattu');
   // LE QUASI-RECORD. Rater de peu est le plus fort des rappels : il transforme
   // une fin de partie en début de la suivante. Il passe donc AVANT la pique,
   // qui est drôle une fois et sans effet la deuxième.
   const manque = record.score - Math.floor(state.score);
   const deJustesse = !battuScore && manque > 0
                    && manque <= Math.max(120, record.score * 0.12);
-  overlayText.textContent = deJustesse
-    ? t('manque1') + manque + t('manque2')
+  overlayText.textContent = victoire ? t('legendeTexte')
+    : deJustesse ? t('manque1') + manque + t('manque2')
     : pique();
   overlayScore.hidden = false;
   overlayScore.innerHTML = t('scoreMot') + String(Math.floor(state.score)).padStart(6, '0')
