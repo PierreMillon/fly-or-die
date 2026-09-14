@@ -367,6 +367,49 @@ sinon copie le texte. Au passage : le bouton INSTALLER n'avait aucun style.
 Des options seulement (viseurs, couleurs), jamais de puissance. Il faut
 d'abord décider ce qu'elle achète.
 
+## La grande liste du 14 septembre → v0.66 et v0.67
+
+Faits, mesurés :
+- Le soleil ne bouge plus (retour à la direction fixe), les trois secrets restent.
+- Chapitre 1 = dix vagues, table réglée à la main (gardien seul à la 5,
+  gardien + trois intercepteurs à la 10), phrase d'accueil « dernier
+  rempart », écran LÉGENDE à la fin, compté au carnet.
+- Tanks une vague sur deux. Arches : 12 au lieu de 6, plus près (450–1950 m).
+- Primes de passage doublées (arche 20, tour 50), vie de bonus jusqu'à 150 %
+  (jauge dorée), un passage compte à chaque traversée (repos 4 s) et se teste
+  AVANT les murs : plus de trou pris de biais sans rien gagner.
+- Un portail donne deux secondes de poussée. Le boost continue de monter tant
+  qu'on reste loin (×2 → ×2,6 en 8 s), vitesse max 205.
+- Piquer rend deux fois plus ; monter baisse le régime de 20 %.
+- La vie résiste en baissant : ×1 à 100 %, ×0,5 sous 10 %.
+- Atterrissage : porte à 750 m, roulage 44 m, approche assistée à 1,45× et
+  arrondi deux fois plus franc. Mesuré : de l'engagement à l'arrêt 6,1 s
+  réels (10,8 s de la porte, dont 2 s de barre). Le bouton disparaît une fois
+  engagé ; on annule en tirant franchement (> 60 % de course). Pile dans
+  l'axe et sur le plan sans rien faire pendant 2 s : la barre se remplit et
+  l'approche s'engage seule. Décollage et roulage pile dans l'axe.
+- Zone sûre : personne ne nous tire dessus de l'engagement au décollage.
+- Mécaniciens : au plus deux fusils, jamais le dernier valide (il répare).
+- Plus aucune téléportation ni effacement : un ennemi décroché revient à
+  1,6× sa vitesse, les tanks restent d'une vague à l'autre.
+- Le verrouillage s'élargit ×2 pendant un tonneau.
+- La caméra fait le tour complet avec le tonneau (CAM_ROULIS_TONNEAU = 1),
+  sans saut à la sortie (mesuré). À confirmer que c'est ce qu'il voulait.
+- Carte fixe : les 34 pylônes, 12 arches et 3 tours sont posés une fois pour
+  toutes (CARTE dans le code). Éditeur vu de dessus, COPIER → JSON à me
+  coller : https://claude.ai/code/artifact/2392fef6-10e2-4f2e-b1bc-f00fb2f04905
+- v0.67 : intercepteurs et gardien tirent des roquettes (alerte + trois bips,
+  26 de dégâts, 9 s de recharge, 320–950 m). Un tonneau à moins de 300 m la
+  fait décrocher (mesuré : 20 de dégâts sans esquive, 0 avec). Intercepteur,
+  drone et gardien font un tonneau devant nos roquettes, qui décrochent.
+
+À faire ou à préciser :
+- Chapitre 2 : cinq à dix vagues, un deuxième avion plus rapide, chrono et
+  cibles à détruire, des cibles en haut des tours à différents étages.
+- « Il y en a qui te les portes, c'est pas bon » : à préciser.
+- Le double tap du tonneau relâche le manche : la visée revient au centre le
+  temps du tonneau. Le viseur élargi compense, pas plus.
+
 ## À vérifier avec lui
 
 - Le verrouillage de très près : non démontré corrigé (23/80 → 24/80

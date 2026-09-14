@@ -617,7 +617,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.66</button>
+  <button id="versionBtn">v0.67</button>
   <button id="menuBtn">MENU</button>
 </div>
 
@@ -972,6 +972,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.67</b> — les intercepteurs et le gardien tirent des roquettes qu'un tonneau fait décrocher, et les appareils avancés font de même avec les nôtres.</div>
   <div><b>v0.66</b> — la carte est fixe, dix vagues pour entrer dans la légende, la vie qui résiste en baissant, des portails plus nombreux et plus généreux, un atterrissage plus court qui s'engage seul, et plus aucun ennemi qui disparaît.</div>
   <div><b>v0.65</b> — un seul bouton MENU, le mode DÉFI dès la vague 5, les éclats qui achètent viseurs, teinte et traînée, et les ennemis s'évitent.</div>
   <div><b>v0.64</b> — la difficulté ne plafonne plus et s'adapte à la forme, un objectif du jour avec sa série, et le score se partage.</div>
@@ -1188,6 +1189,17 @@ const ROQ_VIRAGE    = 2.2;    // rad/s de guidage : moins vite, donc moins nerve
 const ROQ_DEGATS    = 55;
 const ROQ_RECHARGE  = 6.5;
 const ROQ_VIE       = 7;      // à deux cents mètres par seconde, la portée reste large
+// LES LEURS. Les appareils avancés tirent aussi des roquettes : une alerte
+// sonne, et un tonneau dans la dernière seconde la fait décrocher. Même règle
+// pour eux : leur figure fait décrocher les nôtres.
+const ROQ_E_VITESSE = 170;
+const ROQ_E_VIRAGE  = 1.5;    // rad/s : moins agile que la nôtre, sinon rien ne l'esquive
+const ROQ_E_DEGATS  = 26;
+const ROQ_E_RECHARGE = 9;
+const ROQ_E_PORTEE  = [320, 950];
+const ROQ_E_ESQUIVE = 300;    // en deçà, un tonneau la fait décrocher
+const FIG_ENNEMI    = 0.5;    // secondes de tonneau ennemi
+const FIG_REPOS     = 4;
 const FUM_VIE       = 1.7;    // secondes avant qu'un anneau de fumée s'efface
 const FUM_PAS       = 0.06;   // intervalle d'émission le long de la trajectoire
 const FUM_R0        = 0.55;   // rayon à la naissance : le calibre de l'engin
@@ -1674,6 +1686,7 @@ const SFX = {
                         setTimeout(() => ton(830, 830, 0.14, 'sine', 0.13), 140);
                         setTimeout(() => ton(1244, 1244, 0.34, 'sine', 0.13), 280); },
   tonneau:      () => souffle(0.5, 300, 1800, 2.2, 0.18),
+  alerte:       () => { ton(1180, 1180, 0.09, 'square', 0.1); setTimeout(() => ton(1180, 1180, 0.09, 'square', 0.1), 150); setTimeout(() => ton(1180, 1180, 0.09, 'square', 0.1), 300); },
   renversement: () => { souffle(0.9, 250, 1500, 1.8, 0.2); ton(220, 520, 0.7, 'triangle', 0.07); },
   vague:        () => { ton(520, 520, 0.13, 'sine', 0.11); setTimeout(() => ton(784, 784, 0.22, 'sine', 0.11), 130); },
   // La mort était aiguë et brève, donc anecdotique. Elle est maintenant grave
@@ -2295,7 +2308,7 @@ const KINDS = [
     cone: Math.cos(15 * Math.PI / 180), portee: 900, rafale: 3
   },
   {
-    nom: 'INTERCEPTEUR', tactique: 'anticipee',
+    nom: 'INTERCEPTEUR', tactique: 'anticipee', roquettes: true, figures: true,
     // dard fin, long nez : fait pour aller vite en ligne droite
     verts: [
        0, 0, -3.6,  -2.2, 0, 1.5,   2.2, 0, 1.5,
@@ -2308,7 +2321,7 @@ const KINDS = [
     cone: Math.cos(12 * Math.PI / 180), portee: 1050, rafale: 3
   },
   {
-    nom: 'DRONE', tactique: 'proportionnelle',
+    nom: 'DRONE', tactique: 'proportionnelle', figures: true,
     // quatre bras en croix : plus un avion, une machine
     verts: [
        0, 0, -0.6,   0.6, 0, 0,    0, 0, 0.6,   -0.6, 0, 0,
@@ -2321,7 +2334,7 @@ const KINDS = [
     cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
   },
   {
-    nom: 'GARDIEN', tactique: 'proportionnelle',
+    nom: 'GARDIEN', tactique: 'proportionnelle', roquettes: true, figures: true,
     // Le seul adversaire qui vient seul. Même croix que le drone, mais bien
     // plus grande et beaucoup plus dure à mettre à terre.
     verts: [
@@ -3718,6 +3731,7 @@ function tracerLayer(color, opacity) {
 }
 const playerTracers = tracerLayer(COL_LOCK, 0.9);
 const roqTracers = tracerLayer(COL_TEXT, 0.95);
+const roqEnnemiTracers = tracerLayer(COL_LINE, 0.95);
 
 // FUMÉE. Un vrai panache de roquette n'est pas un trait : c'est une suite
 // d'anneaux tourbillonnaires laissés en place, qui gonflent et se délayent
@@ -3957,6 +3971,8 @@ const state = {
   shots: [],
   gunT: 0,
   roquettes: [],
+  roqEnnemies: [],    // les leurs
+  alerte: 0,          // secondes d'alerte roquette à l'écran
   chutes: [],
   fumees: [],
   roqT: 0,
@@ -4139,6 +4155,8 @@ function resetGame() {
   state.bullets.length = 0;
   state.shots.length = 0;
   state.roquettes.length = 0;
+  state.roqEnnemies.length = 0;
+  state.alerte = 0;
   state.chutes.forEach(c => scene.remove(c.mesh));
   state.chutes.length = 0;
   state.fumees.length = 0;
@@ -4313,6 +4331,8 @@ function spawnWave() {
       evadeUp: 1,
       goalT: 0,
       reload: 0.6 + Math.random() * 1.1,
+      roqCd: 3 + Math.random() * 4,
+      figT: 0, figCd: 0, figSide: 1,
       burst: 0,
       burstT: 0,
       visee: 0
@@ -4335,6 +4355,7 @@ const _m4 = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const _v = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
+const _axeZ = new THREE.Vector3(0, 0, 1);
 const _qa = new THREE.Quaternion();
 const _qb = new THREE.Quaternion();
 const _ax = new THREE.Vector3(1, 0, 0);
@@ -4525,6 +4546,14 @@ function updateEnemies(dt) {
       e.quat.rotateTowards(_q, K.virage * dt);
     }
 
+    if (e.figCd > 0) e.figCd -= dt;
+    if (e.figT > 0) {
+      e.figT -= dt;
+      const u = 1 - Math.max(0, e.figT) / FIG_ENNEMI;
+      _right.crossVectors(e.forward, _up).normalize();
+      e.pos.addScaledVector(_right, e.figSide * SPIN_DODGE * Math.sin(Math.PI * u) * dt);
+      e.figRoll = -e.figSide * Math.PI * 2 * u * u * (3 - 2 * u);
+    } else e.figRoll = 0;
     if (e.rattrape) {
       // il revient : cap sur nous, plus vite que d'habitude
       _m4.lookAt(e.pos, state.pos, _up);
@@ -4537,6 +4566,11 @@ function updateEnemies(dt) {
 
     e.mesh.position.copy(e.pos);
     e.mesh.quaternion.copy(e.quat);
+    if (e.figRoll) {
+      // le tour se joue sur la maquette seule : la trajectoire n'en dépend pas
+      _qa.setFromAxisAngle(_axeZ, e.figRoll);
+      e.mesh.quaternion.multiply(_qa);
+    }
     if (!K.sol) ecarterDuDecor(e);
     e.mesh.position.copy(e.pos);
 
@@ -4588,6 +4622,16 @@ function updateEnemies(dt) {
     const aligne = !zoneSure && dist < K.portee * (1 - 0.45 * gene)
                 && e.forward.dot(_v) > K.cone + (1 - K.cone) * gene * 1.6;
     e.visee = aligne ? e.visee + dt : 0;
+    // LA ROQUETTE. Alignement tenu, distance moyenne, et l'alerte sonne.
+    if (e.roqCd > 0) e.roqCd -= dt;
+    if (K.roquettes && aligne && e.visee >= VISEE_ENNEMI && e.roqCd <= 0
+        && dist > ROQ_E_PORTEE[0] && dist < ROQ_E_PORTEE[1]) {
+      e.roqCd = ROQ_E_RECHARGE;
+      state.roqEnnemies.push({ pos: e.pos.clone(), dir: _v.clone().negate(), t: 0, fum: 0, perdue: false });
+      state.alerte = 2.2;
+      announce(t('alerte'));
+      SFX.alerte();
+    }
     if (e.burst > 0) {
       e.burstT -= dt;
       if (e.burstT <= 0) { tirer(); e.burst--; e.burstT = BURST_GAP; }
@@ -4784,6 +4828,7 @@ function updateRoquettes(dt) {
     const r = state.roquettes[i];
     r.t += dt;
     const morte = !r.cible || r.cible.hp <= 0 || state.enemies.indexOf(r.cible) < 0;
+    if (morte) r.cible = null;
     // ORPHELINE. Sa cible est tombée avant elle : elle ne s'évapore pas pour
     // autant. Elle continue tout droit, pique doucement, et s'ouvre là où elle
     // finit — au sol ou au bout de sa vie. Une roquette qui disparaît en plein
@@ -4804,7 +4849,15 @@ function updateRoquettes(dt) {
       state.roquettes.splice(i, 1);
       continue;
     }
-    if (!morte) {
+    // LEUR TONNEAU. Un appareil qui sait faire des figures voit venir la
+    // roquette : à trois cents mètres il rompt d'un tour complet, et elle
+    // décroche — exactement ce qu'un tonneau fait aux leurs.
+    if (!morte && r.cible.kind.figures && r.cible.figCd <= 0 && r.pos.distanceTo(r.cible.pos) < 300) {
+      const c = r.cible;
+      c.figT = FIG_ENNEMI; c.figCd = FIG_REPOS; c.figSide = Math.random() < 0.5 ? -1 : 1;
+      for (const q of state.roquettes) if (q.cible === c) q.cible = null;
+    }
+    if (!morte && r.cible) {
       _seg.subVectors(r.cible.pos, r.pos).normalize();
       // on tourne vers la cible sans dépasser le taux de virage
       const cosA = THREE.MathUtils.clamp(r.dir.dot(_seg), -1, 1);
@@ -4862,6 +4915,42 @@ function updateRoquettes(dt) {
   }
   feedTracers(roqTracers, pts);
   updateFumee(dt);
+}
+
+// Les leurs guident vers nous, et décrochent si l'on fait un tonneau quand
+// elles sont proches : elles continuent alors tout droit et s'ouvrent au bout.
+function updateRoqEnnemies(dt) {
+  const pts = [];
+  if (state.alerte > 0) state.alerte -= dt;
+  for (let i = state.roqEnnemies.length - 1; i >= 0; i--) {
+    const r = state.roqEnnemies[i];
+    r.t += dt;
+    const d = r.pos.distanceTo(state.pos);
+    if (!r.perdue && state.spinT > 0 && d < ROQ_E_ESQUIVE) r.perdue = true;   // le tonneau l'a semée
+    if (r.perdue) r.dir.y -= 0.12 * dt;
+    else {
+      _seg.subVectors(state.pos, r.pos).normalize();
+      const ang = Math.acos(THREE.MathUtils.clamp(r.dir.dot(_seg), -1, 1));
+      const pas = Math.min(ang, ROQ_E_VIRAGE * dt);
+      if (ang > 1e-4) { _segA.crossVectors(r.dir, _seg).normalize(); r.dir.applyAxisAngle(_segA, pas).normalize(); }
+    }
+    _segB.copy(r.pos);
+    r.pos.addScaledVector(r.dir, ROQ_E_VITESSE * dt);
+    r.fum -= dt;
+    while (r.fum <= 0) { semerFumee(_segB.clone().addScaledVector(r.dir, -10), r.dir); r.fum += FUM_PAS; }
+    const mur = obstacleEntre(_segB, r.pos);
+    const touche = !r.perdue && d < 14 && !(state.assist || state.roulage || state.pose || state.takeoff);
+    if (touche || mur || r.t > ROQ_VIE || r.pos.y <= 1.2) {
+      if (mur) { _b1.lerpVectors(_segB, r.pos, mur.t); toucheBat(mur.bat, _b1, ROQ_E_DEGATS); r.pos.copy(_b1); }
+      spawnBurst(r.pos, touche ? 12 : 8);
+      SFX.roquetteImpact(r.pos);
+      if (touche) damagePlayer(ROQ_E_DEGATS, _impactSrc.copy(r.pos), 'roquette');
+      state.roqEnnemies.splice(i, 1);
+      continue;
+    }
+    pts.push(r.pos.x, r.pos.y, r.pos.z, r.pos.x - r.dir.x * 5, r.pos.y - r.dir.y * 5, r.pos.z - r.dir.z * 5);
+  }
+  feedTracers(roqEnnemiTracers, pts);
 }
 
 function updateBullets(dt) {
@@ -6026,6 +6115,7 @@ function simulate(dt) {
   updateLock(dt);
   updateShots(dt);
   updateRoquettes(dt);
+  updateRoqEnnemies(dt);
   updateChutes(dt);
   scrape(dt);
 
@@ -7217,7 +7307,7 @@ const CARNET_VIDE = {
   vagueMax: 0,
   reprises: 0,         // reprises après la mort
   poses: 0,            // atterrissages menés jusqu'à l'arrêt
-  degats: { balles: 0, decor: 0, sol: 0, pose: 0, choc: 0 },
+  degats: { balles: 0, decor: 0, sol: 0, pose: 0, choc: 0, roquette: 0 },
   pluslongue: 0,       // la partie la plus longue, en secondes
 };
 let carnet = JSON.parse(JSON.stringify(CARNET_VIDE));
@@ -7257,7 +7347,8 @@ function texteCarnet() {
     + ', ' + (fr ? 'décor ' : 'scenery ') + Math.round(d.decor)
     + ', ' + (fr ? 'sol ' : 'ground ') + Math.round(d.sol)
     + ', ' + (fr ? 'posés ' : 'landings ') + Math.round(d.pose)
-    + ', ' + (fr ? 'chocs ' : 'collisions ') + Math.round(d.choc));
+    + ', ' + (fr ? 'chocs ' : 'collisions ') + Math.round(d.choc)
+    + ', ' + (fr ? 'roquettes ' : 'rockets ') + Math.round(d.roquette || 0));
   const vagues = Object.keys(carnet.mortsParVague).map(Number).sort((a, b) => a - b);
   l.push((fr ? 'morts par vague' : 'deaths per wave') + ' : '
     + (vagues.length ? vagues.map(v => v + '×' + carnet.mortsParVague[v]).join('  ') : '—'));
@@ -7415,6 +7506,7 @@ const T = {
     canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
+    alerte: 'ROQUETTE  ·  TONNEAU !',
     rempart: 'Tu es le dernier rempart. Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
@@ -7448,6 +7540,7 @@ const T = {
     canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
+    alerte: 'ROCKET  ·  ROLL !',
     rempart: 'You are the last line. Hold ten waves and you enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
