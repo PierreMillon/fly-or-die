@@ -265,7 +265,52 @@
     margin-top: 2px;
   }
 
-  #changelog, #aide, #viseurs, #coop, #install {
+  #viseurBtn, #sonBtn, #aideBtn, #versionBtn { display: none; }
+  #menuBtn {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 5px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    padding: 3px 10px;
+    flex-shrink: 0;
+  }
+  #menu .ligne {
+    display: block;
+    width: 100%;
+    margin: 0 0 6px;
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 5px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    padding: 9px 10px;
+    text-align: left;
+  }
+  #menu .ligne[hidden] { display: none; }
+  #menu .aide { color: var(--ph-dim); font-size: 10px; letter-spacing: 0.12em; margin: 10px 0 6px; }
+  #menu .aide:first-child { margin-top: 0; }
+  #menu .puces { display: flex; flex-wrap: wrap; gap: 6px; }
+  #menu .puces button {
+    background: none;
+    border: 1px solid var(--ph-dim);
+    border-radius: 4px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 5px 8px;
+  }
+  #menu .puces button.actif { border-color: var(--ph-line); background: var(--ph-fill); }
+  #menu .puces button.verrou { color: var(--ph-dim); }
+  #menu .puces button i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  #defiBtn { background: none; border: 1px solid var(--ph-dim); border-radius: 6px; color: var(--ph-text); font-family: inherit; font-size: 11px; letter-spacing: 0.14em; padding: 10px 18px; }
+  #defiBtn[hidden] { display: none; }
+  #changelog, #aide, #viseurs, #coop, #install, #menu {
     /* et les panneaux par-dessus tout */
     position: fixed;
     top: calc(38px + env(safe-area-inset-top));
@@ -284,7 +329,7 @@
     line-height: 1.5;
   }
   #changelog[hidden], #aide[hidden], #viseurs[hidden], #coop[hidden],
-  #install[hidden] { display: none; }
+  #install[hidden], #menu[hidden] { display: none; }
 
   /* INSTALLATION. Trois pas numérotés, parce qu'aucun navigateur ne sait
      expliquer ça et qu'on ne peut pas le faire à la place du joueur sur iOS :
@@ -570,7 +615,23 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.64</button>
+  <button id="versionBtn">v0.65</button>
+  <button id="menuBtn">MENU</button>
+</div>
+
+<div id="menu" hidden>
+  <p class="aide" id="menuEclats"></p>
+  <button class="ligne" id="mViseurs" data-en="SIGHTS">VISEURS</button>
+  <button class="ligne" id="mSon"></button>
+  <button class="ligne" id="mAide" data-en="HELP AND FLIGHT LOG">AIDE ET CARNET</button>
+  <button class="ligne" id="mLangue"></button>
+  <button class="ligne" id="mTimbre"></button>
+  <button class="ligne" id="mInstall" hidden data-en="INSTALL THE GAME">INSTALLER LE JEU</button>
+  <button class="ligne" id="mVersion"></button>
+  <p class="aide" id="menuTeinteTitre" data-en="AIRCRAFT COLOUR">COULEUR DE L'AVION</p>
+  <div class="puces" id="menuTeintes"></div>
+  <p class="aide" id="menuTraineeTitre" data-en="TRAIL">TRAÎNÉE</p>
+  <div class="puces" id="menuTrainees"></div>
 </div>
 
 <div id="bottombar">
@@ -909,6 +970,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.65</b> — un seul bouton MENU, le mode DÉFI dès la vague 5, les éclats qui achètent viseurs, teinte et traînée, et les ennemis s'évitent.</div>
   <div><b>v0.64</b> — la difficulté ne plafonne plus et s'adapte à la forme, un objectif du jour avec sa série, et le score se partage.</div>
   <div><b>v0.63</b> — les bâtiments encaissent les balles et s'effondrent, le soleil suit la partie et cache trois secrets.</div>
   <div><b>v0.62</b> — la caméra suit enfin le tonneau, les mécaniciens ripostent au fusil, la cellule encaisse 30 % de mieux, et on peut monter à 80°.</div>
@@ -988,6 +1050,7 @@
   <p id="overlayScore" hidden></p>
   <p id="objectif" hidden></p>
   <button id="startBtn" data-en="TAKE OFF">DÉCOLLER</button>
+  <button id="defiBtn" data-en="CHALLENGE · WAVE 5 · ×1.5">DÉFI · VAGUE 5 · ×1,5</button>
   <button id="partageBtn" hidden data-en="SHARE THE SCORE">PARTAGER LE SCORE</button>
   <button id="videoBtn" hidden data-en="WATCH A VIDEO · CONTINUE">REGARDER UNE VIDÉO · REPRENDRE</button>
   <button id="coopBtn" data-en="CO-OP">COOP</button>
@@ -1265,6 +1328,45 @@ catch (e) { /* rien de gardé */ }
 function sauveRecord() {
   try { localStorage.setItem('fod_record', JSON.stringify(record)); } catch (e) {}
 }
+
+// ---------------------------------------------------------------------------
+// LES ÉCLATS. Une monnaie qui n'achète que des options — un viseur, la teinte
+// de sa propre cellule, une traînée — jamais un point de vie ni un dégât.
+// Un éclat pour 250 points, comptés à la fin de chaque partie. Tout reste sur
+// l'appareil, comme le carnet.
+// ---------------------------------------------------------------------------
+const ECLAT_PAR_POINTS = 250;
+const PRIX_VISEUR = 30;
+let eclats = 0, achats = new Set();
+try {
+  eclats = parseInt(localStorage.getItem('fod_eclats') || '0', 10) || 0;
+  achats = new Set(JSON.parse(localStorage.getItem('fod_achats') || '[]'));
+} catch (e) {}
+function sauveEclats() {
+  try {
+    localStorage.setItem('fod_eclats', String(eclats));
+    localStorage.setItem('fod_achats', JSON.stringify([...achats]));
+    localStorage.setItem('fod_teinte', teinteChoisie);
+    localStorage.setItem('fod_trainee', traineeChoisie);
+  } catch (e) {}
+}
+const TEINTES = [
+  { id: 'phosphore', nom: 'PHOSPHORE', en: 'PHOSPHOR', col: 0x8ffcc4, prix: 0 },
+  { id: 'ambre',     nom: 'AMBRE',     en: 'AMBER',    col: 0xffc862, prix: 40 },
+  { id: 'cyan',      nom: 'CYAN',      en: 'CYAN',     col: 0x7fe9ff, prix: 40 },
+  { id: 'blanc',     nom: 'BLANC',     en: 'WHITE',    col: 0xf2fff6, prix: 40 },
+  { id: 'rose',      nom: 'ROSE',      en: 'PINK',     col: 0xff9ad5, prix: 40 },
+];
+const TRAINEES = [
+  { id: 'aucune',     nom: 'AUCUNE',     en: 'NONE',     prix: 0 },
+  { id: 'fine',       nom: 'FINE',       en: 'THIN',     prix: 40 },
+  { id: 'double',     nom: 'DOUBLE',     en: 'TWIN',     prix: 40 },
+  { id: 'etincelles', nom: 'ÉTINCELLES', en: 'SPARKS',   prix: 60 },
+];
+let teinteChoisie = localStorage.getItem('fod_teinte') || 'phosphore';
+let traineeChoisie = localStorage.getItem('fod_trainee') || 'aucune';
+if (!TEINTES.some(t => t.id === teinteChoisie && (t.prix === 0 || achats.has('teinte:' + t.id)))) teinteChoisie = 'phosphore';
+if (!TRAINEES.some(t => t.id === traineeChoisie && (t.prix === 0 || achats.has('trainee:' + t.id)))) traineeChoisie = 'aucune';
 
 let debloques, viseurChoisi;
 try { debloques = new Set(JSON.parse(localStorage.getItem('fod_viseurs') || '[]')); }
@@ -2298,7 +2400,7 @@ function tonneauSoleil() {
   objCompte('tonneaux');          // appelée à chaque départ de tonneau : on compte ici
   if (state.etoileT > 0 || eblouissement() <= 0.5) return;
   state.etoileT = ETOILE_REPOS;
-  state.score += ETOILE_PRIME;
+  marque(ETOILE_PRIME);
   announce(t('etoile') + ETOILE_PRIME);
   SFX.vagueNette();
   // elle part du soleil et file en travers du ciel pendant deux secondes
@@ -2355,6 +2457,56 @@ for (const k of KINDS) {
 const playerMesh = solidWire(planeGeom, planeEdges, matPlayer);
 playerMesh.scale.setScalar(PLANE_SCALE);
 scene.add(playerMesh);
+function appliqueTeinte() {
+  const t = TEINTES.find(x => x.id === teinteChoisie) || TEINTES[0];
+  matPlayer.color.setHex(t.col);
+  if (typeof propMesh !== 'undefined') propMesh.material.color.setHex(t.col);
+}
+
+// LA TRAÎNÉE. Les dernières positions des bouts d'aile, reliées en un ruban
+// qui pâlit vers l'arrière ; une couleur par sommet, comme la fumée.
+const TRAINEE_N = 42;
+const traineeMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, fog: false });
+const traineeLayer = new THREE.LineSegments(new THREE.BufferGeometry(), traineeMat);
+traineeLayer.frustumCulled = false;
+traineeLayer.visible = false;
+scene.add(traineeLayer);
+const traineePts = [[], []];
+const _trn = new THREE.Vector3();
+function updateTrainee(dt) {
+  const mode = traineeChoisie;
+  if (mode === 'aucune' || !state.running || state.speed < 25 || state.pose) {
+    traineePts[0].length = 0; traineePts[1].length = 0;
+    traineeLayer.visible = false;
+    return;
+  }
+  const bouts = mode === 'fine' ? [[0, -0.2, 2.6]] : [[-3.5, 0.05, -1.2], [3.5, 0.05, -1.2]];
+  const N = mode === 'etincelles' ? 16 : TRAINEE_N;
+  bouts.forEach((b, i) => {
+    _trn.set(b[0], b[1], b[2]).multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
+    if (mode === 'etincelles') _trn.x += (Math.random() - 0.5) * 1.4, _trn.y += (Math.random() - 0.5) * 1.4, _trn.z += (Math.random() - 0.5) * 1.4;
+    const l = traineePts[i];
+    l.push(_trn.x, _trn.y, _trn.z);
+    while (l.length > N * 3) l.splice(0, 3);
+  });
+  const t = TEINTES.find(x => x.id === teinteChoisie) || TEINTES[0];
+  const r = ((t.col >> 16) & 255) / 255, g = ((t.col >> 8) & 255) / 255, bl = (t.col & 255) / 255;
+  const pts = [], cols = [];
+  for (const l of traineePts) {
+    const n = l.length / 3;
+    for (let k = 0; k + 1 < n; k++) {
+      const a = (k + 1) / n, c = a * a;
+      pts.push(l[k * 3], l[k * 3 + 1], l[k * 3 + 2], l[k * 3 + 3], l[k * 3 + 4], l[k * 3 + 5]);
+      cols.push(r * c, g * c, bl * c, r * c, g * c, bl * c);
+    }
+  }
+  if (!pts.length) { traineeLayer.visible = false; return; }
+  traineeLayer.geometry.dispose();
+  const geo = segGeom(pts);
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  traineeLayer.geometry = geo;
+  traineeLayer.visible = true;
+}
 
 // enfant de l'avion : l'axe Z local est celui du fuselage, donc une simple
 // rotation autour de Z fait tourner l'hélice là où il faut
@@ -2366,6 +2518,7 @@ const propMesh = new THREE.LineSegments(
 );
 propMesh.frustumCulled = false;
 playerMesh.add(propMesh);
+appliqueTeinte();
 
 // ---------------------------------------------------------------------------
 // décor : grille au sol et pylônes, seuls repères de vitesse
@@ -3484,7 +3637,7 @@ function effondrer(b) {
   b.mort = true;
   b.chute = BAT_CHUTE;
   b.hp = 0;
-  state.score += BAT_PRIME;
+  marque(BAT_PRIME);
   objCompte('batiments');
   announce(t('effondre') + BAT_PRIME);
   _pouss.copy(b.g.position); _pouss.y += 6;
@@ -3751,6 +3904,7 @@ const state = {
   solDans: 0,         // secondes tenues le nez dans le disque
   etoileT: 0,         // repos avant la prochaine étoile filante
   forme: 0,           // -1 en difficulté, +1 en pleine forme : la courbe s'y adapte
+  defi: false,        // parti de la vague 5, chaque point vaut une fois et demie
   objN: 0,            // avancement de l'objectif du jour dans cette partie
   vagueTouche: false,
   vagueT: 0,
@@ -3937,8 +4091,9 @@ function resetGame() {
   for (const b of BATIMENTS) rebatir(b);
   state.eclipse = 0; state.solTir = 0; state.dore = 0; state.doreVague = -1; state.solDans = 0;
   state.etoileT = 0;
-  state.forme = 0; state.objN = 0;
+  state.forme = 0; state.objN = 0; state.defi = false;
   soleilCible(1, SOLEIL);      // l'aube : le soleil repart bas, sans transition
+  _solCible.copy(SOLEIL);
   state.paused = false;
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
@@ -3960,6 +4115,12 @@ function resetGame() {
 
 function announce(txt) { state.announce = txt; state.announceT = 2.2; }
 
+// LE DÉFI. On part de la vague 5 — le premier gardien — et chaque point vaut
+// une fois et demie. Pas une autre partie : la même, prise plus haut, pour
+// qui n'a plus rien à apprendre des quatre premières vagues.
+const DEFI_VAGUE = 5, DEFI_FACTEUR = 1.5;
+function marque(n) { state.score += n * (state.defi ? DEFI_FACTEUR : 1); }
+
 // Ce qu'on gagne à nettoyer une vague dépend de la manière. Deux exigences
 // indépendantes : la tenir dans le chrono, et n'être pas touché une seule
 // fois. Chacune rend quelque chose, les deux ensemble rendent tout.
@@ -3971,7 +4132,7 @@ function bilanVague() {
   const dansTemps = state.vagueT <= state.vagueLimite;
   const intact = !state.vagueTouche;
   state.vagueLimite = 0;
-  state.score += 250;
+  marque(250);
 
   // la forme monte d'une vague nette, retombe d'une vague arrachée
   let forme = (dansTemps ? 0.15 : 0) + (intact ? 0.15 : 0) - (!dansTemps && !intact ? 0.1 : 0);
@@ -3981,18 +4142,18 @@ function bilanVague() {
   if (dansTemps && intact) {
     state.structure = 100;
     state.bouclier = BOUCLIER_COUPS;
-    state.score += 750;
+    marque(750);
     announce(t('sansFaute'));
     SFX.vagueNette(); SFX.bouclierOn();
     objCompte('sansFaute');
   } else if (dansTemps) {
     state.structure = 100;
-    state.score += 400;
+    marque(400);
     announce(t('dansTemps'));
     SFX.vagueNette();
   } else if (intact) {
     state.bouclier = BOUCLIER_COUPS;
-    state.score += 400;
+    marque(400);
     announce(t('egratignure'));
     SFX.bouclierOn();
   } else {
@@ -4399,6 +4560,27 @@ function updateEnemies(dt) {
       e.pos.addScaledVector(_v, -(RAM_DIST - dist) * Math.min(1, 7 * dt) - 0.05);
     }
   }
+
+  // ILS S'ÉVITENT ENTRE EUX. Deux appareils qui se traversaient à l'écran,
+  // c'était la seule chose qui rappelait qu'ils sont en fil de fer. Même
+  // règle qu'avec nous : ni dégâts ni bruit, chacun s'écarte de la moitié
+  // du recouvrement, progressivement.
+  const es = state.enemies;
+  for (let i = 0; i < es.length; i++) {
+    const a = es[i];
+    if (a.kind.sol) continue;
+    for (let j = i + 1; j < es.length; j++) {
+      const b = es[j];
+      if (b.kind.sol) continue;
+      _v.subVectors(b.pos, a.pos);
+      const d = _v.length(), sep = (a.kind.envergure + b.kind.envergure) * 0.6;
+      if (d >= sep || d < 1e-3) continue;
+      const pas = (sep - d) * 0.5 * Math.min(1, 7 * dt);
+      _v.divideScalar(d);
+      a.pos.addScaledVector(_v, -pas); b.pos.addScaledVector(_v, pas);
+      a.mesh.position.copy(a.pos); b.mesh.position.copy(b.pos);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -4416,7 +4598,7 @@ function abattre(e) {
   if (i < 0) return;
   state.enemies.splice(i, 1);
   if (state.lock === e) { state.lock = null; state.lockCharge = 0; }
-  state.score += 100 + state.wave * 10;
+  marque(100 + state.wave * 10);
   objCompte('abattus');
   const avant = state.chauffe;
   state.chauffe = Math.min(CHAUFFE_MAX, state.chauffe + CHAUFFE_PAR);
@@ -5737,6 +5919,7 @@ function simulate(dt) {
   updateAmis(dt);
 
   updateDecor(dt);
+  updateTrainee(dt);
   updateBatiments(dt);
   majSoleil(dt);
   secretsSoleil(dt);
@@ -5852,7 +6035,7 @@ function scrape(dt) {
       t.prise = true;
       state.structure = Math.min(100, state.structure + TOUR_PRIME);
       coopReanime();
-      state.score += 400;
+      marque(400);
       announce(t('tour') + TOUR_PRIME);
       SFX.vagueNette();
     }
@@ -5876,7 +6059,7 @@ function scrape(dt) {
       objCompte('arches');
       state.structure = Math.min(100, state.structure + ARCHE_PRIME);
       coopReanime();
-      state.score += 150;
+      marque(150);
       announce(t('arche') + ARCHE_PRIME);
       SFX.vagueNette();
     }
@@ -7028,7 +7211,7 @@ function objCompte(cle, valeur) {
   carnet.objectif.jour = jourISO();
   carnet.objectif.reussis++;
   sauveCarnet();
-  state.score += OBJ_PRIME;
+  marque(OBJ_PRIME);
   announce(t('objReussi') + OBJ_PRIME);
   SFX.vagueNette();
 }
@@ -7053,7 +7236,7 @@ function noteDegat(cause, montant) {
 
 function refreshBars() {
   scoreLbl.textContent = String(Math.floor(state.score)).padStart(6, '0');
-  waveLbl.textContent  = 'V' + state.wave;
+  waveLbl.textContent  = (state.defi ? 'DÉFI · ' : '') + 'V' + state.wave;
   // le chrono ne sert qu'à savoir si la prime est encore accessible : il
   // s'efface dès qu'elle est perdue, plutôt que de compter dans le vide
   const reste = state.vagueLimite - state.vagueT;
@@ -7364,6 +7547,17 @@ function majViseurs() {
         sauveViseurs();
         majViseurs();
       };
+    } else if (v.acces === 'video' && eclats >= PRIX_VISEUR) {
+      b.textContent = PRIX_VISEUR + (langue === 'en' ? ' SHARDS' : ' ÉCLATS');
+      b.onclick = e => {
+        e.stopPropagation();
+        eclats -= PRIX_VISEUR;
+        debloques.add(v.id);
+        viseurChoisi = v.id;
+        sauveViseurs(); sauveEclats();
+        majViseurs();
+        SFX.bouclierOn();
+      };
     } else if (v.acces === 'video') {
       b.textContent = 'VIDÉO';
       b.onclick = e => {
@@ -7419,6 +7613,63 @@ function ouvrirAide(ouvert) {
 }
 aideBtn.addEventListener('click', e => { e.stopPropagation(); ouvrirAide(); });
 
+// ---------------------------------------------------------------------------
+// LE MENU. Quatre boutons en haut de l'écran, c'était quatre cibles de trois
+// lettres sur un bandeau qui ne doit pas prendre le doigt. Un seul mot, et
+// tout est dedans : les viseurs, le son, l'aide, la langue, le moteur, les
+// nouveautés, l'installation — et la boutique des éclats.
+// ---------------------------------------------------------------------------
+const panMenu = document.getElementById('menu');
+const menuBtn = document.getElementById('menuBtn');
+function fermeMenu() { panMenu.hidden = true; majPause(); }
+function majMenu() {
+  const fr = langue !== 'en';
+  document.getElementById('menuEclats').textContent = (fr ? 'ÉCLATS  ·  ' : 'SHARDS  ·  ') + eclats
+    + (fr ? '   (1 pour 250 points)' : '   (1 per 250 points)');
+  document.getElementById('mSon').textContent = (fr ? 'SON  ·  ' : 'SOUND  ·  ') + (muet ? 'OFF' : 'ON');
+  document.getElementById('mLangue').textContent = fr ? 'LANGUE  ·  ENGLISH' : 'LANGUAGE  ·  FRANÇAIS';
+  document.getElementById('mTimbre').textContent = timbreBtn.textContent;
+  document.getElementById('mVersion').textContent = (fr ? 'NOUVEAUTÉS  ·  ' : 'WHAT’S NEW  ·  ') + versionBtn.textContent;
+  document.getElementById('mInstall').hidden = installBtn.hidden;
+  const puces = (id, liste, prefixe, choisi, applique) => {
+    const c = document.getElementById(id);
+    c.innerHTML = '';
+    for (const o of liste) {
+      const b = document.createElement('button');
+      const possede = o.prix === 0 || achats.has(prefixe + o.id);
+      b.className = (o.id === choisi ? 'actif' : '') + (!possede && eclats < o.prix ? ' verrou' : '');
+      b.innerHTML = (o.col !== undefined ? '<i style="background:#' + o.col.toString(16).padStart(6, '0') + '"></i>' : '')
+        + (fr ? o.nom : o.en) + (possede ? '' : '  ·  ' + o.prix);
+      b.onclick = e => {
+        e.stopPropagation();
+        if (!possede) {
+          if (eclats < o.prix) return;
+          eclats -= o.prix; achats.add(prefixe + o.id); SFX.bouclierOn();
+        }
+        applique(o.id); sauveEclats(); majMenu();
+      };
+      c.appendChild(b);
+    }
+  };
+  puces('menuTeintes', TEINTES, 'teinte:', teinteChoisie, id => { teinteChoisie = id; appliqueTeinte(); });
+  puces('menuTrainees', TRAINEES, 'trainee:', traineeChoisie, id => { traineeChoisie = id; });
+}
+menuBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  audioDemarre();
+  panMenu.hidden = !panMenu.hidden;
+  aide.hidden = true; changelog.hidden = true; panViseurs.hidden = true;
+  if (!panMenu.hidden) majMenu();
+  majPause();
+});
+document.getElementById('mViseurs').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); viseurBtn.click(); });
+document.getElementById('mSon').addEventListener('click', e => { e.stopPropagation(); sonBtn.click(); majMenu(); });
+document.getElementById('mAide').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); ouvrirAide(true); });
+document.getElementById('mLangue').addEventListener('click', e => { e.stopPropagation(); document.getElementById('langBtn').click(); majMenu(); });
+document.getElementById('mTimbre').addEventListener('click', e => { e.stopPropagation(); timbreBtn.click(); majMenu(); });
+document.getElementById('mVersion').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); versionBtn.click(); });
+document.getElementById('mInstall').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); installBtn.click(); });
+
 const timbreBtn = document.getElementById('timbreBtn');
 function majTimbreBtn() {
   const nomFr = timbre === 'profond' ? 'MOTEUR : PROFOND' : 'MOTEUR : CLAIR';
@@ -7468,7 +7719,7 @@ function majPause() {
   // en coopération le monde ne s'arrête pas : les autres continuent de voler
   state.paused = !coop.actif
     && (!aide.hidden || !changelog.hidden || !panViseurs.hidden || !panCoop.hidden
-        || !panInstall.hidden);
+        || !panInstall.hidden || !panMenu.hidden);
 }
 
 document.addEventListener('pointerdown', e => {
@@ -7480,6 +7731,9 @@ document.addEventListener('pointerdown', e => {
   }
   if (!panViseurs.hidden && !panViseurs.contains(e.target) && e.target !== viseurBtn) {
     panViseurs.hidden = true;
+  }
+  if (!panMenu.hidden && !panMenu.contains(e.target) && e.target !== menuBtn) {
+    panMenu.hidden = true;
   }
   if (!panCoop.hidden && !panCoop.contains(e.target) && e.target !== coopBtn) {
     panCoop.hidden = true;
@@ -7577,6 +7831,7 @@ const partageBtn = document.getElementById('partageBtn');
 function textePartage() {
   const fr = langue !== 'en';
   return 'FLY OR DIE  ·  ' + String(Math.floor(state.score)).padStart(6, '0') + (fr ? ' pts  ·  vague ' : ' pts  ·  wave ') + state.wave
+    + (state.defi ? (fr ? '  ·  DÉFI' : '  ·  CHALLENGE') : '')
     + (fr ? '  ·  record ' : '  ·  best ') + String(record.score).padStart(6, '0')
     + (state.recordBattu ? (fr ? '  ·  NOUVEAU RECORD' : '  ·  NEW RECORD') : '')
     + '\nhttps://pierremillon.github.io/fly-or-die/';
@@ -7649,17 +7904,26 @@ videoBtn.addEventListener('click', async () => {
   }
 });
 
-startBtn.addEventListener('click', () => {
+function decolle(defi) {
   audioDemarre();
   overlay.hidden = true;
   videoBtn.hidden = true;
   partageBtn.hidden = true;
   resetGame();
+  if (defi) {
+    state.defi = true;
+    state.wave = DEFI_VAGUE - 1;      // la première vague lancée sera la cinquième
+    soleilCible(DEFI_VAGUE, SOLEIL);
+    _solCible.copy(SOLEIL);
+  }
   state.running = true;
   last = performance.now();
   carnet.parties++;
   proposeApresCoup();
-});
+}
+const defiBtn = document.getElementById('defiBtn');
+startBtn.addEventListener('click', () => decolle(false));
+defiBtn.addEventListener('click', () => decolle(true));
 
 function gameOver() {
   state.running = false;
@@ -7677,7 +7941,13 @@ function gameOver() {
   carnet.secondes += state.dureeVol;
   carnet.pluslongue = Math.max(carnet.pluslongue, state.dureeVol);
   carnet.vagueMax = Math.max(carnet.vagueMax, state.wave);
+  if (state.defi) carnet.defis = (carnet.defis || 0) + 1;
   sauveCarnet();
+  // les éclats de la partie
+  const gagnes = Math.floor(state.score / ECLAT_PAR_POINTS);
+  eclats += gagnes;
+  sauveEclats();
+  state.eclatsGagnes = gagnes;
   state.auSol = false;   // l'épave ne ronronne pas
   state.roulage = null;
   state.assist = false;
@@ -7700,8 +7970,10 @@ function gameOver() {
     + '  ·  ' + t('vague') + state.wave
     + (state.recordBattu ? '<br><b>' + t('nouveauRecord') + '</b>' : '')
     + '<br>' + t('recordMot') + String(record.score).padStart(6, '0')
-    + '  ·  ' + t('vague') + record.vague;
+    + '  ·  ' + t('vague') + record.vague
+    + (state.eclatsGagnes ? '<br>+' + state.eclatsGagnes + (langue === 'en' ? ' SHARDS' : ' ÉCLATS') : '');
   startBtn.textContent = t('redecoller');
+  defiBtn.hidden = false;
   majObjectif();
   partageBtn.hidden = false;
   partageBtn.textContent = t('partage');
