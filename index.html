@@ -995,7 +995,7 @@
 </div>
 
 <div id="changelog" hidden>
-  <div><b>v0.74</b> — un aérodrome au bord de la piste : le hangar et sa porte coulissante qui montre les avions, la table où les mécaniciens jouent aux cartes, la manche à air et l'aire à signaux ; et des mécaniciens qui marchent comme des hommes.</div>
+  <div><b>v0.74</b> — trois trous à figure (le U qui se sort par le toit, le double à combo, la fente à 45° qu'on ne passe qu'en tonneau), et un aérodrome au bord de la piste : le hangar et sa porte coulissante qui montre les avions, la table où les mécaniciens jouent aux cartes, la manche à air et l'aire à signaux ; et des mécaniciens qui marchent comme des hommes.</div>
   <div><b>v0.73</b> — la caméra traîne au décollage et ne saute plus au posé, BRAKING et BRAKES OFF, les coins font les figures, l'avion est plus bas, on monte à 80° et à 2 400 m, le décrochage part en vrille, les roquettes se comptent et les mécaniciens en rapportent, le son suit le nez et les dégâts.</div>
   <div><b>v0.72</b> — LOCKED et WARNING ROCKET à l'écran, roquettes à 50 qu'on esquive aussi à la manœuvre, boost de portail violent et invincible, tanks qui roulent, chasseurs dans le soleil et ailiers en formation, le faucheur pour qui fuit, et VAGUE SUIVANTE +500.</div>
   <div><b>v0.71</b> — on meurt vraiment à zéro, une vague ne passe que quand tout est mort, le défi du jour change chaque jour et la série rend du bouclier, l'écran de fin dit tout en chiffres.</div>
@@ -3074,6 +3074,7 @@ const PISTE_GARDE_Z1 = -1150;
 // le milieu de la piste ; x vers l'est, z vers le sud (le nord est en -z).
 // ---------------------------------------------------------------------------
 const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":4,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":6,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":110,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
+CARTE.speciaux = [{ x: -620, z: -1500, q: 0, forme: 'u' }, { x: 760, z: -1750, q: 1, forme: 'double' }, { x: -950, z: 320, q: 0, forme: 'incline' }];
 CARTE.fixe = true;
 // Une carte dessinée sur la page carte.html et « essayée » remplace celle-ci
 // tant qu'elle est gardée sur l'appareil.
@@ -3081,6 +3082,7 @@ try {
   const perso = JSON.parse(localStorage.getItem('fod_carte') || 'null');
   if (perso && perso.pylones && perso.arches && perso.tours) {
     CARTE.pylones = perso.pylones; CARTE.arches = perso.arches; CARTE.tours = perso.tours;
+    if (perso.speciaux) CARTE.speciaux = perso.speciaux;
     CARTE.perso = true;
   }
 } catch (e) {}
@@ -3823,7 +3825,96 @@ for (let i = 0; i < CARTE.pylones.length; i++) {
 // Pylône, arche, tour : même règle, structures différentes. Les balles d'en
 // face s'arrêtent de la même façon : un bâtiment protège les deux camps.
 // ---------------------------------------------------------------------------
-const BAT_HP = { pylone: 90, arche: 160, tour: 260 };
+// ---------------------------------------------------------------------------
+// LES TROUS QUI DEMANDENT UNE FIGURE. Trois bâtiments de plus, tous les
+// trois faits de boîtes pleines autour d'un vide, comme la tour percée :
+// — le U : on entre à plat par une porte basse, le tunnel monte, et il faut
+//   tirer pour sortir par le toit — un Immelmann à l'intérieur, sinon on
+//   s'écrase au fond ;
+// — le DOUBLE : deux fenêtres l'une sur l'autre, une barre entre les deux ;
+//   prendre les deux dans les quatre secondes double la prime ;
+// — l'INCLINÉ : une fente à 45° dans un mur. L'avion fait douze mètres
+//   d'envergure, la fente en fait seize de large : il n'y passe que les
+//   ailes dans le sens de la fente — au milieu d'un tonneau, ou jamais.
+//   C'est le seul bâtiment qui regarde les bouts d'aile, pas seulement le nez.
+// ---------------------------------------------------------------------------
+const SPECIAL = { largeur: 110, prof: 60, trou: 45, hautU: 200, entreeY: 40, hautD: 170, y0D: 60, barre: 6,
+                  murH: 120, murP: 20, fenteL: 3.2, fenteH: 28, fenteY: 66 };
+const speciaux = [];
+(function construireSpeciaux() {
+  const S_ = SPECIAL, L = S_.largeur / 2, P = S_.prof / 2, T = S_.trou / 2;
+  const boite = (g, blocs, lx, ly, lz, cx, cy, cz) => {
+    const geo = new THREE.BoxGeometry(lx, ly, lz).translate(cx, cy, cz);
+    g.add(solidWire(geo, new THREE.EdgesGeometry(geo, 20), matTour));
+    blocs.push({ cx, cz, hx: lx / 2, hz: lz / 2, y0: cy - ly / 2, y1: cy + ly / 2 });
+  };
+  for (const c of CARTE.speciaux) {
+    const g = new THREE.Group(), blocs = [], passages = [];
+    if (c.forme === 'u') {
+      const H = S_.hautU, e0 = S_.entreeY, e1 = e0 + S_.trou;
+      boite(g, blocs, L - T, H, S_.prof, -(L + T) / 2, H / 2, 0);            // flanc gauche
+      boite(g, blocs, L - T, H, S_.prof,  (L + T) / 2, H / 2, 0);            // flanc droit
+      boite(g, blocs, S_.trou, e0, P, 0, e0 / 2, P / 2);                      // sous l'entrée
+      boite(g, blocs, S_.trou, H - e1, P, 0, (H + e1) / 2, P / 2);            // au-dessus de l'entrée
+      boite(g, blocs, S_.trou, e0, P, 0, e0 / 2, -P / 2);                     // le fond du puits
+      passages.push({ cx: 0, cz: P / 2, hx: T, hz: P / 2, y0: e0, y1: e1, role: 'entree' });
+      passages.push({ cx: 0, cz: -P / 2, hx: T, hz: P / 2, y0: H - 12, y1: H + 14, role: 'sortie' });
+    } else if (c.forme === 'double') {
+      const H = S_.hautD, y0 = S_.y0D, y1 = y0 + S_.trou, y2 = y1 + S_.barre, y3 = y2 + S_.trou;
+      boite(g, blocs, L - T, H, S_.prof, -(L + T) / 2, H / 2, 0);
+      boite(g, blocs, L - T, H, S_.prof,  (L + T) / 2, H / 2, 0);
+      boite(g, blocs, S_.trou, y0, S_.prof, 0, y0 / 2, 0);                   // socle
+      boite(g, blocs, S_.trou, S_.barre, S_.prof, 0, (y1 + y2) / 2, 0);      // la barre
+      boite(g, blocs, S_.trou, H - y3, S_.prof, 0, (H + y3) / 2, 0);         // le linteau
+      passages.push({ cx: 0, cz: 0, hx: T, hz: P, y0, y1, role: 'bas' });
+      passages.push({ cx: 0, cz: 0, hx: T, hz: P, y0: y2, y1: y3, role: 'haut' });
+    } else {
+      // le mur à fente : une forme trouée, extrudée
+      const forme = new THREE.Shape();
+      forme.moveTo(-L, 0); forme.lineTo(L, 0); forme.lineTo(L, S_.murH); forme.lineTo(-L, S_.murH); forme.closePath();
+      const trou = new THREE.Path();
+      const a = Math.PI / 4, cs = Math.cos(a), sn = Math.sin(a);
+      const coins = [[-S_.fenteL, -S_.fenteH], [S_.fenteL, -S_.fenteH], [S_.fenteL, S_.fenteH], [-S_.fenteL, S_.fenteH]]
+        .map(([u, v]) => [u * cs - v * sn, S_.fenteY + u * sn + v * cs]);
+      trou.moveTo(coins[0][0], coins[0][1]); for (let i = 1; i < 4; i++) trou.lineTo(coins[i][0], coins[i][1]); trou.closePath();
+      forme.holes.push(trou);
+      const geo = new THREE.ExtrudeGeometry(forme, { depth: S_.murP, bevelEnabled: false }).translate(0, 0, -S_.murP / 2);
+      g.add(solidWire(geo, new THREE.EdgesGeometry(geo, 20), matTour));
+      blocs.push({ cx: 0, cz: 0, hx: L, hz: S_.murP / 2, y0: 0, y1: S_.murH });
+    }
+    g.position.set(c.x, 0, c.z);
+    g.rotation.y = c.q ? Math.PI / 2 : 0;
+    g.frustumCulled = false;
+    scene.add(g);
+    speciaux.push({ type: 'special', forme: c.forme, g, blocs, passagesLoc: passages, boites: [], passages: [],
+                    sy: 1, hp: 320, mort: false, chute: 0, poussT: 0, entreeT: 0, priseT: [0, 0], cote: 0, q: !!c.q });
+  }
+})();
+function placeSpecial(t) {
+  const x = t.g.position.x, z = t.g.position.z;
+  const b = o => t.q
+    ? { x: x + o.cz, z: z - o.cx, hx: o.hz, hz: o.hx, y0: o.y0, y1: o.y1, role: o.role }
+    : { x: x + o.cx, z: z + o.cz, hx: o.hx, hz: o.hz, y0: o.y0, y1: o.y1, role: o.role };
+  t.boites = t.blocs.map(b);
+  t.passages = t.passagesLoc.map(b);
+  rebatir(t);
+}
+// coordonnées locales du mur à fente : x le long du mur, z à travers
+const _wt = new THREE.Vector3();
+function localSpecial(t, p, out) {
+  const dx = p.x - t.g.position.x, dz = p.z - t.g.position.z;
+  if (t.q) { out.x = -dz; out.z = dx; } else { out.x = dx; out.z = dz; }
+  out.y = p.y;
+  return out;
+}
+function dansFente(l) {
+  const a = Math.PI / 4, cs = Math.cos(a), sn = Math.sin(a);
+  const x = l.x, y = l.y - SPECIAL.fenteY;
+  const u = x * cs + y * sn, v = -x * sn + y * cs;
+  return Math.abs(u) < SPECIAL.fenteL && Math.abs(v) < SPECIAL.fenteH;
+}
+
+const BAT_HP = { pylone: 90, arche: 160, tour: 260, special: 320 };
 const BAT_CHUTE = 1.3;              // secondes d'effondrement
 const BAT_PRIME = 80;               // points pour un bâtiment abattu
 const _b0 = new THREE.Vector3(), _b1 = new THREE.Vector3();
@@ -3831,7 +3922,7 @@ const pylones = towers.map(g => ({ type: 'pylone', g, boites: [], sy: g.scale.y,
                                    hp: BAT_HP.pylone, mort: false, chute: 0, poussT: 0 }));
 for (const a of arches) Object.assign(a, { type: 'arche', sy: 1, hp: BAT_HP.arche, mort: false, chute: 0, poussT: 0 });
 for (const t of tours)  Object.assign(t, { type: 'tour',  sy: 1, hp: BAT_HP.tour,  mort: false, chute: 0, poussT: 0 });
-const BATIMENTS = [...pylones, ...arches, ...tours];
+const BATIMENTS = [...pylones, ...arches, ...tours, ...speciaux];
 
 function rebatir(b) {
   b.hp = BAT_HP[b.type];
@@ -4268,6 +4359,7 @@ function poseAuSol() {
   for (const t of towers) placeTower(t, true);
   for (const a of arches) placeArche(a, true);
   for (const t of tours) placeTour(t, true);
+  for (const t of speciaux) placeSpecial(t);
   mecanosTable();
   updateDecor();
   feedTracers(playerTracers, []);
@@ -4541,7 +4633,8 @@ function spawnWave() {
   // rebâties loin d'ici
   for (const b of BATIMENTS) {
     if (!b.mort) continue;
-    if (b.type === 'pylone') placeTower(b.g, false);
+    if (b.type === 'special') placeSpecial(b);
+    else if (b.type === 'pylone') placeTower(b.g, false);
     else if (b.type === 'arche') placeArche(b, false);
     else placeTour(b, false);
   }
@@ -6637,6 +6730,7 @@ function simulate(dt) {
 // le sol et sur les pylônes en perdant un peu de vie, ce qui rend le Split-S
 // bas et le rase-mottes possibles au lieu d'être interdits. Le délai empêche
 // qu'un frottement continu vide la jauge en une seconde.
+const t_ = k => t(k);
 function scrape(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
 
@@ -6672,6 +6766,61 @@ function scrape(dt) {
     state.roll = THREE.MathUtils.clamp(state.roll + (cote >= 0 ? -0.5 : 0.5), -1.2, 1.2);
   };
 
+  // LES TROIS BÂTIMENTS À FIGURE.
+  for (const t of speciaux) {
+    if (t.mort) continue;
+    if (t.forme === 'incline') {
+      // les trois points : le nez et les deux bouts d'aile, dans le repère du mur
+      const L0 = localSpecial(t, state.pos, _b0);
+      const bo = t.boites[0];
+      const dedansMur = Math.abs(L0.x) < SPECIAL.largeur / 2 + 6 && L0.y > -1 && L0.y < SPECIAL.murH + 6 && Math.abs(L0.z) < SPECIAL.murP / 2 + 7;
+      const coteAvant = t.cote;
+      t.cote = Math.sign(L0.z) || t.cote;
+      if (dedansMur) {
+        let tousDedans = dansFente(L0);
+        for (const sx of [-6, 6]) {
+          _wt.set(sx, 0, 0).applyQuaternion(state.quat).add(state.pos);
+          if (!dansFente(localSpecial(t, _wt, _b1))) tousDedans = false;
+        }
+        if (!tousDedans) { repousse(bo.x, bo.z); return; }
+        if (coteAvant && coteAvant !== t.cote && !(t.priseT[0] > 0)) {
+          t.priseT[0] = PASSAGE_REPOS;
+          stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME));
+          state.boostPortail = 2; coopReanime(); marque(600);
+          announce(t_('fente') + TOUR_PRIME); SFX.vagueNette();
+        }
+      }
+      if (t.priseT[0] > 0) t.priseT[0] -= dt;
+      continue;
+    }
+    const [pa, pb] = t.passages;
+    if (t.forme === 'u') {
+      if (t.entreeT > 0) t.entreeT -= dt;
+      if (heurte(pa.x, pa.z, pa.hx, pa.hz + 4, pa.y0 - 2, pa.y1 + 2)) t.entreeT = 6;
+      if (t.entreeT > 0 && heurte(pb.x, pb.z, pb.hx, pb.hz, pb.y0, pb.y1)) {
+        t.entreeT = 0;
+        stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME * 2));
+        state.boostPortail = 2.5; coopReanime(); marque(800);
+        announce(t_('puits') + TOUR_PRIME * 2); SFX.vagueNette();
+      }
+    } else {
+      for (let k = 0; k < 2; k++) {
+        if (t.priseT[k] > 0) t.priseT[k] -= dt;
+        const q = t.passages[k];
+        if (!(t.priseT[k] > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+          t.priseT[k] = PASSAGE_REPOS;
+          const combo = t.priseT[1 - k] > 0;
+          stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME * (combo ? 2 : 1)));
+          state.boostPortail = 2; coopReanime(); marque(combo ? 900 : 400);
+          announce(combo ? t_('combo') + TOUR_PRIME * 2 : t_('tour') + TOUR_PRIME); SFX.vagueNette();
+        }
+      }
+    }
+    for (const b of t.boites) {
+      if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) { repousse(b.x, b.z); return; }
+    }
+  }
+
   // LES PASSAGES D'ABORD. Un passage pris de biais éraflait un montant, et
   // l'éraflure repoussait l'avion hors du trou avant que le passage ne soit
   // compté : on traversait sans rien gagner. Le passage se teste donc avant
@@ -6687,7 +6836,7 @@ function scrape(dt) {
       state.boostPortail = 2;
       coopReanime();
       marque(400);
-      announce(t('tour') + TOUR_PRIME);
+      announce(t_('tour') + TOUR_PRIME);
       SFX.vagueNette();
     }
   }
@@ -8089,6 +8238,7 @@ const T = {
   fr: {
     decollage: 'DÉCOLLAGE', auSol: 'AU SOL  ·  RÉPARATION',
     tour: 'TOUR TRAVERSÉE  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
+    fente: 'FENTE PASSÉE  ·  +', puits: 'SORTI PAR LE TOIT  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     bouclierFin: 'BOUCLIER ÉPUISÉ', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
     sansFaute: 'SANS FAUTE  ·  VIE PLEINE  ·  BOUCLIER',
     dansTemps: 'DANS LES TEMPS  ·  VIE PLEINE',
@@ -8124,6 +8274,7 @@ const T = {
   en: {
     decollage: 'TAKE OFF', auSol: 'ON THE GROUND  ·  REPAIRS',
     tour: 'TOWER THREADED  ·  +', arche: 'ARCH CLEARED  ·  +',
+    fente: 'SLOT THREADED  ·  +', puits: 'OUT THROUGH THE ROOF  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     bouclierFin: 'SHIELD SPENT', viseur: 'SIGHT UNLOCKED  ·  ',
     sansFaute: 'FLAWLESS  ·  FULL LIFE  ·  SHIELD',
     dansTemps: 'ON TIME  ·  FULL LIFE',

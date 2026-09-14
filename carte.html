@@ -38,6 +38,9 @@ button:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
   <button id="oPylone" class="outil actif" data-outil="pylone">PYLÔNE</button>
   <button id="oArche" class="outil" data-outil="arche">ARCHE</button>
   <button id="oTour" class="outil" data-outil="tour">TOUR</button>
+  <button id="oU" class="outil" data-outil="u">U</button>
+  <button id="oDouble" class="outil" data-outil="double">DOUBLE</button>
+  <button id="oIncline" class="outil" data-outil="incline">FENTE 45°</button>
   <button id="oMain" class="outil" data-outil="main">DÉPLACER</button>
   <span id="taille"><label>H <input id="hauteur" type="range" min="0.5" max="3" step="0.1" value="1.5"></label><label>L <input id="largeur" type="range" min="0.6" max="2" step="0.1" value="1"></label></span>
 </div>
@@ -66,9 +69,11 @@ button:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
 // ---- les mesures du jeu, telles quelles ----
 const PISTE = { demiL: 23, z0: 260, z1: -900 };
 const GARDE = { x: 150, z0: 420, z1: -1150 };        // couloir interdit au décor
-const PYLONE = 18, TOUR = { largeur: 110, prof: 60 }, ARCHE = { largeur: 144, prof: 32 };
+const PYLONE = 18, TOUR = { largeur: 110, prof: 60 }, ARCHE = { largeur: 144, prof: 32 }, MUR = { largeur: 110, prof: 20 };
+const SPECIAUX_DEFAUT = [{ x: -620, z: -1500, q: 0, forme: 'u' }, { x: 760, z: -1750, q: 1, forme: 'double' }, { x: -950, z: 320, q: 0, forme: 'incline' }];
 const CARTE_DEFAUT = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":4,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":6,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":110,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
 
+CARTE_DEFAUT.speciaux = SPECIAUX_DEFAUT;
 let carte = JSON.parse(JSON.stringify(CARTE_DEFAUT));
 let outil = 'pylone', choisi = null;
 
@@ -92,11 +97,12 @@ function objets() {
   carte.pylones.forEach((o, i) => l.push({ type: 'pylone', i, o }));
   carte.arches.forEach((o, i) => l.push({ type: 'arche', i, o }));
   carte.tours.forEach((o, i) => l.push({ type: 'tour', i, o }));
+  (carte.speciaux || []).forEach((o, i) => l.push({ type: 'special', i, o }));
   return l;
 }
 function empreinte(t, o) {
   if (t === 'pylone') return { w: PYLONE * o.sx, h: PYLONE * o.sz };
-  const b = t === 'tour' ? TOUR : ARCHE;
+  const b = t === 'tour' ? TOUR : t === 'special' ? (o.forme === 'incline' ? MUR : TOUR) : ARCHE;
   return o.q ? { w: b.prof, h: b.largeur } : { w: b.largeur, h: b.prof };
 }
 
@@ -137,9 +143,10 @@ function dessine() {
       cx.stroke();
     }
     if (it.type === 'pylone') { cx.fillStyle = '#46ffa0'; cx.globalAlpha = 0.25 + 0.25 * (it.o.sy / 3); cx.fillRect(c.x - w / 2, c.y - h / 2, Math.max(3, w), Math.max(3, h)); }
+    if (it.type === 'special') { cx.fillStyle = '#ffd166'; cx.globalAlpha = 0.9; cx.font = '9px IBM Plex Mono, monospace'; cx.textAlign = 'center'; cx.fillText(it.o.forme === 'u' ? 'U' : it.o.forme === 'double' ? '2' : '45°', c.x, c.y - h / 2 - 3); }
   }
   cx.globalAlpha = 1; cx.lineWidth = 1;
-  document.getElementById('etat').textContent = carte.pylones.length + ' PYLÔNES · ' + carte.arches.length + ' ARCHES · ' + carte.tours.length + ' TOURS'
+  document.getElementById('etat').textContent = carte.pylones.length + ' PYLÔNES · ' + carte.arches.length + ' ARCHES · ' + carte.tours.length + ' TOURS · ' + (carte.speciaux || []).length + ' FIGURES'
     + (choisi ? '  ·  ' + choisi.type.toUpperCase() + ' x ' + choisi.o.x + ' z ' + choisi.o.z : '');
   document.getElementById('taille').classList.toggle('visible', !!choisi && choisi.type === 'pylone');
 }
@@ -180,6 +187,7 @@ for (const ev of ['pointerup', 'pointercancel']) cv.addEventListener(ev, e => {
     if (outil === 'pylone') { carte.pylones.push({ x: m.x, z: m.z, sx: +document.getElementById('largeur').value, sy: +document.getElementById('hauteur').value, sz: +document.getElementById('largeur').value }); choisi = { type: 'pylone', i: carte.pylones.length - 1, o: carte.pylones[carte.pylones.length - 1] }; }
     else if (outil === 'arche') { carte.arches.push({ x: m.x, z: m.z, q: 0 }); choisi = { type: 'arche', i: carte.arches.length - 1, o: carte.arches[carte.arches.length - 1] }; }
     else if (outil === 'tour') { carte.tours.push({ x: m.x, z: m.z, q: 0 }); choisi = { type: 'tour', i: carte.tours.length - 1, o: carte.tours[carte.tours.length - 1] }; }
+    else if (outil === 'u' || outil === 'double' || outil === 'incline') { carte.speciaux = carte.speciaux || []; carte.speciaux.push({ x: m.x, z: m.z, q: 0, forme: outil }); choisi = { type: 'special', i: carte.speciaux.length - 1, o: carte.speciaux[carte.speciaux.length - 1] }; }
   }
   glisse = null; presse = null; dessine();
 });
@@ -197,7 +205,7 @@ for (const b of document.querySelectorAll('.outil')) b.addEventListener('click',
 document.getElementById('tourner').addEventListener('click', () => { if (choisi && choisi.type !== 'pylone') { choisi.o.q = choisi.o.q ? 0 : 1; dessine(); } });
 document.getElementById('supprimer').addEventListener('click', () => {
   if (!choisi) return;
-  const liste = choisi.type === 'pylone' ? carte.pylones : choisi.type === 'arche' ? carte.arches : carte.tours;
+  const liste = choisi.type === 'pylone' ? carte.pylones : choisi.type === 'arche' ? carte.arches : choisi.type === 'special' ? carte.speciaux : carte.tours;
   liste.splice(choisi.i, 1); choisi = null; dessine();
 });
 for (const id of ['hauteur', 'largeur']) document.getElementById(id).addEventListener('input', e => {
