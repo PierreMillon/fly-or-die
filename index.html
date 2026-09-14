@@ -636,7 +636,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.73</button>
+  <button id="versionBtn">v0.74</button>
   <button id="vagueBtn" hidden data-en="NEXT WAVE · +500">VAGUE SUIVANTE · +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -995,6 +995,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.74</b> — un aérodrome au bord de la piste : le hangar et sa porte coulissante qui montre les avions, la table où les mécaniciens jouent aux cartes, la manche à air et l'aire à signaux ; et des mécaniciens qui marchent comme des hommes.</div>
   <div><b>v0.73</b> — la caméra traîne au décollage et ne saute plus au posé, BRAKING et BRAKES OFF, les coins font les figures, l'avion est plus bas, on monte à 80° et à 2 400 m, le décrochage part en vrille, les roquettes se comptent et les mécaniciens en rapportent, le son suit le nez et les dégâts.</div>
   <div><b>v0.72</b> — LOCKED et WARNING ROCKET à l'écran, roquettes à 50 qu'on esquive aussi à la manœuvre, boost de portail violent et invincible, tanks qui roulent, chasseurs dans le soleil et ailiers en formation, le faucheur pour qui fuit, et VAGUE SUIVANTE +500.</div>
   <div><b>v0.71</b> — on meurt vraiment à zéro, une vague ne passe que quand tout est mort, le défi du jour change chaque jour et la série rend du bouclier, l'écran de fin dit tout en chiffres.</div>
@@ -3391,7 +3392,11 @@ const HARCELE = 2.6;            // secondes pendant lesquelles l'avion pris a pa
 const _fusil = new THREE.Vector3();
 function mecanoTire(m, dt) {
   m.tire = false;
-  if (!state.pose || m.mort || m.fuite > 0) { m.fusil.visible = false; m.tenue = 0; return; }
+  if ((!state.pose && !m.repos) || m.mort || m.fuite > 0) { m.fusil.visible = false; m.tenue = 0; return; }
+  // depuis la table ils tirent aussi, de loin et pour presque rien : ils sont
+  // là pour aider, et ça se voit
+  const depuisTable = !state.pose && m.repos;
+  if (depuisTable && !state.enemies.some(e => !e.kind.sol && e.pos.distanceTo(m.p) < FUSIL_PORTEE)) { m.fusil.visible = false; return; }
   // AU MOINS UN RÉPARE. Un fusil par avion ennemi à portée, deux au plus, et
   // jamais le dernier homme valide : lui garde la clé à molette.
   const vivants = mecanos.filter(x => !x.mort && x.g.visible);
@@ -3418,8 +3423,8 @@ function mecanoTire(m, dt) {
   m.g.rotation.set(0, Math.atan2(-_fusil.x, -_fusil.z), 0);
   // le canon se lève vers l'appareil : on voit sur qui il tire
   m.fusil.rotation.x = -Math.atan2(_fusil.y, Math.hypot(_fusil.x, _fusil.z));
-  cible.hp -= FUSIL_DPS * dt;
-  cible.harcele = HARCELE;
+  cible.hp -= FUSIL_DPS * (depuisTable ? 0.15 : 1) * dt;
+  if (!depuisTable) cible.harcele = HARCELE;
   m.fusilT -= dt;
   if (m.fusilT <= 0) {
     m.fusilT = FUSIL_CADENCE;
@@ -3437,11 +3442,100 @@ function mecanoTire(m, dt) {
 // les postes de travail : deux à hauteur de nacelle, un devant le nez
 const MECANO_POSTES = [[-3.4, -3.0], [3.4, -3.2], [0.9, -6.4]];
 
+// ---------------------------------------------------------------------------
+// L'AÉRODROME. Au bord de la piste, côté est : un hangar en tôle dont la
+// grande porte coulissante s'ouvre quand on est au sol et laisse voir les
+// appareils — le nôtre, et ceux qu'on pourra débloquer, en plus pâle. Devant,
+// la table où les mécaniciens jouent aux cartes quand ils n'ont rien à
+// réparer. Une manche à air, et l'aire à signaux : le carré blanc avec son T
+// qu'on lit d'en haut sur tous les terrains.
+// ---------------------------------------------------------------------------
+const AERO = { x: 78, z: PISTE.z0 - 230, largeur: 44, prof: 30, haut: 13 };
+const matHangar = lineMat(COL_LINE, 0.8);
+const matPale = lineMat(COL_LINE, 0.35);
+const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0.6, ventCible: 0.6 };
+(function poserAerodrome() {
+  const A = AERO;
+  const g = new THREE.Group();
+  g.position.set(A.x, 0, A.z);
+  const paroi = (lx, ly, lz, cx, cy, cz) => {
+    const geo = new THREE.BoxGeometry(lx, ly, lz).translate(cx, cy, cz);
+    const w = solidWire(geo, new THREE.EdgesGeometry(geo, 20), matHangar);
+    return w;
+  };
+  // trois murs et le toit ; la face ouest, vers la piste, est la porte
+  g.add(paroi(0.4, A.haut, A.prof, A.largeur / 2, A.haut / 2, 0));          // fond
+  g.add(paroi(A.largeur, A.haut, 0.4, 0, A.haut / 2, -A.prof / 2));         // côté nord
+  g.add(paroi(A.largeur, A.haut, 0.4, 0, A.haut / 2, A.prof / 2));          // côté sud
+  g.add(paroi(A.largeur, 0.4, A.prof, 0, A.haut, 0));                        // toit
+  // la porte en deux vantaux, sur la face ouest, qui glissent vers le nord et le sud
+  hangar.porteG = paroi(0.4, A.haut - 0.6, A.prof / 2, 0, (A.haut - 0.6) / 2, -A.prof / 4);
+  hangar.porteD = paroi(0.4, A.haut - 0.6, A.prof / 2, 0, (A.haut - 0.6) / 2, A.prof / 4);
+  hangar.porteG.position.x = hangar.porteD.position.x = -A.largeur / 2;
+  g.add(hangar.porteG, hangar.porteD);
+  // les appareils dedans : le nôtre, et les cinq à débloquer, alignés
+  const rang = [{ geo: planeGeom, edges: planeEdges, mat: matPlayer, ech: PLANE_SCALE * 0.9 }];
+  for (const k of KINDS) if (!k.sol) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
+  rang.forEach((r, i) => {
+    const m = solidWire(r.geo, r.edges, r.mat);
+    m.scale.setScalar(r.ech);
+    m.position.set(-A.largeur / 2 + 9 + Math.floor(i / 3) * 16, 1.2, -A.prof / 2 + 6 + (i % 3) * 9);
+    m.rotation.y = -Math.PI / 2;      // le nez vers la porte
+    g.add(m);
+  });
+  // la table et les tabourets, devant la porte, côté sud
+  const table = paroi(1.6, 0.08, 1.0, 0, 0.78, 0); table.position.set(-A.largeur / 2 - 7, 0, A.prof / 2 + 5);
+  g.add(table);
+  for (const [tx, tz] of [[-1.3, 0], [1.3, 0], [0, 1.1]]) {
+    const tab = paroi(0.42, 0.46, 0.42, 0, 0.23, 0);
+    tab.position.set(table.position.x + tx, 0, table.position.z + tz);
+    g.add(tab);
+  }
+  hangar.table = new THREE.Vector3(A.x + table.position.x, PISTE.y, A.z + table.position.z);
+  // la manche à air : un mât, et un cône qui suit le vent
+  const mat = new THREE.LineSegments(segGeom([0, 0, 0, 0, 7, 0]), matHangar);
+  mat.position.set(-A.largeur / 2 - 4, 0, -A.prof / 2 - 8);
+  g.add(mat);
+  const cone = [];
+  for (let i = 0; i < 8; i++) {
+    const a0 = i / 8 * Math.PI * 2, a1 = (i + 1) / 8 * Math.PI * 2;
+    cone.push(Math.cos(a0) * 0.6, Math.sin(a0) * 0.6, 0, Math.cos(a1) * 0.6, Math.sin(a1) * 0.6, 0);
+    cone.push(Math.cos(a0) * 0.6, Math.sin(a0) * 0.6, 0, Math.cos(a0) * 0.22, Math.sin(a0) * 0.22, 3.2);
+    cone.push(Math.cos(a0) * 0.22, Math.sin(a0) * 0.22, 3.2, Math.cos(a1) * 0.22, Math.sin(a1) * 0.22, 3.2);
+  }
+  hangar.manche = new THREE.LineSegments(segGeom(cone), matHangar);
+  hangar.manche.position.set(mat.position.x, 7, mat.position.z);
+  g.add(hangar.manche);
+  // l'aire à signaux : un carré et le T d'atterrissage, à plat au sol
+  const y = PISTE.y + 0.06, sx = -A.largeur / 2 - 16, sz = -A.prof / 2 - 22, c = 5;
+  const sig = [sx - c, y, sz - c, sx + c, y, sz - c, sx + c, y, sz - c, sx + c, y, sz + c,
+               sx + c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz - c,
+               sx - 2.4, y, sz + 2.6, sx + 2.4, y, sz + 2.6,          // la barre du T
+               sx, y, sz + 2.6, sx, y, sz - 2.8];                      // et sa jambe, vers le nord : on se pose vers là
+  g.add(new THREE.LineSegments(segGeom(sig), matHangar));
+  g.frustumCulled = false;
+  scene.add(g);
+})();
+function updateAerodrome(dt) {
+  // la porte s'ouvre quand on est au sol, se referme quand on vole
+  const veut = (state.auSol || state.pose || state.roulage || state.takeoff || !state.running) ? 1 : 0;
+  hangar.ouverture = THREE.MathUtils.damp(hangar.ouverture, veut, 1.6, dt);
+  hangar.porteG.position.z = -hangar.ouverture * AERO.prof / 2;
+  hangar.porteD.position.z =  hangar.ouverture * AERO.prof / 2;
+  // le vent tourne lentement, et la manche frissonne
+  if (Math.random() < 0.004) hangar.ventCible = Math.random() * Math.PI * 2;
+  hangar.vent = dampAngle(hangar.vent, hangar.ventCible, 0.3, dt);
+  hangar.manche.rotation.set(Math.sin(performance.now() / 300) * 0.08 + 0.35, hangar.vent, 0);
+}
+
 function poserMecanos() {
   mecanos.forEach((m, i) => {
     const [dx, dz] = MECANO_POSTES[i];
-    m.p.set(state.pos.x + dx, PISTE.y, state.pos.z + dz);
-    m.but.copy(m.p);
+    m.repos = false;
+    m.g.rotation.set(0, 0, 0);
+    // ils VIENNENT de la table en courant, ils n'apparaissent pas au moteur
+    m.but.set(state.pos.x + dx, PISTE.y, state.pos.z + dz);
+    if (!m.g.visible) m.p.copy(m.but);
     m.t = Math.random() * 1.5;
     m.fuite = 0;
     m.plaque = undefined;
@@ -3454,8 +3548,18 @@ function poserMecanos() {
 }
 
 function chasserMecanos() {
-  for (const m of mecanos) m.fuite = 0.9;
+  for (const m of mecanos) if (m.g.visible && !m.repos) m.fuite = 0.9;
 }
+// quand il n'y a rien à réparer, ils sont à la table
+function mecanosTable() {
+  mecanos.forEach((m, i) => {
+    m.repos = true; m.g.visible = true; m.mort = false; m.fuite = 0; m.tire = false; m.livre = null;
+    m.caisse.visible = false; m.fusil.visible = false;
+    m.p.copy(hangar.table).add(new THREE.Vector3([-1.3, 1.3, 0][i], 0, [0, 0, 1.1][i]));
+    m.but.copy(m.p); m.g.position.copy(m.p); m.g.rotation.set(0, 0, 0);
+  });
+}
+mecanosTable();
 
 const _mec = new THREE.Vector3();
 
@@ -3482,7 +3586,30 @@ function updateMecanos(dt) {
         m.g.position.copy(m.p);
         m.g.rotation.set(0, m.cote > 0 ? -Math.PI / 2 : Math.PI / 2, 0);
       }
-      if (m.fuite <= 0) { m.g.visible = false; m.plaque = undefined; m.couche = 0; }
+      if (m.fuite <= 0) {
+        // fini de fuir : il rejoint la table, il ne disparaît plus
+        m.plaque = undefined; m.couche = 0; m.repos = true; m.g.rotation.set(0, 0, 0);
+        m.but.copy(hangar.table).add(_mec.set([-1.3, 1.3, 0][mecanos.indexOf(m)], 0, [0, 0, 1.1][mecanos.indexOf(m)]));
+      }
+      continue;
+    }
+    // AU REPOS À LA TABLE. Ils y marchent, s'assoient, et se penchent sur
+    // leurs cartes ; l'un d'eux se lève de temps en temps.
+    if (m.repos) {
+      _v.subVectors(m.but, m.p); _v.y = 0;
+      const d = _v.length();
+      if (d > 0.2) {
+        m.p.addScaledVector(_v.divideScalar(d), Math.min(d, 1.9 * dt));
+        m.g.rotation.y = Math.atan2(_v.x, _v.z);
+        m.g.position.set(m.p.x, m.p.y + Math.abs(Math.sin(performance.now() / 160 + m.cote)) * 0.05, m.p.z);
+        m.g.rotation.z = Math.sin(performance.now() / 320) * 0.04;
+      } else {
+        // assis : le regard vers la table, un balancement lent, une carte jouée
+        m.g.rotation.y = Math.atan2(hangar.table.x - m.p.x, hangar.table.z - m.p.z);
+        m.g.rotation.x = 0.18 + Math.sin(performance.now() / 900 + m.cote * 2) * 0.05;
+        m.g.rotation.z = Math.sin(performance.now() / 700 + m.cote) * 0.03;
+        m.g.position.set(m.p.x, m.p.y - 0.35, m.p.z);
+      }
       continue;
     }
     // LA LIVRAISON. Toutes les quelques secondes au sol, l'un d'eux prend une
@@ -3503,7 +3630,7 @@ function updateMecanos(dt) {
     }
     // marche lente d'un poste à l'autre, avec des pauses : ça bricole
     m.t -= dt;
-    if (m.t <= 0 && !m.livre) {
+    if (m.t <= 0 && !m.livre && d < 12) {
       m.t = 1.2 + Math.random() * 2.4;
       m.but.set(state.pos.x + (Math.random() - 0.5) * 9,
                 PISTE.y,
@@ -3511,13 +3638,19 @@ function updateMecanos(dt) {
     }
     _v.subVectors(m.but, m.p);
     const d = _v.length();
-    if (d > 0.15) {
-      m.p.addScaledVector(_v.divideScalar(d), Math.min(d, 2.1 * dt));
+    const marche = d > 0.15;
+    if (marche) {
+      // loin de l'avion il court, près il marche
+      m.p.addScaledVector(_v.divideScalar(d), Math.min(d, (d > 12 ? 6.5 : 2.1) * dt));
       m.g.rotation.y = Math.atan2(_v.x, _v.z);
     }
-    // un petit balancement, comme quelqu'un qui se penche sur un capot
-    m.g.position.set(m.p.x, m.p.y, m.p.z);
-    m.g.rotation.z = Math.sin(performance.now() / 420 + m.cote) * 0.06;
+    // ORGANIQUE : le pas rebondit, le corps se penche dans la marche, et à
+    // l'arrêt il se courbe sur le capot avec un rythme qui n'est pas celui du voisin
+    const tps = performance.now() / 1000;
+    const rebond = marche ? Math.abs(Math.sin(tps * 7 + m.cote)) * 0.06 : 0;
+    m.g.position.set(m.p.x, m.p.y + rebond, m.p.z);
+    m.g.rotation.x = marche ? 0.08 : 0.14 + Math.sin(tps * 1.1 + m.cote * 1.7) * 0.06;
+    m.g.rotation.z = Math.sin(tps * (marche ? 5 : 1.6) + m.cote) * (marche ? 0.05 : 0.03);
   }
 }
 
@@ -4135,7 +4268,7 @@ function poseAuSol() {
   for (const t of towers) placeTower(t, true);
   for (const a of arches) placeArche(a, true);
   for (const t of tours) placeTour(t, true);
-  poserMecanos();
+  mecanosTable();
   updateDecor();
   feedTracers(playerTracers, []);
   feedTracers(enemyTracers, []);
@@ -4214,7 +4347,6 @@ function resetGame() {
   expliqueBtn.hidden = true;
   plusJamais.hidden = true;
   poseAuSol();
-  chasserMecanos();
   state.takeoff = { t: 0 };
   state.regime = 0;
   state.auSol = false;
@@ -5984,6 +6116,7 @@ function simulate(dt) {
       springCamera(_v, dt, 90, 19, _cv.set(0, 0, 0));
       majFov(dt);
       updateMecanos(dt);
+      updateAerodrome(dt);
       updateDecor();
       state.announceT = Math.max(0, state.announceT - dt);
       refreshBars();
@@ -6442,6 +6575,7 @@ function simulate(dt) {
   updateAmis(dt);
 
   updateDecor(dt);
+  updateAerodrome(dt);
   updateTrainee(dt);
   updateBatiments(dt);
   majSoleil(dt);
