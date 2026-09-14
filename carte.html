@@ -184,6 +184,11 @@ for (const ev of ['pointerup', 'pointercancel']) cv.addEventListener(ev, e => {
   glisse = null; presse = null; dessine();
 });
 cv.addEventListener('wheel', e => { vue.ech *= e.deltaY < 0 ? 1.1 : 0.9; dessine(); }, { passive: true });
+// la pince à deux doigts zoome
+let pince = null;
+cv.addEventListener('touchstart', e => { if (e.touches.length === 2) { glisse = null; pince = { d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY), ech: vue.ech }; } }, { passive: true });
+cv.addEventListener('touchmove', e => { if (pince && e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); vue.ech = Math.max(0.02, Math.min(1, pince.ech * d / pince.d)); dessine(); } }, { passive: true });
+cv.addEventListener('touchend', () => { pince = null; }, { passive: true });
 
 for (const b of document.querySelectorAll('.outil')) b.addEventListener('click', () => {
   outil = b.dataset.outil;

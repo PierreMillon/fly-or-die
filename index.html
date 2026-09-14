@@ -617,7 +617,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.68</button>
+  <button id="versionBtn">v0.69</button>
   <button id="menuBtn">MENU</button>
 </div>
 
@@ -972,6 +972,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.69</b> — pas de collision pendant l'approche, jamais plus de deux tanks debout, et les mécaniciens ne se passent plus le fusil à chaque image.</div>
   <div><b>v0.68</b> — la caméra reste à plat au tonneau et serpente vers le côté de la figure, et la page carte.html permet de dessiner sa propre carte et de l'essayer.</div>
   <div><b>v0.67</b> — les intercepteurs et le gardien tirent des roquettes qu'un tonneau fait décrocher, et les appareils avancés font de même avec les nôtres.</div>
   <div><b>v0.66</b> — la carte est fixe, dix vagues pour entrer dans la légende, la vie qui résiste en baissant, des portails plus nombreux et plus généreux, un atterrissage plus court qui s'engage seul, et plus aucun ennemi qui disparaît.</div>
@@ -3347,14 +3348,18 @@ const HARCELE = 2.6;            // secondes pendant lesquelles l'avion pris a pa
 const _fusil = new THREE.Vector3();
 function mecanoTire(m, dt) {
   m.tire = false;
-  if (!state.pose || m.mort || m.fuite > 0) { m.fusil.visible = false; return; }
+  if (!state.pose || m.mort || m.fuite > 0) { m.fusil.visible = false; m.tenue = 0; return; }
   // AU MOINS UN RÉPARE. Un fusil par avion ennemi à portée, deux au plus, et
   // jamais le dernier homme valide : lui garde la clé à molette.
   const vivants = mecanos.filter(x => !x.mort && x.g.visible);
   const tireurs = vivants.filter(x => x.tire && x !== m).length;
   const enPortee = state.enemies.filter(e => !e.kind.sol && e.pos.distanceTo(m.p) < FUSIL_PORTEE).length;
   const voulus = Math.min(2, enPortee, Math.max(0, vivants.length - 1));
-  if (tireurs >= voulus) { m.fusil.visible = false; return; }
+  // celui qui tirait garde la main une seconde : sans cela, deux hommes se
+  // passaient le fusil à chaque image
+  const enQuota = tireurs < voulus;
+  if (!enQuota && !(m.tenue > 0)) { m.fusil.visible = false; return; }
+  if (enQuota) m.tenue = 1.0; else m.tenue -= dt;
   let cible = null, dMin = FUSIL_PORTEE;
   for (const e of state.enemies) {
     if (e.kind.sol) continue;
@@ -4293,7 +4298,8 @@ function spawnWave() {
   // trois : a ce rythme-la, on pouvait faire dix parties sans en croiser une,
   // et conclure qu'elles n'existaient pas.
   // une pièce au sol une vague sur deux, à partir de la deuxième
-  const tanks = boss ? 0 : (state.wave >= 2 && state.wave % 2 === 0 ? 1 : 0);
+  const tanksDebout = state.enemies.filter(e => e.kind.sol).length;
+  const tanks = boss || tanksDebout >= 2 ? 0 : (state.wave >= 2 && state.wave % 2 === 0 ? 1 : 0);
   for (let i = 0; i < n + escorte + tanks; i++) {
     const auSol = i >= n + escorte;
     const k = auSol ? KINDS[iTank] : i >= n ? KINDS[2] : KINDS[pool[Math.floor(Math.random() * pool.length)]];
@@ -4590,7 +4596,7 @@ function updateEnemies(dt) {
     // rentre cabosse. Dix points de structure, et l'adversaire est abattu comme
     // s'il avait ete descendu, score compris. C'est cher paye pour lui, et
     // c'est bien pourquoi ils s'ecartent maintenant de si loin.
-    if (!K.sol && state.running && !state.pose && !state.roulage && !state.takeoff) {
+    if (!K.sol && state.running && !state.pose && !state.roulage && !state.takeoff && !state.assist) {
       const contact = (ENVERGURE_JOUEUR + K.envergure) * 0.42;
       if (e.pos.distanceTo(state.pos) < contact) {
         spawnBurst(e.pos, 9);
