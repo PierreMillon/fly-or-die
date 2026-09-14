@@ -39,7 +39,7 @@
      défilement, et seule la mince bande de la barre de défilement — qui, elle,
      appartient au panneau lui-même — répondait. */
   #aide, #aide *, #changelog, #changelog *, #viseurs, #viseurs *,
-  #coop, #coop *, #overlay, #overlay *, #menu, #menu *,
+  #coop, #coop *, #overlay, #overlay *, #menu, #menu *, #infos, #infos *,
   #install, #install * { touch-action: pan-y; }
 
   html, body {
@@ -322,7 +322,7 @@
   #menu .puces button i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
   #defiBtn { background: none; border: 1px solid var(--ph-dim); border-radius: 6px; color: var(--ph-text); font-family: inherit; font-size: 11px; letter-spacing: 0.14em; padding: 10px 18px; }
   #defiBtn[hidden] { display: none; }
-  #changelog, #aide, #viseurs, #coop, #install, #menu {
+  #changelog, #aide, #viseurs, #coop, #install, #menu, #infos {
     /* et les panneaux par-dessus tout */
     position: fixed;
     top: calc(38px + env(safe-area-inset-top));
@@ -341,7 +341,12 @@
     line-height: 1.5;
   }
   #changelog[hidden], #aide[hidden], #viseurs[hidden], #coop[hidden],
-  #install[hidden], #menu[hidden] { display: none; }
+  #install[hidden], #menu[hidden], #infos[hidden] { display: none; }
+  #infos h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.14em; font-weight: 500; color: var(--ph-line); }
+  #infos p { margin: 0 0 8px; color: var(--ph-text); }
+  #infos .ligne, #menu .ligne.opt { display: block; width: 100%; margin: 0 0 6px; background: none; border: 1px solid var(--ph-dim); border-radius: 5px; color: var(--ph-text); font-family: inherit; font-size: 11px; letter-spacing: 0.1em; padding: 9px 10px; text-align: left; }
+  #infos .ligne.actif { border-color: var(--ph-line); background: var(--ph-fill); }
+  #infos input { width: 100%; box-sizing: border-box; background: none; border: 1px solid var(--ph-dim); border-radius: 5px; color: var(--ph-text); font-family: inherit; font-size: 13px; letter-spacing: 0.2em; padding: 9px 10px; text-transform: uppercase; }
 
   /* INSTALLATION. Trois pas numérotés, parce qu'aucun navigateur ne sait
      expliquer ça et qu'on ne peut pas le faire à la place du joueur sur iOS :
@@ -636,10 +641,12 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.74</button>
+  <button id="versionBtn">v0.75</button>
   <button id="vagueBtn" hidden data-en="NEXT WAVE · +500">VAGUE SUIVANTE · +500</button>
   <button id="menuBtn">MENU</button>
 </div>
+
+<div id="infos" hidden></div>
 
 <div id="menu" hidden>
   <p class="aide" id="menuEclats"></p>
@@ -652,6 +659,10 @@
   <button class="ligne" id="mTimbre"></button>
   <button class="ligne" id="mInstall" hidden data-en="INSTALL THE GAME">INSTALLER LE JEU</button>
   <button class="ligne" id="mVersion"></button>
+  <button class="ligne" id="mAvance" data-en="ADVANCED MODE · TROPHIES">MODE AVANCÉ · TROPHÉES</button>
+  <button class="ligne" id="mCode" data-en="SECRET CODE">CODE SECRET</button>
+  <button class="ligne" id="mBeta" data-en="NEXT MAP · BETA LIST">PROCHAINE CARTE · LISTE BÊTA</button>
+  <button class="ligne" id="mSansPub" data-en="NO ADS · SOON">SANS PUBLICITÉ · BIENTÔT</button>
   <p class="aide" id="menuTeinteTitre" data-en="AIRCRAFT COLOUR">COULEUR DE L'AVION</p>
   <div class="puces" id="menuTeintes"></div>
   <p class="aide" id="menuTraineeTitre" data-en="TRAIL">TRAÎNÉE</p>
@@ -995,6 +1006,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.75</b> — le mode avancé et ses cinq trophées, les codes secrets et leur HACKER TIME, la liste bêta de la prochaine carte, et le mot sur la publicité.</div>
   <div><b>v0.74</b> — trois trous à figure (le U qui se sort par le toit, le double à combo, la fente à 45° qu'on ne passe qu'en tonneau), et un aérodrome au bord de la piste : le hangar et sa porte coulissante qui montre les avions, la table où les mécaniciens jouent aux cartes, la manche à air et l'aire à signaux ; et des mécaniciens qui marchent comme des hommes.</div>
   <div><b>v0.73</b> — la caméra traîne au décollage et ne saute plus au posé, BRAKING et BRAKES OFF, les coins font les figures, l'avion est plus bas, on monte à 80° et à 2 400 m, le décrochage part en vrille, les roquettes se comptent et les mécaniciens en rapportent, le son suit le nez et les dégâts.</div>
   <div><b>v0.72</b> — LOCKED et WARNING ROCKET à l'écran, roquettes à 50 qu'on esquive aussi à la manœuvre, boost de portail violent et invincible, tanks qui roulent, chasseurs dans le soleil et ailiers en formation, le faucheur pour qui fuit, et VAGUE SUIVANTE +500.</div>
@@ -1216,7 +1228,7 @@ const ROQ_PORTEE    = 750;    // au-delà, on garde ses roquettes
 const ROQ_STOCK     = 6;      // sous les ailes au départ : trois salves, puis il faut se poser
 const DECRO_ALARME  = 0.5;    // secondes trop lent et trop cabré avant l'alarme
 const DECRO_VRILLE  = 1.6;    // ...et avant de partir en vrille
-const VRILLE_SORTIE = 1.2;    // secondes de manche à l'opposé pour en sortir
+const VRILLE_SORTIE = 0.55;   // secondes de manche à l'opposé pour en sortir (le joueur : « trop dur », on a divisé par deux)
 // Une roquette téléguidée n'a pas besoin d'aller vite : elle ne rate pas.
 // Sa lenteur est ce qui la rend lisible — on la voit partir, tourner et
 // arriver, là où à 420 m/s elle disparaissait dans l'image suivante. Trois
@@ -2476,8 +2488,8 @@ function secretsSoleil(dt) {
   const enVol = !state.pose && !state.auSol && !state.takeoff && !state.roulage;
   if (enVol && state.eclipse <= 0 && eblouissement() >= 0.98) {
     state.solDans += dt;
-    if (state.solDans >= DORE_TENUE && state.doreVague !== state.wave) {
-      state.doreVague = state.wave;
+    if (state.solDans >= DORE_TENUE && state.doreVague < 0) {
+      state.doreVague = state.wave;          // une seule fois par partie : le joueur le voyait revenir à chaque vague
       state.dore = DORE_DUREE;
       state.bouclier = BOUCLIER_COUPS;
       announce(t('dore'));
@@ -3305,7 +3317,7 @@ function majPlan() {
   // collimateur — mais il ne decide plus : on voyait le bouton apparaitre sans
   // savoir pourquoi, et disparaitre de meme. La porte, on la voit passer.
   PLAN.pret = state.porteT > 0 && devant && !state.pose && !state.roulage
-            && state.pos.y > PISTE.y + 5 && !defiEst('sansPiste');
+            && state.pos.y > PISTE.y + 5 && !defiEst('sansPiste') && !avance.sansAtterrir;
 }
 
 // les huit feux prennent leur couleur du même calcul que le témoin : ils ne
@@ -4292,6 +4304,7 @@ const state = {
   vrille: null,       // la vrille en cours { t, side, sortie }
   vrilleRoll: 0,
   roquettesN: 6,      // ce qu'il reste sous les ailes
+  triche: null,       // les codes secrets actifs : la partie ne compte plus
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
   chutes: [],
@@ -4472,6 +4485,9 @@ function resetGame() {
   state.stats = statsVides();
   state.bouclierT = 0;
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = ROQ_STOCK;
+  state.triche = null;
+  if (avance.vie50) state.structure = 50;
+  if (tricheEnAttente.legende) { state.wave = 8; tricheEnAttente.legende = false; state.triche = Object.assign(state.triche || {}, { legende: true }); }
   SOLEIL.set(0.669, 0.215, -0.712).normalize();   // le soleil ne bouge plus, et il est bas
   _solCible.copy(SOLEIL);
   state.paused = false;
@@ -4503,14 +4519,14 @@ function statsVides() {
   return { ballesTirees: 0, ballesRecues: 0, ballesEnnemies: 0, roquettesTirees: 0,
            roquettesRecues: 0, roquettesEsquivees: 0, roquettesEnnemies: 0, abattus: 0,
            passages: 0, poses: 0, tempsPose: 0, mecanoAbattus: 0, mecanoBalles: 0,
-           altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0 };
+           altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0, faucheurs: 0 };
 }
 function stat(cle, n) { if (state.stats) state.stats[cle] += (n === undefined ? 1 : n); }
 function texteStats() {
   const S = state.stats; if (!S) return '';
   const fr = langue !== 'en';
   const l = [
-    [fr ? 'temps de vol' : 'flight time', duree(state.dureeVol)],
+    [fr ? 'temps de vol' : 'flight time', dureeFine(state.dureeVol)],
     [fr ? 'abattus' : 'kills', S.abattus],
     [fr ? 'balles tirées / reçues' : 'bullets fired / taken', S.ballesTirees + ' / ' + S.ballesRecues],
     [fr ? 'balles ennemies' : 'enemy bullets', S.ballesEnnemies],
@@ -4518,10 +4534,11 @@ function texteStats() {
     [fr ? 'roquettes reçues / esquivées' : 'rockets taken / dodged', S.roquettesRecues + ' / ' + S.roquettesEsquivees],
     [fr ? 'portails' : 'checkpoints', S.passages],
     [fr ? 'bâtiments abattus' : 'buildings down', S.batiments],
-    [fr ? 'posés · temps au sol' : 'landings · time on ground', S.poses + ' · ' + duree(S.tempsPose)],
+    [fr ? 'posés · temps au sol' : 'landings · time on ground', S.poses + ' · ' + dureeFine(S.tempsPose)],
     [fr ? 'mécaniciens : abattus · balles' : 'mechanics: kills · rounds', S.mecanoAbattus + ' · ' + S.mecanoBalles],
     [fr ? 'altitude max · moyenne' : 'altitude max · mean', Math.round(S.altMax) + ' · ' + Math.round(S.altN ? S.altSomme / S.altN : 0) + ' m'],
     [fr ? 'distance max de la piste' : 'max distance from runway', Math.round(S.distMax) + ' m'],
+    [fr ? 'faucheur lâché' : 'reaper launched', S.faucheurs],
   ];
   return l.map(([k, v]) => k + '  ·  <b>' + v + '</b>').join('<br>');
 }
@@ -4544,10 +4561,55 @@ function lacherFaucheur() {
     burst: 0, burstT: 0, visee: 0, faucheur: true };
   e.pos.y = Math.max(120, e.pos.y);
   state.enemies.push(e);
+  stat('faucheurs');
   announce(t('faucheur'));
   SFX.alerte();
 }
-function marque(n) { state.score += n * (state.defi ? DEFI_FACTEUR : 1); }
+function marque(n) { state.score += n * (state.defi ? DEFI_FACTEUR : 1) * facteurAvance(); }
+
+// ---------------------------------------------------------------------------
+// LE MODE AVANCÉ. Des options qui rendent la partie plus dure et le score plus
+// cher : c'est en ajoutant des contraintes qu'on va chercher les scores
+// qu'aucune partie normale ne donne. Tenir les dix vagues avec une option
+// active rapporte son trophée, au nom d'un aviateur.
+// ---------------------------------------------------------------------------
+const OPTIONS_AVANCE = [
+  { cle: 'vie50',          fr: 'VIE PLAFONNÉE À 50',        en: 'LIFE CAPPED AT 50',      x: 1.3, trophee: 'GUYNEMER' },
+  { cle: 'sansAtterrir',   fr: 'INTERDIT DE SE POSER',      en: 'NO LANDING',             x: 1.25, trophee: 'SAINT-EXUPÉRY' },
+  { cle: 'sansMagnetisme', fr: 'SANS MAGNÉTISME DE VISÉE',  en: 'NO AIM MAGNETISM',       x: 1.4, trophee: 'BARON ROUGE' },
+  { cle: 'sansViseur',     fr: 'SANS RÉTICULE',             en: 'NO RETICLE',             x: 1.2, trophee: 'FONCK' },
+  { cle: 'ennemisForts',   fr: 'ENNEMIS +40 %',             en: 'ENEMIES +40%',           x: 1.3, trophee: 'NUNGESSER' },
+];
+let avance = {};
+try { avance = JSON.parse(localStorage.getItem('fod_avance') || '{}') || {}; } catch (e) {}
+function facteurAvance() { let f = 1; for (const o of OPTIONS_AVANCE) if (avance[o.cle]) f *= o.x; return f; }
+function sauveAvance() { try { localStorage.setItem('fod_avance', JSON.stringify(avance)); } catch (e) {} }
+
+// ---------------------------------------------------------------------------
+// LES CODES SECRETS. On les tape à la main, comme autrefois. Ils ne sont pas
+// écrits ici en clair : seule leur empreinte l'est, pour qu'on se les passe de
+// bouche à oreille. Une partie où un code est actif ne compte ni pour le
+// record ni pour les éclats — c'est un jouet, pas une triche.
+// ---------------------------------------------------------------------------
+const empreinteCode = txt => { let h = 2166136261; for (let i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
+const CODES = {
+  270212071: { cle: 'invincible', fr: 'Votre blindage expérimental vous rend impénétrable.', en: 'Your experimental armour makes you impenetrable.' },
+  2263863777: { cle: 'fantome',    fr: 'Le revêtement furtif vous efface de leurs lunettes.', en: 'The stealth coating erases you from their sights.' },
+  3386668481: { cle: 'munitions',  fr: 'Les soutes ne se vident plus : roquettes à volonté.', en: 'The bays never empty: rockets at will.' },
+  2445673907: { cle: 'legende',    fr: 'On vous croit déjà en vague 9. Prouvez-le.', en: 'They already think you are on wave 9. Prove it.' },
+  1455989737: { cle: 'eclipse',    fr: 'Le soleil s’éteint une minute. Personne n’y voit.', en: 'The sun goes out for a minute. Nobody can see.' },
+};
+const tricheEnAttente = { legende: false };
+function essaieCode(txt) {
+  const c = CODES[empreinteCode(String(txt || '').trim().toUpperCase())];
+  if (!c) return false;
+  state.triche = Object.assign(state.triche || {}, { [c.cle]: true });
+  if (c.cle === 'legende') tricheEnAttente.legende = true;
+  if (c.cle === 'eclipse') state.eclipse = 60;
+  announce('HACKER TIME');
+  SFX.bouclierOn();
+  return langue === 'en' ? c.en : c.fr;
+}
 // LE DÉFI DU JOUR. Une variante par jour, la même pour tout le monde, chaque
 // point vaut une fois et demie. La série compte les jours d'affilée où l'on
 // l'a relevé : chaque jour rend une seconde de bouclier au décollage.
@@ -4659,7 +4721,7 @@ function spawnWave() {
   // d'autant. Jamais sur les deux premières, qui sont la leçon.
   if (defiEst('megaDur')) state.forme = 1; else if (defiEst('facile')) state.forme = -1;
   if (!boss && state.wave > 2) n = Math.max(1, Math.round(n * (1 + 0.18 * state.forme)));
-  const dur = (1 + 0.05 * audela) * (1 + 0.10 * state.forme) * (defiEst('megaDur') ? 1.4 : defiEst('facile') ? 0.7 : 1);
+  const dur = (1 + 0.05 * audela) * (1 + 0.10 * state.forme) * (defiEst('megaDur') ? 1.4 : defiEst('facile') ? 0.7 : 1) * (avance.ennemisForts ? 1.4 : 1);
   const cadence = THREE.MathUtils.clamp((1 - 0.12 * state.forme) * (1 - 0.03 * audela), 0.6, 1.2);
   // à plusieurs, chaque appareil de plus alourdit la vague de moitié
   if (coop.actif) n = Math.round(n * (1 + (COOP_RENFORT - 1) * coop.autres.size));
@@ -5050,7 +5112,7 @@ function updateEnemies(dt) {
     // ZONE SÛRE. Dès que l'approche est engagée et jusqu'à ce que les roues
     // quittent le bitume, personne ne tire sur nous.
     const zoneSure = state.assist || state.roulage || state.pose || state.takeoff;
-    const aligne = !zoneSure && dist < K.portee * (1 - 0.45 * gene)
+    const aligne = !zoneSure && !(state.triche && state.triche.fantome) && dist < K.portee * (1 - 0.45 * gene)
                 && e.forward.dot(_v) > K.cone + (1 - K.cone) * gene * 1.6;
     e.visee = aligne ? e.visee + dt : 0;
     // LOCKED. Dès qu'il tient son alignement assez pour tirer, l'écran le dit,
@@ -5505,6 +5567,7 @@ const RESISTANCE = 1 / 1.3;
 function damagePlayer(amount, source, cause) {
   if (!state.running) return;
   amount *= RESISTANCE;
+  if (state.triche && state.triche.invincible) { state.hitFlash = Math.max(state.hitFlash, 0.3); return; }
   // PLUS ELLE BAISSE, PLUS ELLE TIENT. À pleine vie un point d'attaque coûte
   // un point ; sous dix pour cent il en faut deux. On voit donc venir la fin,
   // au lieu de la découvrir d'un coup.
@@ -5711,7 +5774,7 @@ function updateLock(dt) {
   if (state.roqT <= 0 && best.charge * LOCK_SPOOL >= ROQ_SEUIL && !defiEst('mitrailleuse')
       && best.pos.distanceTo(state.pos) < ROQ_PORTEE && state.roquettesN >= 2) {
     state.roqT = ROQ_RECHARGE;
-    state.roquettesN -= 2;
+    if (!(state.triche && state.triche.munitions)) state.roquettesN -= 2;
     if (state.roquettesN <= 0) announce(t('plusDeRoquettes'));
     for (const g of [GUN_L, GUN_R]) {
       const p = new THREE.Vector3(g.x, g.y, g.z)
@@ -5836,6 +5899,7 @@ function simulate(dt) {
     if (d > S.distMax) S.distMax = d;
   }
   if (state.pose) stat('tempsPose', dt);
+  if (avance.vie50 && state.structure > 50) state.structure = 50;
   // LE FAUCHEUR. Qui s'éloigne trop longtemps du combat — plus de 3,5 km de la
   // piste pendant une minute — est prévenu à mi-chemin, puis un appareil
   // spécial vient le chercher, et il ne rate pas.
@@ -6451,7 +6515,7 @@ function simulate(dt) {
     || (Math.abs(state.pos.x) < PISTE.demiL * 2.6
         && state.pos.z < PISTE.z0 + 320 && state.pos.z > PISTE.z1 - 320
         && state.pos.y < SOL_Y + 70);
-  if (!state.fig && !enFinale) {
+  if (!state.fig && !enFinale && !avance.sansMagnetisme) {
     let cible = null, cAng = 0, cSeuil = 0;
     // LES AMIS AUSSI. En coopération le magnétisme tient un coéquipier comme
     // il tient un adversaire — on peut le suivre — mais rien ne part : le
@@ -6531,8 +6595,9 @@ function simulate(dt) {
       state.yaw += V.side * 2.2 * dt;
       state.pitch = THREE.MathUtils.damp(state.pitch, -1.05, 2.5, dt);
       state.vrilleRoll += V.side * 5 * dt;
-      V.sortie = dx * -V.side > 0.6 ? V.sortie + dt : Math.max(0, V.sortie - dt * 0.5);
-      if (V.t > 1.5 && V.sortie >= VRILLE_SORTIE) {
+      // manche à l'opposé de la rotation, ou franchement poussé : les deux sortent
+      V.sortie = (dx * -V.side > 0.3 || dy > 0.5) ? V.sortie + dt : Math.max(0, V.sortie - dt * 0.5);
+      if (V.t > 0.8 && V.sortie >= VRILLE_SORTIE) {
         state.vrille = null;
         state.vrilleRoll = Math.atan2(Math.sin(state.vrilleRoll), Math.cos(state.vrilleRoll));
         announce(t('sorti')); SFX.cale();
@@ -7098,6 +7163,10 @@ function meshAmi() {
 }
 
 function coopRecoitAvion(m, id) {
+  // chez l'invité tout arrive par le tunnel de l'hôte : c'est le numéro du
+  // joueur dans le message qui distingue les amis, pas la liaison. Sans cela
+  // les deux autres se confondaient et l'on ne voyait qu'un seul ami.
+  if (!coop.hote && m.i !== undefined) id = 'j' + m.i;
   let a = coop.autres.get(id);
   if (!a) { a = { mesh: meshAmi(), pos: new THREE.Vector3(),
                   quat: new THREE.Quaternion(), vie: 100 };
@@ -7435,7 +7504,7 @@ function drawHud() {
     hctx.save();
     hctx.translate(cx, cy);
     hctx.scale(kv, kv);
-    (VISEURS.find(v => v.id === viseurChoisi) || VISEURS[0]).dessin(hctx, ch);
+    if (!avance.sansViseur) (VISEURS.find(v => v.id === viseurChoisi) || VISEURS[0]).dessin(hctx, ch);
     hctx.restore();
     hctx.lineWidth = 1.5 + ch;
 
@@ -8049,6 +8118,11 @@ const duree = sec => {
   return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min'
        : m >= 1 ? m + ' min' : Math.round(sec) + ' s';
 };
+// avec les secondes : pour l'écran de fin, où « 3 min » ne suffit pas
+const dureeFine = sec => {
+  const m = Math.floor(sec / 60), r = Math.round(sec - m * 60);
+  return m >= 1 ? m + ' min ' + String(r).padStart(2, '0') + ' s' : r + ' s';
+};
 
 function texteCarnet() {
   const l = [];
@@ -8188,7 +8262,7 @@ function refreshBars() {
   // le bouclier se compte : un carré par coup encaissable, ou ses secondes
   const bl = document.getElementById('bouclierLbl');
   bl.textContent = state.bouclierT > 0 ? 'SHIELD ' + Math.ceil(state.bouclierT) + 's'
-                 : state.bouclier > 0 ? 'SHIELD ' + '▮'.repeat(Math.min(10, state.bouclier)) : '';
+                 : state.bouclier > 0 ? 'SHIELD ×' + state.bouclier : '';
 
   // POSER ne se montre que quand la piste est devant et lisible, et ne bat que
   // quand on est réellement sur le plan. Un bouton toujours là qu'on ne peut
@@ -8578,6 +8652,56 @@ aideBtn.addEventListener('click', e => { e.stopPropagation(); ouvrirAide(); });
 // tout est dedans : les viseurs, le son, l'aide, la langue, le moteur, les
 // nouveautés, l'installation — et la boutique des éclats.
 // ---------------------------------------------------------------------------
+const panInfos = document.getElementById('infos');
+const CONTACT_MAIL = '';     // l'adresse de la liste bêta : à remplir, sinon le bouton copie le message
+function ouvreInfos(html) { panInfos.innerHTML = html; panInfos.hidden = false; panMenu.hidden = true; majPause(); }
+function panneauAvance() {
+  const fr = langue !== 'en';
+  const lignes = OPTIONS_AVANCE.map(o => '<button class="ligne' + (avance[o.cle] ? ' actif' : '') + '" data-opt="' + o.cle + '">'
+    + (fr ? o.fr : o.en) + '  ·  ×' + o.x + (carnet.trophees && carnet.trophees[o.cle] ? '  ·  ★ ' + o.trophee : '  ·  ' + (fr ? 'trophée ' : 'trophy ') + o.trophee) + '</button>').join('');
+  ouvreInfos('<h3>' + (fr ? 'MODE AVANCÉ' : 'ADVANCED MODE') + '</h3><p>' + (fr
+    ? 'Chaque option rend la partie plus dure et multiplie le score. Tenir les dix vagues avec une option active rapporte son trophée. Multiplicateur actuel : <b>×' + facteurAvance().toFixed(2) + '</b>.'
+    : 'Each option makes the game harder and multiplies the score. Hold ten waves with an option on to earn its trophy. Current multiplier: <b>×' + facteurAvance().toFixed(2) + '</b>.') + '</p>' + lignes);
+  for (const b of panInfos.querySelectorAll('[data-opt]')) b.addEventListener('click', e => {
+    e.stopPropagation(); avance[b.dataset.opt] = !avance[b.dataset.opt]; sauveAvance(); panneauAvance();
+  });
+}
+function panneauCode() {
+  const fr = langue !== 'en';
+  ouvreInfos('<h3>' + (fr ? 'CODE SECRET' : 'SECRET CODE') + '</h3><p>' + (fr
+    ? 'Tape un code. Personne ne te le donnera ici : il faut se parler. Une partie sous code ne compte ni pour le record ni pour les éclats.'
+    : 'Type a code. Nobody will hand it to you here: people have to talk. A coded game counts for neither the record nor the shards.')
+    + '</p><input id="codeSaisie" autocomplete="off" autocapitalize="characters"><p id="codeRetour" class="aide"></p><button class="ligne" id="codeValider">' + (fr ? 'VALIDER' : 'ENTER') + '</button>');
+  const val = () => {
+    const r = essaieCode(document.getElementById('codeSaisie').value);
+    document.getElementById('codeRetour').textContent = r ? 'HACKER TIME  ·  ' + r : (fr ? 'Rien ne se passe.' : 'Nothing happens.');
+    if (r) carnet.codes = (carnet.codes || 0) + 1;
+  };
+  document.getElementById('codeValider').addEventListener('click', e => { e.stopPropagation(); val(); });
+  document.getElementById('codeSaisie').addEventListener('keydown', e => { if (e.key === 'Enter') val(); });
+}
+function panneauBeta() {
+  const fr = langue !== 'en';
+  carnet.interetBeta = (carnet.interetBeta || 0) + 1; sauveCarnet();
+  ouvreInfos('<h3>' + (fr ? 'LA PROCHAINE CARTE' : 'THE NEXT MAP') + '</h3><p>' + (fr
+    ? 'Un deuxième chapitre est en préparation : un autre terrain, un avion plus rapide, des leurres contre les roquettes, des cibles au sommet des tours. Si tu veux le tester avant tout le monde et donner ton avis, inscris-toi sur la liste d’attente. Quand elle est pleine, tu es ajouté dès qu’une place se libère.'
+    : 'A second chapter is in the works: another ground, a faster aircraft, decoys against rockets, targets on top of the towers. To test it before everyone and have your say, join the waiting list. When it is full you are added as soon as a seat frees up.')
+    + '</p><button class="ligne" id="betaInscrire">' + (fr ? 'M’INSCRIRE SUR LA LISTE' : 'JOIN THE LIST') + '</button><p id="betaRetour" class="aide"></p>');
+  document.getElementById('betaInscrire').addEventListener('click', async e => {
+    e.stopPropagation();
+    const sujet = 'Fly or Die — liste bêta', corps = fr ? 'Je veux tester la prochaine carte.' : 'I want to test the next map.';
+    if (CONTACT_MAIL) { location.href = 'mailto:' + CONTACT_MAIL + '?subject=' + encodeURIComponent(sujet) + '&body=' + encodeURIComponent(corps); return; }
+    try { await navigator.clipboard.writeText(sujet + ' — ' + corps); } catch (err) {}
+    document.getElementById('betaRetour').textContent = fr ? 'L’adresse arrive bientôt. Le message est copié, garde-le sous le coude.' : 'The address is coming soon. The message is copied, keep it handy.';
+  });
+}
+function panneauSansPub() {
+  const fr = langue !== 'en';
+  carnet.interetSansPub = (carnet.interetSansPub || 0) + 1; sauveCarnet();
+  ouvreInfos('<h3>' + (fr ? 'SANS PUBLICITÉ' : 'NO ADS') + '</h3><p>' + (fr
+    ? 'Le jeu est en bêta : il n’y a pas encore de publicité, donc rien à retirer. Quand il y en aura, un achat unique et bon marché les enlèvera pour toujours. Ton intérêt est noté ici, sur ton appareil seulement.'
+    : 'The game is in beta: there are no ads yet, so nothing to remove. When there are, a single cheap purchase will remove them for good. Your interest is noted here, on your device only.') + '</p>');
+}
 const panMenu = document.getElementById('menu');
 const menuBtn = document.getElementById('menuBtn');
 const vagueBtn = document.getElementById('vagueBtn');
@@ -8628,12 +8752,16 @@ menuBtn.addEventListener('click', e => {
   e.stopPropagation();
   audioDemarre();
   panMenu.hidden = !panMenu.hidden;
-  aide.hidden = true; changelog.hidden = true; panViseurs.hidden = true;
+  aide.hidden = true; changelog.hidden = true; panViseurs.hidden = true; panInfos.hidden = true;
   if (!panMenu.hidden) majMenu();
   majPause();
 });
 document.getElementById('mViseurs').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); viseurBtn.click(); });
 document.getElementById('mCoop').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); coopBtn.click(); });
+document.getElementById('mAvance').addEventListener('click', e => { e.stopPropagation(); panneauAvance(); });
+document.getElementById('mCode').addEventListener('click', e => { e.stopPropagation(); panneauCode(); });
+document.getElementById('mBeta').addEventListener('click', e => { e.stopPropagation(); panneauBeta(); });
+document.getElementById('mSansPub').addEventListener('click', e => { e.stopPropagation(); panneauSansPub(); });
 document.getElementById('mDefi').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); if (!state.running) decolle(true); });
 document.getElementById('mSon').addEventListener('click', e => { e.stopPropagation(); sonBtn.click(); majMenu(); });
 document.getElementById('mAide').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); ouvrirAide(true); });
@@ -8691,7 +8819,7 @@ function majPause() {
   // en coopération le monde ne s'arrête pas : les autres continuent de voler
   state.paused = !coop.actif
     && (!aide.hidden || !changelog.hidden || !panViseurs.hidden || !panCoop.hidden
-        || !panInstall.hidden || !panMenu.hidden);
+        || !panInstall.hidden || !panMenu.hidden || !panInfos.hidden);
 }
 
 document.addEventListener('pointerdown', e => {
@@ -8703,6 +8831,9 @@ document.addEventListener('pointerdown', e => {
   }
   if (!panViseurs.hidden && !panViseurs.contains(e.target) && e.target !== viseurBtn) {
     panViseurs.hidden = true;
+  }
+  if (!panInfos.hidden && !panInfos.contains(e.target) && e.target !== menuBtn) {
+    panInfos.hidden = true;
   }
   if (!panMenu.hidden && !panMenu.contains(e.target) && e.target !== menuBtn) {
     panMenu.hidden = true;
@@ -8916,8 +9047,8 @@ function legende() {
 
 function gameOver(victoire) {
   state.running = false;
-  const battuScore = Math.floor(state.score) > record.score;
-  const battuVague = state.wave > record.vague;
+  const battuScore = !state.triche && Math.floor(state.score) > record.score;
+  const battuVague = !state.triche && state.wave > record.vague;
   if (battuScore) record.score = Math.floor(state.score);
   if (battuVague) record.vague = state.wave;
   if (battuScore || battuVague) sauveRecord();
@@ -8933,7 +9064,11 @@ function gameOver(victoire) {
   if (state.defi) carnet.defis = (carnet.defis || 0) + 1;
   sauveCarnet();
   // les éclats de la partie
-  const gagnes = Math.floor(state.score / ECLAT_PAR_POINTS);
+  const gagnes = state.triche ? 0 : Math.floor(state.score / ECLAT_PAR_POINTS);
+  if (victoire && !state.triche) {
+    carnet.trophees = carnet.trophees || {};
+    for (const o of OPTIONS_AVANCE) if (avance[o.cle] && !carnet.trophees[o.cle]) { carnet.trophees[o.cle] = true; state.nouveauxTrophees = (state.nouveauxTrophees || []).concat(o.trophee); }
+  }
   eclats += gagnes;
   sauveEclats();
   state.eclatsGagnes = gagnes;
@@ -8961,7 +9096,10 @@ function gameOver(victoire) {
     + (state.recordBattu ? '<br><b>' + t('nouveauRecord') + '</b>' : '')
     + '<br>' + t('recordMot') + String(record.score).padStart(6, '0')
     + '  ·  ' + t('vague') + record.vague
-    + (state.eclatsGagnes ? '<br>+' + state.eclatsGagnes + (langue === 'en' ? ' SHARDS' : ' ÉCLATS') : '');
+    + (state.eclatsGagnes ? '<br>+' + state.eclatsGagnes + (langue === 'en' ? ' SHARDS' : ' ÉCLATS') : '')
+    + (state.triche ? '<br>' + (langue === 'en' ? 'HACKER TIME · NOT COUNTED' : 'HACKER TIME · PARTIE NON COMPTÉE') : '')
+    + (state.nouveauxTrophees && state.nouveauxTrophees.length ? '<br><b>' + (langue === 'en' ? 'TROPHY · ' : 'TROPHÉE · ') + state.nouveauxTrophees.join(' · ') + '</b>' : '');
+  state.nouveauxTrophees = [];
   startBtn.textContent = t('redecoller');
   defiBtn.hidden = true;                 // le défi se lance depuis l'accueil, pas depuis l'épave
   document.getElementById('objectif').hidden = true;
@@ -9114,7 +9252,7 @@ window.addEventListener('touchmove', e => {
   // bien le défilement, et cette ligne le reprenait aussitôt : le panneau
   // s'arrêtait à la ligne de flottaison, exactement le défaut corrigé en v0.37
   // pour les trois autres. Une liste d'exceptions est une dette : on l'oublie.
-  if (el && el.closest('#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu')) return;
+  if (el && el.closest('#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu, #infos')) return;
   e.preventDefault();
 }, { passive: false });
 

@@ -435,6 +435,66 @@ invités remontent leurs dégâts aux bâtiments. Mesuré par messages simulés 
 ennemi 42 → 0 pv sous le tir d'un invité, bâtiment 90 → 60 → effondré.
 Il a choisi de garder le double tap pour le tonneau, pas de bouton.
 
+## La liste du 14 septembre (soir) → v0.71 à v0.75
+
+Tout est fait sauf ce qui est noté « à faire ». Mesuré à chaque fois.
+
+- v0.71 : mort sous un point (l'affichage arrondit vers le haut) ; la vague
+  ne passe que quand TOUT est mort, tanks compris (c'est aussi le mode
+  « je garde un tank pour me promener ») ; redécollage automatique à 100 %
+  seulement ; roquettes après 1 s de verrouillage et sous 750 m ; WAVE puis
+  SCORE, sans zéros ; vie et chiffres cachés hors vol ; TAKE OFF pleine
+  largeur ; texte sur deux lignes ; menus défilants (#menu manquait aux
+  exceptions) ; AGAIN ; vidéo en premier, 3 max, comptée, message bêta ;
+  coop dans le menu ; DÉFI DU JOUR à sept variantes tirées de la date
+  (vague 5, roquettes seules, mitrailleuse seule, sans piste, sans bonus,
+  méga dur, facile) ; série = 1 s de bouclier chronométré par jour, écrite
+  avec le calcul ; l'objectif du jour a disparu ; écran de fin en chiffres.
+- v0.72 : LOCKED · ROLL!, WARNING ROCKET · ROLL! ROLL!, roquettes 50 (38,5
+  après résistance), esquive au tonneau ou à la manœuvre (ROCKET DODGED),
+  la roquette perdue file devant, toujours plus vite que nous ; boost de
+  portail ×3,4 immédiat et invincible face aux ennemis ; PAPI dans l'axe
+  seulement ; bouclier compté ; vie sans plafond ; soleil à 12,4° ; dégâts
+  radiaux ; vibration (cadran, caméra, téléphone) à l'accroche tenue ; les
+  ennemis s'écartent dès 42 m et voient venir ; chasseurs par le soleil,
+  intercepteurs qui montent puis piquent, drones et intercepteurs en paire ;
+  le Faucheur après 60 s à plus de 3,5 km (alerte à 40 s) ; premier ennemi
+  devant une arche ; tanks à 28 m/s qui poursuivent ; fusils levés vers
+  l'avion ; VAGUE SUIVANTE +500 ; le suivant hérite de la charge ;
+  magnétisme sur les coéquipiers sans tir.
+- v0.73 : caméra amortie au décollage (écran : 0,47–0,66 de la hauteur) et
+  ressort de vol au posé ; 1,4 s de roulage ; BRAKING / BRAKES OFF ; coins =
+  figures (bas : Split-S, haut : Immelmann, côtés : tonneau), mesuré ;
+  avion plus bas (0,57) ; 80°, 2 400 m ; décrochage (0,5 s d'alarme, 1,6 s
+  → vrille, sortie 0,55 s au manche opposé ou poussé : « trop dur » corrigé
+  le soir même) ; six roquettes, livrées par caisse au sol ; son plus aigu en
+  piqué, rugueux avec les dégâts, roquette plus grave ; rayon avant tir.
+- v0.74 : aérodrome (hangar, porte coulissante ouverte au sol, six avions
+  dedans, table et tabourets, manche à air, aire à signaux) ; mécaniciens à
+  la table qui courent à l'avion au posé, pas rebondissant, penchés ; trois
+  trous à figure : le U (entrée basse, sortie par le toit, +100), le double
+  (combo ×2 sous 4 s), la fente à 45° (7 m de large : ne passe qu'en tonneau
+  au bon moment, bouts d'aile compris ; mesuré : passe de −24° à −64° de
+  roulis, tape ailleurs). Trouvé au passage : depuis v0.66, traverser une
+  tour percée jetait une erreur (le `t` de la boucle masquait la fonction de
+  traduction) — corrigé.
+- v0.75 : mode avancé (vie 50 ×1,3 GUYNEMER, sans se poser ×1,25
+  SAINT-EXUPÉRY, sans magnétisme ×1,4 BARON ROUGE, sans réticule ×1,2 FONCK,
+  ennemis +40 % ×1,3 NUNGESSER ; trophée en tenant les dix vagues) ; codes
+  secrets à empreinte (HACKER TIME, partie non comptée) ; liste bêta
+  (adresse CONTACT_MAIL à remplir) ; mot sur la publicité ; coop testée à
+  TROIS joueurs en vrai WebRTC (deux liaisons par l'interface, monde reçu,
+  tir d'un invité qui abat chez l'hôte) — et corrigé : les invités ne
+  voyaient qu'un seul ami (clé de liaison au lieu du numéro de joueur).
+- Corrigés sur ses messages du soir : sortie de vrille, bouclier doré une
+  seule fois par partie, temps de vol avec les secondes, faucheurs comptés,
+  bouclier en « ×10 » pour ne plus déborder sur iPhone 16.
+
+À faire :
+- Leurres contre les roquettes et deuxième avion (chapitre 2).
+- L'adresse de la liste bêta, et la régie / le paiement.
+- Les questions du tonneau (quiz envoyé).
+
 ## À vérifier avec lui
 
 - Le verrouillage de très près : non démontré corrigé (23/80 → 24/80
