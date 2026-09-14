@@ -39,7 +39,7 @@
      défilement, et seule la mince bande de la barre de défilement — qui, elle,
      appartient au panneau lui-même — répondait. */
   #aide, #aide *, #changelog, #changelog *, #viseurs, #viseurs *,
-  #coop, #coop *, #overlay, #overlay *,
+  #coop, #coop *, #overlay, #overlay *, #menu, #menu *,
   #install, #install * { touch-action: pan-y; }
 
   html, body {
@@ -593,10 +593,17 @@
     border-radius: 6px;
     color: var(--ph-text);
     font-family: inherit;
-    font-size: 13px;
-    letter-spacing: 0.2em;
-    padding: 12px 26px;
+    font-size: 15px;
+    letter-spacing: 0.24em;
+    padding: 16px 26px;
+    width: min(92vw, 460px);
   }
+  #coopBtn { display: none; }
+  #stats { margin: 6px 0 0; font-size: 11px; color: var(--ph-dim); letter-spacing: 0.06em; line-height: 1.7; text-align: left; }
+  #stats b { color: var(--ph-text); font-weight: 500; }
+  #stats[hidden] { display: none; }
+  /* à l'accueil et à la fin, ni vie ni chiffres : ils n'apparaissent qu'en vol */
+  body.accueil #bottombar, body.accueil #topbar .chiffre { visibility: hidden; }
 </style>
 </head>
 <body>
@@ -607,23 +614,25 @@
 <button id="redecoBtn" hidden data-en="TAKE OFF AGAIN">REDÉCOLLER</button>
 <button id="poserBtn" hidden data-en="LAND">POSER</button>
 <button id="installPastille" hidden data-en="INSTALL · NO NETWORK NEEDED">INSTALLER · SANS RÉSEAU</button>
-<button id="majPastille" hidden data-en="NEW VERSION · RELOAD">NOUVELLE VERSION · RECHARGER</button>
+<button id="majPastille" hidden data-en="ONE CLICK FREE UPDATE">MISE À JOUR GRATUITE EN UN CLIC</button>
 
 <div id="topbar">
-  <span id="scoreLbl">000000</span>
-  <span id="waveLbl" class="dim">V1</span>
-  <span id="chronoLbl" class="dim"></span>
+  <span id="waveLbl" class="chiffre">WAVE 0</span>
+  <span id="scoreLbl" class="chiffre dim">SCORE 0</span>
+  <span id="chronoLbl" class="chiffre dim"></span>
   <span class="spacer"></span>
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.70</button>
+  <button id="versionBtn">v0.71</button>
   <button id="menuBtn">MENU</button>
 </div>
 
 <div id="menu" hidden>
   <p class="aide" id="menuEclats"></p>
   <button class="ligne" id="mViseurs" data-en="SIGHTS">VISEURS</button>
+  <button class="ligne" id="mCoop" data-en="CO-OP · UP TO TEN">COOP · JUSQU'À DIX</button>
+  <button class="ligne" id="mDefi" hidden></button>
   <button class="ligne" id="mSon"></button>
   <button class="ligne" id="mAide" data-en="HELP AND FLIGHT LOG">AIDE ET CARNET</button>
   <button class="ligne" id="mLangue"></button>
@@ -972,6 +981,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.71</b> — on meurt vraiment à zéro, une vague ne passe que quand tout est mort, le défi du jour change chaque jour et la série rend du bouclier, l'écran de fin dit tout en chiffres.</div>
   <div><b>v0.70</b> — en coop les invités blessent enfin les ennemis, voient tomber les mêmes bâtiments et les mêmes roquettes, et sont prévenus si leur carte diffère.</div>
   <div><b>v0.69</b> — pas de collision pendant l'approche, jamais plus de deux tanks debout, et les mécaniciens ne se passent plus le fusil à chaque image.</div>
   <div><b>v0.68</b> — la caméra reste à plat au tonneau et serpente vers le côté de la figure, et la page carte.html permet de dessiner sa propre carte et de l'essayer.</div>
@@ -1055,15 +1065,16 @@
   <h1>FLY OR DIE</h1>
   <p id="overlayText"></p>
   <p id="overlayScore" hidden></p>
-  <p id="objectif" hidden></p>
-  <button id="startBtn" data-en="TAKE OFF">DÉCOLLER</button>
-  <button id="defiBtn" data-en="CHALLENGE · WAVE 5 · ×1.5">DÉFI · VAGUE 5 · ×1,5</button>
-  <button id="partageBtn" hidden data-en="SHARE THE SCORE">PARTAGER LE SCORE</button>
   <button id="videoBtn" hidden data-en="WATCH A VIDEO · CONTINUE">REGARDER UNE VIDÉO · REPRENDRE</button>
+  <button id="startBtn" data-en="TAKE OFF">DÉCOLLER</button>
+  <button id="defiBtn">DÉFI DU JOUR</button>
+  <p id="objectif" hidden></p>
+  <button id="partageBtn" hidden data-en="SHARE THE SCORE">PARTAGER LE SCORE</button>
   <button id="coopBtn" data-en="CO-OP">COOP</button>
   <button id="installBtn" hidden data-en="INSTALL THE GAME">INSTALLER LE JEU</button>
   <button id="expliqueBtn" hidden data-en="NEED AN EXPLANATION?">BESOIN D'EXPLICATIONS ?</button>
   <label id="plusJamais" hidden><input type="checkbox" id="plusJamaisCase"> <span data-en="don't show again">ne plus afficher</span></label>
+  <p id="stats" hidden></p>
 </div>
 
 <script>
@@ -1183,7 +1194,8 @@ const SHOT_RATE     = 0.075;  // secondes entre deux salves
 // parce qu'il fallait une seconde de verrouillage CONTINU, et qu'un doigt ne
 // la tient jamais — la charge retombe au premier tremblement. Une demi-seconde
 // suffit a dire qu'on tenait bien la cible.
-const ROQ_SEUIL     = 0.5;    // secondes de verrouillage avant le départ
+const ROQ_SEUIL     = 1.0;    // secondes de verrouillage avant le départ
+const ROQ_PORTEE    = 750;    // au-delà, on garde ses roquettes
 // Une roquette téléguidée n'a pas besoin d'aller vite : elle ne rate pas.
 // Sa lenteur est ce qui la rend lisible — on la voit partir, tourner et
 // arriver, là où à 420 m/s elle disparaissait dans l'image suivante. Trois
@@ -3267,7 +3279,7 @@ function majPlan() {
   // collimateur — mais il ne decide plus : on voyait le bouton apparaitre sans
   // savoir pourquoi, et disparaitre de meme. La porte, on la voit passer.
   PLAN.pret = state.porteT > 0 && devant && !state.pose && !state.roulage
-            && state.pos.y > PISTE.y + 5;
+            && state.pos.y > PISTE.y + 5 && !defiEst('sansPiste');
 }
 
 // les huit feux prennent leur couleur du même calcul que le témoin : ils ne
@@ -3385,8 +3397,9 @@ function mecanoTire(m, dt) {
     dir.x += (Math.random() - 0.5) * 0.04; dir.y += (Math.random() - 0.5) * 0.04; dir.z += (Math.random() - 0.5) * 0.04;
     state.shots.push({ pos: bouche, dir: dir.normalize(), t: 0 });
     SFX.fusil();
+    stat('mecanoBalles');
   }
-  if (cible.hp <= 0) { spawnBurst(cible.pos, 9); SFX.detruit(cible.pos); abattre(cible); }
+  if (cible.hp <= 0) { spawnBurst(cible.pos, 9); SFX.detruit(cible.pos); stat('mecanoAbattus'); abattre(cible); }
 }
 
 // les postes de travail : deux à hauteur de nacelle, un devant le nez
@@ -3711,6 +3724,7 @@ function effondrer(b, distant) {
   b.chute = BAT_CHUTE;
   b.hp = 0;
   if (!distant) {           // l'invité ne marque pas : c'est l'hôte qui compte
+    stat('batiments');
     marque(BAT_PRIME);
     objCompte('batiments');
     announce(t('effondre') + BAT_PRIME);
@@ -3981,6 +3995,8 @@ const state = {
   solDans: 0,         // secondes tenues le nez dans le disque
   etoileT: 0,         // repos avant la prochaine étoile filante
   forme: 0,           // -1 en difficulté, +1 en pleine forme : la courbe s'y adapte
+  stats: null,        // les compteurs de la partie, pour l'écran de fin
+  bouclierT: 0,       // secondes de bouclier chronométré (la série du défi)
   defi: false,        // parti de la vague 5, chaque point vaut une fois et demie
   objN: 0,            // avancement de l'objectif du jour dans cette partie
   vagueTouche: false,
@@ -4172,6 +4188,8 @@ function resetGame() {
   state.eclipse = 0; state.solTir = 0; state.dore = 0; state.doreVague = -1; state.solDans = 0;
   state.etoileT = 0;
   state.forme = 0; state.objN = 0; state.defi = false;
+  state.stats = statsVides();
+  state.bouclierT = 0;
   SOLEIL.set(0.62, 0.42, -0.66).normalize();   // le soleil ne bouge plus : il a fait un tour, il revient
   _solCible.copy(SOLEIL);
   state.paused = false;
@@ -4197,11 +4215,59 @@ function resetGame() {
 
 function announce(txt) { state.announce = txt; state.announceT = 2.2; }
 
+// LES COMPTEURS. Tout ce qu'une partie produit de chiffrable, pour ceux qui
+// veulent progresser : ils lisent l'écran de fin comme un carnet de bord.
+function statsVides() {
+  return { ballesTirees: 0, ballesRecues: 0, ballesEnnemies: 0, roquettesTirees: 0,
+           roquettesRecues: 0, roquettesEsquivees: 0, roquettesEnnemies: 0, abattus: 0,
+           passages: 0, poses: 0, tempsPose: 0, mecanoAbattus: 0, mecanoBalles: 0,
+           altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0 };
+}
+function stat(cle, n) { if (state.stats) state.stats[cle] += (n === undefined ? 1 : n); }
+function texteStats() {
+  const S = state.stats; if (!S) return '';
+  const fr = langue !== 'en';
+  const l = [
+    [fr ? 'temps de vol' : 'flight time', duree(state.dureeVol)],
+    [fr ? 'abattus' : 'kills', S.abattus],
+    [fr ? 'balles tirées / reçues' : 'bullets fired / taken', S.ballesTirees + ' / ' + S.ballesRecues],
+    [fr ? 'balles ennemies' : 'enemy bullets', S.ballesEnnemies],
+    [fr ? 'roquettes tirées' : 'rockets fired', S.roquettesTirees],
+    [fr ? 'roquettes reçues / esquivées' : 'rockets taken / dodged', S.roquettesRecues + ' / ' + S.roquettesEsquivees],
+    [fr ? 'portails' : 'checkpoints', S.passages],
+    [fr ? 'bâtiments abattus' : 'buildings down', S.batiments],
+    [fr ? 'posés · temps au sol' : 'landings · time on ground', S.poses + ' · ' + duree(S.tempsPose)],
+    [fr ? 'mécaniciens : abattus · balles' : 'mechanics: kills · rounds', S.mecanoAbattus + ' · ' + S.mecanoBalles],
+    [fr ? 'altitude max · moyenne' : 'altitude max · mean', Math.round(S.altMax) + ' · ' + Math.round(S.altN ? S.altSomme / S.altN : 0) + ' m'],
+    [fr ? 'distance max de la piste' : 'max distance from runway', Math.round(S.distMax) + ' m'],
+  ];
+  return l.map(([k, v]) => k + '  ·  <b>' + v + '</b>').join('<br>');
+}
+
 // LE DÉFI. On part de la vague 5 — le premier gardien — et chaque point vaut
 // une fois et demie. Pas une autre partie : la même, prise plus haut, pour
 // qui n'a plus rien à apprendre des quatre premières vagues.
 const DEFI_VAGUE = 5, DEFI_FACTEUR = 1.5;
 function marque(n) { state.score += n * (state.defi ? DEFI_FACTEUR : 1); }
+// LE DÉFI DU JOUR. Une variante par jour, la même pour tout le monde, chaque
+// point vaut une fois et demie. La série compte les jours d'affilée où l'on
+// l'a relevé : chaque jour rend une seconde de bouclier au décollage.
+const DEFIS = [
+  { cle: 'vague5',       fr: 'DÉPART VAGUE 5',         en: 'START AT WAVE 5' },
+  { cle: 'roquettes',    fr: 'ROQUETTES SEULES',       en: 'ROCKETS ONLY' },
+  { cle: 'mitrailleuse', fr: 'MITRAILLEUSE SEULE',     en: 'GUNS ONLY' },
+  { cle: 'sansPiste',    fr: 'SANS PISTE',             en: 'NO RUNWAY' },
+  { cle: 'sansBonus',    fr: 'SANS BONUS DE VIE',      en: 'NO LIFE BONUS' },
+  { cle: 'megaDur',      fr: 'MÉGA DUR',               en: 'MEGA HARD' },
+  { cle: 'facile',       fr: 'FACILE',                 en: 'EASY' },
+];
+function defiDuJour() {
+  const j = jourISO();
+  let h = 2166136261;
+  for (let i = 0; i < j.length; i++) { h ^= j.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return DEFIS[(h >>> 4) % DEFIS.length];
+}
+function defiEst(cle) { return state.defi && state.defi.type === cle; }
 
 // Ce qu'on gagne à nettoyer une vague dépend de la manière. Deux exigences
 // indépendantes : la tenir dans le chrono, et n'être pas touché une seule
@@ -4291,8 +4357,9 @@ function spawnWave() {
   // LA COURBE S'ADAPTE. Une vague nette après l'autre, l'effectif grossit
   // d'un cinquième ; des vagues arrachées la peau sur les os, il maigrit
   // d'autant. Jamais sur les deux premières, qui sont la leçon.
+  if (defiEst('megaDur')) state.forme = 1; else if (defiEst('facile')) state.forme = -1;
   if (!boss && state.wave > 2) n = Math.max(1, Math.round(n * (1 + 0.18 * state.forme)));
-  const dur = (1 + 0.05 * audela) * (1 + 0.10 * state.forme);
+  const dur = (1 + 0.05 * audela) * (1 + 0.10 * state.forme) * (defiEst('megaDur') ? 1.4 : defiEst('facile') ? 0.7 : 1);
   const cadence = THREE.MathUtils.clamp((1 - 0.12 * state.forme) * (1 - 0.03 * audela), 0.6, 1.2);
   // à plusieurs, chaque appareil de plus alourdit la vague de moitié
   if (coop.actif) n = Math.round(n * (1 + (COOP_RENFORT - 1) * coop.autres.size));
@@ -4629,6 +4696,7 @@ function updateEnemies(dt) {
         dir.z += (Math.random() - 0.5) * 0.14; dir.normalize();
       }
       state.bullets.push({ pos: e.pos.clone(), dir, t: 0 });
+      stat('ballesEnnemies');
     };
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
     // être bien mieux aligné : c'est tout l'intérêt d'attaquer avec le soleil
@@ -4655,6 +4723,7 @@ function updateEnemies(dt) {
       e.roqCd = ROQ_E_RECHARGE;
       state.roqEnnemies.push({ pos: e.pos.clone(), dir: _v.clone().negate(), t: 0, fum: 0, perdue: false });
       state.alerte = 2.2;
+      stat('roquettesEnnemies');
       announce(t('alerte'));
       SFX.alerte();
     }
@@ -4718,6 +4787,7 @@ function abattre(e) {
   if (state.lock === e) { state.lock = null; state.lockCharge = 0; }
   marque(100 + state.wave * 10);
   objCompte('abattus');
+  stat('abattus');
   const avant = state.chauffe;
   state.chauffe = Math.min(CHAUFFE_MAX, state.chauffe + CHAUFFE_PAR);
   if (avant <= 0) SFX.chauffe();
@@ -5016,6 +5086,7 @@ function updateBullets(dt) {
       // pas sur le point d'impact : au contact les deux se confondent et
       // l'écran ne saurait plus de quel côté s'allumer
       damagePlayer(7, _impactSrc.copy(state.pos).addScaledVector(b.dir, -40), 'balles');
+      stat('ballesRecues');
       continue;
     }
     // LES HOMMES AU SOL NE SONT PLUS DU DÉCOR. Se poser sous le feu n'était
@@ -5081,6 +5152,8 @@ function damagePlayer(amount, source, cause) {
   if (cause) noteDegat(cause, amount);
   noteImpact(source);
 
+  // le bouclier de la série : tant qu'il dure, rien ne passe
+  if (state.bouclierT > 0) { state.hitFlash = Math.max(state.hitFlash, 0.4); SFX.bouclier(); return; }
   // le bouclier encaisse, coup par coup, puis s'évapore
   if (state.bouclier > 0) {
     state.bouclier--;
@@ -5094,7 +5167,10 @@ function damagePlayer(amount, source, cause) {
   state.structure -= amount;
   state.hitFlash = 1;
   SFX.touche();
-  if (state.structure <= 0) {
+  // MORT SOUS UN POINT. L'affichage arrondissait 0,4 à « 0 % » et l'on volait
+  // encore : on meurt dès que la structure passe sous un point, et la jauge
+  // arrondit toujours vers le haut.
+  if (state.structure < 1) {
     state.structure = 0;
     gameOver();
   }
@@ -5240,7 +5316,8 @@ function updateLock(dt) {
   // DERRIÈRE UN BÂTIMENT. Le viseur tient, la charge monte, mais les balles
   // s'arrêtent sur le mur : c'est lui qui encaisse, jusqu'à tomber.
   const mur = obstacleEntre(state.pos, best.pos);
-  if (mur) {
+  if (defiEst('roquettes')) { /* roquettes seules : les canons se taisent */ }
+  else if (mur) {
     _b1.lerpVectors(state.pos, best.pos, mur.t);
     toucheBat(mur.bat, _b1, dps * dt);
   } else {
@@ -5255,13 +5332,15 @@ function updateLock(dt) {
 
   // deux roquettes après une seconde de verrouillage tenu
   state.roqT -= dt;
-  if (state.roqT <= 0 && best.charge * LOCK_SPOOL >= ROQ_SEUIL) {
+  if (state.roqT <= 0 && best.charge * LOCK_SPOOL >= ROQ_SEUIL && !defiEst('mitrailleuse')
+      && best.pos.distanceTo(state.pos) < ROQ_PORTEE) {
     state.roqT = ROQ_RECHARGE;
     for (const g of [GUN_L, GUN_R]) {
       const p = new THREE.Vector3(g.x, g.y, g.z)
         .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
       const gauche = g === GUN_L;
       const dir0 = new THREE.Vector3().subVectors(best.pos, p).normalize();
+      stat('roquettesTirees');
       state.roquettes.push({ pos: p, dir: dir0, cible: best, t: 0, fum: 0,
                              gauche, d0: p.distanceTo(best.pos) });
       // la bouffée d'allumage, lâchée sous l'aile au moment du départ
@@ -5274,7 +5353,7 @@ function updateLock(dt) {
 
   // une salve part de chaque aile, d'autant plus serrée que le tir est calé
   state.gunT -= dt;
-  if (state.gunT <= 0) {
+  if (state.gunT <= 0 && !defiEst('roquettes')) {
     state.gunT = SHOT_RATE * (1.6 - 0.6 * charge)
                  * (state.chauffe > 0 ? CHAUFFE_CADENCE : 1);
     for (const g of [GUN_L, GUN_R]) {
@@ -5283,6 +5362,7 @@ function updateLock(dt) {
       const d = new THREE.Vector3()
         .subVectors(pointVise(best, p, _vise), p).normalize();
       state.shots.push({ pos: p, dir: d, t: 0 });
+      stat('ballesTirees');
     }
     SFX.tir();
   }
@@ -5366,6 +5446,15 @@ function simulate(dt) {
   // adversaire est en vue : le décollage, les trajets et les atterrissages font
   // partie de la partie, et sans eux la durée moyenne restait à zéro.
   if (state.running) state.dureeVol += dt;
+  if (state.running && state.stats && !state.takeoff && !state.pose && !state.roulage) {
+    const S = state.stats, h = state.pos.y - SOL_Y;
+    if (h > S.altMax) S.altMax = h;
+    S.altSomme += h; S.altN++;
+    const d = Math.hypot(state.pos.x, state.pos.z - PAPI_Z);
+    if (d > S.distMax) S.distMax = d;
+  }
+  if (state.pose) stat('tempsPose', dt);
+  if (state.bouclierT > 0) state.bouclierT -= dt;
 
   // La manette écrit dans « aim » comme le ferait un pouce : elle doit donc
   // parler avant qu'on lise la commande, pas après.
@@ -5582,6 +5671,7 @@ function simulate(dt) {
         state.pose = { t: 0, structure0: state.structure };
         carnet.poses++;
         objCompte('poses');
+        stat('poses');
         poserMecanos();
         coopReanime();
         redecoBtn.hidden = false;
@@ -5664,7 +5754,8 @@ function simulate(dt) {
     springCamera(_v, dt, 60, 16, _cv.set(0, 0, 0));
     if (camera.position.y < 2.5) camera.position.y = 2.5;
     majFov(dt);
-    if (state.pose.t >= REPARATION) redecoller();
+    // ça ne repart seul qu'à 100 %, ou quand plus personne ne peut réparer
+    if ((state.structure >= 100 && state.pose.t >= 2) || (debout === 0 && state.pose.t >= REPARATION)) redecoller();
     updateEnemies(dt);
     updateBullets(dt);
     updateShots(dt);
@@ -5794,6 +5885,11 @@ function simulate(dt) {
       state.takeoff = null;
       state.pitch = 0;
       if (state.wave === 0) state.waveTimer = 0.8;
+      // la série du défi : autant de secondes de bouclier que de jours
+      if (state.wave === 0 && state.defi && carnet.serie && carnet.serie.n > 0) {
+        state.bouclierT = carnet.serie.n;
+        announce((langue === 'en' ? 'STREAK SHIELD  ·  ' : 'BOUCLIER DE SÉRIE  ·  ') + carnet.serie.n + ' s');
+      }
       // ON NE RELIT PAS LE QUATERNION. On connaît les trois angles : ce sont
       // ceux qu'on vient d'écrire. Les redéduire d'un quaternion est un
       // aller-retour qui ne peut que perdre — la décomposition en YXZ borne le
@@ -6158,9 +6254,10 @@ function simulate(dt) {
   scrape(dt);
 
   // --- vagues et bilan
-  // seuls les avions décident de la fin d'une vague : une pièce au sol se
-  // laisse dépasser sans bloquer la progression
-  const enVol = state.enemies.filter(e => !e.kind.sol).length;
+  // TOUT LE MONDE, TANKS COMPRIS. Une vague ne passe que quand il ne reste
+  // plus rien : c'est aussi ce qui permet de garder un tank en vie pour se
+  // promener sans limite de temps, et de le tuer quand on veut passer.
+  const enVol = state.enemies.length;
   if (coop.actif && !coop.hote) { /* les vagues sont décidées par l'hôte */ }
   else if (enVol > 0) {
     state.vagueT += dt;
@@ -6244,7 +6341,8 @@ function scrape(dt) {
     const q = t.passage;
     if (q && !(t.priseT > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
       t.priseT = PASSAGE_REPOS;
-      state.structure = Math.min(VIE_MAX, state.structure + TOUR_PRIME);
+      stat('passages');
+      state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME));
       state.boostPortail = 2;
       coopReanime();
       marque(400);
@@ -6259,7 +6357,8 @@ function scrape(dt) {
     if (q && !(a.priseT > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
       a.priseT = PASSAGE_REPOS;
       objCompte('arches');
-      state.structure = Math.min(VIE_MAX, state.structure + ARCHE_PRIME);
+      stat('passages');
+      state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : ARCHE_PRIME));
       state.boostPortail = 2;
       coopReanime();
       marque(150);
@@ -7524,6 +7623,19 @@ function objCompte(cle, valeur) {
 function majObjectif() {
   const el = document.getElementById('objectif');
   if (!el) return;
+  // LE DÉFI DU JOUR A REMPLACÉ L'OBJECTIF. Le bouton dit la variante, et le
+  // texte dit la série avec son calcul.
+  {
+    const d = defiDuJour(), fr = langue !== 'en';
+    document.getElementById('defiBtn').textContent = (fr ? 'DÉFI DU JOUR  ·  ' : 'DAILY CHALLENGE  ·  ') + (fr ? d.fr : d.en) + '  ·  ×1,5';
+    const n = carnet.serie ? carnet.serie.n : 0;
+    if (n > 0) {
+      el.innerHTML = (fr ? 'SÉRIE  ·  ' : 'STREAK  ·  ') + n + (fr ? ' JOURS' : ' DAYS') + '  →  ' + n + ' × 1 s = <b>' + n + (fr ? ' s DE BOUCLIER' : ' s OF SHIELD') + '</b>'
+        + (fr ? ' AU DÉCOLLAGE' : ' AT TAKE OFF');
+      el.hidden = false;
+    } else el.hidden = true;
+    return;
+  }
   const o = objDuJour();
   const fr = langue !== 'en';
   let txt = (fr ? 'OBJECTIF DU JOUR  ·  ' : 'TODAY’S GOAL  ·  ') + '<b>' + o.texte + '</b>';
@@ -7541,13 +7653,14 @@ function noteDegat(cause, montant) {
 }
 
 function refreshBars() {
-  scoreLbl.textContent = String(Math.floor(state.score)).padStart(6, '0');
-  waveLbl.textContent  = (state.defi ? 'DÉFI · ' : '') + 'V' + state.wave;
+  waveLbl.textContent  = (state.defi ? (langue === 'en' ? 'CHALLENGE · ' : 'DÉFI · ') : '') + 'WAVE ' + state.wave;
+  scoreLbl.textContent = 'SCORE ' + Math.floor(state.score);
+  document.body.classList.toggle('accueil', !state.running);
   // le chrono ne sert qu'à savoir si la prime est encore accessible : il
   // s'efface dès qu'elle est perdue, plutôt que de compter dans le vide
   const reste = state.vagueLimite - state.vagueT;
   chronoLbl.textContent = (state.vagueLimite > 0 && reste > 0) ? reste.toFixed(0) + 's' : '';
-  const st = Math.max(0, Math.round(state.structure));
+  const st = Math.max(0, Math.ceil(state.structure));
   gaugeFill.style.width = Math.min(100, st) + '%';
   gaugeFill.classList.toggle('bonus', st > 100);
   structLbl.textContent = st + '%';
@@ -7611,7 +7724,7 @@ const T = {
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
     alerte: 'ROQUETTE  ·  TONNEAU !', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
-    rempart: 'Tu es le dernier rempart. Tiens dix vagues et tu entreras dans la légende.',
+    rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
     dore: 'SOLEIL TRAVERSÉ  ·  BOUCLIER DORÉ', etoile: 'ÉTOILE FILANTE  ·  +',
@@ -7627,8 +7740,8 @@ const T = {
     poser: 'POSER', manette: 'MANETTE RECONNUE',
     manque1: 'Il te manquait ', manque2: ' points.',
     porte: 'PORTE FRANCHIE  ·  POSER',
-    redecoller: 'REDÉCOLLER', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
-    pasDeVideo: "Aucune vidéo disponible pour l'instant. Reprise offerte.",
+    redecoller: 'ENCORE', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
+    pasDeVideo: "Bêta : la vidéo n'est pas encore branchée, la reprise est offerte quand même. Ce clic est compté pour savoir ce que ça rapporterait.",
     scoreMot: 'SCORE ', nouveauRecord: 'NOUVEAU RECORD', recordMot: 'RECORD '
   },
   en: {
@@ -7645,7 +7758,7 @@ const T = {
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
     alerte: 'ROCKET  ·  ROLL !', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
-    rempart: 'You are the last line. Hold ten waves and you enter the legend.',
+    rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
     dore: 'THROUGH THE SUN  ·  GOLDEN SHIELD', etoile: 'SHOOTING STAR  ·  +',
@@ -7661,8 +7774,8 @@ const T = {
     poser: 'LAND', manette: 'GAMEPAD DETECTED',
     manque1: 'You were ', manque2: ' points short.',
     porte: 'GATE CLEARED  ·  LAND',
-    redecoller: 'TAKE OFF AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
-    pasDeVideo: 'No video available yet. Continue is on the house.',
+    redecoller: 'AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
+    pasDeVideo: 'Beta: the video is not wired yet, the continue is free anyway. This tap is counted to know what it would earn.',
     scoreMot: 'SCORE ', nouveauRecord: 'NEW RECORD', recordMot: 'RECORD '
   }
 };
@@ -7679,6 +7792,7 @@ function appliqueLangue() {
   const lb = document.getElementById('langBtn');
   if (lb) lb.textContent = langue === 'en' ? 'FRANÇAIS' : 'ENGLISH';
   if (typeof majTimbreBtn === 'function') majTimbreBtn();
+  if (typeof majObjectif === 'function' && document.getElementById('defiBtn')) majObjectif();
   document.documentElement.lang = langue;
 }
 
@@ -7947,6 +8061,9 @@ function majMenu() {
   document.getElementById('mTimbre').textContent = timbreBtn.textContent;
   document.getElementById('mVersion').textContent = (fr ? 'NOUVEAUTÉS  ·  ' : 'WHAT’S NEW  ·  ') + versionBtn.textContent;
   document.getElementById('mInstall').hidden = installBtn.hidden;
+  const md = document.getElementById('mDefi');
+  md.hidden = state.running;
+  md.textContent = document.getElementById('defiBtn').textContent;
   const puces = (id, liste, prefixe, choisi, applique) => {
     const c = document.getElementById(id);
     c.innerHTML = '';
@@ -7979,6 +8096,8 @@ menuBtn.addEventListener('click', e => {
   majPause();
 });
 document.getElementById('mViseurs').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); viseurBtn.click(); });
+document.getElementById('mCoop').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); coopBtn.click(); });
+document.getElementById('mDefi').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); if (!state.running) decolle(true); });
 document.getElementById('mSon').addEventListener('click', e => { e.stopPropagation(); sonBtn.click(); majMenu(); });
 document.getElementById('mAide').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); ouvrirAide(true); });
 document.getElementById('mLangue').addEventListener('click', e => { e.stopPropagation(); document.getElementById('langBtn').click(); majMenu(); });
@@ -8136,7 +8255,7 @@ if (record.score > 0) {
 // écrite alors que rien ne la montrait ; maintenant l'avion est sur sa piste,
 // les mécaniciens tournent autour, et l'aide reste à un clic sous le point
 // d'interrogation. Le texte de fin de partie, lui, garde sa place.
-overlayText.textContent = t('rempart');
+overlayText.innerHTML = t('rempart');
 majObjectif();
 
 // LA CARTE DE PARTAGE. Un score qu'on ne peut pas montrer n'existe que pour
@@ -8178,7 +8297,7 @@ const videoBtn = document.getElementById('videoBtn');
 //
 // Elle est comptée : UNE par partie. Une reprise gratuite et sans fin, c'est
 // une mort qui ne veut plus rien dire, et un score qui ne mesure plus rien.
-const REPRISES_MAX = 1;
+const REPRISES_MAX = 3;
 
 function demandeVideo() {
   return new Promise(resolve => {
@@ -8196,6 +8315,7 @@ videoBtn.addEventListener('click', async () => {
   if (!accordee) { videoBtn.disabled = false; return; }
   state.reprises++;
   carnet.reprises++;
+  carnet.videos = (carnet.videos || 0) + 1;    // le compteur qui dira ce que la régie rapporterait
   state.forme = Math.max(-1, state.forme - 0.4);   // on vient de mourir : la courbe le sait
   sauveCarnet();
   {
@@ -8225,10 +8345,20 @@ function decolle(defi) {
   overlay.hidden = true;
   videoBtn.hidden = true;
   partageBtn.hidden = true;
+  document.getElementById('stats').hidden = true;
   resetGame();
   if (defi) {
-    state.defi = true;
-    state.wave = DEFI_VAGUE - 1;      // la première vague lancée sera la cinquième
+    const d = defiDuJour();
+    state.defi = { type: d.cle };
+    if (d.cle === 'vague5') state.wave = DEFI_VAGUE - 1;      // la première vague lancée sera la cinquième
+    // la série : un jour de plus si l'on a relevé celui d'hier
+    if (!carnet.serie) carnet.serie = { jour: '', n: 0 };
+    const hier = jourISO(new Date(Date.now() - 86400000));
+    if (carnet.serie.jour !== jourISO()) {
+      carnet.serie.n = carnet.serie.jour === hier ? carnet.serie.n + 1 : 1;
+      carnet.serie.jour = jourISO();
+      sauveCarnet();
+    }
   }
   state.running = true;
   last = performance.now();
@@ -8278,6 +8408,7 @@ function gameOver(victoire) {
   redecoBtn.hidden = true;
   SFX.fin();
   overlayTitle.textContent = victoire ? t('legende') : t('abattu');
+  document.body.classList.add('accueil');   // ni vie ni chiffres sur l'épave
   // LE QUASI-RECORD. Rater de peu est le plus fort des rappels : il transforme
   // une fin de partie en début de la suivante. Il passe donc AVANT la pique,
   // qui est drôle une fois et sans effet la deuxième.
@@ -8295,13 +8426,15 @@ function gameOver(victoire) {
     + '  ·  ' + t('vague') + record.vague
     + (state.eclatsGagnes ? '<br>+' + state.eclatsGagnes + (langue === 'en' ? ' SHARDS' : ' ÉCLATS') : '');
   startBtn.textContent = t('redecoller');
-  defiBtn.hidden = false;
-  majObjectif();
+  defiBtn.hidden = true;                 // le défi se lance depuis l'accueil, pas depuis l'épave
+  document.getElementById('objectif').hidden = true;
+  const st = document.getElementById('stats');
+  st.innerHTML = texteStats(); st.hidden = false;
   partageBtn.hidden = false;
   partageBtn.textContent = t('partage');
   videoBtn.hidden = state.reprises >= REPRISES_MAX;
   videoBtn.disabled = false;
-  videoBtn.textContent = t('videoReprendre');
+  videoBtn.textContent = t('videoReprendre') + '  ·  ' + (state.reprises + 1) + ' / ' + REPRISES_MAX;
   expliqueBtn.hidden = aideMuette;
   plusJamais.hidden = aideMuette;
   overlay.hidden = false;
@@ -8441,7 +8574,7 @@ window.addEventListener('touchmove', e => {
   // bien le défilement, et cette ligne le reprenait aussitôt : le panneau
   // s'arrêtait à la ligne de flottaison, exactement le défaut corrigé en v0.37
   // pour les trois autres. Une liste d'exceptions est une dette : on l'oublie.
-  if (el && el.closest('#changelog, #aide, #viseurs, #overlay, #install, #coop')) return;
+  if (el && el.closest('#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu')) return;
   e.preventDefault();
 }, { passive: false });
 
@@ -8716,7 +8849,12 @@ if ('serviceWorker' in navigator) {
           // « installed » avec un contrôleur déjà en place : c'est une
           // remplaçante, pas la première venue.
           if (neuf.state === 'installed' && navigator.serviceWorker.controller) {
-            majPastille.hidden = false;
+            // À L'ACCUEIL, ELLE SE FAIT SEULE : personne n'a rien à perdre.
+            // En vol, la pastille attend qu'on la touche.
+            if (!state.running && state.wave === 0 && overlay && !overlay.hidden) {
+              rechargeDemandee = true;
+              neuf.postMessage('SAUTER');
+            } else majPastille.hidden = false;
           }
         });
       });
