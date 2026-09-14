@@ -423,6 +423,18 @@ Faits, mesurés :
 - Le double tap du tonneau relâche le manche : la visée revient au centre le
   temps du tonneau. Le viseur élargi compense, pas plus.
 
+## Coop synchronisée → fait en v0.70
+
+Trouvé en relisant : l'hôte recevait le verrouillage et la charge des
+invités et n'en faisait rien, leur tir n'enlevait rien de durable. L'hôte
+applique maintenant leurs dégâts (murs compris), envoie l'état des
+bâtiments (structure ou ruine), les roquettes ennemies (dessinées chez
+l'invité, encaissées par l'hôte seul), le roulis des figures ennemies, et
+une empreinte de sa carte : l'invité est prévenu si la sienne diffère. Les
+invités remontent leurs dégâts aux bâtiments. Mesuré par messages simulés :
+ennemi 42 → 0 pv sous le tir d'un invité, bâtiment 90 → 60 → effondré.
+Il a choisi de garder le double tap pour le tonneau, pas de bouton.
+
 ## À vérifier avec lui
 
 - Le verrouillage de très près : non démontré corrigé (23/80 → 24/80
