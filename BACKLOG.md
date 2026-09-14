@@ -495,6 +495,18 @@ Tout est fait sauf ce qui est noté « à faire ». Mesuré à chaque fois.
 - L'adresse de la liste bêta, et la régie / le paiement.
 - Les questions du tonneau (quiz envoyé).
 
+## Le tonneau, ses réponses → v0.76
+
+« Il ne déplace pas assez, l'image ne suit pas » → déport 62 → 110 m
+(mesuré : 43 m sur la figure), serpent 26 → 46 m, et l'image s'incline
+jusqu'à 33° au plus fort puis revient à plat (cloche, rien à dérouler).
+« Garder le double tap et glisser vite » → le coup de manche : un doigt qui
+file vers un bord (0,6 px/ms sur 120 px au moins, sortie à moins de 36 px
+du bord) déclenche le tonneau de ce côté ; mesuré dans les deux sens, une
+dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
+88 % de la course vers le haut tenus un quart de seconde, tour complet en
+1,8 s, même cap à la sortie (mesuré).
+
 ## À vérifier avec lui
 
 - Le verrouillage de très près : non démontré corrigé (23/80 → 24/80

@@ -641,7 +641,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.75</button>
+  <button id="versionBtn">v0.76</button>
   <button id="vagueBtn" hidden data-en="NEXT WAVE · +500">VAGUE SUIVANTE · +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -1006,6 +1006,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.76</b> — le tonneau déporte presque deux fois plus et l'image s'incline avec lui, un coup de manche vite vers le bord le déclenche aussi, et le doigt tenu tout en haut fait un looping complet.</div>
   <div><b>v0.75</b> — le mode avancé et ses cinq trophées, les codes secrets et leur HACKER TIME, la liste bêta de la prochaine carte, et le mot sur la publicité.</div>
   <div><b>v0.74</b> — trois trous à figure (le U qui se sort par le toit, le double à combo, la fente à 45° qu'on ne passe qu'en tonneau), et un aérodrome au bord de la piste : le hangar et sa porte coulissante qui montre les avions, la table où les mécaniciens jouent aux cartes, la manche à air et l'aire à signaux ; et des mécaniciens qui marchent comme des hommes.</div>
   <div><b>v0.73</b> — la caméra traîne au décollage et ne saute plus au posé, BRAKING et BRAKES OFF, les coins font les figures, l'avion est plus bas, on monte à 80° et à 2 400 m, le décrochage part en vrille, les roquettes se comptent et les mécaniciens en rapportent, le son suit le nez et les dégâts.</div>
@@ -1150,9 +1151,9 @@ const ASSIETTE      = 1.30;   // sommet de la vague, 74 degrés
 const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte le sol
 const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas en croisière
 const SPIN_TIME     = 0.48;   // durée du tonneau au double tap
-const SPIN_DODGE    = 62;     // écart latéral au plus fort du mouvement
-const CAM_ROULIS_TONNEAU = 0;     // la caméra reste à plat pendant le tonneau : l'avion fait la figure, pas le joueur
-const CAM_SERPENT = 26;           // mètres : elle serpente vers le côté du tonneau, et revient
+const SPIN_DODGE    = 110;    // écart latéral au plus fort du mouvement : « pas assez », presque doublé
+const CAM_ROULIS_TONNEAU = 0.42;  // radians d'inclinaison de l'image au plus fort du tonneau, qui revient à plat à la fin
+const CAM_SERPENT = 46;           // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_TONNEAU   = 1.0;    // part du deport que la camera laisse filer avant de se recaler
 const _camDecal = { dir: null, val: 0 };   // le decalage pose a l'image precedente, a retirer avant le ressort
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
@@ -5944,6 +5945,16 @@ function simulate(dt) {
   const gain = rayon > 1e-4 ? courbe(rayon) / rayon : 0;
   const yawRate   = -dx * gain * MAX_YAW;
   const pitchRate = -dy * gain * MAX_PITCH;
+  // LE LOOPING AU DOIGT. Tout en haut de la course, tenu un quart de seconde :
+  // l'avion fait le tour complet et ressort au même cap, à plat.
+  if (dy < -0.88 && aim.active && !state.fig && state.spinT <= 0 && !state.takeoff && !state.pose && !state.roulage && !state.vrille) {
+    state.loopT = (state.loopT || 0) + dt;
+    if (state.loopT > 0.25) {
+      state.loopT = 0;
+      state.fig = { t: 0, side: 1, type: 'loop', base: state.quat.clone(), yaw0: state.yaw };
+      SFX.renversement();
+    }
+  } else state.loopT = 0;
 
   // Le lacet est ramené dans un tour à chaque image. Laissé libre il dérive
   // indéfiniment, et tout ce qui l'interpole — l'alignement sur la piste, la
@@ -6393,10 +6404,14 @@ function simulate(dt) {
   if (state.fig) {
     const im = state.fig;
     im.t += dt;
-    const u = Math.min(1, im.t / FIG_TIME);
+    const u = Math.min(1, im.t / (im.type === 'loop' ? FIG_TIME * 1.7 : FIG_TIME));
     // adoucissement en cosinus : le demi-looping démarre et finit sans à-coup
     const ease = x => (1 - Math.cos(Math.PI * x)) / 2;
-    if (im.type === 'split') {
+    if (im.type === 'loop') {
+      // le tour complet : tangage seul, deux pi, et l'on ressort où l'on était
+      _qa.setFromAxisAngle(_ax, Math.PI * 2 * ease(u));
+      _qb.identity();
+    } else if (im.type === 'split') {
       // Split-S : demi-tonneau d'abord, demi-looping vers le bas ensuite.
       // Sur le dos, tirer sur le manche emmène vers le sol — d'où le cap
       // inversé en descendant, là où l'Immelmann l'obtient en montant.
@@ -6439,7 +6454,7 @@ function simulate(dt) {
     if (u >= 1) {
       // on rend la main exactement là où la figure a mené : cap inversé,
       // ailes à plat, pour que le modèle de vol reprenne sans à-coup
-      state.yaw = im.yaw0 + Math.PI;
+      state.yaw = im.yaw0 + (im.type === 'loop' ? 0 : Math.PI);
       state.pitch = 0;
       state.roll = 0;
       // On repart de l'orientation réelle de la caméra, pas de celle de
@@ -6668,7 +6683,9 @@ function simulate(dt) {
   // ramené sur [-pi, pi] : deux pi et zéro sont la même image, sans quoi la
   // caméra referait le tour à l'envers pour « revenir ».
   if (state.spinT > 0) {
-    state.camSpin = THREE.MathUtils.damp(state.camSpin, spinRoll * CAM_ROULIS_TONNEAU, 26, dt);
+    // l'image s'incline avec le tonneau puis se redresse : une cloche, pas un tour, donc rien à dérouler à la fin
+    const uS = 1 - state.spinT / SPIN_TIME;
+    state.camSpin = THREE.MathUtils.damp(state.camSpin, -state.spinSide * CAM_ROULIS_TONNEAU * Math.sin(Math.PI * uS), 26, dt);
   } else {
     state.camSpin = Math.atan2(Math.sin(state.camSpin), Math.cos(state.camSpin));
     state.camSpin = THREE.MathUtils.damp(state.camSpin, 0, 12, dt);
@@ -9225,13 +9242,44 @@ window.addEventListener('pointermove', e => {
     if (el && el.closest('#overlay, #changelog, #aide, #viseurs, #coop, button')) return;
     touchMode = false; aim.active = true; setAimDirect(e); return;
   }
+  noteTrace(e);
   if (!joy.on) return;
   joy.x = e.clientX; joy.y = e.clientY;
   setAimFromJoy();
 }, { passive: true });
 
+// LE COUP DE MANCHE. Un doigt qui file vite vers un bord et quitte l'écran,
+// c'est un tonneau de ce côté : le geste qu'on fait quand on veut « jeter »
+// l'avion. Le double tap reste.
+const trace = [];
+function noteTrace(e) {
+  trace.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+  if (trace.length > 8) trace.shift();
+}
+function coupDeManche(e) {
+  if (trace.length < 3) return false;
+  const now = performance.now();
+  const recent = trace.filter(q => now - q.t < 400);
+  if (recent.length < 2) return false;
+  const a = recent[0], b = recent[recent.length - 1];
+  const dtms = Math.max(1, b.t - a.t);
+  const vx = (b.x - a.x) / dtms, vy = (b.y - a.y) / dtms;      // px/ms
+  const bord = b.x < 36 || b.x > window.innerWidth - 36 || e.type === 'pointercancel';
+  // 0,6 px/ms sur au moins 120 px : un coup sec, pas une dérive de pilotage
+  if (Math.abs(vx) > 0.6 && Math.abs(vx) > 1.6 * Math.abs(vy) && Math.abs(b.x - a.x) > 120 && bord
+      && state.running && state.spinT <= 0 && !state.fig && !state.takeoff && !state.pose && !state.roulage) {
+    state.spinT = SPIN_TIME;
+    state.spinSide = vx > 0 ? 1 : -1;
+    SFX.tonneau();
+    tonneauSoleil();
+    return true;
+  }
+  return false;
+}
 function releasePointer(e) {
   if (e.pointerType === 'mouse') return;
+  coupDeManche(e);
+  trace.length = 0;
   joy.on = false;
   aim.active = false;
 }
