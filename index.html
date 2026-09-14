@@ -636,7 +636,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.72</button>
+  <button id="versionBtn">v0.73</button>
   <button id="vagueBtn" hidden data-en="NEXT WAVE · +500">VAGUE SUIVANTE · +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -995,6 +995,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.73</b> — la caméra traîne au décollage et ne saute plus au posé, BRAKING et BRAKES OFF, les coins font les figures, l'avion est plus bas, on monte à 80° et à 2 400 m, le décrochage part en vrille, les roquettes se comptent et les mécaniciens en rapportent, le son suit le nez et les dégâts.</div>
   <div><b>v0.72</b> — LOCKED et WARNING ROCKET à l'écran, roquettes à 50 qu'on esquive aussi à la manœuvre, boost de portail violent et invincible, tanks qui roulent, chasseurs dans le soleil et ailiers en formation, le faucheur pour qui fuit, et VAGUE SUIVANTE +500.</div>
   <div><b>v0.71</b> — on meurt vraiment à zéro, une vague ne passe que quand tout est mort, le défi du jour change chaque jour et la série rend du bouclier, l'écran de fin dit tout en chiffres.</div>
   <div><b>v0.70</b> — en coop les invités blessent enfin les ennemis, voient tomber les mêmes bâtiments et les mêmes roquettes, et sont prévenus si leur carte diffère.</div>
@@ -1130,7 +1131,7 @@ const SOL_Y         = 3;      // hauteur de l'avion posé, train sous le fuselag
 const ALT_DEPART    = 165;    // altitude atteinte au bout du décollage
 const ATTENTE       = 0.55;   // le temps qu'il faut aux mécaniciens pour dégager
 const RAMPE         = 0.55;   // montée en vitesse, en S
-const ROULAGE       = 0.4;    // secondes de course au sol avant la rotation
+const ROULAGE       = 1.4;    // secondes de course au sol avant la rotation : une de plus, on voit rouler
 const MONTEE        = 2.4;    // durée de la vague, de la rotation au palier
 const ASSIETTE      = 1.30;   // sommet de la vague, 74 degrés
 const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte le sol
@@ -1155,8 +1156,8 @@ const PITCH_LIMIT   = 85 * Math.PI / 180;
 // tout le décourage — c'est plus juste qu'une butée, et ça oblige à doser.
 // Quatre-vingts degres, presque a la verticale, avant que le moteur ne
 // commence a peiner : on peut chandelle pour de bon.
-const PEINE_ANGLE = 78 * Math.PI / 180;
-const PEINE_PLAFOND = 190;    // mètres sous le plafond où la gêne commence // jamais la verticale : au-delà l'orientation devient ambiguë
+const PEINE_ANGLE = 80 * Math.PI / 180;
+const PEINE_PLAFOND = 320;    // mètres sous le plafond où la gêne commence // jamais la verticale : au-delà l'orientation devient ambiguë
 const PITCH_TRIM    = 0.95;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
 const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
 // Viser, maintenant, veut dire viser. Le cône n'est plus une constante : il
@@ -1174,7 +1175,7 @@ const DPS_MIN       = 15;     // dégâts par seconde à l'accroche
 const DPS_MAX       = 72;     // ...et une fois le tir bien calé sur la cible
 const LOCK_SPOOL    = 1.8;    // secondes pour monter de l'un à l'autre
 const FLOOR         = 26;     // plancher : on rase le sol sans le traverser
-const CEILING       = 960;    // doublé : il y a de quoi monter chercher les fenêtres des tours
+const CEILING       = 2400;   // deux fois et demie plus haut : pour voir ce que les joueurs en font
 const BURST_GAP     = 0.1;
 const BULLET_SPEED  = 300;    // celles d'en face
 const BULLET_LIFE   = 3.2;
@@ -1211,6 +1212,10 @@ const SHOT_RATE     = 0.075;  // secondes entre deux salves
 // suffit a dire qu'on tenait bien la cible.
 const ROQ_SEUIL     = 1.0;    // secondes de verrouillage avant le départ
 const ROQ_PORTEE    = 750;    // au-delà, on garde ses roquettes
+const ROQ_STOCK     = 6;      // sous les ailes au départ : trois salves, puis il faut se poser
+const DECRO_ALARME  = 0.5;    // secondes trop lent et trop cabré avant l'alarme
+const DECRO_VRILLE  = 1.6;    // ...et avant de partir en vrille
+const VRILLE_SORTIE = 1.2;    // secondes de manche à l'opposé pour en sortir
 // Une roquette téléguidée n'a pas besoin d'aller vite : elle ne rate pas.
 // Sa lenteur est ce qui la rend lisible — on la voit partir, tourner et
 // arriver, là où à 420 m/s elle disparaissait dans l'image suivante. Trois
@@ -1697,8 +1702,8 @@ const SFX = {
   // claquement de la mise à feu, le coup de basse du départ, puis le sifflement
   // qui s'éloigne. Ce dernier monte en fréquence et retombe — c'est ce que fait
   // un engin qui s'écarte vite en tournant, et c'est ce qui le fait « partir ».
-  roquette:     () => { souffle(0.05, 5200, 2400, 5, 0.16);
-                        ton(105, 42, 0.26, 'square', 0.20);
+  roquette:     () => { souffle(0.05, 3200, 1400, 5, 0.16);
+                        ton(66, 26, 0.34, 'square', 0.22);
                         souffle(0.16, 420, 2800, 1.3, 0.20);
                         souffle(1.05, 2600, 260, 0.75, 0.17);
                         ton(300, 96, 0.9, 'sawtooth', 0.075); },
@@ -3359,8 +3364,13 @@ for (let i = 0; i < 3; i++) {
   const fusil = solidWire(geomFusil, edgesFusil, matMecano);
   fusil.visible = false;
   g.add(fusil);
-  mecanos.push({ g, fusil, p: new THREE.Vector3(), but: new THREE.Vector3(),
-                 t: 0, fuite: 0, cote: i % 2 ? 1 : -1, fusilT: 0, tire: false });
+  // la caisse de roquettes qu'il porte à l'aile
+  const caisse = solidWire(new THREE.BoxGeometry(0.5, 0.36, 0.9).translate(0, 1.05, -0.5),
+                           new THREE.EdgesGeometry(new THREE.BoxGeometry(0.5, 0.36, 0.9).translate(0, 1.05, -0.5), 20), matMecano);
+  caisse.visible = false;
+  g.add(caisse);
+  mecanos.push({ g, fusil, caisse, p: new THREE.Vector3(), but: new THREE.Vector3(),
+                 t: 0, fuite: 0, cote: i % 2 ? 1 : -1, fusilT: 0, tire: false, livre: null });
 }
 
 // ---------------------------------------------------------------------------
@@ -3475,9 +3485,25 @@ function updateMecanos(dt) {
       if (m.fuite <= 0) { m.g.visible = false; m.plaque = undefined; m.couche = 0; }
       continue;
     }
+    // LA LIVRAISON. Toutes les quelques secondes au sol, l'un d'eux prend une
+    // caisse et l'apporte sous l'aile : deux roquettes de plus, jusqu'au plein.
+    if (m.livre) {
+      const g = m.livre.gauche ? GUN_L : GUN_R;
+      m.but.set(g.x, 0, g.z).multiplyScalar(PLANE_SCALE).applyAxisAngle(_up, state.yaw).add(state.pos);
+      m.but.y = PISTE.y;
+      if (m.p.distanceTo(m.but) < 1.4) {
+        state.roquettesN = Math.min(ROQ_STOCK, state.roquettesN + 2);
+        announce(t('roquettesPlus'));
+        SFX.vagueNette();
+        m.livre = null; m.caisse.visible = false; m.t = 0;
+      }
+    } else if (state.pose && state.roquettesN < ROQ_STOCK && !mecanos.some(x => x.livre)) {
+      state.livraisonT = (state.livraisonT || 0) - dt;
+      if (state.livraisonT <= 0) { state.livraisonT = 3.5; m.livre = { gauche: Math.random() < 0.5 }; m.caisse.visible = true; }
+    }
     // marche lente d'un poste à l'autre, avec des pauses : ça bricole
     m.t -= dt;
-    if (m.t <= 0) {
+    if (m.t <= 0 && !m.livre) {
       m.t = 1.2 + Math.random() * 2.4;
       m.but.set(state.pos.x + (Math.random() - 0.5) * 9,
                 PISTE.y,
@@ -4038,6 +4064,10 @@ const state = {
   alerte: 0,          // secondes d'alerte roquette à l'écran
   lockedT: 0,         // repos entre deux avertissements LOCKED
   lockTenu: 0,        // secondes de verrouillage plein tenu : ça vibre
+  decrocheT: 0,       // secondes passées trop lent et trop cabré
+  vrille: null,       // la vrille en cours { t, side, sortie }
+  vrilleRoll: 0,
+  roquettesN: 6,      // ce qu'il reste sous les ailes
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
   chutes: [],
@@ -4137,7 +4167,7 @@ function redecoller() {
   state.speed = 0;
   state.boost = 0;
   state.boostT = 0;
-  announce(t('decollage'));
+  announce(t('freinsLaches') + '  ·  ' + t('decollage'));
 }
 
 const redecoBtn = document.getElementById('redecoBtn');
@@ -4173,6 +4203,7 @@ function toucherPiste() {
   // damagePlayer peut avoir mis fin à la partie : on ne met en roulage que ce
   // qui roule encore
   if (state.running) state.roulage = { t: 0, v0: state.speed, sens, degat, vz, restant };
+  setTimeout(() => { if (state.roulage) announce(t('freinage')); }, 900);
 }
 
 function resetGame() {
@@ -4216,6 +4247,7 @@ function resetGame() {
   state.forme = 0; state.objN = 0; state.defi = false;
   state.stats = statsVides();
   state.bouclierT = 0;
+  state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = ROQ_STOCK;
   SOLEIL.set(0.669, 0.215, -0.712).normalize();   // le soleil ne bouge plus, et il est bas
   _solCible.copy(SOLEIL);
   state.paused = false;
@@ -5452,8 +5484,10 @@ function updateLock(dt) {
   // deux roquettes après une seconde de verrouillage tenu
   state.roqT -= dt;
   if (state.roqT <= 0 && best.charge * LOCK_SPOOL >= ROQ_SEUIL && !defiEst('mitrailleuse')
-      && best.pos.distanceTo(state.pos) < ROQ_PORTEE) {
+      && best.pos.distanceTo(state.pos) < ROQ_PORTEE && state.roquettesN >= 2) {
     state.roqT = ROQ_RECHARGE;
+    state.roquettesN -= 2;
+    if (state.roquettesN <= 0) announce(t('plusDeRoquettes'));
     for (const g of [GUN_L, GUN_R]) {
       const p = new THREE.Vector3(g.x, g.y, g.z)
         .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
@@ -5495,7 +5529,7 @@ function updateLock(dt) {
 // le modèle est un avion à panneaux plats : vu strictement de derrière il
 // se réduit à un trait. La caméra le surplombe un peu pour montrer la voilure.
 _camDecal.dir = new THREE.Vector3();
-const camOffset = new THREE.Vector3(0, 5.0, 16.0).multiplyScalar(ENVERGURE_JOUEUR / 14.4);
+const camOffset = new THREE.Vector3(0, 6.8, 16.0).multiplyScalar(ENVERGURE_JOUEUR / 14.4);   // plus haut : l'avion tombe sous le pouce
 
 // La caméra ne se colle plus à sa place idéale : elle y est rappelée par un
 // ressort amorti et garde sa propre vitesse. Elle se comporte donc comme un
@@ -5551,9 +5585,13 @@ function step(now) {
     // avant que l'appareil ne s'ébranle
     const vSon = Math.max(state.speed, state.regime * 62);
     const T = TIMBRES[timbre] || TIMBRES.clair;
-    const f = (T.base * 0.51) + THREE.MathUtils.clamp(vSon, 0, SPEED_MAX) / SPEED_MAX * T.base * 0.63;
+    let f = (T.base * 0.51) + THREE.MathUtils.clamp(vSon, 0, SPEED_MAX) / SPEED_MAX * T.base * 0.63;
+    // le nez bas monte dans l'aigu, le nez haut retombe ; et plus la cellule
+    // est abîmée, plus le battement entre les deux cylindres devient rugueux
+    if (state.running && !state.auSol) f *= 1 + 0.16 * Math.max(0, -state.forward.y) - 0.07 * Math.max(0, state.forward.y);
+    const abime = 1 + 3.5 * (1 - THREE.MathUtils.clamp(state.structure / 100, 0, 1));
     moteur[0].frequency.value = f;
-    moteur[1].frequency.value = f + T.ecart * 0.012 * f;
+    moteur[1].frequency.value = f + T.ecart * 0.012 * f * abime;
     moteur[2].frequency.value = f * 0.5;
   }
   renderer.render(scene, camera);
@@ -5722,7 +5760,7 @@ function simulate(dt) {
   const gainEff = state.boostPortail > 0 ? Math.max(gainBoost, BOOST_PORTAIL_GAIN) : gainBoost;
   const croisiere = CRUISE * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
                   * (state.assist ? APPROCHE_GAIN : 1);
-  const pesanteur = state.forward.y < 0 ? 2 : 1;
+  const pesanteur = state.forward.y < 0 ? 2.6 : 1;
   state.speed += (-state.forward.y * GRAV * pesanteur + (croisiere - state.speed) * THRUST) * dt;
   state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_MAX);
 
@@ -5761,7 +5799,8 @@ function simulate(dt) {
     const R = state.roulage;
     R.t += dt;
     state.assist = false;
-    state.pos.y = SOL_Y;
+    // pas de saut : la hauteur qui reste se referme en quelques images
+    state.pos.y = THREE.MathUtils.damp(state.pos.y, SOL_Y, 14, dt);
     // pile dans l'axe : le lacet et l'écart latéral se referment en roulant
     state.yaw = dampAngle(state.yaw, state.forward.z < 0 ? 0 : Math.PI, 4, dt);
     state.pos.x = THREE.MathUtils.damp(state.pos.x, 0, 3, dt);
@@ -5774,7 +5813,7 @@ function simulate(dt) {
     if (dy < -0.4 && state.speed > SPEED_MIN + 6) {
       state.roulage = null;
       state.pitch = 0.13;
-      announce(t('remiseGaz'));
+      announce(t('freinsLaches') + '  ·  ' + t('remiseGaz'));
       SFX.cale();
     } else {
       // La décélération est celle qu'il faut pour tenir dans ROULAGE_M mètres
@@ -5827,7 +5866,10 @@ function simulate(dt) {
     _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
     _cd.subVectors(state.pos, R.prev || state.pos).divideScalar(Math.max(dt, 1e-4));
     if (!R.prev) R.prev = state.pos.clone(); else R.prev.copy(state.pos);
-    springCamera(_v, dt, 120, 22, _cd);
+    // le ressort garde sa raideur de vol au toucher, puis se raidit en roulant :
+    // c'est ce qui faisait sauter l'image au contact
+    const kr = 44 + 76 * Math.min(1, R.t / 1.5);
+    springCamera(_v, dt, kr, 10.2 + 11.8 * Math.min(1, R.t / 1.5), _cd);
     if (camera.position.y < 2.5) camera.position.y = 2.5;
     majFov(dt);
 
@@ -5991,7 +6033,10 @@ function simulate(dt) {
     // rattraper. Amortie a 9, elle trainait d'un dixieme de seconde derriere
     // le nez — a plat quand il se levait, encore levee quand il revenait. On
     // la pose sur l'assiette, image par image.
-    state.camPitch = state.pitch;
+    // LA CAMÉRA SUIT AVEC DU RETARD. Elle était collée image par image ; le
+    // joueur la veut à la traîne, comme en vol : l'assiette est amortie, la
+    // position au ressort. Mesuré : l'avion reste dans le tiers central.
+    state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 6.5, dt);
     poseCam(state.camPitch);
     _cd.subVectors(state.pos, T.prev || state.pos).divideScalar(Math.max(dt, 1e-4));
     if (!T.prev) T.prev = state.pos.clone(); else T.prev.copy(state.pos);
@@ -6005,8 +6050,7 @@ function simulate(dt) {
     // n'en bouge plus que de 40, et reste fixe pendant toute la montée. On
     // laisse à la caméra, en partant, la vraie vitesse de l'appareil, si bien
     // que le ressort du vol libre reprend sans écart ni élan à rattraper.
-    camera.position.copy(_v);
-    camVel.copy(_cd);
+    springCamera(_v, dt, 44, 10.2, _cd);
     majFov(dt);
     updateTraits(dt);
     if (camera.position.y < 2.5) camera.position.y = 2.5;
@@ -6243,7 +6287,36 @@ function simulate(dt) {
     }
   }
 
-  euler.set(state.pitch, state.yaw, state.roll + spinRoll);
+  // DÉCROCHAGE ET VRILLE. Trop lent et trop cabré, l'aile lâche : une alarme,
+  // puis l'appareil part en autorotation, nez bas, et il faut tenir le manche
+  // à l'opposé de la rotation un bon moment pour en sortir — pendant qu'on
+  // perd de l'altitude.
+  {
+    const cabre = state.speed <= SPEED_MIN + 2 && state.pitch > 0.55 && !state.vrille;
+    state.decrocheT = cabre ? state.decrocheT + dt : Math.max(0, state.decrocheT - 2 * dt);
+    if (cabre && state.decrocheT >= DECRO_ALARME && state.decrocheT - dt < DECRO_ALARME) { announce(t('decrochage')); SFX.alerte(); }
+    if (cabre && state.decrocheT >= DECRO_VRILLE) {
+      state.vrille = { t: 0, side: Math.random() < 0.5 ? -1 : 1, sortie: 0 };
+      state.vrilleRoll = 0; state.decrocheT = 0;
+      announce(t('vrille')); SFX.alerte();
+    }
+    if (state.vrille) {
+      const V = state.vrille; V.t += dt;
+      state.yaw += V.side * 2.2 * dt;
+      state.pitch = THREE.MathUtils.damp(state.pitch, -1.05, 2.5, dt);
+      state.vrilleRoll += V.side * 5 * dt;
+      V.sortie = dx * -V.side > 0.6 ? V.sortie + dt : Math.max(0, V.sortie - dt * 0.5);
+      if (V.t > 1.5 && V.sortie >= VRILLE_SORTIE) {
+        state.vrille = null;
+        state.vrilleRoll = Math.atan2(Math.sin(state.vrilleRoll), Math.cos(state.vrilleRoll));
+        announce(t('sorti')); SFX.cale();
+      }
+    } else if (state.vrilleRoll) {
+      state.vrilleRoll = THREE.MathUtils.damp(state.vrilleRoll, 0, 6, dt);
+      if (Math.abs(state.vrilleRoll) < 0.01) state.vrilleRoll = 0;
+    }
+  }
+  euler.set(state.pitch, state.yaw, state.roll + spinRoll + state.vrilleRoll);
   state.quat.setFromEuler(euler);
   state.forward.set(0, 0, -1).applyQuaternion(state.quat);
 
@@ -7387,6 +7460,30 @@ function drawHud() {
     }
   }
 
+  // LE COMPTE DES ROQUETTES, écrit discrètement sous chaque aile
+  if (state.running && !state.takeoff && !state.pose) {
+    for (const g of [GUN_L, GUN_R]) {
+      const pg = project(_v.set(g.x, g.y - 0.6, g.z).multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos));
+      if (!pg.front) continue;
+      const n = g === GUN_L ? Math.ceil(state.roquettesN / 2) : Math.floor(state.roquettesN / 2);
+      hctx.fillStyle = n > 0 ? 'rgba(143,252,196,0.7)' : 'rgba(255,122,92,0.8)';
+      hctx.font = '10px "IBM Plex Mono", monospace'; hctx.textAlign = 'center';
+      hctx.fillText(String(n), pg.x, pg.y + 12);
+    }
+  }
+  // LE RAYON QUI ANNONCE LE TIR. Quand un adversaire tient son alignement, un
+  // trait part de lui vers nous et s'épaissit à mesure : on voit venir la rafale.
+  for (const e of state.enemies) {
+    if (!(e.visee > 0.06)) continue;
+    const pe = project(e.pos);
+    if (!pe.front) continue;
+    const k = Math.min(1, e.visee / VISEE_ENNEMI);
+    hctx.strokeStyle = 'rgba(255,122,92,' + (0.12 + 0.6 * k).toFixed(3) + ')';
+    hctx.lineWidth = 0.6 + 2.4 * k;
+    hctx.beginPath(); hctx.moveTo(pe.x, pe.y); hctx.lineTo(pSelf.x, pSelf.y); hctx.stroke();
+    hctx.lineWidth = 1;
+  }
+
   // cadres de désignation, et flèche vers la cible la plus proche hors champ
   for (const e of state.enemies) {
     const d = e.pos.distanceTo(state.pos);
@@ -7880,7 +7977,8 @@ const T = {
     repPrete: "réponse prête. Renvoie-la à l'hôte.",
     relie: ' appareil(s) relié(s) sur ', relieHote: "relié à l'hôte. La partie est commune.",
     poseBon: 'POSÉ', poseDur: 'POSÉ DUR', poseHors: 'POSÉ HORS AXE',
-    poseLong: 'POSÉ LONG', remiseGaz: 'REMISE DE GAZ',
+    poseLong: 'POSÉ LONG', remiseGaz: 'REMISE DE GAZ', freinage: 'BRAKING', freinsLaches: 'BRAKES OFF',
+    decrochage: 'STALL  ·  NEZ BAS !', vrille: 'VRILLE  ·  MANCHE À L’OPPOSÉ', sorti: 'SORTI DE VRILLE', roquettesPlus: 'ROQUETTES  ·  +2', plusDeRoquettes: 'PLUS DE ROQUETTES  ·  POSE-TOI',
     surLePlan: 'SUR LE PLAN', tropHaut: 'TROP HAUT', tropBas: 'TROP BAS',
     poser: 'POSER', manette: 'MANETTE RECONNUE',
     manque1: 'Il te manquait ', manque2: ' points.',
@@ -7914,7 +8012,8 @@ const T = {
     repPrete: "answer ready. Send it back to the host.",
     relie: ' aircraft connected of ', relieHote: 'connected to the host. The game is shared.',
     poseBon: 'DOWN', poseDur: 'HARD LANDING', poseHors: 'OFF CENTRELINE',
-    poseLong: 'LONG LANDING', remiseGaz: 'GOING AROUND',
+    poseLong: 'LONG LANDING', remiseGaz: 'GOING AROUND', freinage: 'BRAKING', freinsLaches: 'BRAKES OFF',
+    decrochage: 'STALL  ·  NOSE DOWN!', vrille: 'SPIN  ·  OPPOSITE STICK', sorti: 'RECOVERED', roquettesPlus: 'ROCKETS  ·  +2', plusDeRoquettes: 'OUT OF ROCKETS  ·  LAND',
     surLePlan: 'ON SLOPE', tropHaut: 'TOO HIGH', tropBas: 'TOO LOW',
     poser: 'LAND', manette: 'GAMEPAD DETECTED',
     manque1: 'You were ', manque2: ' points short.',
@@ -8661,7 +8760,10 @@ window.addEventListener('pointerdown', e => {
     // on renverse par le haut, en dessous par le bas, sur le côté on tonneau
     const dx = e.clientX - state.screenX;
     const dy = e.clientY - state.screenY;
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50) {
+    // LES COINS. En bas : demi-tonneau du côté touché puis demi-looping
+    // (Split-S). En haut : demi-looping puis demi-tonneau du côté touché
+    // (Immelmann). Sur les côtés, à hauteur de l'avion : un tonneau.
+    if (Math.abs(dy) > 50) {
       state.fig = { t: 0, side, type: dy > 0 ? 'split' : 'imm',
                     base: state.quat.clone(), yaw0: state.yaw };
       SFX.renversement();
