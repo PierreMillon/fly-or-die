@@ -102,13 +102,13 @@ de repartir avant.
 Tonneau, Immelmann, Split-S. Aujourd'hui ces trois figures sont réservées
 au joueur, ce qui rend les esquives adverses lisibles et un peu pauvres.
 
-## Un seul bouton MENU
+## Un seul bouton MENU → fait en v0.71
 
 La barre du haut porte VIS, SON, ?, la version. Ajouter le choix d'avion en
 ferait cinq, trop pour un téléphone étroit. Tout regroupe sous un MENU
 unique, en onglets : avions, viseurs, son, aide, historique.
 
-## Skins d'avion, dont le tout premier modèle
+## Skins d'avion, dont le tout premier modèle → fait en v0.77
 
 Détruire un type d'adversaire donne le droit de le piloter, comme pour les
 viseurs. Le tout premier avion dessiné à la main — celui d'avant le modèle
@@ -125,7 +125,7 @@ Au menu, un ou deux petits pavés — des mécaniciens — s'affairent près du
 moteur, bougent un peu, font des réglages. Ils détalent dès qu'on appuie
 sur DÉCOLLER.
 
-## Un ailier débloqué en passant par tous les trous
+## Un ailier débloqué en passant par tous les trous → fait en v0.78
 
 Réussir toutes les ouvertures du monde — arches et tours percées — fait
 décoller un avion ami de la piste, qui vient se battre à nos côtés jusqu'à
@@ -137,12 +137,12 @@ posant, avec les risques que ça suppose.
 Un dénivelé très léger, des collines à peine marquées, juste pour que le
 sol ne soit plus un plan parfait.
 
-## Les tanks
+## Les tanks → fait en v0.79 et v0.80
 
 Les roquettes doivent pouvoir les prendre pour cible. Et les tanks doivent
 pouvoir se déplacer, parfois vite.
 
-## Vecteur vitesse au collimateur
+## Vecteur vitesse au collimateur → fait en v0.78, en vitesse et non en vecteur
 
 Le petit cercle ailé qui marque où l'avion va vraiment, et non où il pointe.
 Impossible tel quel : le modèle de vol n'a pas d'incidence, l'appareil se
@@ -178,7 +178,7 @@ nez dans le soleil décroche une étoile filante à 500 points, toutes les
 trente secondes ; et le soleil se lève à la vague 1 (5°), culmine à la
 vague 8 (60°) et se couche vers la quinzième. Rien n'est écrit dans l'aide.
 
-## Le premier avion en option
+## Le premier avion en option → fait en v0.77
 
 Le tout premier modèle dessiné à la main, avant le STL, revient comme skin.
 
@@ -601,8 +601,6 @@ dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
 
 - Le verrouillage de très près : non démontré corrigé (23/80 → 24/80
   images sur un adversaire qui traverse à 70 m, harnais imparfait).
-- Les fusils des mécaniciens ignorent encore les bâtiments (rare : la
-  piste est dégagée).
 
 ## Questions restées ouvertes
 
@@ -668,3 +666,20 @@ donne du plafond de vie, et la fente à 45° se resserre.
 - **La fente à 45°** passe de 6,6 à 3,6 m de demi-largeur. Mesuré : à plat les
   saumons d'aile sont à 4,24 m en travers, donc bloqués ; entre 30° et 60° de
   roulis dans le bon sens, elle s'ouvre. Elle exige de nouveau le tonneau.
+
+## v0.84 — les fusils des mécaniciens voient le décor
+
+Dernier trou connu de la ligne de vue : ils tiraient à travers les
+bâtiments. Même règle que partout ailleurs, `obstacleEntre` sur la ligne
+mécanicien → adversaire. Mesuré : 3,1 points de dégâts en vue directe,
+0 derrière une tour.
+
+## Ce qui reste vraiment ouvert
+
+- **Du relief au sol.** Tout le jeu suppose un plan parfait : piste, tanks,
+  effondrements, atterrissage. Chantier du chapitre 2.
+- **La page des quatre manches.** Il doit choisir une lettre, rien à coder
+  avant.
+- **La monnaie.** Les éclats achètent déjà viseurs, couleurs et traînées.
+  Reste à décider s'ils achètent autre chose, sans jamais toucher à la
+  puissance.

@@ -662,7 +662,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.83</button>
+  <button id="versionBtn">v0.84</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -1072,6 +1072,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.84</b> — les mécaniciens ne tirent plus à travers les bâtiments : un homme au fusil vise ce qu'il voit.</div>
   <div><b>v0.83</b> — le bouclier disparaît : la vie est la seule ressource. La série du défi donne 10 % de plafond de vie par jour tenu, jusqu'à 200 %. Une vague sans une égratignure monte le plafond de 25 points. Le doré du soleil reste, huit secondes où rien ne passe. La fente à 45° se resserre : elle ne se passe plus à plat, il faut le tonneau.</div>
   <div><b>v0.82</b> — DÉCOLLER descend sous le pouce, en bas de l'écran. Le défi du jour devient une pastille en haut à gauche. Les mécaniciens préparent l'avion autour de la cellule dès l'écran de titre : ils étaient renvoyés à leur table par un appel de trop.</div>
   <div><b>v0.81</b> — le doigt qui quitte l'écran par le haut ou par le bas fait l'Immelmann ou le Split-S. Le doigt tenu en haut ne déclenche plus rien. Les adversaires ne se touchent plus, ni entre eux ni avec nous. Un bâtiment à passage ne disparaît plus : il s'affaisse au ras du sol. L'écran de fin compte les portails, la vie reprise et le plafond atteint. Le hangar fait soixante mètres de façade et ses deux vantaux se rangent dehors, sur leur rail. L'équipe au sol traverse le terrain pendant la descente et vous entoure à l'arrêt. L'aide explique le carré à signaux, le T, la manche à air et le PAPI.</div>
@@ -3633,11 +3634,14 @@ function mecanoTire(m, dt) {
   const enQuota = tireurs < voulus;
   if (!enQuota && !(m.tenue > 0)) { m.fusil.visible = false; return; }
   if (enQuota) m.tenue = 1.0; else m.tenue -= dt;
+  // ILS NE TIRENT PLUS A TRAVERS LE BETON. Meme regle que pour nous et pour
+  // eux : s'il y a un batiment sur la ligne, il n'y a pas de tir. Un homme au
+  // fusil vise ce qu'il voit.
   let cible = null, dMin = FUSIL_PORTEE;
   for (const e of state.enemies) {
     if (e.kind.sol) continue;
     const d = e.pos.distanceTo(m.p);
-    if (d < dMin) { dMin = d; cible = e; }
+    if (d < dMin && !obstacleEntre(m.p, e.pos)) { dMin = d; cible = e; }
   }
   if (!cible) { m.fusil.visible = false; m.fusil.rotation.x = 0; return; }
   m.tire = true;
