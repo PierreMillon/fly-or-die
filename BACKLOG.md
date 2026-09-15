@@ -962,3 +962,23 @@ C'était moche et c'était faux.
   naturellement : on est catapulté, on a de la vitesse, on lève les yeux.
 - L'aide précise où sont les deux astres : le chariot au nord, Vénus à l'ouest,
   basse sur l'horizon, comme dans n'importe quel ciel du soir.
+
+## v0.97 — le soleil, la montée, les montagnes
+
+- **Le soleil est plein.** Ses méridiens et parallèles étaient déjà posés dans
+  le repère du monde, donc horizontaux. Ce qui donnait l'impression qu'il
+  pivotait, c'est qu'on voyait sa FACE ARRIÈRE par transparence : les deux
+  moitiés se superposaient et le réseau semblait bouger. Une sphère pleine de
+  la couleur du fond, glissée sous le filaire, cache l'arrière.
+- **Plus de vacillement en montée.** Le lacet et le roulis erratiques au-delà
+  de quatre-vingts degrés traînaient longtemps après la remise à plat. C'était
+  une punition déguisée en réalisme. Supprimés. Ce qui reste pour décourager la
+  verticale suffit : on perd de la vitesse en montant, et trop lent, le nez
+  retombe seul. Son alternative — garder le vacillement mais qu'une figure
+  l'annule — reste faisable s'il la préfère.
+- **Les montagnes passent de 240 à 420 m.** Elles ne peuvent pas être abattues,
+  et c'est volontaire : ce n'est pas un bâtiment, c'est le sol.
+- **Le viseur disparaît au sol** : roues sur le bitume, en réparation, au
+  refuge ou pendant les douze premiers mètres du décollage.
+- Le libellé de la v0.96 disait « rien ne s'y oppose », ce qui pouvait se lire
+  comme « personne ne tire ». Corrigé : « le manche accepte 85° de cabré ».

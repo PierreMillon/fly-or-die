@@ -735,7 +735,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.96</button>
+  <button id="versionBtn">v0.97</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -3166,7 +3166,11 @@ const GRID_SPAN = 8400, GRID_STEP = 160;
 // ---------------------------------------------------------------------------
 const TERRAIN_R0 = 2400;      // jusque-là, parfaitement plat : c'est la ville
 const TERRAIN_R1 = 5600;      // au-delà, le relief est à pleine amplitude
-const TERRAIN_H  = 240;       // mètres de dénivelé au plus fort
+// PLUS HAUTES. Deux cent quarante mètres se lisaient comme des collines ;
+// quatre cent vingt, c'est une vraie chaîne, et il faut vraiment monter pour
+// la franchir. On ne peut pas tirer dessus et c'est volontaire : ce n'est pas
+// un bâtiment, c'est le sol. On n'abat pas le sol.
+const TERRAIN_H  = 420;       // mètres de dénivelé au plus fort
 function hauteurSol(x, z) {
   const d = Math.hypot(x, z);
   if (d <= TERRAIN_R0) return 0;
@@ -3227,7 +3231,7 @@ function batisGrille(cx, cz) {
 const nappeSol = scene.getObjectByName('nappe');
 const grid = scene.getObjectByName('grid');
 let etoiles = [];
-let soleilMesh = null, couronneMesh = null;
+let soleilMesh = null, couronneMesh = null, soleilPlein = null;
 let ourseMesh = null, ourseTrait = null, bergerMesh = null, bergerHalo = null;
 // l'étoile filante : un seul trait, redessiné chaque image tant qu'elle file
 const etoileMesh = new THREE.LineSegments(segGeom([0, 0, 0, 0, 0, 0]),
@@ -3584,6 +3588,21 @@ const BERGER_DIR = (() => {
       for (const a of [a0, a1]) pts.push(Math.cos(a) * r, y, Math.sin(a) * r);
     }
   }
+  // IL EST PLEIN. Les méridiens et les parallèles sont posés dans le repère
+  // du monde — l'axe des pôles est vertical, donc les parallèles sont bien
+  // horizontaux et ne tournent pas avec nous. Ce qui donnait l'impression que
+  // l'astre pivotait, c'est qu'on voyait sa FACE ARRIÈRE par transparence :
+  // les deux moitiés se superposaient et le réseau semblait bouger. Une
+  // sphère pleine, de la couleur du fond, glissée juste sous le filaire,
+  // cache l'arrière. Il ne reste que l'hémisphère qui nous fait face.
+  soleilPlein = new THREE.Mesh(
+    new THREE.SphereGeometry(RAY * 0.985, 24, 16),
+    new THREE.MeshBasicMaterial({ color: COL_FOND, fog: false })
+  );
+  soleilPlein.frustumCulled = false;
+  soleilPlein.renderOrder = -1;
+  scene.add(soleilPlein);
+
   soleilMesh = new THREE.LineSegments(segGeom(pts),
     new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.6, fog: false }));
   soleilMesh.frustumCulled = false;
@@ -7673,25 +7692,13 @@ function simulate(dt) {
   const plafond = SPEED_MAX * (1 + 0.35 * state.boost);
   state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, plafond);
 
-  // PEINE. Deux causes, une seule mesure : le nez trop haut, ou le plafond
-  // trop près. Le moteur perd de sa poussée et la cellule vacille — un lacet
-  // et un roulis erratiques, faibles mais constants, qu'il faut rattraper à la
-  // main. On peut monter à la verticale ; on ne peut pas y rester.
-  {
-    const parAngle = Math.max(0, (Math.abs(state.pitch) - PEINE_ANGLE))
-                   / (PITCH_LIMIT - PEINE_ANGLE);
-    const parHaut = Math.max(0, state.pos.y - (CEILING - PEINE_PLAFOND)) / PEINE_PLAFOND;
-    const peine = THREE.MathUtils.clamp(Math.max(parAngle, parHaut), 0, 1);
-    state.peine = peine;
-    if (peine > 0.01) {
-      state.speed -= peine * 26 * dt;
-      const t = performance.now() / 1000;
-      // deux sinusoïdes incommensurables : ça ne se répète jamais tout à fait
-      state.yaw += (Math.sin(t * 5.3) + 0.6 * Math.sin(t * 8.9)) * peine * 0.55 * dt;
-      state.roll += (Math.sin(t * 4.1) + 0.7 * Math.sin(t * 7.3)) * peine * 1.5 * dt;
-      state.pitch -= peine * 0.5 * dt;
-    }
-  }
+  // PLUS DE VACILLEMENT. Monter fort faisait vaciller la cellule — un lacet et
+  // un roulis erratiques qu'il fallait rattraper à la main, et qui traînaient
+  // longtemps après qu'on avait remis à plat. C'était une punition déguisée en
+  // réalisme, et elle gâchait le geste le plus satisfaisant du jeu. Elle est
+  // supprimée. Ce qui reste pour décourager la verticale, et qui suffit : on
+  // perd de la vitesse en montant, et trop lent, le nez retombe tout seul.
+  state.peine = 0;
 
   // trop lent : le nez retombe tout seul, quoi que demande le doigt
   if (state.speed < STALL && state.pitch > 0) {
@@ -8768,6 +8775,7 @@ function updateDecor() {
   for (const e of etoiles) e.position.copy(camera.position);
   if (soleilMesh) {
     soleilMesh.position.copy(camera.position).addScaledVector(SOLEIL, 4500);
+    if (soleilPlein) soleilPlein.position.copy(soleilMesh.position);
     couronneMesh.position.copy(soleilMesh.position);
     couronneMesh.lookAt(camera.position);
     // l'éclipse : le disque s'éteint, la couronne seule reste et s'élargit
@@ -9264,8 +9272,13 @@ function drawHud() {
   // C'est donc elle qui porte la montée en puissance : elle se resserre, quatre
   // arcs tournent autour d'elle de plus en plus vite, elle vibre et blanchit,
   // puis quatre dards rentrent vers le centre une fois le tir calé.
+  // AU SOL, PAS DE VISEUR. Roues sur le bitume, en réparation ou en train de
+  // s'aligner, il ne sert à rien : il n'y a personne à viser et il encombre le
+  // seul moment calme du jeu. Il revient quand l'appareil vole, donc quand la
+  // caméra s'est recollée derrière lui.
   const nose = project(_v.copy(state.forward).multiplyScalar(1500).add(state.pos));
-  if (nose.front) {
+  if (nose.front && !state.pose && !state.roulage && !state.refuge && !state.auSol
+      && !(state.takeoff && state.pos.y < SOL_Y + 12)) {
     const ch = state.lock ? state.lockCharge : 0;
     const jit = () => (Math.random() - 0.5) * 2.4 * ch;
     const cx = nose.x + jit(), cy = nose.y + jit();
@@ -10807,7 +10820,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
-  { v: '0.96', fr: 'On monte à quatre-vingt-cinq degrés sans que rien ne s’y oppose, et un portail ouvre la fenêtre de Vénus.', en: 'You climb to eighty-five degrees with nothing fighting you, and a gate opens the window on Venus.' },
+  { v: '0.97', fr: 'Le soleil devient plein, la cellule ne vacille plus en montée, et les montagnes doublent de hauteur.', en: 'The sun turns solid, the airframe no longer wallows in a climb, and the mountains double in height.' },
+  { v: '0.96', fr: 'Le manche accepte quatre-vingt-cinq degrés de cabré, et un portail ouvre la fenêtre de Vénus.', en: 'The stick accepts eighty-five degrees of nose-up, and a gate opens the window on Venus.' },
   { v: '0.95', fr: 'Le faucheur devient un disque épais, le portail sonne LE SEUIL et chaque vague ouvre sur une cloche.', en: 'The reaper becomes a thick disc, gates ring THE THRESHOLD and every wave opens on a bell.' },
   { v: '0.94', fr: 'Un posé ne coûte plus jamais de vie, et l’écran de titre ne pose qu’une question.', en: 'A landing never costs life again, and the title screen asks one question.' },
   { v: '0.93', fr: 'Le ciel n’est plus un miroir, et la Grande Ourse ne brille pas plus que les autres.', en: 'The sky is no longer a mirror, and the Big Dipper shines no brighter than the rest.' },
