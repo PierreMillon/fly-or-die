@@ -1640,3 +1640,43 @@ Cinq constantes à régler à l'oreille : `DISQUE_AMORCE`, `DISQUE_CRAQ_AV`,
 Le fichier source de 1,76 Mo reste dans le dépôt tant que les réglages ne sont
 pas figés — il faudra le supprimer ensuite. Les deux pistes pèsent 318 Ko
 ensemble, contre 1 804 au départ.
+
+## v1.04 — le sillon ne se répète plus
+
+Il a entendu la boucle. Il avait raison, et allonger la boucle n'aurait fait que
+reculer le moment où on l'entend.
+
+**Pourquoi elle s'entendait** : le souffle seul passe inaperçu — du bruit sans
+structure n'a aucun repère. Ce sont **les craquements** qui font des motifs :
+l'oreille repère une figure rythmique en deux ou trois passages, et ensuite elle
+ne peut plus ne pas l'entendre.
+
+Les deux composants sont donc séparés.
+
+- **Le souffle** reste une boucle, et c'est légitime : deux secondes de bruit
+  blanc filtré, répétées indéfiniment, sont indétectables.
+- **Les craquements** ne sont plus enregistrés du tout. Chacun est construit au
+  vol, quelques millisecondes avant de sonner : un éclat de bruit très court,
+  passé dans un passe-bande, éteint par une enveloppe exponentielle. Durée,
+  hauteur, largeur de bande et amplitude sont tirées à chaque fois. Un sur
+  seize est un « gros » — plus grave, plus long, plus fort.
+
+**Les instants suivent un processus de Poisson** : l'écart jusqu'au suivant vaut
+`−ln(1−hasard) ÷ densité`. C'est la loi des événements sans mémoire — les
+gouttes de pluie, les désintégrations. Elle produit des grappes et des trous,
+jamais une cadence. Un ordonnanceur regarde 250 ms devant lui et pose les
+craquements à venir, rafraîchi toutes les 90 ms.
+
+Conséquence secondaire : `refuge-sillon.m4a` disparaît. **41 Ko de moins**, et
+plus rien à télécharger pour le bruit — il n'existe qu'au moment où il sonne.
+
+Ses réglages du premier tour :
+
+    DISQUE_AMORCE    = 11.8
+    DISQUE_CRAQ_AV   = 0.25
+    DISQUE_CRAQ_PD   = 0.16
+    DISQUE_PLEURAGE  = 0.58
+    DISQUE_GUITARE   = 1.10
+
+Une sixième constante apparaît, `DISQUE_DENSITE` (craquements par seconde), à
+régler au même tour — l'échelle des deux niveaux a changé avec la synthèse.
