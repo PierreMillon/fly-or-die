@@ -744,7 +744,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v1.01</button>
+  <button id="versionBtn">v1.02</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -1831,31 +1831,67 @@ let actx = null, master = null, bruitBuf = null, moteur = null, moteurG = null;
 // l'image sur un téléphone. L'élément, lui, lit au fil de l'eau.
 // ---------------------------------------------------------------------------
 const MUSIQUE_URL = './sons/refuge.m4a';
-let musiqueEl = null, musiqueG = null, musiqueEtat = 'rien';
-function joueMusiqueRefuge() {
-  if (musiqueEtat !== 'rien' || muet || !actx) return;
-  musiqueEtat = 'joue';
+let musiqueEl = null, musiqueG = null, musiqueEtat = 'rien', musiqueSrc = null;
+
+// ELLE SE PRÉPARE PENDANT LE GESTE. Sur iPhone, un élément média ne peut être
+// mis en route que depuis une interaction : débloquer le contexte audio ne
+// suffit pas, l'élément a sa propre autorisation, et il la reçoit la première
+// fois qu'on l'appelle DANS un geste. On le crée donc au premier toucher, on
+// le lance et on l'arrête aussitôt — il est muet, personne n'entend rien — et
+// à partir de là il joue quand on le lui demande, dix minutes plus tard, en
+// plein vol.
+//
+// Et pas de `crossOrigin` : le fichier est sur le même domaine que la page.
+// Le poser force une requête CORS là où il n'y a pas d'autre origine, et ça
+// n'apporte rien qu'un moyen d'échouer.
+function preparerMusique() {
+  if (musiqueEl || !actx) return;
   try {
     musiqueEl = new Audio(MUSIQUE_URL);
-    musiqueEl.preload = 'auto';
-    musiqueEl.crossOrigin = 'anonymous';
-    const src = actx.createMediaElementSource(musiqueEl);
+    musiqueEl.preload = 'none';        // rien ne se télécharge avant d'en avoir besoin
+    musiqueEl.addEventListener('ended', finMusique);
+    musiqueSrc = actx.createMediaElementSource(musiqueEl);
     musiqueG = actx.createGain();
     musiqueG.gain.value = 0.0001;
-    src.connect(musiqueG).connect(actx.destination);
-    const t = actx.currentTime;
+    musiqueSrc.connect(musiqueG).connect(actx.destination);
+    // le déverrouillage : on lance et on coupe, à volume nul
+    const p = musiqueEl.play();
+    if (p && p.then) p.then(() => { musiqueEl.pause(); musiqueEl.currentTime = 0; }, () => {});
+    else { musiqueEl.pause(); musiqueEl.currentTime = 0; }
+  } catch (e) { musiqueEl = null; musiqueG = null; musiqueSrc = null; }
+}
+
+function joueMusiqueRefuge() {
+  if (musiqueEtat !== 'rien' || muet || !actx) return;
+  preparerMusique();
+  if (!musiqueEl) return;
+  musiqueEtat = 'joue';
+  const t = actx.currentTime;
+  if (musiqueG) {
+    musiqueG.gain.cancelScheduledValues(t);
+    musiqueG.gain.setValueAtTime(0.0001, t);
     musiqueG.gain.exponentialRampToValueAtTime(MUSIQUE_GAIN, t + MUSIQUE_FONDU);
-    // le reste du jeu s'éloigne
-    master.gain.cancelScheduledValues(t);
-    master.gain.setValueAtTime(master.gain.value, t);
-    master.gain.linearRampToValueAtTime(MUSIQUE_TAMISE * 0.55, t + MUSIQUE_FONDU);
-    musiqueEl.addEventListener('ended', finMusique);
-    musiqueEl.play().catch(() => { musiqueEtat = 'rien'; });
-  } catch (e) { musiqueEtat = 'rien'; }
+  } else {
+    musiqueEl.volume = MUSIQUE_GAIN;   // repli : pas de graphe, le volume suffit
+  }
+  // le reste du jeu s'éloigne
+  master.gain.cancelScheduledValues(t);
+  master.gain.setValueAtTime(master.gain.value, t);
+  master.gain.linearRampToValueAtTime(MUSIQUE_TAMISE * 0.55, t + MUSIQUE_FONDU);
+  musiqueEl.currentTime = 0;
+  musiqueEl.preload = 'auto';
+  const p = musiqueEl.play();
+  if (p && p.catch) p.catch(() => { musiqueEtat = 'rien'; finMusique(); });
 }
 function finMusique() {
   if (musiqueEtat !== 'joue') return;
   musiqueEtat = 'fini';
+  if (musiqueG && actx) {
+    const tf = actx.currentTime;
+    musiqueG.gain.cancelScheduledValues(tf);
+    musiqueG.gain.setValueAtTime(musiqueG.gain.value, tf);
+    musiqueG.gain.linearRampToValueAtTime(0.0001, tf + 1.2);
+  }
   if (!actx || !master) return;
   const t = actx.currentTime;
   master.gain.cancelScheduledValues(t);
@@ -1863,8 +1899,11 @@ function finMusique() {
   master.gain.linearRampToValueAtTime(muet ? 0 : 0.55, t + MUSIQUE_RETOUR);
 }
 function couperMusique() {
-  if (musiqueEl) { try { musiqueEl.pause(); } catch (e) {} }
-  musiqueEtat = 'rien'; musiqueEl = null; musiqueG = null;
+  // On GARDE l'élément : il porte son autorisation de lecture, obtenue dans un
+  // geste, et la recréer la perdrait. On le remet seulement au début.
+  if (musiqueEl) { try { musiqueEl.pause(); musiqueEl.currentTime = 0; } catch (e) {} }
+  if (musiqueG && actx) musiqueG.gain.value = 0.0001;
+  musiqueEtat = 'rien';
   if (actx && master) master.gain.value = muet ? 0 : 0.55;
 }
 let reverbe = null, loinG = null, moteurLP = null, sousG = null;
@@ -1960,6 +1999,9 @@ function audioDemarre() {
   master = actx.createGain();
   master.gain.value = muet ? 0 : 0.55;
   master.connect(actx.destination);
+
+  // la musique du refuge se prépare ici, dans le geste qui a lancé le son
+  setTimeout(preparerMusique, 0);
 
   // une seconde de bruit blanc, réutilisée par tous les souffles
   bruitBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);

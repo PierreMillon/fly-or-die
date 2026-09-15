@@ -11,7 +11,7 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v1.01';
+const VERSION = 'v1.02';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
@@ -69,6 +69,21 @@ self.addEventListener('message', e => {
 self.addEventListener('fetch', e => {
   const r = e.request;
   if (r.method !== 'GET') return;
+
+  // LES MÉDIAS NE PASSENT PAS PAR ICI. Un lecteur audio ne télécharge pas un
+  // fichier d'un bloc : il demande des tranches, avec un en-tête `Range`, et
+  // il attend une réponse 206 Partial Content qui ne contient que la tranche
+  // demandée. Or tout ce qui descend plus bas répond par une réponse ENTIÈRE,
+  // en 200 — depuis le cache ou depuis le réseau. Safari reçoit alors un
+  // fichier complet là où il attendait un morceau, et abandonne : la musique
+  // ne se charge jamais.
+  //
+  // Gérer les tranches à la main dans un service worker est possible, et c'est
+  // une source de bogues sans fin. On ne s'en mêle pas : les requêtes de média
+  // repartent au navigateur, qui sait faire ça depuis toujours. Le cache HTTP
+  // ordinaire s'en occupe, et le fichier reste joignable hors ligne dès qu'il
+  // y est entré.
+  if (r.headers.has('range') || r.destination === 'audio' || r.destination === 'video') return;
 
   // LA PAGE : le réseau d'abord.
   if (r.mode === 'navigate') {

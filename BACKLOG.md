@@ -1471,3 +1471,63 @@ qu'on force à faire la guerre. Le pilote qui descend de l'avion au refuge
 **est le Petit Prince**. C'est la ligne directrice de tout ce qui viendra —
 l'aventure, les lieux très lointains, le jeu de piste, les cartes qu'on gagne
 en volant plutôt qu'en payant.
+
+## v1.02 — le son ne chargeait pas, et la guitare pesait trop lourd
+
+### Pourquoi il ne chargeait pas : le service worker
+
+Un lecteur audio ne télécharge pas un fichier d'un bloc. Il demande des
+tranches, avec un en-tête `Range`, et attend une réponse **206 Partial
+Content** qui ne contient que la tranche demandée.
+
+Or le service worker interceptait tout et répondait par une réponse **entière,
+en 200** — depuis le cache ou depuis le réseau. Safari recevait un fichier
+complet là où il attendait un morceau, et abandonnait.
+
+Les requêtes de média ne passent donc plus par lui :
+
+    if (r.headers.has('range') || r.destination === 'audio' || r.destination === 'video') return;
+
+Gérer les tranches à la main dans un service worker est possible et c'est une
+source de bogues sans fin. On ne s'en mêle pas : le navigateur sait faire ça
+depuis toujours, et le cache HTTP ordinaire garde le fichier.
+
+### Deuxième cause, plus discrète : l'autorisation de l'élément
+
+Sur iPhone, débloquer le contexte audio ne débloque pas les éléments `<audio>` :
+chacun reçoit son autorisation la première fois qu'on l'appelle **dans un
+geste**. L'élément était créé dix minutes plus tard, en plein vol, loin de tout
+geste. Il est maintenant créé au premier toucher, lancé et coupé aussitôt à
+volume nul, et il garde son droit de jouer pour toute la partie. `couperMusique()`
+ne le détruit plus — le recréer perdrait ce droit.
+
+Et `crossOrigin = 'anonymous'` a sauté : le fichier est sur le même domaine que
+la page, et le poser ne faisait qu'ajouter un moyen d'échouer.
+
+### Le poids : 1 804 Ko, c'était plus que tout le reste du jeu
+
+Six variantes, toutes en mono — une guitare seule n'y perd rien — et toutes
+normalisées, la prise culminant à −8,8 dB.
+
+| Prise | Poids | Traitement |
+|---|---|---|
+| Fidèle | 668 Ko | mono, 48 kbit/s |
+| Léger | 449 Ko | mono, 32 kbit/s |
+| Tamisé | 334 Ko | aigus coupés à 6 kHz, 24 kbit/s |
+| Huit bits | 334 Ko | bit-crush 8 bits assumé, 5,2 kHz |
+| TSF | 278 Ko | passe-bande 330–3 300 Hz, 8 bits, 20 kbit/s |
+| Minimal | 222 Ko | 6 bits, 2,8 kHz, 16 kbit/s |
+
+Couper les aigus d'avance n'est pas qu'une économie : c'est exactement ce qu'on
+entend en premier quand un encodeur manque de place, sous forme de
+scintillement métallique. Les retirer, c'est choisir ce qu'on perd au lieu de
+le subir. Et le grain huit bits ne cache pas la compression — il la rend
+inaudible, parce qu'on n'entend plus que le parti pris.
+
+**TSF est la seule qui ait une raison d'être dans le monde du jeu** : 330 à
+3 300 Hz, c'est la bande d'un poste de radio de bord. La musique ne sort plus
+de nulle part, elle sort de l'appareil. Saint-Exupéry avait une TSF dans son
+Latécoère.
+
+Trois candidates sont dans le dépôt en attendant son choix : `refuge-leger`,
+`refuge-8bits`, `refuge-tsf`.
