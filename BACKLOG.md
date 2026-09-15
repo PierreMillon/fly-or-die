@@ -843,3 +843,13 @@ Il sert à se repérer.
   indications, pas une de plus.
 - Les blocs de la bande du haut ne se chevauchent plus quand un nombre
   s'allonge.
+
+## v0.90 — les montagnes sont dures
+
+Vingt crêtes de 102 à 233 m, soit environ la moitié du plus haut pylône, comme
+demandé. Chacune est un cône : la hauteur du sol sous l'avion vaut
+h × (1 − d/r), et l'on ne descend pas dessous. Raser une crête coûte 4 points,
+moitié moins qu'un mur : c'est de la terre, pas du béton.
+
+Mesuré : au-dessus du sommet d'une crête de 229 m, l'avion est ramené à 230 m
+et perd 6 points ; à deux rayons et demi de là, rien.

@@ -711,7 +711,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.89</button>
+  <button id="versionBtn">v0.90</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -4633,6 +4633,7 @@ let refugeG = null, piloteG = null;
 // c'est en les passant qu'on tombe sur ce qu'il y a derrière.
 // ---------------------------------------------------------------------------
 const MONT_RAYON = 3100, MONT_N = 22, MONT_H = 180;
+const montagnes = [];        // { x, z, r, h } : un cône par crête, pour la collision
 (function poserMontagnes() {
   const pts = [];
   for (let i = 0; i < MONT_N; i++) {
@@ -4644,6 +4645,7 @@ const MONT_RAYON = 3100, MONT_N = 22, MONT_H = 180;
     const l = h * (1.5 + Math.random());
     // une crête à quatre arêtes : deux versants, deux flancs. C'est le
     // minimum pour qu'un relief se lise en fil de fer.
+    montagnes.push({ x: cx, z: cz, r: l, h: h });
     const dir = Math.random() * Math.PI;
     const ux = Math.cos(dir) * l, uz = Math.sin(dir) * l;
     const vx = -Math.sin(dir) * l * 0.55, vz = Math.cos(dir) * l * 0.55;
@@ -8287,6 +8289,28 @@ function scrape(dt) {
     }
   }
 
+  // LES MONTAGNES SONT DURES. Sans cela on les traversait comme un dessin, et
+  // un relief qu'on traverse n'est pas un relief. Chacune est un cône : la
+  // hauteur du sol sous nous vaut h × (1 − d/r), et l'on ne descend pas
+  // dessous. On ne s'y écrase pas non plus — le versant nous repousse vers le
+  // haut, comme une vraie pente le ferait à un avion qui la rase.
+  for (const m of montagnes) {
+    const dx = state.pos.x - m.x, dz = state.pos.z - m.z;
+    const d = Math.hypot(dx, dz);
+    if (d > m.r) continue;
+    const sol = m.h * (1 - d / m.r);
+    if (state.pos.y >= sol + 2) continue;
+    state.pos.y = sol + 2;
+    if (state.scrapeT <= 0) {
+      // rase la crête et ça coûte, mais moitié moins qu'un mur : c'est de la
+      // terre, pas du béton
+      damagePlayer(4, _impactSrc.set(m.x, sol, m.z), 'decor');
+      state.scrapeT = 0.5; SFX.eraflure();
+    }
+    state.pitch = Math.max(state.pitch, 0.18);
+    state.speed *= 0.985;
+  }
+
   // on érafle le décor de la même façon, qu'il s'agisse d'un pylône ou d'une
   // des trois pièces d'une arche
   const heurte = (bx, bz, hx, hz, y0, y1) =>
@@ -10461,6 +10485,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.90', fr: 'Les montagnes deviennent dures : on passe au-dessus, plus au travers.', en: 'The mountains turn solid: you go over them, no longer through them.' },
   { v: '0.89', fr: 'La Grande Ourse montre le refuge, et on y descend soi-même de l’avion.', en: 'The Big Dipper points to the refuge, and there you climb out of the aircraft yourself.' },
   { v: '0.88', fr: 'Un refuge sans nom à l’ouest, un anneau de montagnes, et remuer suffit à casser leur visée.', en: 'A nameless refuge to the west, a ring of mountains, and moving about is enough to spoil their aim.' },
   { v: '0.87', fr: 'Le tonneau devient barriqué : on monte, on s’enroule, on ressort décalé de deux ailes et demie.', en: 'The roll becomes a barrel roll: you climb, you wind round, you come out two and a half wingspans over.' },
