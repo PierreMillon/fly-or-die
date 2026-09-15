@@ -1598,3 +1598,45 @@ qu'il a servi.
 Un jeu d'avion sur téléphone où l'on tire sur des cibles, et dedans : un
 terrain que personne n'a cartographié, une guitare enregistrée par son auteur,
 et une écoute qu'on ne peut pas répéter. Ce qui survit n'est pas le jeu.
+
+## v1.03 — la platine : deux pistes, et des curseurs qui agissent en direct
+
+Le gramophone est retenu. Mais tant que le bruit était **cuit dans le fichier**,
+changer le niveau des craquements demandait de tout ré-encoder — donc de ne
+jamais pouvoir régler à l'oreille, en écoutant.
+
+Le son se sépare donc en deux :
+
+- `refuge-guitare.m4a` (277 Ko) — la guitare au pavillon, 250–2 900 Hz, sept
+  bits, **sans bruit ni pleurage**.
+- `refuge-sillon.m4a` (41 Ko) — huit secondes de sillon qui bouclent sans
+  couture. La boucle est fermée par un fondu croisé de 1,2 s : on prend
+  9,2 secondes de bruit et on fond la queue sur la tête, sinon un craquement
+  coupé net s'entend à chaque tour de boucle.
+
+### Ce qui se calcule en direct
+
+**Le pleurage** est une ligne à retard dont le temps est modulé à 0,9 Hz. Un
+retard qui varie, c'est un son qui arrive tantôt plus tôt tantôt plus tard,
+donc une hauteur qui monte et descend : littéralement ce que fait un plateau
+dont la vitesse flotte. Profondeur maximale 3,5 ms.
+
+**Le niveau des craquements** est un simple gain sur la boucle — et il a deux
+valeurs, parce que le disque ne sonne pas pareil selon le moment.
+
+### Les trois temps du disque
+
+1. **L'amorce.** Le bras se pose, le plateau tourne, et il n'y a **que le
+   sillon** — pas de musique, pas de silence : le bruit du vide. C'est ce qui
+   fait comprendre qu'une machine s'est mise en route.
+2. **La musique.** Les notes entrent, et les craquements **reculent** sans
+   disparaître : le disque continue de tourner sous la guitare.
+3. **Le dernier sillon.** Le morceau finit, le bruit remonte à son niveau
+   d'amorce, et le bras reste là jusqu'à ce qu'on le lève.
+
+Cinq constantes à régler à l'oreille : `DISQUE_AMORCE`, `DISQUE_CRAQ_AV`,
+`DISQUE_CRAQ_PD`, `DISQUE_PLEURAGE`, `DISQUE_GUITARE`.
+
+Le fichier source de 1,76 Mo reste dans le dépôt tant que les réglages ne sont
+pas figés — il faudra le supprimer ensuite. Les deux pistes pèsent 318 Ko
+ensemble, contre 1 804 au départ.
