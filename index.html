@@ -735,7 +735,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.95</button>
+  <button id="versionBtn">v0.96</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -921,9 +921,10 @@
   <p><b>Le soleil.</b> Il se regarde, il se tient, il se traverse. Trois choses
   différentes arrivent selon ce qu'on en fait.</p>
   <p><b>Deux figures dans le ciel.</b> La Grande Ourse et l'étoile du Berger
-  sont là où elles doivent être. L'une montre le chemin, comme elle l'a
-  toujours fait. L'autre annonce le jour, et elle ne se laisse prendre qu'en
-  sortant d'une figure.</p>
+  sont là où elles doivent être — le chariot au nord, Vénus à l'ouest, basse
+  sur l'horizon, comme dans n'importe quel ciel du soir. L'une montre le
+  chemin, comme elle l'a toujours fait. L'autre annonce le jour, et elle ne se
+  laisse prendre qu'en sortant d'une figure ou d'un portail.</p>
   <p><b>Quelque part à l'ouest.</b> Il y a un terrain qui n'est sur aucune
   carte. On y arrive en volant longtemps et bas.</p>
 
@@ -1311,13 +1312,18 @@ const FIG_TIME      = 1.05;   // durée d'un renversement, Immelmann ou Split-S
 // degres par seconde en lacet au lieu de 123.
 const MAX_YAW       = 1.83;   // rad/s, autorité en lacet à pleine déflexion — 123 degrés par seconde
 const MAX_PITCH     = 1.62;    // rad/s, autorité en tangage
-const PITCH_LIMIT   = 85 * Math.PI / 180;
+// QUATRE-VINGT-CINQ DEGRÉS EN LIBERTÉ. La butée était à 85 et la gêne
+// commençait à 80 : les cinq derniers degrés se payaient, donc la chandelle
+// franche était toujours contrariée. La butée monte à 88 et la gêne ne
+// commence qu'à 84 : on monte à quatre-vingt-cinq sans que rien ne s'y oppose,
+// et il reste trois degrés au-dessus où l'appareil proteste.
+const PITCH_LIMIT   = 88 * Math.PI / 180;
 // Au-delà de cette assiette, et à l'approche du plafond, l'appareil peine :
 // le moteur ne suit plus et la cellule se met à vaciller. Rien ne l'interdit,
 // tout le décourage — c'est plus juste qu'une butée, et ça oblige à doser.
 // Quatre-vingts degres, presque a la verticale, avant que le moteur ne
 // commence a peiner : on peut chandelle pour de bon.
-const PEINE_ANGLE = 80 * Math.PI / 180;
+const PEINE_ANGLE = 84 * Math.PI / 180;
 const PEINE_PLAFOND = 320;    // mètres sous le plafond où la gêne commence // jamais la verticale : au-delà l'orientation devient ambiguë
 const PITCH_TRIM    = 0.95;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
 const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
@@ -5662,6 +5668,11 @@ function gagneVie(n) {
 
 // Le passage d'un portail : l'impulsion, la poussée, et la secousse.
 function coupDePied() {
+  // UN PORTAIL OUVRE AUSSI LA FENÊTRE DE VÉNUS. Sortir d'un portail à pleine
+  // poussée et trouver l'ouest dans la foulée est un geste au moins aussi beau
+  // qu'une figure, et il se tente naturellement : on est catapulté, on a de la
+  // vitesse, on lève les yeux.
+  state.figSortie = BERGER_FENETRE;
   state.boostPortail = 2;
   state.speed = Math.min(SPEED_MAX, state.speed + CATAPULTE);
   state.secousse = 0.55;
@@ -10796,6 +10807,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.96', fr: 'On monte à quatre-vingt-cinq degrés sans que rien ne s’y oppose, et un portail ouvre la fenêtre de Vénus.', en: 'You climb to eighty-five degrees with nothing fighting you, and a gate opens the window on Venus.' },
   { v: '0.95', fr: 'Le faucheur devient un disque épais, le portail sonne LE SEUIL et chaque vague ouvre sur une cloche.', en: 'The reaper becomes a thick disc, gates ring THE THRESHOLD and every wave opens on a bell.' },
   { v: '0.94', fr: 'Un posé ne coûte plus jamais de vie, et l’écran de titre ne pose qu’une question.', en: 'A landing never costs life again, and the title screen asks one question.' },
   { v: '0.93', fr: 'Le ciel n’est plus un miroir, et la Grande Ourse ne brille pas plus que les autres.', en: 'The sky is no longer a mirror, and the Big Dipper shines no brighter than the rest.' },

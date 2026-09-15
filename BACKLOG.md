@@ -951,3 +951,14 @@ C'était moche et c'était faux.
   contre cinq autres. Le petit courant d'air qui l'accompagnait est retiré.
 - **LA CLOCHE SOURDE** ouvre chaque vague, et marque aussi les deux secrets du
   ciel, la mission remplie et l'arrivée au refuge.
+
+## v0.96 — la montée, et Vénus au portail
+
+- **Quatre-vingt-cinq degrés en liberté.** La butée était à 85 et la gêne
+  commençait à 80 : les cinq derniers degrés se payaient, donc la chandelle
+  franche était toujours contrariée. Butée à 88, gêne à 84.
+- **Un portail franchi ouvre la fenêtre de Vénus**, comme une figure. Sortir
+  d'un portail à pleine poussée et trouver l'ouest dans la foulée se tente
+  naturellement : on est catapulté, on a de la vitesse, on lève les yeux.
+- L'aide précise où sont les deux astres : le chariot au nord, Vénus à l'ouest,
+  basse sur l'horizon, comme dans n'importe quel ciel du soir.
