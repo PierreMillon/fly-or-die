@@ -1095,3 +1095,134 @@ l'étoile du Berger et la fente en diagonale l'utilisent.
 - Le tonneau : la caméra ne lui convient toujours pas — questions posées.
 - Adresse de la liste bêta (`CONTACT_MAIL`), sa carte dessinée, nom de domaine
   et SIREN pour le portfolio.
+
+## v1.00 — Orion, la chaîne, le relief opaque, le refuge au loin
+
+### Le relief était vraiment transparent, et ce n'était pas la nappe
+
+La v0.99 avait ajouté une surface pleine suivant la carte de hauteur. Elle
+n'occultait presque rien : **mesuré, 1,3 % des traits cachés** sous l'horizon.
+Le coupable n'était ni la surface ni son décalage, mais le **plan proche de la
+caméra**.
+
+La précision d'un tampon de profondeur ne dépend pas de la portée mais du
+rapport `far/near`. À 0,5 / 7000 ce rapport vaut quatorze mille, et la
+résolution en profondeur vaut
+
+    Δz ≈ z² · (far − near) / (near · far · (2²⁴ − 1))
+
+soit **1,07 m à trois kilomètres et 2,99 m à cinq**. La nappe glissée deux
+mètres sous les traits passait donc sous le grain du tampon : les crêtes
+lointaines traversaient les crêtes proches.
+
+Rien n'est jamais à moins de trois mètres de la caméra — elle vit vingt-six
+mètres derrière l'avion. `near` passe de 0,5 à **3** : le rapport tombe à
+2 333 et la résolution est six fois meilleure partout. Le décalage
+géométrique passe à 4 m et `polygonOffset` à 3 / 6 — lui suit la pente, donc
+il donne le plus de marge exactement là où il en faut : sur une crête vue de
+biais.
+
+**Mesuré à position épinglée, deux mesures par état** : dans la bande des
+crêtes lointaines, 2 455 pixels allumés sans la nappe contre 1 828 avec —
+**25,5 % des traits cachés**, et la comparaison des deux captures montre le
+fouillis du fond entièrement effacé.
+
+### La chaîne devient une ceinture
+
+Le relief montait et ne redescendait plus : tout ce qui était au-delà de la
+ville était montagne, pour toujours. On ne pouvait donc rien poser dehors, et
+le refuge se retrouvait dans la roche. L'enveloppe est maintenant une cloche —
+plate jusqu'à 2 400, pleine amplitude de 5 600 à 7 200, retombée jusqu'à
+8 800, plate au-delà.
+
+**Mesuré, maximum sur huit azimuts** : 3 km → 71 m, 5 km → 612 m,
+6,5 km → 650 m, 7,5 km → 455 m, 8,5 km → 51 m, 9 km → 0 m.
+
+Le refuge part à **dix kilomètres** plein ouest. **Mesuré** : distance
+10 005 m, hauteur du sol sous lui **0 m**. Deux minutes de vol à la croisière,
+on franchit la crête, et il n'y a plus que la plaine.
+
+### Le tonneau : la caméra ne suivait qu'un axe sur deux
+
+Le pas **latéral** de l'hélice était donné à la caméra avant le ressort ; le
+pas **vertical** ne l'était pas. Or la barrique monte de 2 × TONNEAU_VERT, soit
+soixante-quatorze mètres, et redescend, en 1,7 s. Un ressort de raideur 44 a
+une période propre de 0,95 s : il ne peut pas suivre.
+
+**Mesuré à l'écran, 103 images** : l'avion sortait du cadre sur **62 d'entre
+elles**, jusqu'à y = −331 000 px. C'est exactement ce que « l'avion disparaît
+de l'écran » voulait dire, et je ne l'avais jamais mesuré.
+
+La caméra reçoit le pas vertical comme le pas latéral, moins un dixième qu'on
+laisse filer. **Après** : 3 images hors cadre sur 92, toutes au tout début, et
+l'avion reste entre y 342 et 632 sur 932.
+
+### Orion, troisième figure du ciel
+
+Sept étoiles, plein sud, à 34° de hauteur : Bételgeuse, Bellatrix, le Baudrier
+(Mintaka, Alnilam, Alnitak), Saïph, Rigel. Les proportions sont les vraies. On
+la trace comme le chariot, étoile après étoile, chacune tenue deux secondes
+dans le viseur — mais il faut faire demi-tour, puisque le chariot est au nord.
+
+Elle donne ce qu'un chasseur donne : **la chasse**, vingt-cinq secondes de
+canons doublés et de cône de verrouillage doublé. Et elle **se reprend** :
+une fois tracée, tenir Bételgeuse trois secondes la rallume, autant de fois
+qu'on veut. C'est la seule des trois qui soit une fenêtre et non un acquis —
+il faut donc avoir des cibles sous la main au moment de la prendre.
+
+**Mesuré** : 7 étoiles sur 7, 2,0 s chacune. Dégâts par seconde 71,9 sans,
+**143,8 avec** — rapport 2,00. Cône à 400 m : 1,988° sans, **3,976° avec** —
+rapport 2,00. Viseur BAUDRIER débloqué.
+
+Au passage, `debloqueViseur()` annonce lui aussi et passait **après** : on
+lisait « VISEUR DÉBLOQUÉ » à la place du nom de la constellation. Corrigé pour
+les trois.
+
+### La chaîne de portails
+
+Chaque portail pris dans les neuf secondes du précédent monte d'un cran, et le
+cran multiplie le coup de pied comme la durée de la poussée.
+
+**Mesuré** : cran 1 → +60 m/s et 2,0 s de poussée ; cran 2 → +84 et 2,8 ;
+cran 3 → +108 et 3,6 ; cran 4 → +132 et 4,4 ; cran 5 → +156 et 5,2.
+
+Et passer un portail **fait perdre la main**. Traverser au ras du béton est le
+geste le plus exposé du jeu : on vole droit, dans un couloir. Il fallait que ça
+rapporte de la sécurité, pas seulement de la vitesse. **Mesuré** : visée
+adverse 5 → 0, roquettes déjà en vol encore verrouillées 1 → 0, recharge
+roquette bloquée 7 s.
+
+### Les leurres quittent le bimoteur
+
+Sur l'appareil de départ ils rendaient les roquettes adverses sans conséquence
+dès la première vague. Ils passent sur l'intercepteur, qui se gagne, et là ils
+sont une raison de le choisir. **Mesuré** : bimoteur 0, intercepteur 6.
+
+### Le moteur ne bat plus
+
+L'écart entre les deux cylindres était multiplié par jusqu'à 4,5 quand la
+cellule était abîmée : les deux voix se désaccordaient et le moteur battait.
+L'information est déjà partout — la jauge, les impacts, l'alarme — et le prix
+était le seul son qu'on entend en permanence, gâché pendant la moitié de la
+partie. L'écart redevient constant.
+
+### Le menu
+
+NOUVELLE PARTIE en première ligne : il fallait mourir ou fermer l'application
+pour recommencer. Et la mise à jour passe **juste sous le numéro de version** —
+c'est le même sujet, et elle était dix lignes plus bas, loin de la seule
+information qui dit si elle a servi. Au retour du rechargement, le menu se
+rouvre tout seul, le numéro sous les yeux.
+
+**Mesuré** : version en ligne 12, mise à jour en ligne 13, collées. NOUVELLE
+PARTIE remet le score de 12 345 à 0, la vague de 7 à 0, relance le décollage
+et ferme le menu.
+
+## Reste à faire
+
+- La musique du refuge : fichier attendu.
+- La planche cockpit remaniée (écran en haut, curseurs, explications, cadrans
+  fonctionnels) : à relire.
+- D'autres constellations encore : Cassiopée au nord-est, la Croix du Sud.
+- Adresse de la liste bêta (`CONTACT_MAIL`), sa carte dessinée, nom de domaine
+  et SIREN pour le portfolio.
