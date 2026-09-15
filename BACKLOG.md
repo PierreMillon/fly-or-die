@@ -990,3 +990,108 @@ quatre à cinq fois plus fort que l'appareil qu'on pilote et couvraient donc la
 seule chose qu'on entend en permanence. Leur partiel le plus fort vaut
 maintenant exactement le gain du moteur, 0,056, sous le nom `SON_NIVEAU`.
 Tout ce qui doit sonner comme l'avion et non par-dessus s'y alignera.
+
+## v0.99 — le manche, les étoiles, le relief, le faucheur
+
+### Le plafond invisible de quarante-neuf degrés
+
+Il disait ne pas pouvoir dépasser 45 à 50° en montée stabilisée, et ne plus
+pouvoir déclencher le décrochage. Les deux venaient de la même ligne :
+
+    if (state.speed < STALL && state.pitch > 0)
+      state.pitch = damp(state.pitch, 0, 2.2 * (STALL - state.speed) / 14, dt);
+
+Une montée stabilisée fait toujours tomber la vitesse au plancher (46 m/s), et
+`STALL` vaut 58 : le rappel tirait donc en permanence vers l'horizontale à
+1,89 rad/s, contre 1,62 rad/s de plein manche. Les deux s'équilibraient à
+0,86 rad — **49,3 degrés**, exactement le mur décrit. Et comme le décrochage
+demande `pitch > 80°`, il était inatteignable.
+
+Le rappel vise maintenant `DECRO_ANGLE` au lieu de zéro, et ne s'exerce
+qu'au-dessus. **Mesuré** : plein manche tenu douze secondes depuis le palier,
+l'assiette atteint **87,3°**, le compteur de décrochage monte, l'alarme sonne
+et la vrille part à 9,2 s. En dessous de 80°, plus rien ne s'oppose au manche.
+
+### Le vacillement revient, sans le lacet
+
+Ce qui le rendait insupportable n'était pas la secousse mais le **lacet** :
+libre, jamais rappelé, chaque embardée restait acquise et il fallait rattraper
+le cap à la main. Le roulis, lui, est rappelé vers le virage à 9/s : il tremble
+et se recentre seul. Le vacillement ne porte donc plus que sur le roulis,
+l'assiette et la vitesse. `PEINE_ANGLE` descend de 84 à **72°** pour qu'il se
+sente, et `figSortie` — six secondes après chaque figure — l'annule.
+
+### La Grande Ourse se prend dans le viseur
+
+`OURSE_CONE` passe de 4,2° à **10°**, la demi-ouverture du viseur dessiné
+(24 px à l'échelle 2,6 sur 844 px de haut à 62° de champ), et `OURSE_TENUE`
+de 0,35 à **2 secondes**. L'étoile du Berger passe de 3,4 à 7°.
+**Mesuré** : étoile tenue à 10° du centre, prise en 2,00 s ; au-delà de 25°,
+rien. C'est bien « dès qu'elle entre dans le viseur », pas « au centre ».
+
+### Le relief était transparent
+
+La nappe pleine est posée à −0,6 m : elle arrête ce qui est *sous* le sol, et
+rien d'autre. Le relief monte à plusieurs centaines de mètres et une grille
+n'est que des traits — les crêtes lointaines se voyaient intégralement au
+travers des crêtes proches. D'où l'enchevêtrement sans profondeur.
+
+`batisRelief()` construit une surface pleine triangulée qui **suit la carte de
+hauteur** (53×53 sommets, 5 408 triangles, rebâtie avec la grille tous les
+160 m), de la couleur du fond, écrite dans le tampon de profondeur, glissée
+2 m sous les traits avec `polygonOffset`. Elle n'ajoute pas un trait : elle
+efface ce qui est derrière une montagne.
+
+`TERRAIN_H` passe de 420 à **980 m**. Le creusement en u² fait la répartition :
+**mesuré sur 14 641 points**, moyenne 175 m, sommet **925 m** — soit 2,8 fois
+la plus haute tour (330 m), et il reste 1 475 m sous le plafond.
+
+### Le faucheur se découvre à mi-vie
+
+**Mesuré** : première moitié, 100 points de dégâts enlèvent 100 pv. Au
+franchissement de 2 000 pv, `phase2` bascule, blindage ×8, vitesse 230 → 690,
+braquage 0,42 → 0,84 rad/s. Seconde moitié, les mêmes 100 points n'enlèvent
+plus que **12,5 pv**. Le changement est annoncé et sonné : on entend le moment
+où la barre change de règle.
+
+Tous les dégâts passent désormais par `blesse(e, degats)` — canons, ailier,
+roquettes, fusil du refuge, coopération — seul endroit où le blindage peut
+s'appliquer sans en oublier une source.
+
+### Le trait pointillé des adversaires disparaît
+
+Trois adversaires alignés, c'étaient trois traits en travers de toute l'image,
+par-dessus le viseur et la cible qu'on visait. Ce qu'il faut savoir tient
+maintenant **sur l'adversaire lui-même** : son cadre de désignation s'épaissit,
+s'éclaire et bat à mesure qu'il se cale, et reste muet si un mur coupe la ligne
+de vue. Le son prévient toujours quand il est derrière.
+
+### Le son, corrigé dans l'autre sens
+
+Aligner la cloche et le seuil sur le gain du moteur (v0.98) les a rendus
+inaudibles, et c'était une erreur de physique : à amplitude égale, un son de
+73 Hz s'entend environ 25 dB moins fort qu'un son de 1 kHz (courbes
+isosoniques, ISO 226:2023), et le haut-parleur d'un téléphone ne reproduit
+quasiment rien sous 200 Hz. Le fondamental grave ne sortait pas de l'appareil.
+
+Deux corrections : `SON_MONDE = SON_NIVEAU × 4`, **et** des partiels dans la
+bande que le téléphone sait produire — la cloche reçoit 220, 293,6 et 440 Hz
+(4ᵉ et 6ᵉ harmoniques du même 73,4), le seuil reçoit 330 et 440. Le caractère
+grave est conservé, c'est l'octave audible qui le porte.
+
+Le vieux `SFX.vagueNette()` — 620 / 830 / 1244 Hz — qui traînait encore sur les
+passages de tour et d'arche est supprimé.
+
+### Les annonces disent ce qu'elles font
+
+`announce(titre, sous)` accepte une seconde ligne, plus petite. La Grande Ourse,
+l'étoile du Berger et la fente en diagonale l'utilisent.
+
+## Reste à faire
+
+- La musique du refuge : fichier attendu.
+- La planche cockpit : mise en page à revoir, option « viseur et instruments »,
+  instruments fonctionnels.
+- Le tonneau : la caméra ne lui convient toujours pas — questions posées.
+- Adresse de la liste bêta (`CONTACT_MAIL`), sa carte dessinée, nom de domaine
+  et SIREN pour le portfolio.

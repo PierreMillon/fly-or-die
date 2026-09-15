@@ -735,7 +735,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.98</button>
+  <button id="versionBtn">v0.99</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -1323,7 +1323,11 @@ const PITCH_LIMIT   = 88 * Math.PI / 180;
 // tout le décourage — c'est plus juste qu'une butée, et ça oblige à doser.
 // Quatre-vingts degres, presque a la verticale, avant que le moteur ne
 // commence a peiner : on peut chandelle pour de bon.
-const PEINE_ANGLE = 84 * Math.PI / 180;
+// SOIXANTE-DOUZE DEGRÉS. À quatre-vingt-quatre il ne restait que quatre
+// degrés avant la butée : le vacillement ne se sentait jamais. La montée forte
+// commence vers soixante-dix ; c'est là que la cellule doit commencer à
+// protester, et le décrochage n'arrive toujours qu'à quatre-vingts.
+const PEINE_ANGLE = 72 * Math.PI / 180;
 const PEINE_PLAFOND = 320;    // mètres sous le plafond où la gêne commence // jamais la verticale : au-delà l'orientation devient ambiguë
 const PITCH_TRIM    = 0.95;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
 const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
@@ -1730,6 +1734,18 @@ try { timbre = localStorage.getItem('fod_timbre') || 'clair'; } catch (e) {}
 // LE NIVEAU DE RÉFÉRENCE : celui du moteur. Tout ce qui doit sonner « comme
 // l'avion » et non « par-dessus l'avion » s'y aligne.
 const SON_NIVEAU = 0.056;
+// ET LE NIVEAU DU MONDE. Aligner la cloche et le seuil sur le gain du moteur
+// (v0.98) les a rendus inaudibles, et c'était une erreur de physique, pas de
+// goût : à égalité d'amplitude, un son de 73 Hz s'entend environ vingt-cinq
+// décibels moins fort qu'un son de 1 kHz (courbes isosoniques ISO 226), et le
+// haut-parleur d'un téléphone ne reproduit quasiment rien sous 200 Hz. Le
+// fondamental grave ne sortait donc tout simplement pas de l'appareil.
+//
+// Deux corrections, pas une : le niveau monte à quatre fois celui du moteur,
+// ET les deux sons reçoivent des partiels dans la bande que le téléphone sait
+// produire — 220 à 590 Hz. Le caractère grave est conservé, c'est l'octave
+// audible qui le porte.
+const SON_MONDE = SON_NIVEAU * 4;
 const TIMBRES = {
   clair:   { base: 70,  ecart: 1.7, coupe: 420,  sous: 0,    gain: 0.050 },
   profond: { base: 47,  ecart: 3.1, coupe: 640,  sous: 0.52, gain: 0.062 }
@@ -2056,8 +2072,11 @@ const SFX = {
     // pilote, et couvraient donc la seule chose qu'on entend en permanence.
     // Leur partiel le plus fort vaut maintenant exactement SON_NIVEAU, qui est
     // le gain du moteur.
-    const k = SON_NIVEAU / 0.14;
-    for (const v of [[110, 0.14 * k], [165, 0.09 * k], [220, 0.06 * k]]) {
+    const k = SON_MONDE / 0.14;
+    // les deux dernières voix montent d'une octave : c'est par elles que le
+    // seuil sort du haut-parleur, le 110 Hz n'en sort pas
+    for (const v of [[110, 0.14 * k], [330, 0.085 * k], [440, 0.055 * k],
+                     [165, 0.05 * k], [220, 0.04 * k]]) {
       const o = actx.createOscillator(), g = actx.createGain();
       o.type = 'sine';
       o.frequency.setValueAtTime(v[0] * 0.82, t);
@@ -2075,9 +2094,13 @@ const SFX = {
   cloche:       () => {
     if (!actx || muet) return;
     const t = actx.currentTime;
-    const k = SON_NIVEAU / 0.26;
+    const k = SON_MONDE / 0.26;
+    // 293,6 et 440 sont la quatrième et la sixième harmonique du même 73,4 :
+    // la cloche reste la même cloche, elle est simplement frappée là où le
+    // téléphone sait la rendre.
     const voix = [[73.4, 0.26 * k, 'sine'], [110, 0.12 * k, 'sine'],
-                  [146.8, 0.07 * k, 'sine'], [220, 0.035 * k, 'triangle']];
+                  [146.8, 0.11 * k, 'sine'], [220, 0.14 * k, 'triangle'],
+                  [293.6, 0.11 * k, 'sine'], [440, 0.055 * k, 'sine']];
     voix.forEach((v, i) => {
       const o = actx.createOscillator(), g = actx.createGain();
       o.type = v[2];
@@ -2973,7 +2996,7 @@ function secretsCiel(dt) {
         marque(OURSE_PRIME);
         stat('ourses');
         state.ourseFaite = true;
-        announce(t('ourse') + OURSE_PRIME);
+        announce(t('ourse') + OURSE_PRIME, t('ourseSous'));
         SFX.cloche();
         debloqueViseur('ourse');
       }
@@ -2991,7 +3014,7 @@ function secretsCiel(dt) {
       state.eclipse = 0;
       marque(BERGER_PRIME);
       stat('bergers');
-      announce(t('berger') + BERGER_PRIME);
+      announce(t('berger') + BERGER_PRIME, t('bergerSous'));
       SFX.cloche();
       debloqueViseur('berger');
     }
@@ -3176,11 +3199,18 @@ const GRID_SPAN = 8400, GRID_STEP = 160;
 // ---------------------------------------------------------------------------
 const TERRAIN_R0 = 2400;      // jusque-là, parfaitement plat : c'est la ville
 const TERRAIN_R1 = 5600;      // au-delà, le relief est à pleine amplitude
-// PLUS HAUTES. Deux cent quarante mètres se lisaient comme des collines ;
-// quatre cent vingt, c'est une vraie chaîne, et il faut vraiment monter pour
-// la franchir. On ne peut pas tirer dessus et c'est volontaire : ce n'est pas
-// un bâtiment, c'est le sol. On n'abat pas le sol.
-const TERRAIN_H  = 420;       // mètres de dénivelé au plus fort
+// DEUX À TROIS FOIS LA PLUS HAUTE TOUR. La tour percée culmine à 330 mètres.
+// Quatre cent vingt mètres de dénivelé, écrasés par le creusement en u², ne
+// donnaient en pratique que des bosses de deux cents : la chaîne ne dominait
+// rien. L'amplitude passe à 980, soit trois fois la tour au sommet exact.
+//
+// Le creusement en u² fait tout le travail de répartition : la valeur moyenne
+// de u² est proche de 0,2, donc le relief courant reste à deux cents mètres et
+// on continue de voler au-dessus sans y penser. Ce sont les rares crêtes où
+// les trois ondulations se rencontrent qui montent à sept ou neuf cents — et
+// celles-là, il faut vraiment décider de les franchir. Le plafond est à 2400 :
+// il reste quinze cents mètres au-dessus du plus haut sommet.
+const TERRAIN_H  = 980;       // mètres de dénivelé au plus fort
 function hauteurSol(x, z) {
   const d = Math.hypot(x, z);
   if (d <= TERRAIN_R0) return 0;
@@ -3211,6 +3241,42 @@ function batisGrille(cx, cz) {
   return segGeom(pts);
 }
 
+// LE SOL ÉTAIT TRANSPARENT, ET LA NAPPE PLATE N'Y POUVAIT RIEN. Elle est
+// posée à −0,6 m : elle arrête ce qui est SOUS le sol — les étoiles de la
+// voûte inférieure — et rien d'autre. Or le relief monte à plusieurs centaines
+// de mètres, et une grille n'est que des traits : les crêtes lointaines se
+// voyaient intégralement AU TRAVERS des crêtes proches. D'où l'enchevêtrement
+// de lignes sans profondeur qu'on avait sous les yeux.
+//
+// Il faut donc une surface pleine QUI SUIVE LE RELIEF, écrite dans le tampon
+// de profondeur, de la couleur du fond. Elle n'ajoute pas un trait à l'image :
+// elle efface simplement ce qui est derrière une montagne. Elle est glissée
+// deux mètres sous la grille pour que les traits restent nets par-dessus, et
+// polygonOffset la repousse encore d'un cran — sans quoi la ligne et la face
+// se disputent le même pixel et la crête clignote.
+function batisRelief(cx, cz) {
+  const R = GRID_SPAN / 2, N = GRID_SPAN / GRID_STEP;
+  const pos = new Float32Array((N + 1) * (N + 1) * 3);
+  let p = 0;
+  for (let j = 0; j <= N; j++) {
+    for (let i = 0; i <= N; i++) {
+      const x = cx - R + i * GRID_STEP, z = cz - R + j * GRID_STEP;
+      pos[p++] = x; pos[p++] = hauteurSol(x, z) - 2; pos[p++] = z;
+    }
+  }
+  const idx = [];
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const a = j * (N + 1) + i, b = a + 1, c = a + N + 1, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
+}
+
 (function buildGrid() {
   const pts = [];
   for (let i = -GRID_SPAN / 2; i <= GRID_SPAN / 2; i += GRID_STEP) {
@@ -3237,7 +3303,19 @@ function batisGrille(cx, cz) {
   nappe.renderOrder = -0.5;        // après les étoiles, avant tout le reste
   nappe.name = 'nappe';
   scene.add(nappe);
+
+  const relief = new THREE.Mesh(
+    batisRelief(0, 0),
+    new THREE.MeshBasicMaterial({ color: COL_FOND, fog: false, depthWrite: true,
+                                  polygonOffset: true, polygonOffsetFactor: 1,
+                                  polygonOffsetUnits: 2 })
+  );
+  relief.frustumCulled = false;
+  relief.renderOrder = -0.4;     // après la nappe, avant tous les traits
+  relief.name = 'relief';
+  scene.add(relief);
 })();
+const reliefSol = scene.getObjectByName('relief');
 const nappeSol = scene.getObjectByName('nappe');
 const grid = scene.getObjectByName('grid');
 let etoiles = [];
@@ -3452,9 +3530,19 @@ const OURSE_PLAN = [[0.00, 0.62], [0.00, 0.30], [0.36, 0.22], [0.40, 0.52],
 // visee, et une seule passe en allumait deux. Il s'ouvre donc pour de bon.
 const OURSE_ETAL = 0.66;          // ouverture du chariot, en radians
 const OURSE_HAUT = 46 * Math.PI / 180;   // hauteur du centre au-dessus de l'horizon
-const OURSE_CONE = Math.cos(4.2 * Math.PI / 180);   // il faut vraiment la viser
-const OURSE_TENUE = 0.35;         // secondes sur chaque etoile
-const BERGER_CONE = Math.cos(3.4 * Math.PI / 180);
+// DANS LE VISEUR, PAS AU CENTRE DU VISEUR. Un cône de 4,2 degrés demandait de
+// poser l'étoile sur la croix au pixel près, en tenant une assiette haute, en
+// vol : personne n'y arrivait. Le viseur dessiné fait 24 pixels de rayon à
+// l'échelle 2,6, soit 62 px sur un écran de 844 px de haut à 62 degrés de
+// champ — environ dix degrés d'ouverture. C'est ce chiffre-là qui compte :
+// l'étoile s'allume dès qu'elle ENTRE dans le viseur, et il suffit de l'y
+// garder. Deux secondes, parce que la tenue est le geste, pas la visée.
+const OURSE_CONE = Math.cos(10 * Math.PI / 180);
+const OURSE_TENUE = 2;            // secondes sur chaque etoile
+// Même règle pour l'étoile du Berger : le viseur, pas la croix. Elle reste un
+// peu plus exigeante que le chariot — c'est une étoile unique, pas une sur
+// sept — mais elle tient dans le viseur.
+const BERGER_CONE = Math.cos(7 * Math.PI / 180);
 const BERGER_TENUE = 1.5;
 const BERGER_FENETRE = 6;     // secondes ouvertes par une figure pour aller la chercher
 const AUBE_DUREE = 20;            // secondes de jour leve : l'inverse de l'eclipse
@@ -4261,7 +4349,7 @@ function mecanoTire(m, dt) {
   m.g.rotation.set(0, Math.atan2(-_fusil.x, -_fusil.z), 0);
   // le canon se lève vers l'appareil : on voit sur qui il tire
   m.fusil.rotation.x = -Math.atan2(_fusil.y, Math.hypot(_fusil.x, _fusil.z));
-  cible.hp -= FUSIL_DPS * (depuisTable ? 0.15 : 1) * dt;
+  blesse(cible, FUSIL_DPS * (depuisTable ? 0.15 : 1) * dt);
   if (!depuisTable) cible.harcele = HARCELE;
   // PAR SALVES, PAS AU MÉTRONOME. Un homme au fusil tire deux ou trois coups,
   // rabat la culasse, cherche sa cible, et reprend. La cadence régulière
@@ -5088,6 +5176,36 @@ function rabaisseBoites(b) {
   if (b.passage) liste.push(b.passage);
   for (const bo of liste) { bo.y0 *= RUINE; bo.y1 *= RUINE; }
 }
+// ---------------------------------------------------------------------------
+// LA SECONDE VIE DU FAUCHEUR. À mi-vie, il ne se contente pas de continuer :
+// il change de machine. Le blindage est multiplié par huit — deux fois quatre
+// — la vitesse par trois, et le braquage par deux. La première moitié de ses
+// quatre mille points se tire en le poursuivant ; la seconde se tire en le
+// fuyant, parce qu'à partir de là c'est lui qui choisit la distance.
+//
+// Ce qui rend la chose lisible et non injuste : le changement est ANNONCÉ, il
+// se voit (il double sa vitesse sous les yeux) et il n'ajoute pas un point de
+// vie. On ne se retrouve pas devant une barre qui ne descend plus sans savoir
+// pourquoi — on a entendu le moment où elle a changé de règle.
+const FAUCHEUR_BLINDAGE = 8;   // deux fois quatre
+const FAUCHEUR_VITESSE  = 3;
+const FAUCHEUR_VIRAGE   = 2;
+// Tout ce qui blesse un adversaire passe par ici : c'est le seul endroit où
+// le blindage peut s'appliquer sans en oublier une source.
+function blesse(e, degats) {
+  e.hp -= degats / (e.blindage || 1);
+  if (e.faucheur && !e.phase2 && e.hp <= e.hpMax * 0.5) {
+    e.phase2 = true;
+    e.blindage = FAUCHEUR_BLINDAGE;
+    e.vireX = FAUCHEUR_VIRAGE;
+    e.vitX = FAUCHEUR_VITESSE;
+    e.speed *= FAUCHEUR_VITESSE;
+    announce(t('faucheur2'), t('faucheur2Sous'));
+    SFX.alerte();
+    SFX.cloche();
+    spawnBurst(e.pos, 14);
+  }
+}
 const _pouss = new THREE.Vector3();
 function toucheBat(b, point, degats) {
   if (b.mort) return;
@@ -5387,6 +5505,7 @@ const state = {
   waveTimer: 0,
   announce: '',
   announceT: 0,
+  announceSous: '',
   hitFlash: 0,
   peine: 0,
   chauffe: 0,
@@ -5678,7 +5797,12 @@ function resetGame() {
   announce('DÉCOLLAGE');
 }
 
-function announce(txt) { state.announce = txt; state.announceT = 2.2; }
+// UNE ANNONCE PEUT DIRE CE QU'ELLE FAIT. Le grand titre nomme la chose ; la
+// petite ligne en dessous dit la conséquence, parce qu'un nom d'étoile ne
+// suffit pas à comprendre ce qu'on vient de déclencher.
+function announce(txt, sous) {
+  state.announce = txt; state.announceSous = sous || ''; state.announceT = 2.2;
+}
 
 // LA BARRE DE VIE S'AGRANDIT. Ce qu'un portail donne au-dessus de cent ne
 // s'ajoute plus seulement à la jauge : il en repousse le PLAFOND, pour toute
@@ -5886,7 +6010,7 @@ function lacherFaucheur() {
     quat: new THREE.Quaternion(), forward: new THREE.Vector3(0, 0, -1), los: new THREE.Vector3(), losOk: false,
     speed: 230, hp: 4000, hpMax: 4000, cadence: 0.4, goal: new THREE.Vector3(), cote: 1, frolT: 0, charge: 0,
     evadeT: 0, evadeCd: 0, evadeSide: 1, evadeUp: 1, goalT: 0, reload: 1, roqCd: 2, fig: null, figCd: 0,
-    burst: 0, burstT: 0, visee: 0, faucheur: true };
+    burst: 0, burstT: 0, visee: 0, faucheur: true, blindage: 1, vireX: 1, vitX: 1 };
   // IL SE MONTRE AVANT DE TUER. Il arrivait dans notre dos, sans un mot :
   // on mourait sans l'avoir vu. Il traverse maintenant notre route PILE
   // DEVANT, perpendiculairement et a pleine vitesse — trois secondes de
@@ -6246,6 +6370,10 @@ function updateEnemies(dt) {
   for (let i = state.enemies.length - 1; i >= 0; i--) {
     const e = state.enemies[i];
     const K = e.kind;
+    // LE BRAQUAGE DE L'APPAREIL, pas celui de son espèce. Le faucheur en
+    // seconde vie tourne deux fois plus serré : tout ce qui lisait K.virage
+    // lit maintenant vir, qui vaut K.virage pour tous les autres.
+    const vir = K.virage * (e.vireX || 1);
 
     _v.subVectors(e.pos, state.pos);
     const dist = _v.length() || 1;
@@ -6342,7 +6470,7 @@ function updateEnemies(dt) {
           e.goalT = 0.4;
           _m4.lookAt(e.pos, e.goal, _up);
           _q.setFromRotationMatrix(_m4);
-          e.quat.rotateTowards(_q, K.virage * 1.4 * dt);
+          e.quat.rotateTowards(_q, vir * 1.4 * dt);
           e.forward.set(0, 0, -1).applyQuaternion(e.quat);
           e.pos.addScaledVector(e.forward, e.speed * 1.15 * dt);
           e.mesh.position.copy(e.pos);
@@ -6423,7 +6551,7 @@ function updateEnemies(dt) {
       e.goal.y = THREE.MathUtils.clamp(e.goal.y, 70, CEILING);
       _m4.lookAt(e.pos, e.goal, _up);
       _q.setFromRotationMatrix(_m4);
-      e.quat.rotateTowards(_q, K.virage * 1.6 * dt);   // rupture franche
+      e.quat.rotateTowards(_q, vir * 1.6 * dt);   // rupture franche
 
     // ---- le point visé dépend de la tactique, et c'est là que tout se joue
     } else if (K.tactique === 'proportionnelle') {
@@ -6438,7 +6566,7 @@ function updateEnemies(dt) {
         if (sn > 1e-6) {
           _pn.divideScalar(sn);
           const rate = Math.asin(Math.min(1, sn)) / Math.max(dt, 1e-4);
-          _qa.setFromAxisAngle(_pn, Math.min(PN_GAIN * rate * dt, K.virage * dt * 1.8));
+          _qa.setFromAxisAngle(_pn, Math.min(PN_GAIN * rate * dt, vir * dt * 1.8));
           e.quat.premultiply(_qa);
         }
       }
@@ -6447,7 +6575,7 @@ function updateEnemies(dt) {
       // rappel doux vers la cible, sinon la moindre erreur s'accumule
       _m4.lookAt(e.pos, state.pos, _up);
       _q.setFromRotationMatrix(_m4);
-      e.quat.rotateTowards(_q, K.virage * 0.35 * dt);
+      e.quat.rotateTowards(_q, vir * 0.35 * dt);
 
     } else {
       if (K.tactique === 'pure') {
@@ -6530,7 +6658,7 @@ function updateEnemies(dt) {
       if (K.etage) e.goal.y = Math.min(e.goal.y, K.etage[1]);
       _m4.lookAt(e.pos, e.goal, _up);
       _q.setFromRotationMatrix(_m4);
-      e.quat.rotateTowards(_q, K.virage * dt);
+      e.quat.rotateTowards(_q, vir * dt);
     }
 
     if (e.figCd > 0) e.figCd -= dt;
@@ -6538,7 +6666,7 @@ function updateEnemies(dt) {
       // il revient : cap sur nous, plus vite que d'habitude
       _m4.lookAt(e.pos, state.pos, _up);
       _q.setFromRotationMatrix(_m4);
-      e.quat.rotateTowards(_q, K.virage * 1.2 * dt);
+      e.quat.rotateTowards(_q, vir * 1.2 * dt);
     }
     e.forward.set(0, 0, -1).applyQuaternion(e.quat);
     e.pos.addScaledVector(e.forward, e.speed * (e.rattrape ? 1.6 : 1) * dt);
@@ -6924,7 +7052,7 @@ function updateRoquettes(dt) {
     }
 
     if (auBut) {
-      r.cible.hp -= ROQ_DEGATS;
+      blesse(r.cible, ROQ_DEGATS);
       const tombe = r.cible.hp <= 0 ? r.cible : null;
       spawnBurst(r.pos, 6);
       spawnBurst(r.pos, 13);
@@ -7306,7 +7434,7 @@ function updateLock(dt) {
     _b1.lerpVectors(state.pos, best.pos, mur.t);
     toucheBat(mur.bat, _b1, dps * dt);
   } else {
-    best.hp -= dps * dt;
+    blesse(best, dps * dt);
     // TIRER SUR LE SOLEIL. Tenir le feu en plein éblouissement, dix secondes
     // en tout : le soleil finit par s'éteindre.
     if (state.eclipse <= 0 && eblouissement() > 0.5) {
@@ -7702,17 +7830,51 @@ function simulate(dt) {
   const plafond = SPEED_MAX * (1 + 0.35 * state.boost);
   state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, plafond);
 
-  // PLUS DE VACILLEMENT. Monter fort faisait vaciller la cellule — un lacet et
-  // un roulis erratiques qu'il fallait rattraper à la main, et qui traînaient
-  // longtemps après qu'on avait remis à plat. C'était une punition déguisée en
-  // réalisme, et elle gâchait le geste le plus satisfaisant du jeu. Elle est
-  // supprimée. Ce qui reste pour décourager la verticale, et qui suffit : on
-  // perd de la vitesse en montant, et trop lent, le nez retombe tout seul.
-  state.peine = 0;
+  // LE VACILLEMENT REVIENT — MAIS IL NE TOUCHE PLUS AU CAP. Ce qui le rendait
+  // insupportable n'était pas la secousse : c'était le LACET qu'il ajoutait.
+  // Le lacet est libre, rien ne le ramène, et chaque embardée restait acquise
+  // longtemps après qu'on avait remis à plat — il fallait rattraper le cap à
+  // la main. Le roulis, lui, est rappelé vers le virage en un dixième de
+  // seconde : il tremble et se recentre tout seul.
+  //
+  // Le vacillement ne porte donc plus que sur le roulis, l'assiette et la
+  // vitesse. On le VOIT, on ne le SUBIT pas. Et une figure — tonneau,
+  // Immelmann, Split-S — le remet à zéro pour six secondes : la cellule s'est
+  // dénouée, on repart propre.
+  {
+    const parAngle = Math.max(0, Math.abs(state.pitch) - PEINE_ANGLE)
+                   / (PITCH_LIMIT - PEINE_ANGLE);
+    const parHaut = Math.max(0, state.pos.y - (CEILING - PEINE_PLAFOND)) / PEINE_PLAFOND;
+    // UNE FIGURE ANNULE. figSortie vaut six secondes à la fin de chaque figure
+    // et se décompte tout seul : pendant ce temps la cellule ne peine plus.
+    const calme = (state.fig || state.spinT > 0 || state.figSortie > 0) ? 0 : 1;
+    const peine = THREE.MathUtils.clamp(Math.max(parAngle, parHaut), 0, 1) * calme;
+    state.peine = peine;
+    if (peine > 0.01) {
+      state.speed -= peine * 20 * dt;
+      const tv = performance.now() / 1000;
+      // deux sinusoïdes incommensurables : ça ne se répète jamais tout à fait
+      state.roll += (Math.sin(tv * 4.1) + 0.7 * Math.sin(tv * 7.3)) * peine * 1.8 * dt;
+      state.pitch -= peine * 0.35 * dt;
+    }
+  }
 
-  // trop lent : le nez retombe tout seul, quoi que demande le doigt
-  if (state.speed < STALL && state.pitch > 0) {
-    state.pitch = THREE.MathUtils.damp(state.pitch, 0, 2.2 * (STALL - state.speed) / 14, dt);
+  // LE PLAFOND DE QUARANTE-NEUF DEGRES. Le rappel « trop lent, le nez
+  // retombe » visait ZERO des que la vitesse passait sous STALL. Or une montee
+  // stabilisee fait toujours tomber la vitesse au plancher : le rappel tirait
+  // donc en permanence vers l'horizontale, a 1,89 rad/s, contre 1,62 rad/s de
+  // plein manche. Les deux s'equilibraient a 0,86 radian — quarante-neuf
+  // degres, exactement le mur decrit. On ne pouvait ni atteindre les
+  // quatre-vingts degres du decrochage, ni tenir une etoile haute dans le
+  // viseur.
+  //
+  // Le rappel ne vise plus zero mais DECRO_ANGLE, et ne s'exerce qu'au-dessus.
+  // Jusqu'a quatre-vingts degres le manche est seul maitre, quelle que soit la
+  // vitesse. Au-dela l'aile proteste doucement, et c'est le decrochage — pas
+  // une butee invisible — qui sanctionne.
+  if (state.speed < STALL && state.pitch > DECRO_ANGLE) {
+    state.pitch = THREE.MathUtils.damp(state.pitch, DECRO_ANGLE,
+                                       1.1 * (STALL - state.speed) / 14, dt);
   }
 
   // ---------------------------------------------------------------------
@@ -8576,7 +8738,7 @@ function updateAilier(dt) {
   // il tire sur notre cible verrouillée, à découvert seulement
   const e = state.lock;
   if (e && state.lockCharge >= SEUIL_TIR && !obstacleEntre(A.pos, e.pos)) {
-    e.hp -= AILIER_DPS * dt;
+    blesse(e, AILIER_DPS * dt);
     A.gunT -= dt;
     if (A.gunT <= 0) {
       A.gunT = 0.16;
@@ -8675,7 +8837,7 @@ function scrape(dt) {
           t.priseT[0] = PASSAGE_REPOS;
           stat('passages'); gagneVie(defiEst('sansBonus') ? 0 : FENTE_PRIME);
           coupDePied(); coopReanime(); marque(600);
-          announce(t_('fente') + FENTE_PRIME); noteTrou('incline');
+          announce(t_('fente') + FENTE_PRIME, t_('fenteSous')); noteTrou('incline');
         }
       }
       if (t.priseT[0] > 0) t.priseT[0] -= dt;
@@ -8725,7 +8887,6 @@ function scrape(dt) {
       coopReanime();
       marque(400);
       announce(t_('tour') + TOUR_PRIME);
-      SFX.vagueNette();
     }
   }
   for (const a of arches) {
@@ -8741,7 +8902,6 @@ function scrape(dt) {
       coopReanime();
       marque(150);
       announce(t('arche') + ARCHE_PRIME);
-      SFX.vagueNette();
     }
   }
   for (const p of pylones) {
@@ -8823,6 +8983,7 @@ function updateDecor() {
     gridSnapX = sx; gridSnapZ = sz;
     grid.geometry.dispose();
     grid.geometry = batisGrille(sx, sz);
+    if (reliefSol) { reliefSol.geometry.dispose(); reliefSol.geometry = batisRelief(sx, sz); }
   }
   grid.position.set(0, 0, 0);
   // la nappe reste sous le point le plus bas du relief et suit l'avion
@@ -9133,7 +9294,7 @@ function coopTirsAmis(dt) {
     const dps = DPS_MIN + (DPS_MAX - DPS_MIN) * a.ch;
     const mur = obstacleEntre(a.pos, e.pos);
     if (mur) { _b1.lerpVectors(a.pos, e.pos, mur.t); toucheBat(mur.bat, _b1, dps * dt); continue; }
-    e.hp -= dps * dt;
+    blesse(e, dps * dt);
     if (e.hp <= 0) abattre(e);
   }
 }
@@ -9664,36 +9825,14 @@ function drawHud() {
   // Le compte des roquettes est monté dans la bande du haut : deux chiffres
   // collés aux ailes se lisaient mal et encombraient le centre de l'image.
 
-  // LE RAYON QUI ANNONCE LE TIR. Quand un adversaire tient son alignement, un
-  // trait part de lui vers nous et s'épaissit à mesure : on voit venir la rafale.
-  for (const e of state.enemies) {
-    if (!(e.visee > 0.06)) continue;
-    // IL Y A UN MUR : le trait s'arrête dessus. C'est la même ligne de vue que
-    // celle des balles — si elle est coupée, il tire dans le béton.
-    if (obstacleEntre(e.pos, state.pos)) continue;
-    // ET ON LE VOIT D'OÙ QU'IL TIRE. Derrière, au-dessus, hors cadre : le
-    // trait part alors du bord de l'écran, dans sa direction, plutôt que de
-    // disparaître au moment où il compte le plus.
-    const pe = project(e.pos);
-    let ex = pe.x, ey = pe.y;
-    if (!pe.front || ex < 0 || ex > w || ey < 0 || ey > h) {
-      let vx = pe.x - pSelf.x, vy = pe.y - pSelf.y;
-      if (!pe.front) { vx = -vx; vy = -vy; }
-      const n = Math.hypot(vx, vy) || 1;
-      const R = Math.min(w, h) * 0.46;
-      ex = pSelf.x + vx / n * R; ey = pSelf.y + vy / n * R;
-    }
-    // POINTILLÉ. Plein, il se confondait avec les traits de vitesse, qui sont
-    // de la même couleur et de la même finesse. Le tireté ne ressemble à rien
-    // d'autre à l'écran, et il se resserre à mesure que la rafale approche.
-    const k = Math.min(1, e.visee / VISEE_ENNEMI);
-    hctx.strokeStyle = 'rgba(70,255,160,' + (0.22 + 0.55 * k).toFixed(3) + ')';
-    hctx.lineWidth = 0.6 + 0.9 * k;
-    hctx.setLineDash([9 - 5 * k, 7 - 3.5 * k]);
-    hctx.beginPath(); hctx.moveTo(ex, ey); hctx.lineTo(pSelf.x, pSelf.y); hctx.stroke();
-    hctx.setLineDash([]);
-    hctx.lineWidth = 1;
-  }
+  // PLUS DE TRAIT VERS NOUS. Le tireté qui partait de chaque adversaire aligné
+  // et venait jusqu'au centre de l'écran disait la bonne chose au mauvais
+  // endroit : trois adversaires alignés, c'étaient trois traits en travers de
+  // toute l'image, par-dessus le viseur, le décor et la cible qu'on visait.
+  // Ce qu'il fallait savoir tient désormais SUR L'ADVERSAIRE LUI-MÊME : son
+  // cadre de désignation s'épaissit et s'éclaire à mesure qu'il se cale. On
+  // regarde celui qui tire, pas une ligne qui traverse le ciel. Le son reste,
+  // et c'est lui qui prévient quand il est derrière.
 
   // cadres de désignation, et flèche vers la cible la plus proche hors champ
   for (const e of state.enemies) {
@@ -9714,7 +9853,22 @@ function drawHud() {
       hctx.beginPath(); hctx.arc(p.x, p.y, size * 1.45, 0, Math.PI * 2); hctx.stroke();
       hctx.restore();
     }
+    // IL SE CALE SUR NOUS, ET ÇA SE LIT SUR SON CADRE. C'est ce que disait le
+    // trait qui traversait l'écran, dit là où l'on regarde déjà. Le cadre
+    // s'épaissit, s'éclaire et se met à battre à mesure que son alignement se
+    // tient — et si la ligne de vue passe dans un mur, rien ne bouge : il tire
+    // dans le béton.
+    const menace = e.visee > 0.06 && !obstacleEntre(e.pos, state.pos)
+                 ? Math.min(1, e.visee / VISEE_ENNEMI) : 0;
     hctx.strokeStyle = locked ? '#ffffff' : 'rgba(70,255,160,0.75)';
+    if (!locked && menace > 0) {
+      const bat = 0.55 + 0.45 * Math.sin(performance.now() / (220 - 130 * menace));
+      hctx.save();
+      hctx.strokeStyle = 'rgba(120,255,185,' + (0.35 + 0.6 * menace * bat).toFixed(3) + ')';
+      hctx.lineWidth = 1.2 + 1.8 * menace;
+      bracket(p.x, p.y, size * (1.5 - 0.42 * menace), 0.5);
+      hctx.restore();
+    }
     if (locked) {
       const ch = state.lockCharge;
       // la vibration croît avec la puissance : on sent le tir se caler
@@ -9800,6 +9954,11 @@ function drawHud() {
       hctx.font = '500 ' + taille + 'px "IBM Plex Mono", ui-monospace, monospace';
     }
     hctx.fillText(state.announce, w / 2, h * 0.26);
+    if (state.announceSous) {
+      hctx.fillStyle = 'rgba(190,255,220,0.82)';
+      hctx.font = '400 13px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillText(state.announceSous, w / 2, h * 0.26 + taille * 0.95 + 6);
+    }
     hctx.globalAlpha = 1;
     hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
   }
@@ -10243,8 +10402,13 @@ const T = {
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
     refuge: 'LE REFUGE  ·  MOTEUR COUPÉ  ·  PERSONNE NE VIENT',
     missionOk: 'MISSION REMPLIE  ·  +', missionKo: 'MISSION MANQUÉE  ·  LE VOL CONTINUE',
-    ourse: 'LA GRANDE OURSE  ·  ELLE MONTRE LE REFUGE  ·  +',
-    berger: 'L’ÉTOILE DU BERGER  ·  LE JOUR SE LÈVE  ·  +',
+    ourse: 'LA GRANDE OURSE  ·  +',
+    ourseSous: 'le refuge apparaît sur la boussole, et il est ouvert tout de suite',
+    berger: 'L’ÉTOILE DU BERGER  ·  +',
+    bergerSous: 'le jour se lève vingt secondes : eux ne voient plus rien, nous si',
+    fenteSous: 'AS DE LA VOLTIGE',
+    faucheur2: 'LE FAUCHEUR SE DÉCOUVRE',
+    faucheur2Sous: 'blindage ×8, vitesse ×3, virage deux fois plus serré',
     dore: 'SOLEIL TRAVERSÉ  ·  INVINCIBLE 10 s', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
     prepare: 'préparation du code...', pret: 'code prêt. Envoie-le, puis colle la réponse.',
@@ -10285,8 +10449,13 @@ const T = {
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
     refuge: 'THE REFUGE  ·  ENGINE OFF  ·  NOBODY IS COMING',
     missionOk: 'MISSION COMPLETE  ·  +', missionKo: 'MISSION MISSED  ·  THE FLIGHT GOES ON',
-    ourse: 'THE BIG DIPPER  ·  IT POINTS TO THE REFUGE  ·  +',
-    berger: 'THE EVENING STAR  ·  DAY BREAKS  ·  +',
+    ourse: 'THE BIG DIPPER  ·  +',
+    ourseSous: 'the refuge shows on the compass, and it opens right away',
+    berger: 'THE EVENING STAR  ·  +',
+    bergerSous: 'day breaks for twenty seconds: they see nothing, we see everything',
+    fenteSous: 'AEROBATIC ACE',
+    faucheur2: 'THE REAPER SHOWS ITSELF',
+    faucheur2Sous: 'armour x8, speed x3, twice as tight a turn',
     dore: 'THROUGH THE SUN  ·  INVINCIBLE 10 s', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
     prepare: 'preparing the code...', pret: 'code ready. Send it, then paste the answer.',
@@ -10830,6 +10999,16 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.99', fr: 'Le manche monte librement jusqu’à quatre-vingts degrés, et le décrochage prend le relais au-delà.', en: 'The stick climbs freely to eighty degrees, and the stall takes over beyond.' },
+  { v: '0.99', fr: 'Une étoile de la Grande Ourse s’allume dès qu’elle entre dans le viseur, tenue deux secondes.', en: 'A Big Dipper star lights up as soon as it enters the reticle, held for two seconds.' },
+  { v: '0.99', fr: 'Le vacillement de la montée revient, sans toucher au cap, et une figure l’annule.', en: 'The climbing wobble returns, never touching the heading, and a figure cancels it.' },
+  { v: '0.99', fr: 'Le trait pointillé des adversaires disparaît : c’est leur cadre qui bat quand ils se calent.', en: 'The enemies’ dashed line is gone: their own bracket now pulses as they line up.' },
+  { v: '0.99', fr: 'À mi-vie le faucheur se découvre : blindage multiplié par huit, vitesse par trois, virage deux fois plus serré.', en: 'At half life the reaper shows itself: armour times eight, speed times three, twice as tight a turn.' },
+  { v: '0.99', fr: 'La cloche et le seuil s’entendent enfin sur un téléphone, avec des partiels que le haut-parleur sait produire.', en: 'The bell and the threshold are finally audible on a phone, with partials the speaker can produce.' },
+  { v: '0.99', fr: 'Le vieux petit bruit aigu des portails disparaît.', en: 'The old thin high-pitched gate sound is gone.' },
+  { v: '0.99', fr: 'Le relief devient opaque : une crête cache celles qui sont derrière.', en: 'The relief becomes opaque: a ridge now hides the ones behind it.' },
+  { v: '0.99', fr: 'Les montagnes montent jusqu’à trois fois la plus haute tour.', en: 'The mountains rise to three times the tallest tower.' },
+  { v: '0.99', fr: 'Les deux étoiles et la fente en diagonale disent en une ligne ce qu’elles donnent.', en: 'Both stars and the diagonal slot say in one line what they give.' },
   { v: '0.98', fr: 'La cloche et le seuil sonnent au niveau du moteur, plus par-dessus.', en: 'The bell and the threshold ring at engine level, no longer over it.' },
   { v: '0.97', fr: 'Le soleil devient plein, la cellule ne vacille plus en montée, et les montagnes doublent de hauteur.', en: 'The sun turns solid, the airframe no longer wallows in a climb, and the mountains double in height.' },
   { v: '0.96', fr: 'Le manche accepte quatre-vingt-cinq degrés de cabré, et un portail ouvre la fenêtre de Vénus.', en: 'The stick accepts eighty-five degrees of nose-up, and a gate opens the window on Venus.' },
