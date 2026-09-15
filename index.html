@@ -288,6 +288,23 @@
   #topbar .spacer { flex: 0 0 6px; }
   #topbar { justify-content: flex-start; }
   #vagueBtn[hidden] { display: none; }
+  /* À L'ACCUEIL, LES DEUX BOUTONS PRENNENT TOUTE LA LARGEUR. En bas le MENU,
+     en haut le défi du jour : ce sont les deux seules choses à toucher sur cet
+     écran, et un pouce ne vise pas une pastille de quarante pixels. Le corps
+     porte la classe « accueil » tant que le panneau de titre est ouvert. */
+  body.accueil #topbar { padding-left: 10px; padding-right: 10px; }
+  /* les compteurs de partie n'ont rien à dire sur l'écran de titre : ils
+     laissaient pourtant leurs gouttières, et le bouton débordait d'autant */
+  body.accueil #topbar > span { display: none; }
+  body.accueil #menuBtn {
+    flex: 1 0 100%; min-width: 0; width: auto; text-align: center;
+    padding-top: 13px; padding-bottom: 13px; border-radius: 8px;
+  }
+  body.accueil #defiBtn {
+    left: 10px; right: 10px; width: auto; max-width: none;
+    text-align: center; padding-top: 12px; padding-bottom: 12px;
+    border-radius: 8px; font-size: 11px;
+  }
   #menuBtn {
     background: none;
     border: 1px solid var(--ph-dim);
@@ -452,6 +469,11 @@
   }
   #coop .aide, #viseurs .aide { color: var(--ph-dim); font-size: 11px; margin: 0 0 10px; line-height: 1.6; }
   #changelog div, #aide p { margin: 0 0 8px; }
+  #changelog .merci {
+    border: 1px solid var(--ph-dim); border-radius: 6px;
+    padding: 9px 11px; margin-bottom: 12px; color: var(--ph-text);
+    line-height: 1.7;
+  }
   #changelog div:last-child, #aide p:last-child { margin-bottom: 0; }
   #changelog b, #aide b { color: var(--ph-line); }
   #aide h2 {
@@ -662,7 +684,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.84</button>
+  <button id="versionBtn">v0.86</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -672,6 +694,8 @@
 <div id="menu" hidden>
   <p class="aide" id="menuEclats"></p>
   <button class="ligne" id="mViseurs" data-en="SIGHTS">VISEURS</button>
+  <button class="ligne" id="mAxeY"></button>
+  <button class="ligne" id="mClavier"></button>
   <button class="ligne" id="mCoop" data-en="CO-OP · UP TO TEN">COOP · JUSQU'À DIX</button>
   <button class="ligne" id="mDefi" hidden></button>
   <button class="ligne" id="mSon"></button>
@@ -686,6 +710,7 @@
   <button class="ligne" id="mCode" data-en="SECRET CODE">CODE SECRET</button>
   <button class="ligne" id="mBeta" data-en="NEXT MAP · BETA LIST">PROCHAINE CARTE · LISTE BÊTA</button>
   <button class="ligne" id="mSansPub" data-en="NO ADS · SOON">SANS PUBLICITÉ · BIENTÔT</button>
+  <button class="ligne" id="mMaj" data-en="UPDATE NOW">METTRE À JOUR MAINTENANT</button>
   <p class="aide" id="menuAvionTitre" data-en="AIRCRAFT">AVION</p>
   <div class="puces" id="menuAvions"></div>
   <p class="aide" id="menuTeinteTitre" data-en="AIRCRAFT COLOUR">COULEUR DE L'AVION</p>
@@ -761,6 +786,18 @@
   plafond est à 960 mètres. Les envergures sont réelles : 8,5 m pour le biplan
   comme un Sopwith Camel, 11,2 m pour le chasseur comme un Spitfire, 12 m
   pour toi.</p>
+
+  <h2>CLAVIER ET AXE Y</h2>
+  <p><b>Le manche au clavier.</b> Les flèches, ou la main gauche : ZQSD en
+  AZERTY, WASD en QWERTY. C'est la même touche physique, le jeu lit sa
+  position et non sa lettre, tu n'as donc rien à régler.</p>
+  <p><b>Les figures.</b> Espace fait un tonneau, du côté où penche déjà le
+  manche. Maj plus flèche haut fait l'Immelmann, Maj plus flèche bas le
+  Split-S.</p>
+  <p><b>L'axe Y inversé.</b> Dans le menu, AXE Y. En inversé, tu tires vers
+  toi pour lever le nez, comme sur un vrai manche et comme dans les
+  simulateurs. Le réglage vaut pour le doigt, la souris, la manette et le
+  clavier, et il est retenu d'une partie à l'autre.</p>
 
   <h2>LE COLLIMATEUR</h2>
   <p>Il n'y a pas d'instrument dans un coin : l'échelle de tangage est
@@ -934,6 +971,17 @@
   metres. Wingspans are real: 8.5 m for the biplane like a Sopwith Camel,
   11.2 m for the fighter like a Spitfire, 12 m for you.</p>
 
+  <h2>KEYBOARD AND Y AXIS</h2>
+  <p><b>Flying on a keyboard.</b> Arrow keys, or the left hand: WASD on
+  QWERTY, ZQSD on AZERTY. It is the same physical key, the game reads its
+  position and not its letter, so there is nothing to set up.</p>
+  <p><b>Figures.</b> Space rolls, to whichever side the stick already leans.
+  Shift plus up is the Immelmann, Shift plus down the Split-S.</p>
+  <p><b>Inverted Y axis.</b> In the menu, Y AXIS. Inverted, you pull towards
+  you to raise the nose, like a real stick and like every flight sim. The
+  setting covers finger, mouse, gamepad and keyboard, and it is remembered
+  between games.</p>
+
   <h2>THE GUNSIGHT</h2>
   <p>There is no instrument in a corner: the pitch ladder is drawn <b>in the
   world</b>, in its true place. The horizon line is the horizon. Solid bar
@@ -1071,92 +1119,7 @@
   </div>
 </div>
 
-<div id="changelog" hidden>
-  <div><b>v0.84</b> — les mécaniciens ne tirent plus à travers les bâtiments : un homme au fusil vise ce qu'il voit.</div>
-  <div><b>v0.83</b> — le bouclier disparaît : la vie est la seule ressource. La série du défi donne 10 % de plafond de vie par jour tenu, jusqu'à 200 %. Une vague sans une égratignure monte le plafond de 25 points. Le doré du soleil reste, huit secondes où rien ne passe. La fente à 45° se resserre : elle ne se passe plus à plat, il faut le tonneau.</div>
-  <div><b>v0.82</b> — DÉCOLLER descend sous le pouce, en bas de l'écran. Le défi du jour devient une pastille en haut à gauche. Les mécaniciens préparent l'avion autour de la cellule dès l'écran de titre : ils étaient renvoyés à leur table par un appel de trop.</div>
-  <div><b>v0.81</b> — le doigt qui quitte l'écran par le haut ou par le bas fait l'Immelmann ou le Split-S. Le doigt tenu en haut ne déclenche plus rien. Les adversaires ne se touchent plus, ni entre eux ni avec nous. Un bâtiment à passage ne disparaît plus : il s'affaisse au ras du sol. L'écran de fin compte les portails, la vie reprise et le plafond atteint. Le hangar fait soixante mètres de façade et ses deux vantaux se rangent dehors, sur leur rail. L'équipe au sol traverse le terrain pendant la descente et vous entoure à l'arrêt. L'aide explique le carré à signaux, le T, la manche à air et le PAPI.</div>
-  <div><b>v0.80</b> — vingt roquettes en soute, une seconde de verrouillage plein de plus avant qu'elles partent, et elles touchent enfin les pièces au sol ; la fente à 45° est deux fois plus large et rend cent points, le plafond de vie monte avec les portails et les mécaniciens réparent jusque-là, l'effet de sol : sous quarante mètres l'aile s'appuie sur son coussin d'air et rend vingt pour cent de vitesse, sans que rien ne l'écrive.</div>
-  <div><b>v0.79</b> — le hangar passe au milieu de la piste et on s'arrête devant, les mécaniciens viennent nous attendre dès l'approche, l'avion ne quitte plus l'écran pendant un tonneau, le trait de tir ennemi est vert et fin, DÉCOLLER descend sous le pouce et le défi monte dans la bande du haut, les adversaires ont toutes nos figures, Immelmann, Split-S et looping compris, ils vont se soigner aux portails, la vitesse gagnée ne retombe plus, et la jauge de poussée monte et descend au même rythme.</div>
-  <div><b>v0.78</b> — la vitesse sous la croix avec sa pente, l'éditeur de carte dans le menu, et l'ailier qu'on gagne en prenant les trois trous à figure dans une même partie.</div>
-  <div><b>v0.77</b> — trois avions à choisir (le bimoteur, l'intercepteur gagné dans la légende, le pionnier du premier vol), et des leurres qui partent seuls devant les roquettes, chez nous comme chez le gardien.</div>
-  <div><b>v0.76</b> — le tonneau déporte presque deux fois plus et l'image s'incline avec lui, un coup de manche vite vers le bord le déclenche aussi, et le doigt tenu tout en haut fait un looping complet.</div>
-  <div><b>v0.75</b> — le mode avancé et ses cinq trophées, les codes secrets et leur HACKER TIME, la liste bêta de la prochaine carte, et le mot sur la publicité.</div>
-  <div><b>v0.74</b> — trois trous à figure (le U qui se sort par le toit, le double à combo, la fente à 45° qu'on ne passe qu'en tonneau), et un aérodrome au bord de la piste : le hangar et sa porte coulissante qui montre les avions, la table où les mécaniciens jouent aux cartes, la manche à air et l'aire à signaux ; et des mécaniciens qui marchent comme des hommes.</div>
-  <div><b>v0.73</b> — la caméra traîne au décollage et ne saute plus au posé, BRAKING et BRAKES OFF, les coins font les figures, l'avion est plus bas, on monte à 80° et à 2 400 m, le décrochage part en vrille, les roquettes se comptent et les mécaniciens en rapportent, le son suit le nez et les dégâts.</div>
-  <div><b>v0.72</b> — LOCKED et WARNING ROCKET à l'écran, roquettes à 50 qu'on esquive aussi à la manœuvre, boost de portail violent et invincible, tanks qui roulent, chasseurs dans le soleil et ailiers en formation, le faucheur pour qui fuit, et VAGUE SUIVANTE +500.</div>
-  <div><b>v0.71</b> — on meurt vraiment à zéro, une vague ne passe que quand tout est mort, le défi du jour change chaque jour et la série rend du bouclier, l'écran de fin dit tout en chiffres.</div>
-  <div><b>v0.70</b> — en coop les invités blessent enfin les ennemis, voient tomber les mêmes bâtiments et les mêmes roquettes, et sont prévenus si leur carte diffère.</div>
-  <div><b>v0.69</b> — pas de collision pendant l'approche, jamais plus de deux tanks debout, et les mécaniciens ne se passent plus le fusil à chaque image.</div>
-  <div><b>v0.68</b> — la caméra reste à plat au tonneau et serpente vers le côté de la figure, et la page carte.html permet de dessiner sa propre carte et de l'essayer.</div>
-  <div><b>v0.67</b> — les intercepteurs et le gardien tirent des roquettes qu'un tonneau fait décrocher, et les appareils avancés font de même avec les nôtres.</div>
-  <div><b>v0.66</b> — la carte est fixe, dix vagues pour entrer dans la légende, la vie qui résiste en baissant, des portails plus nombreux et plus généreux, un atterrissage plus court qui s'engage seul, et plus aucun ennemi qui disparaît.</div>
-  <div><b>v0.65</b> — un seul bouton MENU, le mode DÉFI dès la vague 5, les éclats qui achètent viseurs, teinte et traînée, et les ennemis s'évitent.</div>
-  <div><b>v0.64</b> — la difficulté ne plafonne plus et s'adapte à la forme, un objectif du jour avec sa série, et le score se partage.</div>
-  <div><b>v0.63</b> — les bâtiments encaissent les balles et s'effondrent, le soleil suit la partie et cache trois secrets.</div>
-  <div><b>v0.62</b> — la caméra suit enfin le tonneau, les mécaniciens ripostent au fusil, la cellule encaisse 30 % de mieux, et on peut monter à 80°.</div>
-  <div><b>v0.61</b> — le manche d'avant revient ; deux portes en l'air ouvrent l'atterrissage, les roquettes partent en une demi-seconde, on vise l'avion et les canons visent devant.</div>
-  <div><b>v0.60</b> — le manche redevient deux axes independants et perd 30 % de nervosite ; le son revient meme sonnerie coupee.</div>
-  <div><b>v0.59</b> — un carnet de vol qui dit où l'on meurt, une seule reprise par partie, et three.js embarqué.</div>
-  <div><b>v0.58</b> — le panneau de coopération défile enfin au doigt, et l'on peut revenir sur son choix.</div>
-  <div><b>v0.57</b> — les canons chauds frappent enfin deux fois plus fort, les trois halos sont posés, et une manette suffit à piloter.</div>
-  <div><b>v0.56</b> — le jeu s'installe sur l'écran d'accueil, se lance plein écran et vole sans réseau.</div>
-  <div><b>v0.55</b> — l'atterrissage se pilote : huit feux PAPI, un arrondi, quatre cents mètres de roulage et la remise de gaz.</div>
-  <div><b>v0.54</b> — on vise là où la cible sera : viseur, magnétisme et balles suivent le point de déflexion.</div>
-  <div><b>v0.53</b> — au tonneau, la caméra part avec l'avion, se laisse distancer, puis se recale sur la nouvelle ligne.</div>
-  <div><b>v0.52</b> — le jeu passe en anglais si le téléphone ne parle pas français.</div>
-  <div><b>v0.51</b> — la surchauffe : chaque appareil abattu rallonge un état où les canons tirent deux fois plus vite.</div>
-  <div><b>v0.50</b> — les caps peints deviennent les vrais : 05 vers Hangzhou, 01 vers Arcachon, depuis Bayonne.</div>
-  <div><b>v0.49</b> — coopération jusqu'à dix appareils, sans serveur : on s'échange un code une seule fois.</div>
-  <div><b>v0.48</b> — les adversaires ne traversent plus les bâtiments, et le décollage part pile sur l'axe.</div>
-  <div><b>v0.47</b> — le manche répond à la distance au centre et non à chaque axe : il était inégal hors des axes.</div>
-  <div><b>v0.46</b> — le décollage respecte le cap où l'on est posé : il basculait de 180 degrés en une image.</div>
-  <div><b>v0.45</b> — taper un mur fait tourner l'avion du côté où il y a de la place.</div>
-  <div><b>v0.44</b> — le saut après le décollage disparaît : la caméra suit la séquence au lieu de la poursuivre.</div>
-  <div><b>v0.43</b> — un avion abattu part en vrille, traîne sa fumée et s'ouvre au sol.</div>
-  <div><b>v0.42</b> — une piste, avec son axe, ses caps peints et trois mécaniciens qui détalent au départ.</div>
-  <div><b>v0.41</b> — l'échelle de tangage passe du cadran au monde, à sa vraie place.</div>
-  <div><b>v0.40</b> — la poursuite : tenir une cible trop loin dans l'axe finit par pousser, de 78 à 121 m/s.</div>
-  <div><b>v0.39</b> — les flèches disent de combien virer : l'écart au centre porte l'angle, la taille la distance.</div>
-  <div><b>v0.38</b> — la caméra reste à plat pendant un tonneau au lieu d'en prendre un tiers.</div>
-  <div><b>v0.37</b> — les panneaux défilent enfin au doigt, et le décollage devient une seule vague.</div>
-  <div><b>v0.36</b> — les roquettes laissent un vrai panache : des anneaux lâchés en place, qui gonflent et pâlissent.</div>
-  <div><b>v0.35</b> — le tir ne part plus au premier effleurement : une demi-seconde de viseur tenu d'abord.</div>
-  <div><b>v0.34</b> — le ciel devient les 945 étoiles réellement visibles au-dessus de Bayonne le 6 juin 1991.</div>
-  <div><b>v0.33</b> — deux roquettes guidées partent des ailes après une seconde de verrouillage tenu.</div>
-  <div><b>v0.32</b> — l'échelle de tangage court d'un pôle à l'autre : l'horizon sortait du cadran en montée franche.</div>
-  <div><b>v0.31</b> — tout le monde ralentit, de 92 à 78 m/s : on dépassait les adversaires trop vite.</div>
-  <div><b>v0.30</b> — les balles ne traversent plus l'avion sans le toucher : on teste tout le segment parcouru.</div>
-  <div><b>v0.29</b> — des arches apparaissent dans le paysage, 96 mètres de passage sur 74 de hauteur.</div>
-  <div><b>v0.28</b> — l'écart de taille entre les flèches passe de un à quatre à un à huit.</div>
-  <div><b>v0.27</b> — l'écart de vitesse avec les adversaires se resserre : on n'avait pas le temps de se caler derrière.</div>
-  <div><b>v0.26</b> — les cibles rompent perpendiculairement à la ligne de tir quand on les tient sous le feu.</div>
-  <div><b>v0.25</b> — la mort sonne comme une mort : le moteur s'éteint sur deux octaves.</div>
-  <div><b>v0.24</b> — le jeu commence au sol, l'avion posé derrière le menu, hélice au ralenti.</div>
-  <div><b>v0.23</b> — le cône de verrouillage suit l'envergure vue : les gros de près se prennent plus large que les loin.</div>
-  <div><b>v0.22</b> — le moteur se tait vraiment quand on quitte la page.</div>
-  <div><b>v0.21</b> — commandes bien plus vives : la courbe de commande était trop molle, pas l'autorité.</div>
-  <div><b>v0.20</b> — corrige le décalage de l'écran sur iPhone après une figure : touch-action n'est pas héritée.</div>
-  <div><b>v0.19</b> — les avions passent aux dimensions réelles, une unité valant un mètre.</div>
-  <div><b>v0.18</b> — caméra rapprochée : l'avion occupe deux fois plus d'écran.</div>
-  <div><b>v0.17</b> — quatre adversaires au lieu d'un, chacun avec sa silhouette et sa manière de poursuivre.</div>
-  <div><b>v0.16</b> — le jeu se met en pause quand un panneau est ouvert : lire l'aide ne coûte plus la partie.</div>
-  <div><b>v0.15</b> — l'avion du joueur double de taille, envergure portée de 7,2 à 14,4 mètres.</div>
-  <div><b>v0.14</b> — les traçantes partent des deux mitrailleuses d'aile et convergent sur la cible.</div>
-  <div><b>v0.13</b> — il ne reste que la croix de visée, sur l'axe réel des canons.</div>
-  <div><b>v0.12</b> — il faut deux fois plus longtemps pour abattre une cible, et le viseur raconte la montée en puissance.</div>
-  <div><b>v0.11</b> — figures adoucies : le demi-tonneau ne part plus sec après le demi-looping.</div>
-  <div><b>v0.10</b> — Split-S : deux appuis sous l'avion, et le cap s'inverse en descendant.</div>
-  <div><b>v0.9</b> — la jauge s'appelle LIFE et non plus STRUCT.</div>
-  <div><b>v0.8</b> — renversement Immelmann : deux appuis au-dessus de l'avion, et le cap s'inverse en montant.</div>
-  <div><b>v0.7</b> — deux appuis rapprochés du même côté déclenchent un tonneau de ce côté.</div>
-  <div><b>v0.6</b> — trait caché : les faces peintes dans la couleur du fond masquent les arêtes de derrière.</div>
-  <div><b>v0.5</b> — deuxième modèle d'avion : 439 segments contre 51, pour une silhouette qui se lit vraiment.</div>
-  <div><b>v0.4</b> — l'avion du joueur vient du modèle STL fourni, arêtes vives extraites au seuil de 20 degrés.</div>
-  <div><b>v0.3</b> — le tir monte en puissance tant que la cible reste dans le viseur.</div>
-  <div><b>v0.2</b> — la souris garde la main quand elle s'arrête, et le monde n'a plus de bord visible.</div>
-  <div><b>v0.1</b> — premier vol : avion filaire, pilotage à un doigt, vagues d'intercepteurs, jauge de structure.</div>
-</div>
+<div id="changelog" hidden></div>
 
 <div id="install" hidden>
   <h2 data-en="INSTALL THE GAME">INSTALLER LE JEU</h2>
@@ -1568,6 +1531,13 @@ const TRAINEES = [
   { id: 'double',     nom: 'DOUBLE',     en: 'TWIN',     prix: 40 },
   { id: 'etincelles', nom: 'ÉTINCELLES', en: 'SPARKS',   prix: 60 },
 ];
+// AXE Y INVERSÉ. Demandé par MrTommyPickles sur r/Devvit : un pilote de
+// simulateur tire le manche vers lui pour lever le nez. On inverse à la
+// SOURCE, là où la commande devient une position de viseur : le nez, la
+// croix et l'écran restent alors d'accord entre eux, quel que soit le
+// périphérique — doigt, souris, manette ou clavier.
+let axeInverse = localStorage.getItem('fod_axeY') === '1';
+const signeY = () => (axeInverse ? -1 : 1);
 let teinteChoisie = localStorage.getItem('fod_teinte') || 'phosphore';
 let traineeChoisie = localStorage.getItem('fod_trainee') || 'aucune';
 if (!TEINTES.some(t => t.id === teinteChoisie && (t.prix === 0 || achats.has('teinte:' + t.id)))) teinteChoisie = 'phosphore';
@@ -1836,7 +1806,20 @@ const SFX = {
   tir:          () => { souffle(0.028, 1500, 950, 7, 0.03);
                         souffle(0.085, 380, 60, 1.0, 0.10);
                         ton(95, 31, 0.075, 'square', 0.085); },
-  fusil:        () => { ton(210, 70, 0.05, 'square', 0.06); souffle(0.04, 1800, 600, 3, 0.05); },
+  // LE FUSIL S'ENTEND DE LOIN COMME ON ENTEND UN FUSIL DE LOIN : le volume
+  // tombe avec le carré de la distance et s'éteint tout à fait au-delà de
+  // cent mètres. Il sonnait à plein volume depuis l'autre bout du terrain.
+  fusil:        (pos) => {
+    let v = 1;
+    if (pos) {
+      const d = pos.distanceTo(state.pos);
+      if (d > FUSIL_SON_LOIN) return;
+      v = 1 - d / FUSIL_SON_LOIN;
+      v *= v;                                   // décroissance douce, pas linéaire
+      if (v < 0.02) return;
+    }
+    ton(210, 70, 0.05, 'square', 0.06 * v); souffle(0.04, 1800, 600, 3, 0.05 * v);
+  },
   accroche:     () => ton(680, 1320, 0.11, 'sine', 0.13),
   cale:         () => ton(1320, 1760, 0.08, 'sine', 0.09),
   arme:         () => { ton(440, 660, 0.07, 'square', 0.07); souffle(0.05, 1400, 700, 5, 0.04); },
@@ -1871,6 +1854,31 @@ const SFX = {
   bouclier:     () => { ton(880, 1400, 0.12, 'sine', 0.14); souffle(0.14, 3000, 900, 3, 0.09); },
   bouclierOn:   () => { ton(400, 1200, 0.5, 'sine', 0.15); setTimeout(() => ton(600, 1800, 0.45, 'sine', 0.12), 120); },
   bouclierFin:  () => ton(900, 260, 0.5, 'triangle', 0.13),
+  // LE PORTAIL FRANCHI. Trois notes aiguës qui montaient : ça sonnait comme
+  // un jeu de plateau. C'est maintenant un AUM — un fondamental très grave,
+  // sa quinte et son octave, tous en sinus, avec une attaque LENTE pour
+  // qu'aucun claquement n'ouvre le son, et une longue queue. On l'entend dans
+  // la poitrine plutôt que dans les oreilles.
+  aum:          () => {
+    if (!actx || muet) return;
+    const t = actx.currentTime;
+    // fondamental, quinte, octave, double octave : le spectre d'une cloche
+    // grave, et c'est ce qui donne la sensation de plein
+    const voix = [[55, 0.30, 'sine'], [82.4, 0.17, 'sine'],
+                  [110, 0.11, 'sine'], [164.8, 0.05, 'triangle']];
+    for (const [f, v, type] of voix) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.exponentialRampToValueAtTime(f * 0.94, t + 1.9);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(v, t + 0.11);       // attaque douce
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.9);   // longue queue
+      o.connect(g).connect(master);
+      o.start(t); o.stop(t + 1.95);
+    }
+    souffle(1.5, 260, 90, 0.6, 0.05);
+  },
   vagueNette:   () => { ton(620, 620, 0.14, 'sine', 0.13);
                         setTimeout(() => ton(830, 830, 0.14, 'sine', 0.13), 140);
                         setTimeout(() => ton(1244, 1244, 0.34, 'sine', 0.13), 280); },
@@ -2470,7 +2478,7 @@ const PROP_TRIS = [
 // arrivent dans l'ordre où l'aviation les a inventées.
 const KINDS = [
   {
-    nom: 'BIPLAN', tactique: 'pure',
+    nom: 'BIPLAN', tactique: 'pure', etage: [60, 240],
     // deux ailes superposées, fuselage plat : la silhouette de 14-18
     verts: [
       -3.0, 0.75, -0.7,   3.0, 0.75, -0.7,   3.0, 0.75, 0.5,  -3.0, 0.75, 0.5,
@@ -2485,7 +2493,7 @@ const KINDS = [
     cone: Math.cos(12 * Math.PI / 180), portee: 520, rafale: 2
   },
   {
-    nom: 'CHASSEUR', tactique: 'queue',
+    nom: 'CHASSEUR', tactique: 'queue', etage: [110, 430],
     // l'aile volante d'origine
     verts: [
        0, 0, -2.7,  -3.9, 0, 1.3,   3.9, 0, 1.3,
@@ -2497,7 +2505,7 @@ const KINDS = [
     cone: Math.cos(15 * Math.PI / 180), portee: 900, rafale: 3
   },
   {
-    nom: 'INTERCEPTEUR', tactique: 'anticipee', roquettes: true, figures: true,
+    nom: 'INTERCEPTEUR', tactique: 'anticipee', etage: [260, 820], roquettes: true, figures: true,
     // dard fin, long nez : fait pour aller vite en ligne droite
     verts: [
        0, 0, -3.6,  -2.2, 0, 1.5,   2.2, 0, 1.5,
@@ -2510,7 +2518,7 @@ const KINDS = [
     cone: Math.cos(12 * Math.PI / 180), portee: 1050, rafale: 3
   },
   {
-    nom: 'DRONE', tactique: 'proportionnelle', figures: true,
+    nom: 'DRONE', tactique: 'proportionnelle', etage: [150, 690], figures: true,
     // quatre bras en croix : plus un avion, une machine
     verts: [
        0, 0, -0.6,   0.6, 0, 0,    0, 0, 0.6,   -0.6, 0, 0,
@@ -2523,7 +2531,7 @@ const KINDS = [
     cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
   },
   {
-    nom: 'GARDIEN', tactique: 'proportionnelle', roquettes: true, figures: true, leurres: 3,
+    nom: 'GARDIEN', tactique: 'proportionnelle', etage: [280, 940], roquettes: true, figures: true, leurres: 3,
     // Le seul adversaire qui vient seul. Même croix que le drone, mais bien
     // plus grande et beaucoup plus dure à mettre à terre.
     verts: [
@@ -2588,6 +2596,10 @@ function soleilCible(vague, out) {
   return out.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
 }
 function majSoleil(dt) {
+  // LA VOÛTE SUIT LA CAMÉRA. Centrée sur l'origine du monde, elle se décalait
+  // dès qu'on s'éloignait de la piste : les étoiles ont une parallaxe nulle,
+  // il faut donc que la sphère se déplace avec nous.
+  for (const e of etoiles) if (e) e.position.copy(camera.position);
   if (SOLEIL.distanceToSquared(_solCible) < 1e-8) return;
   SOLEIL.lerp(_solCible, 1 - Math.exp(-0.45 * dt)).normalize();
 }
@@ -2597,7 +2609,12 @@ function majSoleil(dt) {
 // deux secondes et demie, c'est le TRAVERSER : un bouclier doré, une fois par
 // vague. Un tonneau le nez dans le soleil décroche une ÉTOILE FILANTE.
 const ECLIPSE_SEUIL = 10, ECLIPSE_DUREE = 20;
-const DORE_TENUE = 2.5, DORE_DUREE = 8;
+// TENIR LE SOLEIL EN PLEIN CENTRE DEUX SECONDES ET DEMIE REND INVINCIBLE
+// DIX SECONDES, autant de fois qu'on y arrive. C'etait une fois par partie :
+// personne ne cherchait un secret qu'on ne pouvait plus retrouver. Rendu
+// renouvelable, il devient une manoeuvre — monter cote soleil, le fixer,
+// redescendre couvert — et c'est ce qu'on voulait depuis le debut.
+const DORE_TENUE = 2.5, DORE_DUREE = 10;
 const ETOILE_PRIME = 500, ETOILE_REPOS = 30;
 let etoile = null;
 function declencheEclipse() {
@@ -2627,9 +2644,10 @@ function secretsSoleil(dt) {
   const enVol = !state.pose && !state.auSol && !state.takeoff && !state.roulage;
   if (enVol && state.eclipse <= 0 && eblouissement() >= 0.98) {
     state.solDans += dt;
-    if (state.solDans >= DORE_TENUE && state.doreVague < 0) {
-      state.doreVague = state.wave;          // une seule fois par partie : le joueur le voyait revenir à chaque vague
+    if (state.solDans >= DORE_TENUE && state.dore <= 0) {
+      state.doreVague = state.wave;
       state.dore = DORE_DUREE;
+      state.solDans = 0;
       announce(t('dore'));
       SFX.bouclierOn();
     }
@@ -2987,9 +3005,21 @@ const CIEL = [
   const R = 4500;
   // Une bande = un rang de magnitude. Les directions sont déjà unitaires,
   // il ne reste qu'à les poser sur la sphère de rayon R.
+  // ELLE SE REFERME SOUS L'HORIZON. Les directions relevees au-dessus de
+  // Bayonne ne couvrent que l'hemisphere visible : des qu'on montait, la ligne
+  // de visee vers l'horizon passait SOUS l'equateur de la sphere, et il n'y
+  // avait plus rien — d'ou la bande noire entre le sol et les etoiles. On
+  // ajoute donc le reflet de chaque etoile sous l'horizon : la voute est
+  // complete, et le ciel descend jusqu'au sol de tous les cotes.
   const poser = (dirs, taille, opacite) => {
-    const pts = new Float32Array(dirs.length);
-    for (let i = 0; i < dirs.length; i++) pts[i] = dirs[i] * R;
+    const n3 = dirs.length;
+    const pts = new Float32Array(n3 * 2);
+    for (let i = 0; i < n3; i++) pts[i] = dirs[i] * R;
+    for (let i = 0; i < n3; i += 3) {
+      pts[n3 + i]     =  dirs[i]     * R;
+      pts[n3 + i + 1] = -Math.abs(dirs[i + 1]) * R;   // le reflet, toujours dessous
+      pts[n3 + i + 2] =  dirs[i + 2] * R;
+    }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pts, 3));
     const m = new THREE.PointsMaterial({
@@ -3003,6 +3033,8 @@ const CIEL = [
     return p;
   };
   etoiles = [poser(CIEL[2], 1.4, 0.42), poser(CIEL[1], 2.2, 0.7), poser(CIEL[0], 3.4, 1)];
+  // et la voute est centree sur NOUS, pas sur l'origine du monde : a trois
+  // kilometres de la piste, le ciel se decalait comme un decor de theatre.
 
   // LE SOLEIL. C'était un disque plat posé perpendiculairement à sa propre
   // direction : vu de biais il s'écrasait en ellipse, ce qu'un astre ne fait
@@ -3213,8 +3245,12 @@ function updateTraits(dt) {
   // tout l'intérêt — et la poursuite.
   const kv = (state.speed - VIT_SEUIL) / (VIT_PLEIN - VIT_SEUIL);
   const kp = -state.forward.y * 1.7 - 0.12;
+  // LA POUSSÉE SE LIT DANS L'AIR. L'attente compte autant que la poussée :
+  // les traits se multiplient pendant qu'elle monte, puis retombent avec
+  // elle. C'est la jauge de boost, et il n'y en a plus d'autre.
+  const kb = Math.min(1, state.boostT / (BOOST_ATTENTE + BOOST_MONTEE));
   const k = THREE.MathUtils.clamp(
-    Math.max(kv, kp, state.boost * 0.95), 0, 1);
+    Math.max(kv, kp, state.boost * 0.95, kb * 0.9), 0, 1);
   // L'opacité doit partir de zéro, sinon les traits s'éteignent d'un bloc.
   // Ils apparaissaient et disparaissaient à 22 % d'opacité : au décollage,
   // la vitesse retombant sous le seuil pile au moment où l'avion se stabilise,
@@ -3507,7 +3543,8 @@ const _yAvant = { v: 0 }, _xAvant = { v: 0 };
 // écart au plan, le nombre de feux blancs qui en découle, et de quel côté on
 // arrive.
 const PLAN = { angle: 0, ecart: 0, blancs: 0, dist: 0, axe: 0,
-               sens: -1, devant: false, lisible: false, pret: false };
+               sens: -1, devant: false, lisible: false, pret: false,
+               distAvant: undefined };
 function majPlan() {
   const sens = state.forward.z < 0 ? -1 : 1;      // -1 : cap nord, on vise 18
   const dh = Math.abs(state.pos.z - PAPI_Z);
@@ -3519,11 +3556,21 @@ function majPlan() {
   PLAN.ecart = PLAN.angle - PENTE_CIBLE;
   PLAN.blancs = PAPI_ECARTS.filter(e => PLAN.angle > PENTE_CIBLE + e).length;
   PLAN.axe = Math.abs(state.pos.x);
-  const capOk = Math.abs(state.forward.z) > Math.cos(38 * Math.PI / 180);
+  // IL NE S'AFFICHE QUE SI L'ON VIENT VRAIMENT SE POSER. Trente-huit degres
+  // de cap et quatre kilometres, c'etait presque tout le ciel : le temoin
+  // restait allume alors qu'on s'eloignait sans y penser. Quatre conditions
+  // maintenant, et toutes les quatre : le nez dans l'axe a vingt degres pres,
+  // moins de deux kilometres six, pas plus de cinq cents metres de decalage
+  // lateral, et SURTOUT une distance qui DIMINUE. S'eloigner l'eteint.
+  const capOk = Math.abs(state.forward.z) > Math.cos(20 * Math.PI / 180);
+  const rapproche = PLAN.distAvant === undefined || dh <= PLAN.distAvant + 0.01;
+  PLAN.distAvant = dh;
   // « lisible » veut dire : les feux racontent quelque chose. On approche du
   // bon côté, à portée, à peu près dans l'axe. Ailleurs ils restent allumés
   // mais le témoin du collimateur se tait plutôt que de mentir.
-  PLAN.lisible = devant && dh < 4200 && dh > 60 && capOk && !state.pose && !state.roulage;
+  PLAN.lisible = devant && dh < 2600 && dh > 60 && capOk && rapproche
+              && PLAN.axe < 500 && state.pos.y < 800
+              && !state.pose && !state.roulage;
   // C'est la porte qui ouvre POSER, pendant dix secondes, et rien d'autre. Le
   // couloir des deux blancs reste ce qu'il est — une aide a lire au
   // collimateur — mais il ne decide plus : on voyait le bouton apparaitre sans
@@ -3614,6 +3661,7 @@ for (let i = 0; i < 3; i++) {
 const FUSIL_PORTEE = 650;
 const FUSIL_DPS = 7;            // par mecanicien : trois fusils font 21 par seconde
 const FUSIL_CADENCE = 0.26;     // secondes entre deux tracantes
+const FUSIL_SON_LOIN = 100;     // metres au-dela desquels on ne l'entend plus du tout
 const HARCELE = 2.6;            // secondes pendant lesquelles l'avion pris a partie decroche
 const _fusil = new THREE.Vector3();
 function mecanoTire(m, dt) {
@@ -3672,7 +3720,7 @@ function mecanoTire(m, dt) {
     const dir = new THREE.Vector3().subVectors(cible.pos, bouche).normalize();
     dir.x += (Math.random() - 0.5) * 0.04; dir.y += (Math.random() - 0.5) * 0.04; dir.z += (Math.random() - 0.5) * 0.04;
     state.shots.push({ pos: bouche, dir: dir.normalize(), t: 0 });
-    SFX.fusil();
+    SFX.fusil(m.p);
     stat('mecanoBalles');
   }
   if (cible.hp <= 0) { spawnBurst(cible.pos, 9); SFX.detruit(cible.pos); stat('mecanoAbattus'); abattre(cible); }
@@ -3680,6 +3728,10 @@ function mecanoTire(m, dt) {
 
 // les postes de travail : deux à hauteur de nacelle, un devant le nez
 const MECANO_POSTES = [[-3.4, -3.0], [3.4, -3.2], [0.9, -6.4]];
+// le bord du bitume, côté hangar : leur place tant que l'avion roule
+const MECANO_BORD = PISTE.demiL + 3;
+// tant qu'ils ne sont pas tous à portée de bras, il n'y a pas de réparation
+const MECANO_PORTEE = 9;
 
 // ---------------------------------------------------------------------------
 // L'AÉRODROME. Au bord de la piste, côté est : un hangar en tôle dont la
@@ -3785,7 +3837,10 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
 })();
 function updateAerodrome(dt) {
   // la porte s'ouvre quand on est au sol, se referme quand on vole
-  const veut = (state.auSol || state.pose || state.roulage || state.takeoff || !state.running) ? 1 : 0;
+  // ELLES RESTENT OUVERTES. Elles se refermaient dès qu'on décollait, et le
+  // hangar redevenait une boîte : on ne voyait plus jamais la flotte alignée,
+  // qui est pourtant ce qu'il y a de plus beau sur le terrain.
+  const veut = 1;
   hangar.ouverture = THREE.MathUtils.damp(hangar.ouverture, veut, 1.6, dt);
   hangar.porteG.position.z = -hangar.ouverture * AERO.baie / 2;
   hangar.porteD.position.z =  hangar.ouverture * AERO.baie / 2;
@@ -3832,12 +3887,15 @@ function mecanosVersPiste() {
 // et non trois secondes plus tard.
 function mecanosVersArret() {
   mecanos.forEach((m, i) => {
-    const [dx, dz] = MECANO_POSTES[i];
     m.repos = false; m.mort = false; m.fuite = 0; m.tire = false; m.livre = null;
     m.caisse.visible = false; m.fusil.visible = false;
     m.g.visible = true;
     m.g.rotation.set(0, 0, 0);
-    m.but.set(dx, PISTE.y, AERO.z + dz);
+    // AU BORD, PAS AU MILIEU. Ils attendaient sur l'axe, exactement là où
+    // l'appareil roule encore à cent à l'heure : on leur rentrait dedans. Ils
+    // se rangent maintenant en limite de bitume, à hauteur du point d'arrêt,
+    // et ils n'y entrent qu'une fois les roues immobiles.
+    m.but.set(MECANO_BORD + i * 2.2, PISTE.y, AERO.z + (i - 1) * 4);
   });
 }
 
@@ -3951,10 +4009,9 @@ function updateMecanos(dt) {
                 PISTE.y,
                 state.pos.z - 2 - Math.random() * 6);
     }
-    // PENDANT LE ROULAGE il colle au poste, sans jamais tirer un but au
-    // hasard : l'avion glisse encore, il l'accompagne et se trouve deja la
-    // quand les roues s'immobilisent.
-    if (state.roulage || (loin && state.pose)) {
+    // PENDANT LE ROULAGE il reste où il est : au bord. Il ne rejoint les
+    // postes qu'une fois l'avion arrêté, et c'est poserMecanos qui l'y envoie.
+    if (loin && state.pose) {
       m.but.set(state.pos.x + MECANO_POSTES[mecanos.indexOf(m)][0],
                 PISTE.y,
                 state.pos.z + MECANO_POSTES[mecanos.indexOf(m)][1]);
@@ -4656,6 +4713,7 @@ const state = {
   triche: null,       // les codes secrets actifs : la partie ne compte plus
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
+  dernierTireur: null, // qui nous a touché en dernier : l'écran de fin le dit
   chutes: [],
   fumees: [],
   roqT: 0,
@@ -4797,7 +4855,7 @@ function toucherPiste() {
   // damagePlayer peut avoir mis fin à la partie : on ne met en roulage que ce
   // qui roule encore
   if (state.running) state.roulage = { t: 0, v0: state.speed, sens, degat, vz, restant };
-  if (state.running) { state.mecanosEnRoute = true; mecanosVersArret(); }
+  if (state.running) { state.mecanosEnRoute = true; mecanosVersArret(); }   // au bord, pas sur l'axe
   setTimeout(() => { if (state.roulage) announce(t('freinage')); }, 900);
 }
 
@@ -4882,7 +4940,7 @@ function gagneVie(n) {
   if (state.structure > state.vieMax) {
     state.vieMax = state.structure;
     if (state.stats) state.stats.vieMax = state.vieMax;
-    announce(t('plafond') + Math.round(state.vieMax) + ' %');
+    announce(t('plafond') + Math.round(state.vieMax));
   }
 }
 
@@ -4891,7 +4949,7 @@ function coupDePied() {
   state.boostPortail = 2;
   state.speed = Math.min(SPEED_MAX, state.speed + CATAPULTE);
   state.secousse = 0.55;
-  SFX.roquette();
+  SFX.aum();
 }
 
 // LES COMPTEURS. Tout ce qu'une partie produit de chiffrable, pour ceux qui
@@ -4916,7 +4974,7 @@ function texteStats() {
     [fr ? 'roquettes reçues / esquivées' : 'rockets taken / dodged', S.roquettesRecues + ' / ' + S.roquettesEsquivees],
     [fr ? 'portails franchis' : 'checkpoints cleared', S.passages],
     [fr ? 'vie reprise · aux portails' : 'life regained · at gates', Math.round(S.vieGagnee + S.vieReparee) + ' · ' + Math.round(S.vieGagnee)],
-    [fr ? 'vie maximale atteinte' : 'peak life', Math.round(S.vieMax) + ' %'],
+    [fr ? 'vie maximale atteinte' : 'peak life', Math.round(S.vieMax)],
     [fr ? 'bâtiments abattus' : 'buildings down', S.batiments],
     [fr ? 'posés · temps au sol' : 'landings · time on ground', S.poses + ' · ' + dureeFine(S.tempsPose)],
     [fr ? 'mécaniciens : abattus · balles' : 'mechanics: kills · rounds', S.mecanoAbattus + ' · ' + S.mecanoBalles],
@@ -4944,7 +5002,22 @@ function lacherFaucheur() {
     speed: 230, hp: 4000, hpMax: 4000, cadence: 0.4, goal: new THREE.Vector3(), cote: 1, frolT: 0, charge: 0,
     evadeT: 0, evadeCd: 0, evadeSide: 1, evadeUp: 1, goalT: 0, reload: 1, roqCd: 2, fig: null, figCd: 0,
     burst: 0, burstT: 0, visee: 0, faucheur: true };
-  e.pos.y = Math.max(120, e.pos.y);
+  // IL SE MONTRE AVANT DE TUER. Il arrivait dans notre dos, sans un mot :
+  // on mourait sans l'avoir vu. Il traverse maintenant notre route PILE
+  // DEVANT, perpendiculairement et a pleine vitesse — trois secondes de
+  // frayeur — puis part en grande boucle et revient se placer derriere nous.
+  // On a donc le temps de comprendre ce qui arrive, et de s'y preparer.
+  _v.copy(state.forward).setY(0).normalize();
+  const cote = Math.random() < 0.5 ? -1 : 1;
+  const lat = new THREE.Vector3(-_v.z, 0, _v.x).multiplyScalar(cote);
+  e.pos.copy(state.pos).addScaledVector(_v, 260).addScaledVector(lat, 560);
+  e.pos.y = Math.max(120, state.pos.y + 20);
+  e.forward.copy(lat).multiplyScalar(-1).normalize();
+  _m4.lookAt(e.pos, _b0.copy(e.pos).add(e.forward), _up);
+  e.quat.setFromRotationMatrix(_m4);
+  e.mesh.position.copy(e.pos);
+  e.mesh.quaternion.copy(e.quat);
+  e.entree = { t: 0, phase: 'passage' };
   state.enemies.push(e);
   stat('faucheurs');
   announce(t('faucheur'));
@@ -5137,18 +5210,13 @@ function spawnWave() {
             : capNez + (state.wave === 1 ? 0
                        : (Math.random() < 0.5 ? -1 : 1) * (0.20 + Math.random() * 0.16));
     const d = boss ? 900 : 520 + Math.random() * 420;
-    // LE PREMIER DE LA PREMIÈRE VAGUE ATTEND DEVANT UNE ARCHE, pas loin de la
-    // piste : on le voit, on voit le trou, on a envie d'y aller.
-    let archeDevant = null;
-    if (state.wave === 1 && i === 0 && !auSol) {
-      let dm = Infinity;
-      for (const a of arches) {
-        if (a.mort || !a.passage) continue;
-        const dz = a.g.position.z - (PISTE.z1 - 700);
-        const dd = Math.hypot(a.g.position.x, dz);
-        if (a.g.position.z < PISTE.z1 - 200 && dd < dm) { dm = dd; archeDevant = a; }
-      }
-    }
+    // LE PREMIER DE LA PREMIÈRE VAGUE EST PILE EN FACE, À HAUTEUR DE NEZ.
+    // Il attendait devant une arche, donc parfois de biais et parfois hors
+    // champ : la leçon d'ouverture ratait une partie sur deux. Il est
+    // maintenant dans l'axe exact du nez, à six cents mètres. On décolle, on
+    // regarde devant, il est là, le viseur l'accroche tout seul : le tutoriel
+    // se fait sans une ligne de texte.
+    const premier = state.wave === 1 && i === 0 && !auSol;
     const mesh = solidWire(k.geom, k.edges, matEnemy);
     mesh.scale.setScalar(k.echelle);
     scene.add(mesh);
@@ -5156,15 +5224,24 @@ function spawnWave() {
       id: ++coopSeqEnnemi,
       kind: k,
       mesh,
-      pos: archeDevant
-        ? new THREE.Vector3(archeDevant.passage.x, archeDevant.passage.y1 + 40, archeDevant.passage.z + 260)
+      pos: premier
+        ? new THREE.Vector3(state.pos.x + state.forward.x * 600,
+                            state.pos.y + state.forward.y * 600,
+                            state.pos.z + state.forward.z * 600)
         : auSol
         ? new THREE.Vector3(state.pos.x + Math.cos(a) * (500 + Math.random() * 700), 0,
                             state.pos.z + Math.sin(a) * (500 + Math.random() * 700))
+        // CHACUN SON ÉTAGE. Ils arrivaient tous entre cent et quatre cents
+        // mètres, et le premier de la vague se calait carrément à NOTRE
+        // altitude : monter ne servait donc à rien, alors que c'est tout
+        // l'intérêt de monter. Chaque type vole maintenant dans la tranche
+        // qui lui ressemble — le biplan au ras de la ville, l'intercepteur
+        // et le gardien tout en haut. Prendre de l'altitude, c'est prendre
+        // l'avantage sur ceux qui ne peuvent pas vous y suivre.
         : new THREE.Vector3(
             state.pos.x + Math.sin(a) * d,
-            i === 0 && !boss ? state.pos.y + (Math.random() - 0.4) * 60
-                             : 110 + Math.random() * 270,
+            (k.etage ? k.etage[0] + Math.random() * (k.etage[1] - k.etage[0])
+                     : 110 + Math.random() * 270),
             state.pos.z + Math.cos(a) * d
           ),
       quat: new THREE.Quaternion(),
@@ -5279,7 +5356,7 @@ function updateEnemies(dt) {
           const lead = state.forward.clone()
             .multiplyScalar(state.speed * (dist / BULLET_SPEED) * 0.8);
           const dir = _v.clone().multiplyScalar(dist).add(lead).normalize();
-          state.bullets.push({ pos: e.pos.clone().setY(4), dir, t: 0 });
+          state.bullets.push({ pos: e.pos.clone().setY(4), dir, t: 0, de: K.nom });
           e.burst--; e.burstT = BURST_GAP;
         }
       } else if ((e.visee = (dist < K.portee * (1 - 0.45 * geneSol)
@@ -5344,6 +5421,37 @@ function updateEnemies(dt) {
           continue;
         }
       }
+    }
+
+    // ---- L'ENTREE DU FAUCHEUR. Tant qu'elle dure, il ne poursuit pas et ne
+    // tire pas : il passe, il boucle, il se place. Ensuite seulement il
+    // redevient l'adversaire le plus dur du jeu.
+    if (e.entree) {
+      const E = e.entree; E.t += dt;
+      if (E.phase === 'passage') {
+        e.pos.addScaledVector(e.forward, e.speed * dt);
+        if (E.t > 3.0) { E.phase = 'boucle'; E.t = 0; }
+      } else {
+        // il vise un point six cents metres DERRIERE nous, et il n'y va qu'au
+        // taux de virage d'un gros appareil : le chemin est une large boucle,
+        // pas un demi-tour sur place
+        _seg.copy(state.pos).addScaledVector(state.forward, -600).sub(e.pos);
+        const dd = _seg.length() || 1;
+        _seg.divideScalar(dd);
+        e.forward.lerp(_seg, Math.min(1, 0.55 * dt)).normalize();
+        e.pos.addScaledVector(e.forward, e.speed * dt);
+        if (E.t > 9 || dd < 220) e.entree = null;
+      }
+      if (e.pos.y < 90) e.pos.y = 90;
+      _m4.lookAt(e.pos, _b0.copy(e.pos).add(e.forward), _up);
+      _q.setFromRotationMatrix(_m4);
+      e.quat.rotateTowards(_q, 2.2 * dt);
+      e.mesh.position.copy(e.pos);
+      e.mesh.quaternion.copy(e.quat);
+      e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
+      e.visee = 0; e.burst = 0;
+      ecarteDuJoueur(e);
+      continue;
     }
 
     // ---- Esquive. Se faire tirer dessus se remarque : la cible tenue rompt
@@ -5487,6 +5595,9 @@ function updateEnemies(dt) {
         e.goal.y += 140;
       }
       e.goal.y = THREE.MathUtils.clamp(e.goal.y, 70, CEILING);
+      // il ne se casse pas le nez contre son propre plafond : le but y est
+      // ramené, sinon il passerait la vague à cabrer pour rien
+      if (K.etage) e.goal.y = Math.min(e.goal.y, K.etage[1]);
       _m4.lookAt(e.pos, e.goal, _up);
       _q.setFromRotationMatrix(_m4);
       e.quat.rotateTowards(_q, K.virage * dt);
@@ -5502,6 +5613,11 @@ function updateEnemies(dt) {
     e.forward.set(0, 0, -1).applyQuaternion(e.quat);
     e.pos.addScaledVector(e.forward, e.speed * (e.rattrape ? 1.6 : 1) * dt);
     if (e.pos.y < 60) e.pos.y = 60;
+    // SON PLAFOND EST UN VRAI PLAFOND. Il peut viser aussi haut qu'il veut,
+    // son aile ne l'y portera pas : au-dessus de son étage il ne monte plus.
+    // C'est ce qui donne un sens à la montée — prendre mille mètres, c'est se
+    // mettre hors de portée du biplan, et lui tomber dessus quand on veut.
+    if (K.etage && e.pos.y > K.etage[1]) e.pos.y = K.etage[1];
 
     e.mesh.position.copy(e.pos);
     e.mesh.quaternion.copy(e.quat);
@@ -5519,6 +5635,7 @@ function updateEnemies(dt) {
       if (e.pos.distanceTo(state.pos) < contact) {
         spawnBurst(e.pos, 9);
         SFX.detruit(e.pos);
+        state.dernierTireur = e.faucheur ? 'FAUCHEUR' : K.nom;
         damagePlayer(10, e.pos.clone(), 'choc');
         abattre(e);
         continue;
@@ -5537,7 +5654,7 @@ function updateEnemies(dt) {
         dir.x += (Math.random() - 0.5) * 0.14; dir.y += (Math.random() - 0.5) * 0.14;
         dir.z += (Math.random() - 0.5) * 0.14; dir.normalize();
       }
-      state.bullets.push({ pos: e.pos.clone(), dir, t: 0, faucheur: !!e.faucheur });
+      state.bullets.push({ pos: e.pos.clone(), dir, t: 0, faucheur: !!e.faucheur, de: e.faucheur ? 'FAUCHEUR' : K.nom });
       stat('ballesEnnemies');
     };
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
@@ -5560,13 +5677,17 @@ function updateEnemies(dt) {
     e.visee = aligne ? e.visee + dt : 0;
     // LOCKED. Dès qu'il tient son alignement assez pour tirer, l'écran le dit,
     // pas plus d'une fois toutes les trois secondes.
-    if (aligne && e.visee >= VISEE_ENNEMI && state.lockedT <= 0) { state.lockedT = 3; announce(t('locked')); SFX.arme(); }
+    // PLUS DE MOT « LOCKED ». Le trait pointillé qui part de lui vers nous dit
+    // exactement la même chose, au bon endroit et sans couvrir l'écran. On
+    // garde le son, qui alerte sans rien cacher.
+    if (aligne && e.visee >= VISEE_ENNEMI && state.lockedT <= 0) { state.lockedT = 3; SFX.arme(); }
     // LA ROQUETTE. Alignement tenu, distance moyenne, et l'alerte sonne.
     if (e.roqCd > 0) e.roqCd -= dt;
     if (K.roquettes && aligne && e.visee >= VISEE_ENNEMI && e.roqCd <= 0
         && dist > ROQ_E_PORTEE[0] && dist < ROQ_E_PORTEE[1]) {
       e.roqCd = ROQ_E_RECHARGE;
-      state.roqEnnemies.push({ pos: e.pos.clone(), dir: _v.clone().negate(), t: 0, fum: 0, perdue: false });
+      state.roqEnnemies.push({ pos: e.pos.clone(), dir: _v.clone().negate(), t: 0, fum: 0, perdue: false,
+                               de: e.faucheur ? 'FAUCHEUR' : K.nom });
       state.alerte = 2.2;
       stat('roquettesEnnemies');
       announce(t('alerte'));
@@ -5967,7 +6088,7 @@ function updateRoqEnnemies(dt) {
       if (mur) { _b1.lerpVectors(_segB, r.pos, mur.t); toucheBat(mur.bat, _b1, ROQ_E_DEGATS); r.pos.copy(_b1); }
       spawnBurst(r.pos, touche ? 12 : 8);
       SFX.roquetteImpact(r.pos);
-      if (touche) damagePlayer(ROQ_E_DEGATS, _impactSrc.copy(r.pos), 'roquette');
+      if (touche) { state.dernierTireur = r.de || null; damagePlayer(ROQ_E_DEGATS, _impactSrc.copy(r.pos), 'roquette'); }
       state.roqEnnemies.splice(i, 1);
       continue;
     }
@@ -6006,6 +6127,7 @@ function updateBullets(dt) {
       // la direction d'où vient le coup se lit sur la trajectoire de la balle,
       // pas sur le point d'impact : au contact les deux se confondent et
       // l'écran ne saurait plus de quel côté s'allumer
+      state.dernierTireur = b.de || null;
       damagePlayer(b.faucheur ? 45 : 7, _impactSrc.copy(state.pos).addScaledVector(b.dir, -40), 'balles');
       stat('ballesRecues');
       continue;
@@ -6410,6 +6532,7 @@ function simulate(dt) {
   // La manette écrit dans « aim » comme le ferait un pouce : elle doit donc
   // parler avant qu'on lise la commande, pas après.
   litManette();
+  litClavier(dt);
 
   // --- commande : l'écart entre le doigt et le centre pilote les vitesses
   const w = window.innerWidth, h = window.innerHeight;
@@ -6730,7 +6853,12 @@ function simulate(dt) {
     // qui passent atteignent aussi les hommes, et chacun emporte un tiers de
     // la cadence de réparation. À trois morts, la piste ne rend plus rien et
     // il faut redécoller.
-    const debout = mecanos.filter(m => !m.mort && !m.tire).length;
+    // ILS DOIVENT Y ÊTRE. Compter les hommes valides ne suffisait pas : la
+    // vie remontait pendant qu'ils traversaient encore le terrain. On ne
+    // compte plus que ceux qui sont à portée de bras de la cellule.
+    const debout = mecanos.filter(m => !m.mort && !m.tire
+                     && m.p.distanceTo(state.pos) < MECANO_PORTEE).length;
+    const valides = mecanos.filter(m => !m.mort).length;
     const avant = state.structure;
     state.structure = Math.min(state.vieMax, state.structure + REPARE_PAR_S * (debout / 3) * dt);
     stat('vieReparee', state.structure - avant);
@@ -6756,7 +6884,7 @@ function simulate(dt) {
     if (camera.position.y < 2.5) camera.position.y = 2.5;
     majFov(dt);
     // ça ne repart seul qu'à 100 %, ou quand plus personne ne peut réparer
-    if ((state.structure >= 100 && state.pose.t >= 2) || (debout === 0 && state.pose.t >= REPARATION)) redecoller();
+    if ((state.structure >= 100 && state.pose.t >= 2) || (valides === 0 && state.pose.t >= REPARATION)) redecoller();
     updateEnemies(dt);
     updateBullets(dt);
     updateShots(dt);
@@ -6900,7 +7028,7 @@ function simulate(dt) {
         state.vieMax = Math.max(state.vieMax, 100 + p);
         state.structure = state.vieMax;
         if (state.stats) state.stats.vieMax = state.vieMax;
-        announce((langue === 'en' ? 'STREAK  ·  LIFE CAP  ' : 'SÉRIE  ·  PLAFOND DE VIE  ') + Math.round(state.vieMax) + ' %');
+        announce((langue === 'en' ? 'STREAK  ·  LIFE CAP  ' : 'SÉRIE  ·  PLAFOND DE VIE  ') + Math.round(state.vieMax));
       }
       // ON NE RELIT PAS LE QUATERNION. On connaît les trois angles : ce sont
       // ceux qu'on vient d'écrire. Les redéduire d'un quaternion est un
@@ -7147,8 +7275,13 @@ function simulate(dt) {
       state.yaw += V.side * 2.2 * dt;
       state.pitch = THREE.MathUtils.damp(state.pitch, -1.05, 2.5, dt);
       state.vrilleRoll += V.side * 5 * dt;
-      // manche à l'opposé de la rotation, ou franchement poussé : les deux sortent
-      V.sortie = (dx * -V.side > 0.3 || dy > 0.5) ? V.sortie + dt : Math.max(0, V.sortie - dt * 0.5);
+      // MANCHE À L'OPPOSÉ DE LA ROTATION, ou franchement poussé : les deux
+      // sortent. Le signe était inversé et demandait le manche DANS le sens de
+      // l'autorotation, ce qui l'aurait aggravée : en vrille à droite on rend
+      // le pied et le manche à gauche, jamais l'inverse.
+      // Le lacet de la vrille suit V.side, et en vol normal yawRate = -dx :
+      // s'opposer à V.side, c'est donc dx du MÊME signe que V.side.
+      V.sortie = (dx * V.side > 0.3 || dy > 0.5) ? V.sortie + dt : Math.max(0, V.sortie - dt * 0.5);
       if (V.t > 0.8 && V.sortie >= VRILLE_SORTIE) {
         state.vrille = null;
         state.vrilleRoll = Math.atan2(Math.sin(state.vrilleRoll), Math.cos(state.vrilleRoll));
@@ -7404,9 +7537,22 @@ function scrape(dt) {
 
   if (state.pos.y <= FLOOR + 0.5 && !auDessusDuBitume(60)) {
     state.pos.y = FLOOR + 0.5;
-    if (state.scrapeT <= 0) { damagePlayer(5, null, 'sol'); state.scrapeT = 0.45; SFX.eraflure(); }
-    state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
-    state.speed *= 0.99;
+    // L'EFFLEUREMENT. Toucher le sol a plat n'est pas s'y ecraser : un pilote
+    // qui rase de trop pres rebondit sur son coussin d'air, sans un bruit et
+    // sans une egratignure. Au-dela de six degres de pente c'est un impact,
+    // et la ca coute. La frontiere est la composante verticale du nez.
+    const pente = -state.forward.y;                  // >0 : on pique
+    const doux = pente < Math.sin(6 * Math.PI / 180);
+    if (doux) {
+      // on glisse. Le nez se releve a peine, la vitesse ne bouge presque pas,
+      // rien ne sonne, rien ne clignote.
+      state.pitch = Math.max(state.pitch, 0.02);
+      state.speed *= 0.998;
+    } else if (state.scrapeT <= 0) {
+      damagePlayer(5, null, 'sol'); state.scrapeT = 0.45; SFX.eraflure();
+      state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
+      state.speed *= 0.99;
+    }
   }
 
   // on érafle le décor de la même façon, qu'il s'agisse d'un pylône ou d'une
@@ -7455,7 +7601,7 @@ function scrape(dt) {
           t.priseT[0] = PASSAGE_REPOS;
           stat('passages'); gagneVie(defiEst('sansBonus') ? 0 : FENTE_PRIME);
           coupDePied(); coopReanime(); marque(600);
-          announce(t_('fente') + FENTE_PRIME); SFX.vagueNette(); noteTrou('incline');
+          announce(t_('fente') + FENTE_PRIME); noteTrou('incline');
         }
       }
       if (t.priseT[0] > 0) t.priseT[0] -= dt;
@@ -7469,7 +7615,7 @@ function scrape(dt) {
         t.entreeT = 0;
         stat('passages'); gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME * 2);
         coupDePied(); state.boostPortail = 2.5; coopReanime(); marque(800);
-        announce(t_('puits') + TOUR_PRIME * 2); SFX.vagueNette(); noteTrou('u');
+        announce(t_('puits') + TOUR_PRIME * 2); noteTrou('u');
       }
     } else {
       for (let k = 0; k < 2; k++) {
@@ -7480,7 +7626,7 @@ function scrape(dt) {
           const combo = t.priseT[1 - k] > 0;
           stat('passages'); gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME * (combo ? 2 : 1));
           coupDePied(); coopReanime(); marque(combo ? 900 : 400);
-          announce(combo ? t_('combo') + TOUR_PRIME * 2 : t_('tour') + TOUR_PRIME); SFX.vagueNette(); noteTrou('double');
+          announce(combo ? t_('combo') + TOUR_PRIME * 2 : t_('tour') + TOUR_PRIME); noteTrou('double');
         }
       }
     }
@@ -7958,7 +8104,11 @@ function drawHud() {
   // et le verrouillage tenu longtemps fait vibrer aussi, de plus en plus
   const ktenu = Math.min(1, state.lockTenu / 3);
   const kcat = Math.min(1, state.secousse / 0.55) * 2.6;   // la catapulte secoue franchement
-  const ksec = Math.max(kch, ktenu * 0.8, kcat);
+  // EN PAUSE, RIEN NE BOUGE. La secousse se calculait sur l'horloge du
+  // navigateur et non sur le temps du jeu : panneau ouvert, le monde etait
+  // fige mais le cadran continuait de vibrer, et la surchauffe ne retombant
+  // plus, il vibrait sans fin.
+  const ksec = state.paused ? 0 : Math.max(kch, ktenu * 0.8, kcat);
   if (ksec > 0.01) {
     const t = performance.now() / 1000;
     hctx.save();
@@ -8001,32 +8151,10 @@ function drawHud() {
     hctx.restore();
   }
 
-  // BOOST. L'attente se voit avant de pousser : un arc se remplit sous le
-  // viseur pendant les deux secondes et demie, puis le mot. Sans cela la
-  // poussée arriverait sans prévenir et on ne saurait ni ce qui l'a
-  // déclenchée, ni comment la retrouver.
-  if (state.boostT > 0.25) {
-    // la première moitié de la barre est l'attente, la seconde la poussée qui
-    // monte : un seul trait, un seul rythme, du début à la fin
-    const q = state.boostT <= BOOST_ATTENTE
-      ? 0.5 * (state.boostT / BOOST_ATTENTE)
-      : 0.5 + 0.5 * Math.min(1, (state.boostT - BOOST_ATTENTE) / BOOST_MONTEE);
-    const by = h * 0.66, bw = Math.min(w, h) * 0.16;
-    hctx.save();
-    hctx.strokeStyle = 'rgba(70,255,160,0.22)';
-    hctx.beginPath(); hctx.moveTo(w/2 - bw, by); hctx.lineTo(w/2 + bw, by); hctx.stroke();
-    hctx.strokeStyle = 'rgba(190,255,220,' + (0.45 + 0.5 * q).toFixed(2) + ')';
-    hctx.lineWidth = 2 + 1.5 * state.boost;
-    hctx.beginPath();
-    hctx.moveTo(w/2 - bw * q, by); hctx.lineTo(w/2 + bw * q, by); hctx.stroke();
-    hctx.lineWidth = 1.5;
-    if (state.boost > 0.05) {
-      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
-      hctx.fillStyle = 'rgba(190,255,220,' + (0.4 + 0.55 * state.boost).toFixed(2) + ')';
-      hctx.fillText(t('boost'), w / 2, by + 15);
-    }
-    hctx.restore();
-  }
+  // PLUS DE BARRE DE BOOST. Elle disait en un arc ce que l'air dit deja
+  // beaucoup mieux : plus la poussee monte, plus les traits de vitesse sont
+  // nombreux et longs. Un seul langage pour la vitesse, et le centre de
+  // l'ecran reste libre.
 
   // SOLEIL DANS LE DOS. Tant que la condition tient, un halo doux s'allume
   // autour de l'avion et un bandeau le dit en clair. Ce n'est pas un effet :
@@ -8226,9 +8354,14 @@ function drawHud() {
     // quatre-vingts degrés de la vérité — on lisait 18 en volant vers le 36.
     const cap = (Math.atan2(state.forward.x, -state.forward.z)
                  * 180 / Math.PI + 360) % 360;
-    // sous le bandeau du haut : les chiffres se dessinent au-dessus du trait,
-    // et à six pour cent de la hauteur ils passaient derrière le score
-    const by = h * 0.115, demi = Math.min(w * 0.36, 155), ech = demi / 60;
+    // SOUS LE BANDEAU ET SOUS L'ENCOCHE. Les chiffres de cap se dessinent
+    // AU-DESSUS du trait : a onze pour cent de la hauteur, sur un iPhone dont
+    // la barre d'etat et l'ile mangent deja le haut, ils passaient derriere.
+    // On part donc du bas reel du bandeau — sa hauteur mesuree plus la marge
+    // de securite du telephone — et on descend encore un peu.
+    const barre = document.getElementById('bottombar');
+    const hautBarre = barre ? barre.getBoundingClientRect().bottom : 0;
+    const by = Math.max(h * 0.115, hautBarre + 26), demi = Math.min(w * 0.36, 155), ech = demi / 60;
     const L_ENN = by + 20, L_VIE = by + 32;
     hctx.save();
     hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
@@ -8398,7 +8531,7 @@ function drawHud() {
       if (a.vie < 40) {
         hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
         hctx.fillStyle = 'rgba(190,255,220,0.9)';
-        hctx.fillText(Math.round(a.vie) + '%', pa.x, pa.y + sz + 11);
+        hctx.fillText(String(Math.round(a.vie)), pa.x, pa.y + sz + 11);
         hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
       }
     } else {
@@ -8418,36 +8551,14 @@ function drawHud() {
     }
   }
 
-  // LA VITESSE AU COLLIMATEUR. Le chiffre en km/h sous la croix, et un petit
-  // trait qui monte ou descend avec la pente : on lit d'un coup d'œil si l'on
-  // gagne ou si l'on perd de l'énergie. (L'avion va toujours où pointe son
-  // nez : le vecteur vitesse d'un vrai collimateur serait confondu avec la
-  // croix, c'est donc la vitesse elle-même qu'on montre.)
-  if (state.running && !state.takeoff && !state.pose && !state.roulage && !avance.sansViseur) {
-    const kmh = Math.round(state.speed * 3.6);
-    hctx.fillStyle = 'rgba(143,252,196,0.55)';
-    hctx.font = '10px "IBM Plex Mono", monospace'; hctx.textAlign = 'center';
-    hctx.fillText(kmh + ' km/h', w / 2, h / 2 + 46);
-    const pente = THREE.MathUtils.clamp(state.forward.y, -1, 1);
-    hctx.strokeStyle = 'rgba(143,252,196,0.5)'; hctx.lineWidth = 1;
-    hctx.beginPath(); hctx.moveTo(w / 2 - 34, h / 2 + 52 - pente * 14); hctx.lineTo(w / 2 - 26, h / 2 + 52 - pente * 14); hctx.stroke();
-    hctx.beginPath(); hctx.moveTo(w / 2 + 26, h / 2 + 52 - pente * 14); hctx.lineTo(w / 2 + 34, h / 2 + 52 - pente * 14); hctx.stroke();
-  }
+  // PLUS D'INDICATEUR DE VITESSE. Le chiffre en km/h et ses deux traits de
+  // pente encombraient le centre de l'ecran, la ou l'on vise. Le decrochage
+  // s'annonce deja par l'alarme et par le son du moteur : le nombre ne
+  // servait qu'a salir l'image.
 
-  // LE COMPTE DES ROQUETTES, écrit discrètement sous chaque aile
-  if (state.running && !state.takeoff && !state.pose) {
-    for (const g of [GUN_L, GUN_R]) {
-      const pg = project(_v.set(g.x, g.y - 0.6, g.z).multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos));
-      if (!pg.front) continue;
-      const n = g === GUN_L ? Math.ceil(state.roquettesN / 2) : Math.floor(state.roquettesN / 2);
-      if (avion().roquettes === 0) continue;
-      // à zéro, le chiffre pâlit ; il ne rougit pas. Le rouge est la couleur
-      // de ce qui fait mal, pas de ce qui manque.
-      hctx.fillStyle = n > 0 ? 'rgba(143,252,196,0.7)' : 'rgba(143,252,196,0.3)';
-      hctx.font = '10px "IBM Plex Mono", monospace'; hctx.textAlign = 'center';
-      hctx.fillText(String(n), pg.x, pg.y + 12);
-    }
-  }
+  // Le compte des roquettes est monté dans la bande du haut : deux chiffres
+  // collés aux ailes se lisaient mal et encombraient le centre de l'image.
+
   // LE RAYON QUI ANNONCE LE TIR. Quand un adversaire tient son alignement, un
   // trait part de lui vers nous et s'épaissit à mesure : on voit venir la rafale.
   for (const e of state.enemies) {
@@ -8467,10 +8578,15 @@ function drawHud() {
       const R = Math.min(w, h) * 0.46;
       ex = pSelf.x + vx / n * R; ey = pSelf.y + vy / n * R;
     }
+    // POINTILLÉ. Plein, il se confondait avec les traits de vitesse, qui sont
+    // de la même couleur et de la même finesse. Le tireté ne ressemble à rien
+    // d'autre à l'écran, et il se resserre à mesure que la rafale approche.
     const k = Math.min(1, e.visee / VISEE_ENNEMI);
-    hctx.strokeStyle = 'rgba(70,255,160,' + (0.10 + 0.45 * k).toFixed(3) + ')';
-    hctx.lineWidth = 0.4 + 0.7 * k;
+    hctx.strokeStyle = 'rgba(70,255,160,' + (0.22 + 0.55 * k).toFixed(3) + ')';
+    hctx.lineWidth = 0.6 + 0.9 * k;
+    hctx.setLineDash([9 - 5 * k, 7 - 3.5 * k]);
     hctx.beginPath(); hctx.moveTo(ex, ey); hctx.lineTo(pSelf.x, pSelf.y); hctx.stroke();
+    hctx.setLineDash([]);
     hctx.lineWidth = 1;
   }
 
@@ -8502,7 +8618,7 @@ function drawHud() {
       bracket(p.x + j(), p.y + j(), size, 0.42);
       hctx.lineWidth = 1.5;
       hctx.fillStyle = '#ffffff';
-      hctx.fillText(Math.round(Math.max(0, e.hp / e.hpMax * 100)) + '%', p.x, p.y - size - 12);
+      hctx.fillText(String(Math.round(Math.max(0, e.hp / e.hpMax * 100))), p.x, p.y - size - 12);
       hctx.fillStyle = 'rgba(255,255,255,0.65)';
       hctx.fillText(e.kind.nom, p.x, p.y + size + 13);
       // anneau de charge : il se referme et se resserre sur la cible
@@ -8885,7 +9001,6 @@ function noteDegat(cause, montant) {
 function refreshBars() {
   waveLbl.textContent  = (state.defi ? (langue === 'en' ? 'CHALLENGE · ' : 'DÉFI · ') : '') + 'WAVE ' + state.wave;
   scoreLbl.textContent = 'SCORE ' + Math.floor(state.score);
-  document.body.classList.toggle('accueil', !state.running);
   // APPELER LA VAGUE SUIVANTE. Cinq cents points tout de suite, et une vague
   // de plus dans le ciel : dix appuis, dix vagues à la fois. C'est le seul
   // moyen d'aller très haut au score, et il faut tout maîtriser pour survivre.
@@ -8893,6 +9008,9 @@ function refreshBars() {
                      && state.wave >= 1 && state.wave < CHAPITRE && (!coop.actif || coop.hote));
   // le chrono ne sert qu'à savoir si la prime est encore accessible : il
   // s'efface dès qu'elle est perdue, plutôt que de compter dans le vide
+  // la classe qui dit « on est sur l'écran de titre » : la mise en page des
+  // deux boutons pleine largeur en dépend
+  document.body.classList.toggle('accueil', (!!overlay && !overlay.hidden) || !state.running);
   const reste = state.vagueLimite - state.vagueT;
   chronoLbl.textContent = (state.vagueLimite > 0 && reste > 0) ? reste.toFixed(0) + 's' : '';
   const st = Math.max(0, Math.ceil(state.structure));
@@ -8900,10 +9018,16 @@ function refreshBars() {
   // potentiel gagné se voit, et ce qu'il en reste aussi
   gaugeFill.style.width = Math.min(100, st / Math.max(100, state.vieMax) * 100) + '%';
   gaugeFill.classList.toggle('bonus', state.vieMax > 100);
-  structLbl.textContent = st + (state.vieMax > 100 ? ' / ' + Math.round(state.vieMax) : '') + '%';
+  // PLUS DE SIGNE POUR CENT. La vie n'est pas une proportion de quoi que ce
+  // soit depuis que le plafond monte : c'est un nombre de points, et le
+  // symbole ne faisait qu'encombrer une bande deja chargee.
+  structLbl.textContent = st + (state.vieMax > 100 ? ' / ' + Math.round(state.vieMax) : '');
   // il ne reste que le doré, et il se compte en secondes
   const bl = document.getElementById('bouclierLbl');
-  bl.textContent = (state.dore > 0 ? 'GOLD ' + Math.ceil(state.dore) + 's' : '')
+  // LES ROQUETTES SE COMPTENT DANS LA BANDE, plus sous les ailes : deux
+  // petits chiffres collés à l'avion se lisaient mal et salissaient l'image.
+  bl.textContent = (state.dore > 0 ? (langue === 'en' ? 'SUN ' : 'SOLEIL ') + Math.ceil(state.dore) + 's' : '')
+                 + (avion().roquettes > 0 && state.running ? '  ROCKETS ×' + state.roquettesN : '')
                  + (avion().leurres > 0 && state.running ? '  FLARES ×' + state.leurres : '');
 
   // POSER ne se montre que quand la piste est devant et lisible, et ne bat que
@@ -8955,7 +9079,7 @@ const T = {
     decollage: 'DÉCOLLAGE', auSol: 'AU SOL  ·  RÉPARATION',
     tour: 'TOUR TRAVERSÉE  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
     fente: 'FENTE PASSÉE  ·  +', puits: 'SORTI PAR LE TOIT  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
-    doreFin: 'DORÉ ÉPUISÉ', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
+    doreFin: 'PROTECTION DU SOLEIL TERMINÉE', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
     sansFaute: 'SANS FAUTE  ·  VIE PLEINE  ·  PLAFOND +25',
     dansTemps: 'DANS LES TEMPS  ·  VIE PLEINE',
     egratignure: 'PAS UNE ÉGRATIGNURE  ·  PLAFOND +25',
@@ -8971,7 +9095,7 @@ const T = {
     rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
-    dore: 'SOLEIL TRAVERSÉ  ·  DORÉ 8 s', etoile: 'ÉTOILE FILANTE  ·  +',
+    dore: 'SOLEIL TRAVERSÉ  ·  INVINCIBLE 10 s', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
     prepare: 'préparation du code...', pret: 'code prêt. Envoie-le, puis colle la réponse.',
     ajoute: 'joueur ajouté. Recommence pour le suivant.',
@@ -8993,7 +9117,7 @@ const T = {
     decollage: 'TAKE OFF', auSol: 'ON THE GROUND  ·  REPAIRS',
     tour: 'TOWER THREADED  ·  +', arche: 'ARCH CLEARED  ·  +',
     fente: 'SLOT THREADED  ·  +', puits: 'OUT THROUGH THE ROOF  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
-    doreFin: 'GOLD SPENT', viseur: 'SIGHT UNLOCKED  ·  ',
+    doreFin: 'SUN COVER OVER', viseur: 'SIGHT UNLOCKED  ·  ',
     sansFaute: 'FLAWLESS  ·  FULL LIFE  ·  CAP +25',
     dansTemps: 'ON TIME  ·  FULL LIFE',
     egratignure: 'NOT A SCRATCH  ·  CAP +25',
@@ -9009,7 +9133,7 @@ const T = {
     rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
-    dore: 'THROUGH THE SUN  ·  GOLD 8 s', etoile: 'SHOOTING STAR  ·  +',
+    dore: 'THROUGH THE SUN  ·  INVINCIBLE 10 s', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
     prepare: 'preparing the code...', pret: 'code ready. Send it, then paste the answer.',
     ajoute: 'player added. Do it again for the next one.',
@@ -9035,6 +9159,7 @@ function appliqueLangue() {
     if (el.dataset.fr === undefined) el.dataset.fr = el.textContent;
     el.textContent = langue === 'en' ? el.dataset.en : el.dataset.fr;
   }
+  if (typeof rendJournal === 'function') rendJournal();
   const fr = document.getElementById('aideFR');
   const en = document.getElementById('aideEN');
   if (fr && en) { fr.hidden = langue === 'en'; en.hidden = langue !== 'en'; }
@@ -9377,6 +9502,12 @@ function majMenu() {
   const fr = langue !== 'en';
   document.getElementById('menuEclats').textContent = (fr ? 'ÉCLATS  ·  ' : 'SHARDS  ·  ') + eclats
     + (fr ? '   (1 pour 250 points)' : '   (1 per 250 points)');
+  document.getElementById('mMaj').textContent = fr ? 'METTRE À JOUR MAINTENANT' : 'UPDATE NOW';
+  document.getElementById('mAxeY').textContent = (fr ? 'AXE Y  ·  ' : 'Y AXIS  ·  ')
+    + (axeInverse ? (fr ? 'INVERSÉ  ·  SIMU' : 'INVERTED  ·  SIM')
+                  : (fr ? 'NORMAL' : 'NORMAL'));
+  document.getElementById('mClavier').textContent = fr ? 'CLAVIER  ·  FLÈCHES  ·  ZQSD / WASD'
+                                                       : 'KEYBOARD  ·  ARROWS  ·  WASD / ZQSD';
   document.getElementById('mSon').textContent = (fr ? 'SON  ·  ' : 'SOUND  ·  ') + (muet ? 'OFF' : 'ON');
   document.getElementById('mLangue').textContent = fr ? 'LANGUE  ·  ENGLISH' : 'LANGUAGE  ·  FRANÇAIS';
   document.getElementById('mTimbre').textContent = timbreBtn.textContent;
@@ -9468,6 +9599,19 @@ document.getElementById('mCode').addEventListener('click', e => { e.stopPropagat
 document.getElementById('mBeta').addEventListener('click', e => { e.stopPropagation(); panneauBeta(); });
 document.getElementById('mSansPub').addEventListener('click', e => { e.stopPropagation(); panneauSansPub(); });
 document.getElementById('mDefi').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); if (!state.running) decolle(true); });
+document.getElementById('mAxeY').addEventListener('click', e => {
+  e.stopPropagation();
+  axeInverse = !axeInverse;
+  try { localStorage.setItem('fod_axeY', axeInverse ? '1' : '0'); } catch (err) {}
+  announce(axeInverse ? (langue === 'en' ? 'Y AXIS INVERTED' : 'AXE Y INVERSÉ')
+                      : (langue === 'en' ? 'Y AXIS NORMAL' : 'AXE Y NORMAL'));
+  SFX.arme();
+  majMenu();
+});
+document.getElementById('mClavier').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('mAide').click();
+});
 document.getElementById('mSon').addEventListener('click', e => { e.stopPropagation(); sonBtn.click(); majMenu(); });
 document.getElementById('mAide').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); ouvrirAide(true); });
 document.getElementById('mLangue').addEventListener('click', e => { e.stopPropagation(); document.getElementById('langBtn').click(); majMenu(); });
@@ -9519,6 +9663,122 @@ plusJamaisCase.addEventListener('change', () => {
   try { localStorage.setItem('fod_aide_muette', aideMuette ? '1' : '0'); } catch (e) {}
   expliqueBtn.hidden = aideMuette;
 });
+
+// ---------------------------------------------------------------------------
+// L'HISTORIQUE DE VERSION. Une ligne, un tiret, UNE phrase courte, dans les
+// deux langues. Il etait devenu un paragraphe par version : personne ne lit un
+// paragraphe par version. Ce qui ne tient pas en une phrase n'a pas sa place
+// ici — le detail vit dans le code et dans BACKLOG.md.
+// ---------------------------------------------------------------------------
+const JOURNAL = [
+  { v: '0.86', fr: 'Le faucheur traverse notre route avant de revenir par-derrière.', en: 'The reaper crosses our path before coming back from behind.' },
+  { v: '0.85', fr: 'Axe Y inversé, clavier flèches et ZQSD/WASD, et l\'écran se vide de ses chiffres.', en: 'Inverted Y axis, arrow and WASD/ZQSD keys, and the screen sheds its numbers.' },
+  { v: '0.84', fr: 'Les mécaniciens ne tirent plus à travers les bâtiments.', en: 'The ground crew no longer shoots through buildings.' },
+  { v: '0.83', fr: 'Le bouclier disparaît : la vie est la seule ressource.', en: 'The shield is gone: life is the only resource.' },
+  { v: '0.82', fr: 'DÉCOLLER descend sous le pouce et les mécaniciens préparent l\'avion.', en: 'TAKE OFF drops under the thumb and the crew preps the aircraft.' },
+  { v: '0.81', fr: 'Les adversaires ne se touchent plus, ni entre eux ni avec nous.', en: 'Opponents never touch any more, neither each other nor us.' },
+  { v: '0.80', fr: 'Vingt roquettes en soute, et elles tuent enfin les pièces au sol.', en: 'Twenty rockets aboard, and they finally kill ground guns.' },
+  { v: '0.79', fr: 'Les adversaires ont toutes nos figures, et ils se soignent aux portails.', en: 'Opponents fly all our figures, and heal at the gates.' },
+  { v: '0.78', fr: 'La carte s\'édite, et l\'ailier se gagne en prenant les trois trous à figure.', en: 'The map is editable, and a wingman is earned through the three figure gates.' },
+  { v: '0.77', fr: 'Trois avions à choisir, et des leurres qui partent seuls.', en: 'Three aircraft to choose from, and flares that release themselves.' },
+  { v: '0.76', fr: 'Le tonneau déporte deux fois plus et l\'image s\'incline avec lui.', en: 'The roll swings twice as wide and the picture banks with it.' },
+  { v: '0.75', fr: 'Le mode avancé, ses cinq trophées et les codes secrets.', en: 'Advanced mode, its five trophies and the secret codes.' },
+  { v: '0.74', fr: 'Trois trous à figure, et un aérodrome au bord de la piste.', en: 'Three figure gates, and an aerodrome beside the runway.' },
+  { v: '0.73', fr: 'La caméra traîne au décollage et ne saute plus au posé.', en: 'The camera lags on take-off and no longer jumps on landing.' },
+  { v: '0.72', fr: 'Le boost de portail devient violent, et les tanks roulent.', en: 'The gate boost turns violent, and tanks roll.' },
+  { v: '0.71', fr: 'On meurt vraiment à zéro, et l\'écran de fin dit tout en chiffres.', en: 'You really die at zero, and the end screen tells it all in numbers.' },
+  { v: '0.70', fr: 'En coopération, les invités blessent enfin les adversaires.', en: 'In co-op, guests finally damage opponents.' },
+  { v: '0.69', fr: 'Jamais plus de deux tanks debout en même temps.', en: 'Never more than two tanks standing at once.' },
+  { v: '0.68', fr: 'La caméra reste à plat au tonneau et serpente vers la figure.', en: 'The camera stays level in a roll and slides towards the figure.' },
+  { v: '0.67', fr: 'Les adversaires tirent des roquettes qu\'un tonneau fait décrocher.', en: 'Opponents fire rockets that a barrel roll shakes off.' },
+  { v: '0.66', fr: 'La carte devient fixe, et dix vagues font entrer dans la légende.', en: 'The map becomes fixed, and ten waves earn the legend.' },
+  { v: '0.65', fr: 'Un seul bouton MENU, et les éclats achètent viseurs et couleurs.', en: 'A single MENU button, and shards buy sights and colours.' },
+  { v: '0.64', fr: 'La difficulté ne plafonne plus et s\'adapte à la forme.', en: 'Difficulty no longer plateaus and follows your form.' },
+  { v: '0.63', fr: 'Les bâtiments encaissent les balles et s\'effondrent.', en: 'Buildings take rounds and collapse.' },
+  { v: '0.62', fr: 'La caméra suit enfin le tonneau, et les mécaniciens ripostent.', en: 'The camera finally follows the roll, and the crew shoots back.' },
+  { v: '0.61', fr: 'Deux portes en l\'air ouvrent l\'atterrissage.', en: 'Two gates in the sky open the landing.' },
+  { v: '0.60', fr: 'Le manche perd trente pour cent de nervosité.', en: 'The stick loses thirty per cent of its edge.' },
+  { v: '0.59', fr: 'Un carnet de vol dit où l\'on meurt, et three.js est embarqué.', en: 'A logbook says where you die, and three.js ships with the game.' },
+  { v: '0.58', fr: 'Le panneau de coopération défile enfin au doigt.', en: 'The co-op panel finally scrolls under a finger.' },
+  { v: '0.57', fr: 'Les canons chauds frappent deux fois plus fort, et la manette suffit.', en: 'Hot guns hit twice as hard, and a gamepad is enough.' },
+  { v: '0.56', fr: 'Le jeu s\'installe sur l\'écran d\'accueil et vole sans réseau.', en: 'The game installs on the home screen and flies offline.' },
+  { v: '0.55', fr: 'L\'atterrissage se pilote : huit feux PAPI et un arrondi.', en: 'Landing is flown: eight PAPI lights and a flare.' },
+  { v: '0.54', fr: 'On vise là où la cible sera, pas là où elle est.', en: 'You aim where the target will be, not where it is.' },
+  { v: '0.53', fr: 'Au tonneau, la caméra part avec l\'avion puis se recale.', en: 'In a roll the camera goes with the aircraft, then resettles.' },
+  { v: '0.52', fr: 'Le jeu passe en anglais si le téléphone ne parle pas français.', en: 'The game turns English if the phone does not speak French.' },
+  { v: '0.51', fr: 'Chaque appareil abattu rallonge la surchauffe des canons.', en: 'Every kill extends the guns\' overheat.' },
+  { v: '0.50', fr: 'Les caps peints deviennent les vrais, depuis Bayonne.', en: 'The painted headings become the real ones, from Bayonne.' },
+  { v: '0.49', fr: 'Coopération jusqu\'à dix appareils, sans serveur.', en: 'Co-op for up to ten aircraft, with no server.' },
+  { v: '0.48', fr: 'Les adversaires ne traversent plus les bâtiments.', en: 'Opponents no longer fly through buildings.' },
+  { v: '0.47', fr: 'Le manche répond à la distance au centre, et non à chaque axe.', en: 'The stick answers to distance from centre, not to each axis.' },
+  { v: '0.46', fr: 'Le décollage respecte le cap où l\'on est posé.', en: 'Take-off keeps the heading you are parked on.' },
+  { v: '0.45', fr: 'Taper un mur fait tourner l\'avion du côté où il y a de la place.', en: 'Hitting a wall turns the aircraft towards the open side.' },
+  { v: '0.44', fr: 'Le saut après le décollage disparaît.', en: 'The jump after take-off is gone.' },
+  { v: '0.43', fr: 'Un avion abattu part en vrille et s\'ouvre au sol.', en: 'A downed aircraft spins away and breaks open on the ground.' },
+  { v: '0.42', fr: 'Une piste, ses caps peints, et trois mécaniciens qui détalent.', en: 'A runway, its painted headings, and three mechanics who scatter.' },
+  { v: '0.41', fr: 'L\'échelle de tangage passe du cadran au monde.', en: 'The pitch ladder moves from the dial into the world.' },
+  { v: '0.40', fr: 'Tenir une cible trop loin dans l\'axe finit par pousser.', en: 'Holding a distant target in line eventually pushes the throttle.' },
+  { v: '0.39', fr: 'Les flèches disent de combien virer, et non seulement où.', en: 'Arrows say how much to turn, not just where.' },
+  { v: '0.38', fr: 'La caméra reste à plat pendant un tonneau.', en: 'The camera stays level through a roll.' },
+  { v: '0.37', fr: 'Les panneaux défilent au doigt, et le décollage devient une vague.', en: 'Panels scroll under a finger, and take-off becomes one wave.' },
+  { v: '0.36', fr: 'Les roquettes laissent un vrai panache d\'anneaux.', en: 'Rockets leave a real plume of rings.' },
+  { v: '0.35', fr: 'Le tir ne part plus au premier effleurement.', en: 'Fire no longer breaks out at the first brush.' },
+  { v: '0.34', fr: 'Le ciel devient celui de Bayonne, le 6 juin 1991.', en: 'The sky becomes the one over Bayonne on 6 June 1991.' },
+  { v: '0.33', fr: 'Deux roquettes guidées partent des ailes.', en: 'Two guided rockets leave the wings.' },
+  { v: '0.32', fr: 'L\'échelle de tangage court d\'un pôle à l\'autre.', en: 'The pitch ladder runs from pole to pole.' },
+  { v: '0.31', fr: 'Tout le monde ralentit : on dépassait les adversaires trop vite.', en: 'Everyone slows down: you overtook opponents too fast.' },
+  { v: '0.30', fr: 'Les balles ne traversent plus l\'avion sans le toucher.', en: 'Bullets no longer pass through the aircraft without hitting it.' },
+  { v: '0.29', fr: 'Des arches apparaissent dans le paysage.', en: 'Arches appear in the landscape.' },
+  { v: '0.28', fr: 'L\'écart de taille entre les flèches passe de un à huit.', en: 'The size range of the arrows widens to one in eight.' },
+  { v: '0.27', fr: 'L\'écart de vitesse avec les adversaires se resserre.', en: 'The speed gap with opponents narrows.' },
+  { v: '0.26', fr: 'Les cibles rompent perpendiculairement à la ligne de tir.', en: 'Targets break perpendicular to the line of fire.' },
+  { v: '0.25', fr: 'La mort sonne comme une mort : le moteur s\'éteint.', en: 'Death sounds like death: the engine dies out.' },
+  { v: '0.24', fr: 'Le jeu commence au sol, hélice au ralenti.', en: 'The game starts on the ground, propeller idling.' },
+  { v: '0.23', fr: 'Le cône de verrouillage suit l\'envergure vue.', en: 'The lock cone follows the apparent wingspan.' },
+  { v: '0.22', fr: 'Le moteur se tait vraiment quand on quitte la page.', en: 'The engine really goes quiet when you leave the page.' },
+  { v: '0.21', fr: 'Commandes bien plus vives.', en: 'Far livelier controls.' },
+  { v: '0.20', fr: 'Corrige le décalage de l\'écran sur iPhone après une figure.', en: 'Fixes the screen drift on iPhone after a figure.' },
+  { v: '0.19', fr: 'Les avions passent aux dimensions réelles.', en: 'Aircraft go to real dimensions.' },
+  { v: '0.18', fr: 'Caméra rapprochée : l\'avion occupe deux fois plus d\'écran.', en: 'Closer camera: the aircraft fills twice the screen.' },
+  { v: '0.17', fr: 'Quatre adversaires, chacun avec sa manière de poursuivre.', en: 'Four opponents, each with its own way of pursuing.' },
+  { v: '0.16', fr: 'Le jeu se met en pause quand un panneau est ouvert.', en: 'The game pauses whenever a panel is open.' },
+  { v: '0.15', fr: 'L\'avion du joueur double de taille.', en: 'The player\'s aircraft doubles in size.' },
+  { v: '0.14', fr: 'Les traçantes partent des deux mitrailleuses d\'aile.', en: 'Tracers leave both wing guns.' },
+  { v: '0.13', fr: 'Il ne reste que la croix de visée, sur l\'axe des canons.', en: 'Only the aiming cross remains, on the gun line.' },
+  { v: '0.12', fr: 'Il faut deux fois plus longtemps pour abattre une cible.', en: 'It takes twice as long to down a target.' },
+  { v: '0.11', fr: 'Figures adoucies : le demi-tonneau ne part plus sec.', en: 'Smoother figures: the half roll no longer snaps.' },
+  { v: '0.10', fr: 'Split-S : deux appuis sous l\'avion, et le cap s\'inverse.', en: 'Split-S: two taps below the aircraft, and the heading reverses.' },
+  { v: '0.9', fr: 'La jauge s\'appelle LIFE et non plus STRUCT.', en: 'The gauge is called LIFE, no longer STRUCT.' },
+  { v: '0.8', fr: 'Immelmann : deux appuis au-dessus de l\'avion.', en: 'Immelmann: two taps above the aircraft.' },
+  { v: '0.7', fr: 'Deux appuis du même côté déclenchent un tonneau de ce côté.', en: 'Two taps on one side roll to that side.' },
+  { v: '0.6', fr: 'Trait caché : les faces masquent les arêtes de derrière.', en: 'Hidden line: faces mask the edges behind.' },
+  { v: '0.5', fr: 'Deuxième modèle d\'avion, 439 segments contre 51.', en: 'Second aircraft model, 439 segments against 51.' },
+  { v: '0.4', fr: 'L\'avion du joueur vient du modèle STL fourni.', en: 'The player\'s aircraft comes from the supplied STL model.' },
+  { v: '0.3', fr: 'Le tir monte en puissance tant que la cible reste visée.', en: 'Fire spools up while the target stays in the sight.' },
+  { v: '0.2', fr: 'La souris garde la main quand elle s\'arrête.', en: 'The mouse keeps control when it stops.' },
+  { v: '0.1', fr: 'Premier vol : avion filaire, pilotage à un doigt.', en: 'First flight: wireframe aircraft, one-finger controls.' }
+];
+// LES PREMIERS QUI ONT PARLÉ. Les deux premiers commentaires reçus sur
+// r/Devvit, le 15 septembre 2026. L'un a demandé l'axe Y inversé pour les
+// pilotes de simulateur : c'est la v0.85. L'autre a simplement dit que c'était
+// beau. Les deux ont changé quelque chose, et ça se dit à la première ligne.
+const MERCIS = [
+  { qui: 'MrTommyPickles', fr: 'a demandé l’axe Y inversé, et le clavier a suivi',
+    en: 'asked for the inverted Y axis, and the keyboard followed' },
+  { qui: 'korok7mgte', fr: 'a été le premier à dire que c’était beau',
+    en: 'was the first to say it looked good' },
+];
+function rendJournal() {
+  const el = document.getElementById('changelog');
+  if (!el) return;
+  const fr = langue !== 'en';
+  el.innerHTML =
+    '<div class="merci"><b>' + (fr ? 'MERCI' : 'THANK YOU') + '</b><br>'
+    + MERCIS.map(m => m.qui + ' — ' + (fr ? m.fr : m.en)).join('<br>')
+    + '</div>'
+    + JOURNAL.map(j =>
+        '<div><b>v' + j.v + '</b> — ' + (fr ? j.fr : j.en) + '</div>').join('');
+}
 
 function majPause() {
   // en coopération le monde ne s'arrête pas : les autres continuent de voler
@@ -9799,8 +10059,15 @@ function gameOver(victoire) {
   overlayText.textContent = victoire ? t('legendeTexte')
     : deJustesse ? t('manque1') + manque + t('manque2')
     : pique();
+  // QUI VOUS A EU. On sait toujours qu'on est mort, jamais de la main de qui :
+  // la ligne le dit, et c'est la première chose qu'un pilote veut savoir. Le
+  // faucheur a quatre mille points de structure — il se tue, mais il faut y
+  // passer la vague entière.
+  const tueur = !victoire && state.dernierTireur ? state.dernierTireur : null;
   overlayScore.hidden = false;
-  overlayScore.innerHTML = t('scoreMot') + String(Math.floor(state.score)).padStart(6, '0')
+  overlayScore.innerHTML = (tueur ? (langue === 'en' ? 'DOWNED BY  ·  ' : 'ABATTU PAR  ·  ')
+                                    + '<b>' + tueur + '</b><br>' : '')
+    + t('scoreMot') + String(Math.floor(state.score)).padStart(6, '0')
     + '  ·  ' + t('vague') + state.wave
     + (state.recordBattu ? '<br><b>' + t('nouveauRecord') + '</b>' : '')
     + '<br>' + t('recordMot') + String(record.score).padStart(6, '0')
@@ -9845,7 +10112,8 @@ const joyRadius = () => Math.min(window.innerWidth, window.innerHeight) * 0.17;
 
 function setAimDirect(e) {
   aim.x = e.clientX;
-  aim.y = e.clientY;
+  const h = window.innerHeight;
+  aim.y = h / 2 + (e.clientY - h / 2) * signeY();
 }
 
 function setAimFromJoy() {
@@ -9861,7 +10129,7 @@ function setAimFromJoy() {
   }
   const g = aimRef() / R;
   aim.x = window.innerWidth / 2 + dx * g;
-  aim.y = window.innerHeight / 2 + dy * g;
+  aim.y = window.innerHeight / 2 + dy * g * signeY();
 }
 
 let lastTapT = 0, lastTapSide = 0;
@@ -10084,6 +10352,91 @@ function horsZoneMorte(v) {
   return Math.sign(v) * (a - MANETTE_MORT) / (1 - MANETTE_MORT);
 }
 
+// ---------------------------------------------------------------------------
+// LE CLAVIER. Demandé sur r/Devvit en même temps que l'axe inversé.
+//
+// On lit e.code, la POSITION physique de la touche, jamais la lettre. La
+// touche à gauche du D s'appelle S en AZERTY comme en QWERTY, celle du dessus
+// s'appelle Z en AZERTY et W en QWERTY : c'est la MÊME touche, et e.code la
+// nomme 'KeyW' dans les deux cas. ZQSD et WASD sont donc servis par le même
+// code, sans rien demander au joueur. Les flèches marchent en parallèle, et
+// e.key sert de filet pour les dispositions exotiques.
+//
+// La course est progressive : une touche tenue amène le manche à fond en un
+// tiers de seconde, et il revient au centre aussi vite quand on lâche. Un
+// clavier ne dose pas, alors c'est le temps qui dose.
+// ---------------------------------------------------------------------------
+const CLAVIER_MONTEE = 3.2;      // par seconde : 0 à fond en un peu plus d'un tiers
+const touches = new Set();
+const clavier = { x: 0, y: 0, tenait: false };
+const CLAV_GAUCHE = new Set(['ArrowLeft', 'KeyA', 'KeyQ']);
+const CLAV_DROITE = new Set(['ArrowRight', 'KeyD']);
+const CLAV_HAUT   = new Set(['ArrowUp', 'KeyW', 'KeyZ']);
+const CLAV_BAS    = new Set(['ArrowDown', 'KeyS']);
+const CLAV_LETTRE = { a: 'KeyA', q: 'KeyA', d: 'KeyD', w: 'KeyW', z: 'KeyW', s: 'KeyS' };
+
+function codeTouche(e) {
+  if (e.code) return e.code;
+  const k = (e.key || '').toLowerCase();
+  return CLAV_LETTRE[k] || e.key;
+}
+window.addEventListener('keydown', e => {
+  if (e.target instanceof Element && e.target.closest('input, textarea')) return;
+  const c = codeTouche(e);
+  const connue = CLAV_GAUCHE.has(c) || CLAV_DROITE.has(c) || CLAV_HAUT.has(c)
+              || CLAV_BAS.has(c) || c === 'Space';
+  if (!connue) return;
+  e.preventDefault();
+  audioDemarre();
+  if (touches.has(c)) return;            // répétition automatique : on l'ignore
+  touches.add(c);
+  const libre = state.running && state.spinT <= 0 && !state.fig
+             && !state.takeoff && !state.pose && !state.roulage;
+  if (!libre) return;
+  // ESPACE : tonneau du côté où le manche penche, à défaut au hasard.
+  // MAJ + HAUT : Immelmann. MAJ + BAS : Split-S. Ce sont les deux figures du
+  // glissé au doigt, rendues au clavier.
+  if (c === 'Space') {
+    state.spinT = SPIN_TIME;
+    state.spinSide = clavier.x > 0.05 ? 1 : clavier.x < -0.05 ? -1 : (Math.random() < 0.5 ? -1 : 1);
+    SFX.tonneau(); tonneauSoleil();
+  } else if (e.shiftKey && (CLAV_HAUT.has(c) || CLAV_BAS.has(c))) {
+    state.fig = { t: 0, side: Math.random() < 0.5 ? -1 : 1,
+                  type: CLAV_HAUT.has(c) ? 'imm' : 'split',
+                  base: state.quat.clone(), yaw0: state.yaw };
+    SFX.renversement();
+  }
+});
+window.addEventListener('keyup', e => { touches.delete(codeTouche(e)); });
+window.addEventListener('blur', () => touches.clear());
+
+function litClavier(dt) {
+  const g = [...CLAV_GAUCHE].some(c => touches.has(c));
+  const d = [...CLAV_DROITE].some(c => touches.has(c));
+  const h = [...CLAV_HAUT].some(c => touches.has(c));
+  const b = [...CLAV_BAS].some(c => touches.has(c));
+  const vx = (d ? 1 : 0) - (g ? 1 : 0);
+  const vy = (b ? 1 : 0) - (h ? 1 : 0);
+  const vers = (v, cible) => {
+    const pas = CLAVIER_MONTEE * dt;
+    return cible > v ? Math.min(cible, v + pas) : Math.max(cible, v - pas);
+  };
+  clavier.x = vers(clavier.x, vx);
+  clavier.y = vers(clavier.y, vy);
+  const actif = Math.abs(clavier.x) > 0.002 || Math.abs(clavier.y) > 0.002;
+  if (actif) {
+    const w = window.innerWidth, ht = window.innerHeight;
+    const ref = Math.min(w, ht) * 0.42;
+    aim.x = w / 2 + clavier.x * ref;
+    aim.y = ht / 2 + clavier.y * ref * signeY();
+    aim.active = true;
+    clavier.tenait = true;
+  } else if (clavier.tenait) {
+    clavier.tenait = false;
+    aim.active = false;
+  }
+}
+
 function litManette() {
   if (!navigator.getGamepads) return;
   let p = null;
@@ -10099,7 +10452,7 @@ function litManette() {
     const w = window.innerWidth, h = window.innerHeight;
     const ref = Math.min(w, h) * 0.42;
     aim.x = w / 2 + ax * ref;
-    aim.y = h / 2 + ay * ref;
+    aim.y = h / 2 + ay * ref * signeY();
     aim.active = true;          // sinon le rappel au centre lutterait contre nous
     manetteTient = true;
   } else if (manetteTient) {
@@ -10296,6 +10649,46 @@ if ('serviceWorker' in navigator) {
     }).catch(() => {});
   });
 }
+// LA MISE À JOUR FORCÉE. La pastille n'apparaît que si le navigateur a DÉJÀ
+// remarqué une nouvelle version. Ce bouton-ci va la chercher : il redemande
+// le service worker, attend l'installation, la fait sauter, et recharge. Plus
+// besoin de fermer l'application et de la rouvrir.
+async function forceMaj(btn) {
+  const fr = langue !== 'en';
+  const dit = m => { if (btn) btn.textContent = m; };
+  dit(fr ? 'RECHERCHE…' : 'CHECKING…');
+  try {
+    if (!('serviceWorker' in navigator)) { location.reload(); return; }
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) { location.reload(); return; }
+    rechargeDemandee = true;
+    await reg.update();                       // va interroger le serveur
+    const neuve = reg.waiting || reg.installing;
+    if (neuve) {
+      dit(fr ? 'INSTALLATION…' : 'INSTALLING…');
+      if (reg.waiting) { reg.waiting.postMessage('SAUTER'); }
+      else {
+        neuve.addEventListener('statechange', () => {
+          if (neuve.state === 'installed' && reg.waiting) reg.waiting.postMessage('SAUTER');
+        });
+      }
+      // filet : si le controllerchange ne vient pas, on recharge quand même
+      setTimeout(() => location.reload(), 3500);
+      return;
+    }
+    // rien de neuf côté service worker : on vide le cache et on recharge
+    dit(fr ? 'DÉJÀ À JOUR' : 'ALREADY UP TO DATE');
+    try { const cs = await caches.keys(); await Promise.all(cs.map(c => caches.delete(c))); } catch (err) {}
+    setTimeout(() => location.reload(), 700);
+  } catch (err) {
+    location.reload();
+  }
+}
+document.getElementById('mMaj').addEventListener('click', e => {
+  e.stopPropagation();
+  forceMaj(e.currentTarget);
+});
+
 majPastille.addEventListener('click', async e => {
   e.stopPropagation();
   majPastille.hidden = true;
@@ -10311,6 +10704,7 @@ poseAuSol();
 refreshBars();
 requestAnimationFrame(step);
 appliqueLangue();
+rendJournal();
 window.__fodReady = true;
 clearTimeout(window.__fodTimer);
 </script>

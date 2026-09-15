@@ -683,3 +683,64 @@ mécanicien → adversaire. Mesuré : 3,1 points de dégâts en vue directe,
 - **La monnaie.** Les éclats achètent déjà viseurs, couleurs et traînées.
   Reste à décider s'ils achètent autre chose, sans jamais toucher à la
   puissance.
+
+## v0.85 et v0.86 — le retour Reddit et une longue liste
+
+Deux premiers commentaires sur r/Devvit. MrTommyPickles demande l'axe Y
+inversé pour les pilotes de simulateur, korok7mgte dit que c'est beau. Les
+deux sont remerciés en tête de l'historique de version.
+
+- **Axe Y inversé**, option retenue d'une partie à l'autre. Elle agit à la
+  SOURCE, là où la commande devient une position de viseur : doigt, souris,
+  manette et clavier suivent tous.
+- **Clavier** : flèches, et la main gauche en ZQSD comme en WASD. Le jeu lit
+  `e.code`, la position physique de la touche, donc les deux dispositions
+  marchent sans réglage. Espace pour le tonneau, Maj plus haut ou bas pour
+  l'Immelmann et le Split-S.
+- L'indicateur de vitesse, la barre de boost, le mot LOCKED, les chiffres de
+  roquettes sous les ailes et le signe pour cent quittent l'écran. La poussée
+  se lit dans le nombre de traits de vitesse, les roquettes dans la bande.
+- Le trait des adversaires qui nous visent devient **pointillé** : il ne se
+  confond plus avec l'air.
+- Le premier adversaire de chaque partie arrive **pile dans l'axe du nez**, à
+  six cents mètres, et le viseur l'accroche seul. Mesuré : 0° d'écart,
+  verrouillé en une seconde. C'est le tutoriel, sans une ligne de texte.
+- **Chaque type d'appareil a son étage** : le biplan de 60 à 240 m, le gardien
+  jusqu'à 940. Et c'est un plafond dur : monter, c'est se mettre hors de
+  portée.
+- Le **faucheur** traverse notre route à 260 m, puis part en grande boucle et
+  revient par-derrière. Mesuré : il passe à 0,95 de dot devant nous, finit à
+  -1 derrière.
+- **Sortie de vrille corrigée** : le manche à l'opposé de la rotation. Le
+  signe était inversé et demandait le manche DANS le sens, ce qui l'aurait
+  aggravée. Mesuré : sortie en 30 images à l'opposé, jamais dans le sens.
+- Le **PAPI** ne s'affiche que sur une vraie approche : nez dans l'axe à 20°,
+  moins de 2,6 km, moins de 500 m de décalage, et distance qui diminue.
+  Mesuré : éteint dès qu'on s'éloigne.
+- L'**effleurement du sol** sous 6° de pente ne coûte plus rien et ne fait
+  aucun bruit. Mesuré : 0 dégât à 2° et 5°, 19 à 15°.
+- Les **mécaniciens** attendent au bord du bitume, jamais dessus. Mesuré :
+  0 image passée sur la piste pendant le roulage. La réparation ne commence
+  que lorsqu'ils sont à moins de 9 m de la cellule.
+- Le **son du portail** devient un AUM grave à attaque lente, au lieu de trois
+  notes aiguës.
+- Le **fusil des mécaniciens** décroît avec la distance et se tait à 100 m.
+- La **voûte étoilée** suit la caméra et se referme sous l'horizon : plus de
+  bande noire entre le sol et les étoiles quand on monte.
+- Le **soleil fixé** rend invincible dix secondes, et c'est renouvelable.
+- L'écran de fin dit **qui vous a abattu**.
+- **Écran de titre** : DÉCOLLER en bas, défi du jour et MENU pleine largeur.
+- **MISE À JOUR MAINTENANT** en bas du menu : elle va chercher la nouvelle
+  version sans fermer l'application.
+- Les **portes du hangar** restent ouvertes, la boussole descend sous le
+  bandeau, et l'historique de version passe à une phrase par version, en
+  français et en anglais.
+
+## À discuter avec lui
+
+- **Le tonneau.** Il dit que l'avion tourne sur son axe en restant dans le
+  même plan, et qu'il voudrait quelque chose de plus dramatique : manche
+  tiré, montée, spirale. Il demande des références et une page où il pourrait
+  régler la courbe lui-même. À faire.
+- **L'easter egg des étoiles.** Viser la Grande Ourse ou l'étoile du Berger
+  donnerait un bonus. Questions à poser.
