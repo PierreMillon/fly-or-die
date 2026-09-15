@@ -801,3 +801,25 @@ deux sont remerciés en tête de l'historique de version.
   arêtes de contact entre boîtes empilées, qui ne disaient rien, disparaissent.
 - Le gardien vire moins et va plus vite : intercepteur lourd, plus poursuivant
   universel.
+
+
+## Correction : le sol ne s'arrête pas
+
+Je lui ai dit qu'à 18 km il volait au-dessus du noir. C'est FAUX, et il l'a
+relevé. `grid.position` est recalée sur l'avion à chaque image, arrondie au pas
+de 160 m : la grille suit le joueur et le sol est donc infini.
+
+Ce qui s'arrête vraiment, mesuré sur la carte fixe :
+
+| Ce qui est posé | Le plus loin du centre |
+|---|---|
+| Bâtiments à figure | 1 908 m |
+| Arches | 2 110 m |
+| Pylônes | 2 765 m |
+| Tours percées | 2 939 m |
+| Montagnes | environ 3 100 m |
+| Refuge | 3 913 m |
+
+Donc tout le monde habité tient dans 3 km, le refuge est le seul objet au-delà,
+et à 18 km il y a de l'herbe et rien d'autre. Les montagnes sont bien le bord
+visible du monde : ce qu'on franchit pour aller voir s'il y a quelque chose.
