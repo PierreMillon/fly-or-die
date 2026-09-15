@@ -1457,6 +1457,24 @@ const ROQ_E_DEGATS  = 50;
 const ROQ_E_RECHARGE = 9;
 const ROQ_E_PORTEE  = [320, 950];
 const ROQ_E_ESQUIVE = 300;    // en deçà, un tonneau la fait décrocher
+// ELLE N'ARRIVAIT JAMAIS. Mesuré : huit tirs plein arrière, aucun tonneau,
+// huit disparitions sans le moindre dégât. L'alerte hurlait WARNING ROCKET ·
+// ROLL ! et il ne se passait rien, quoi qu'on fasse — ce qui est pire qu'une
+// roquette trop faible : c'est une menace qui ment, et une menace qui ment
+// abîme toutes les autres.
+//
+// La cause est arithmétique. Elle avançait à max(170, notre vitesse + 70),
+// donc elle ne se rapprochait que de 70 m/s ; elle vivait sept secondes ;
+// 7 × 70 = 490 mètres de rattrapage possible. Et le jeu l'autorise à partir
+// de 950 mètres. Toute roquette tirée au-delà de 490 m plein arrière mourait
+// de vieillesse avant d'arriver, en silence.
+//
+// Deux chiffres suffisent : elle se rapproche de 95 m/s et vit treize
+// secondes, soit 1 235 mètres de rattrapage — de quoi couvrir la portée
+// entière avec de la marge. Elle arrive toujours. Le tonneau redevient la
+// réponse, au lieu d'être une superstition.
+const ROQ_E_VIE     = 13;     // secondes : assez pour couvrir les 950 m de portée
+const ROQ_E_GAIN    = 95;     // m/s de rapprochement, quelle que soit notre vitesse
 // LEURS FIGURES. Ils avaient le tonneau, et rien d'autre. Ils ont maintenant
 // tout ce que nous avons : le tonneau, l'Immelmann, le Split-S et le looping
 // complet — jouées comme les nôtres, d'un bloc, sur un quaternion de base.
@@ -5588,12 +5606,21 @@ const SPECIAL = { largeur: 110, prof: 60, trou: 45, hautU: 200, entreeY: 40, hau
 // lentement. Rien ne presse, rien ne tire. On repart à la vie maximale que la
 // partie autorise, et l'on peut y revenir autant de fois qu'on veut.
 // ---------------------------------------------------------------------------
-// DIX KILOMÈTRES, ET DERRIÈRE LA CHAÎNE. À 3 900 m il était dans la montagne
-// — donc injoignable — et bien trop près : on tombait dessus en s'écartant à
-// peine. Il est maintenant à dix kilomètres plein ouest, au-delà de
-// TERRAIN_R3, sur la plaine plate du dehors. Y aller prend deux minutes à la
-// croisière, on franchit la crête, et il n'y a plus rien que la plaine. C'est
-// le trajet lui-même qui est la récompense : personne n'y va par hasard.
+// TRENTE-DEUX KILOMÈTRES, ET TROIS MINUTES APRÈS LA CRÊTE. À 3 900 m il était
+// dans la montagne — donc injoignable. À dix kilomètres il était joignable,
+// mais la traversée ne durait rien : on passait la chaîne et le terrain était
+// déjà là, si bien que le dehors n'existait pas comme lieu, seulement comme
+// transition.
+//
+// Croisière mesurée en palier, plein ouest, sans toucher au manche : 126,3 m/s.
+// La crête est à TERRAIN_R3, soit 8 800 m. Pour que trois minutes pleines
+// séparent la crête de l'arrivée, il faut 180 × 126,3 = 22 700 m de plaine
+// derrière, donc 31 500 m au moins. À 32 000 la traversée mesure 23 200 m,
+// soit 3 min 04 — et le refuge est trois fois plus loin qu'avant.
+//
+// Ces trois minutes ne sont pas un trajet : c'est le seul endroit du jeu où
+// il ne se passe rien, où personne ne vient, et où l'on n'a rien d'autre à
+// faire que tenir un cap et regarder le ciel. Le vide est le contenu.
 // ET PILE SOUS L'ÉTOILE DU BERGER. Le refuge héritait du z de la piste, soit
 // 320 mètres de décalage : à dix kilomètres cela fait 1,8° d'écart avec Vénus,
 // qui se lève plein ouest à 270°. Imperceptible, mais faux. À z = 0 le cap du
@@ -5601,22 +5628,153 @@ const SPECIAL = { largeur: 110, prof: 60, trou: 45, hautU: 200, entreeY: 40, hau
 // phrase de l'aide devient littéralement vraie. C'est aussi ce qui distingue
 // les trois secrets du ciel — le chariot montre le refuge sur la boussole,
 // Vénus le montre DANS LE CIEL, et Orion ne montre rien : elle donne.
-const REFUGE = { x: -10000, z: 0, demiL: 14, demiZ: 180 };
+const REFUGE = { x: -32000, z: 0, demiL: 14, demiZ: 180 };
 const REFUGE_TEMPS = 180;        // secondes de vol avant qu'il existe
 const REFUGE_VUE = 1700;         // distance à laquelle il se laisse voir
-const REFUGE_TOUR = 0.22;        // radians par seconde : la caméra tourne autour
+// DEUX FOIS PLUS LENTE. À 0,22 le tour durait vingt-neuf secondes : assez vite
+// pour qu'on attende la suite. À 0,11 il en dure cinquante-sept, et l'on
+// regarde au lieu d'attendre.
+const REFUGE_TOUR = 0.11;        // radians par seconde : la caméra tourne autour
+// LE ROULAGE JUSQU'AU HANGAR. On ne se fige plus là où les roues touchent :
+// l'appareil finit sa course et s'arrête au milieu de la bande, nez tourné
+// vers le panneau et la cabane. C'est la seule chose qu'on vient chercher ici,
+// autant s'arrêter devant.
+const REFUGE_ARRET = 3.4;        // secondes de roulage avant l'immobilité
+const REFUGE_CAP = -Math.PI / 2; // nez vers +x : le panneau, puis la cabane
+const REFUGE_SORTIE = 1.4;       // secondes après l'arrêt avant qu'il descende
+const REFUGE_CENTRE = 11;        // mètres devant le nez : le milieu de la scène
 let refugeG = null, piloteG = null;
 (function poserRefuge() {
   const g = new THREE.Group();
   const mat = lineMat(COL_LINE, 0.55);
-  // la bande : deux bords et des traverses, rien d'autre. Pas de seuil peint,
-  // pas de PAPI, pas de manche à air : ce terrain n'est pas déclaré.
+  // LA BANDE N'ÉTAIT QU'UN RECTANGLE. Deux bords et des traverses tous les
+  // trente mètres : la forme d'une piste, pas un morceau de terre. On volait
+  // trois minutes au-dessus du vide pour arriver sur un dessin.
+  //
+  // Ce qui manquait n'est pas du décor, c'est de l'usage. Un terrain de
+  // campagne ne se peint pas, il s'use : deux ornières creusées par les roues
+  // de ceux qui sont venus avant, de l'herbe qui reprend partout où l'on ne
+  // roule pas, des pierres qu'on a poussées sur les bords, une clôture qui ne
+  // ferme rien, et un sentier vers la porte. Rien de tout cela n'a de règle de
+  // jeu : c'est là pour qu'on comprenne, en se posant, que quelqu'un a vécu
+  // ici, et qu'il est parti.
+  //
+  // TOUT EST TIRÉ D'UNE GRAINE FIXE. Un endroit ne se rebat pas à chaque
+  // partie : la pierre qu'on a vue la première fois doit être là la seconde.
+  let _gr = 20250915;
+  const alea = () => { _gr = (_gr * 1103515245 + 12345) & 0x7fffffff; return _gr / 0x7fffffff; };
+  // ELLE N'EST PAS DESSINÉE. Un terrain en terre n'a ni contour ni seuil ni
+  // repères : il n'a que la trace de ce qui s'y est posé. Les deux bords et
+  // les échelons faisaient une piste d'aérodrome, c'est-à-dire exactement ce
+  // que ce lieu n'est pas. Il ne reste que les ornières — la terre creusée par
+  // les roues de ceux qui sont venus avant — et c'est la barrière, plus loin,
+  // qui dit aux gens qu'un avion peut se poser là.
+  const Y = 0.6, L = REFUGE.demiL, Z = REFUGE.demiZ;
   const pts = [];
-  pts.push(-REFUGE.demiL, 0.6, -REFUGE.demiZ, -REFUGE.demiL, 0.6, REFUGE.demiZ);
-  pts.push( REFUGE.demiL, 0.6, -REFUGE.demiZ,  REFUGE.demiL, 0.6, REFUGE.demiZ);
-  for (let z = -REFUGE.demiZ; z <= REFUGE.demiZ; z += 30)
-    pts.push(-REFUGE.demiL, 0.6, z, REFUGE.demiL, 0.6, z);
+  for (const xr of [-2.9, 2.9])
+    for (let z = -Z + 4; z < Z - 4; z += 10)
+      pts.push(xr, Y, z, xr, Y, z + 6);
   g.add(new THREE.LineSegments(segGeom(pts), mat));
+
+  // L'HERBE. Trois brins par touffe, hauts de quarante à cent centimètres,
+  // dehors le long des deux bords et jamais sur la bande : c'est exactement ce
+  // qui dessine la bande — non pas un trait peint, mais l'endroit où l'herbe
+  // s'arrête.
+  {
+    const h = [];
+    for (let i = 0; i < 260; i++) {
+      const cote = alea() < 0.5 ? -1 : 1;
+      const x = cote * (L + 1 + alea() * 26);
+      const z = -Z - 30 + alea() * (Z * 2 + 60);
+      const t = 0.4 + alea() * 0.6;
+      for (let k = 0; k < 3; k++) {
+        const a0 = alea() * Math.PI * 2, pen = 0.25 + alea() * 0.45;
+        h.push(x, 0, z, x + Math.cos(a0) * t * pen, t, z + Math.sin(a0) * t * pen);
+      }
+    }
+    g.add(new THREE.LineSegments(segGeom(h), lineMat(COL_LINE, 0.30)));
+  }
+
+  // LES PIERRES. Poussées hors de la bande une à une, par quelqu'un, il y a
+  // longtemps. Un triangle posé à plat et une arête levée : à cette taille il
+  // n'en faut pas plus pour lire un caillou.
+  {
+    const r = [];
+    for (let i = 0; i < 34; i++) {
+      const cote = alea() < 0.5 ? -1 : 1;
+      const x = cote * (L + 0.6 + alea() * 4.5);
+      const z = -Z + alea() * Z * 2;
+      const t = 0.5 + alea() * 1.1, a0 = alea() * Math.PI;
+      const p = [];
+      for (let k = 0; k < 3; k++) {
+        const a = a0 + k * Math.PI * 2 / 3;
+        p.push([x + Math.cos(a) * t, 0, z + Math.sin(a) * t]);
+      }
+      for (let k = 0; k < 3; k++) {
+        const u = p[k], v = p[(k + 1) % 3];
+        r.push(u[0], u[1], u[2], v[0], v[1], v[2]);
+        r.push(u[0], u[1], u[2], x, t * 0.7, z);
+      }
+    }
+    g.add(new THREE.LineSegments(segGeom(r), lineMat(COL_LINE, 0.45)));
+  }
+
+  // LA CLÔTURE. Du côté de la cabane, sur soixante mètres : des piquets
+  // inégaux et deux fils qui pendent. Elle ne ferme rien et ne protège de
+  // rien — elle dit qu'un jour quelqu'un a jugé utile de marquer une limite.
+  {
+    const c = [], xc = L + 6;
+    let dernier = null;
+    for (let z = -34; z <= 34; z += 4.2) {
+      const hz = 1.5 + alea() * 0.5, dx = (alea() - 0.5) * 0.5;
+      c.push(xc + dx, 0, z, xc + dx, hz, z);
+      if (dernier) for (const f of [0.55, 0.9]) {
+        c.push(dernier[0], dernier[1] * f, dernier[2], xc + dx, hz * f, z);
+      }
+      dernier = [xc + dx, hz, z];
+    }
+    g.add(new THREE.LineSegments(segGeom(c), lineMat(COL_LINE, 0.35)));
+  }
+
+  // LE SENTIER. De la bande à la porte, en pas alternés : la terre tassée par
+  // les allers-retours. C'est la trace la plus humaine du terrain, et c'est
+  // aussi ce qui dit où aller quand on descend de l'appareil.
+  {
+    const s0 = [];
+    for (let i = 0; i < 22; i++) {
+      const u = i / 21;
+      const x = L - 1 + u * 12.5;
+      const z = (i % 2 ? 0.45 : -0.45) + Math.sin(u * 2.2) * 0.8;
+      const a = 0.32 + alea() * 0.2;
+      s0.push(x - a, 0.05, z - 0.18, x + a, 0.05, z + 0.18);
+    }
+    g.add(new THREE.LineSegments(segGeom(s0), lineMat(COL_LINE, 0.28)));
+  }
+
+  // DEUX FÛTS ET UNE CAISSE, contre le mur de la cabane. On n'y touche pas,
+  // on ne les ouvre pas : ils sont la preuve que le carburant venait d'ailleurs
+  // et qu'il n'en vient plus.
+  {
+    const f = [];
+    const fut = (cx, cz, r0, hh) => {
+      const n = 10;
+      for (let k = 0; k < n; k++) {
+        const a0 = k / n * Math.PI * 2, a1 = (k + 1) / n * Math.PI * 2;
+        for (const yy of [0, hh, hh * 0.5])
+          f.push(cx + Math.cos(a0) * r0, yy, cz + Math.sin(a0) * r0,
+                 cx + Math.cos(a1) * r0, yy, cz + Math.sin(a1) * r0);
+        if (k % 3 === 0)
+          f.push(cx + Math.cos(a0) * r0, 0, cz + Math.sin(a0) * r0,
+                 cx + Math.cos(a0) * r0, hh, cz + Math.sin(a0) * r0);
+      }
+    };
+    fut(L + 16.5, -5.6, 0.42, 1.15);
+    fut(L + 17.4, -4.7, 0.42, 1.15);
+    const cx = L + 16.8, cz = 5.4, cw = 0.75, ch = 0.85;
+    const caisse = new THREE.BoxGeometry(cw * 2, ch, cw * 1.4).translate(cx, ch / 2, cz);
+    g.add(solidWire(caisse, new THREE.EdgesGeometry(caisse, 20), mat));
+    g.add(new THREE.LineSegments(segGeom(f), lineMat(COL_LINE, 0.5)));
+  }
   // la cabane : un volume, un toit à deux pentes, une porte ouverte
   const cab = new THREE.BoxGeometry(9, 5, 7).translate(REFUGE.demiL + 11, 2.5, 0);
   g.add(solidWire(cab, new THREE.EdgesGeometry(cab, 20), mat));
@@ -5647,6 +5805,13 @@ let refugeG = null, piloteG = null;
     // quarante pixels de haut.
     const ech = 0.13;
     const xs = REFUGE.demiL + 3.5;         // entre la bande et la cabane
+    // VINGT-QUATRE MÈTRES DE CÔTÉ. Centré sur z = 0, le panneau se trouvait
+    // exactement entre l'appareil arrêté et la cabane : de face il cachait la
+    // porte, et de dos on lisait le nom du terrain à l'envers en gros plan.
+    // Déplacé le long de la bande, il borde le chemin au lieu de le barrer —
+    // et c'est d'ailleurs là qu'on plante un panneau : à l'entrée, pas au
+    // milieu du passage.
+    const zs = -24;
     const interligne = LETTRE_H * ech * 1.55;
     const yBas = 2.4;
     const large = largeurMot(lignes[2]) * ech;
@@ -5654,14 +5819,14 @@ let refugeG = null, piloteG = null;
     for (let i = 0; i < lignes.length; i++) {
       const l = largeurMot(lignes[i]) * ech;
       ecrisEnZ(p, lignes[i], xs, yBas + (lignes.length - 1 - i) * interligne,
-               -l / 2, ech);
+               zs - l / 2, ech);
     }
     // le cadre du panneau, et les deux poteaux qui le portent
     const hy = yBas - 0.9, hh = yBas + (lignes.length - 1) * interligne + LETTRE_H * ech + 0.9;
     const hz = large / 2 + 1.1;
-    p.push(xs, hy, -hz, xs, hy, hz,  xs, hh, -hz, xs, hh, hz,
-           xs, hy, -hz, xs, hh, -hz, xs, hy, hz, xs, hh, hz);
-    for (const dz of [-hz + 1.4, hz - 1.4]) p.push(xs, 0, dz, xs, hy, dz);
+    p.push(xs, hy, zs - hz, xs, hy, zs + hz,  xs, hh, zs - hz, xs, hh, zs + hz,
+           xs, hy, zs - hz, xs, hh, zs - hz, xs, hy, zs + hz, xs, hh, zs + hz);
+    for (const dz of [zs - hz + 1.4, zs + hz - 1.4]) p.push(xs, 0, dz, xs, hy, dz);
     g.add(new THREE.LineSegments(segGeom(p), lineMat(COL_TEXT, 0.9)));
   }
   g.position.set(REFUGE.x, 0, REFUGE.z);
@@ -5846,6 +6011,20 @@ function segmentBoite(p0, p1, b) {
 
 // le premier bâtiment debout que traverse le segment, et où
 const _obst = { bat: null, t: 0 };
+// LA DISTANCE D'UN POINT AU SEGMENT PARCOURU DANS L'IMAGE. Un projectile
+// rapide n'est pas en un endroit : il est sur un trait, entre là où il était
+// et là où il arrive. Tester le point d'arrivée, c'est accepter qu'il traverse
+// sa cible dès que la cadence baisse.
+const _dsA = new THREE.Vector3(), _dsB = new THREE.Vector3();
+function distSegment(p, a, b) {
+  _dsA.subVectors(b, a);
+  const l2 = _dsA.lengthSq();
+  if (l2 < 1e-9) return p.distanceTo(a);
+  _dsB.subVectors(p, a);
+  const u = THREE.MathUtils.clamp(_dsB.dot(_dsA) / l2, 0, 1);
+  return _dsB.subVectors(p, a).addScaledVector(_dsA, -u).length();
+}
+
 function obstacleEntre(p0, p1) {
   _obst.bat = null; _obst.t = 2;
   const L = p0.distanceTo(p1) + 400;
@@ -6623,11 +6802,25 @@ function updateRefuge(dt) {
 }
 
 function entreAuRefuge() {
-  state.refuge = { t: 0, angle: 0 };
+  // ON MÉMORISE D'OÙ L'ON ARRIVE. Le roulage part de là où les roues ont
+  // touché et finit au milieu de la bande, nez vers la cabane : d'un posé long
+  // ou court, on s'arrête toujours au même endroit, et c'est cet endroit-là
+  // qu'on a en tête quand on se souvient du refuge.
+  let cap = state.yaw % (Math.PI * 2);
+  if (cap > Math.PI) cap -= Math.PI * 2; else if (cap < -Math.PI) cap += Math.PI * 2;
+  let dCap = REFUGE_CAP - cap;
+  if (dCap > Math.PI) dCap -= Math.PI * 2; else if (dCap < -Math.PI) dCap += Math.PI * 2;
+  state.refuge = { t: 0, angle: 0,
+                   x0: state.pos.x, z0: state.pos.z, cap0: cap, dCap };
   state.roulage = null; state.assist = false; state.pose = null;
   state.pos.y = SOL_Y;
   state.pitch = 0; state.roll = 0;
   state.speed = 0;
+  // PAS DE TRAITS DE VITESSE SUR UN AVION À L'ARRÊT. La traînée n'est mise à
+  // jour qu'en vol ; au refuge la boucle rend la main avant, et le dernier
+  // ruban restait suspendu en l'air derrière un appareil immobile.
+  traineePts[0].length = 0; traineePts[1].length = 0;
+  traineeLayer.visible = false;
   state.regime = 0;                       // LE MOTEUR SE COUPE. C'est le seul endroit.
   state.lock = null; state.lockCharge = 0;
   // on repart à la vie maximale que la partie autorise, quels que soient les
@@ -6652,27 +6845,52 @@ function updateRefugePose(dt) {
   const R = state.refuge;
   R.t += dt;
   R.angle += REFUGE_TOUR * dt;
-  // il met deux secondes à descendre, puis il fait le tour de l'appareil en
-  // s'arrêtant sur le moteur, sur l'aile, sur le train. Rien ne le presse.
-  if (piloteG) {
-    piloteG.visible = R.t > 1.6;
-    const u = Math.max(0, R.t - 1.6);
-    const tour = u * 0.28;
-    const rp = 4.6 + Math.sin(u * 0.55) * 1.4;
-    piloteG.position.set(state.pos.x + Math.sin(tour) * rp,
-                         PISTE.y,
-                         state.pos.z + Math.cos(tour) * rp);
-    piloteG.rotation.y = Math.atan2(state.pos.x - piloteG.position.x,
-                                    state.pos.z - piloteG.position.z);
-    // il se penche sur ce qu'il répare, et se redresse de temps en temps
-    piloteG.rotation.x = 0.16 + Math.sin(u * 0.9) * 0.10;
+  // LE ROULAGE. Une courbe en S sur trois secondes et demie : la position et
+  // le cap arrivent ensemble, sans à-coup ni marche arrière, et l'appareil
+  // s'immobilise exactement au milieu de la bande, face au panneau.
+  {
+    const u = Math.min(1, R.t / REFUGE_ARRET);
+    const k = u * u * (3 - 2 * u);
+    state.pos.x = R.x0 + (REFUGE.x - R.x0) * k;
+    state.pos.z = R.z0 + (REFUGE.z - R.z0) * k;
+    state.yaw = R.cap0 + R.dCap * k;
+    state.pitch = 0; state.roll = 0;
+    euler.set(0, state.yaw, 0); state.quat.setFromEuler(euler);
+    playerMesh.quaternion.copy(state.quat);
   }
-  const rayon = 26 + 10 * Math.min(1, R.t / 6);
-  const haut = 7 + 4 * Math.min(1, R.t / 6);
-  camera.position.set(state.pos.x + Math.sin(R.angle) * rayon,
-                      state.pos.y + haut,
-                      state.pos.z + Math.cos(R.angle) * rayon);
-  camera.lookAt(state.pos.x, state.pos.y + 1.6, state.pos.z);
+  // IL DESCEND, ET IL NE BOUGE PAS. Il faisait le tour de l'appareil en se
+  // penchant sur le moteur : c'était un mécanicien qui travaille. Ce n'est pas
+  // lui. Il descend sur l'aile gauche, il pose les pieds dans l'herbe, et il
+  // reste là — face à la cabane, immobile. On est arrivé quelque part, on
+  // n'a rien à réparer, et rien ne presse. C'est au joueur, ensuite, de
+  // décider d'avancer.
+  if (piloteG) {
+    piloteG.visible = R.t > REFUGE_ARRET + REFUGE_SORTIE;
+    const c = Math.cos(state.yaw), sn = Math.sin(state.yaw);
+    // trois mètres sur la gauche de l'appareil, un demi-pas en arrière
+    const dx = -3.1, dz = 0.8;
+    piloteG.position.set(state.pos.x + dx * c - dz * sn, PISTE.y,
+                         state.pos.z - dx * sn - dz * c);
+    piloteG.rotation.y = state.yaw;      // il regarde où l'avion regarde
+    piloteG.rotation.x = 0;
+  }
+  // ELLE TOURNE AUTOUR DU LIEU, PAS AUTOUR DE L'AVION. Centrée sur l'appareil
+  // et rayon trente mètres, elle passait DERRIÈRE le panneau — qui est à
+  // dix-sept mètres — et l'on voyait le nom du terrain à l'envers, en gros
+  // plan, l'avion caché derrière. Le sujet n'est pas l'appareil : c'est
+  // l'appareil arrêté devant la cabane. Le centre du tour se place donc entre
+  // les deux, onze mètres devant le nez, et le rayon englobe le panneau, la
+  // cabane et les fûts. Tout tient dans le cadre, et rien ne passe devant.
+  const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
+  const cxz = REFUGE_CENTRE;
+  const ox = state.pos.x - sy * cxz, oz = state.pos.z - cy * cxz;
+  const k6 = Math.min(1, R.t / 8);
+  const rayon = 34 + 10 * k6;
+  const haut = 9 + 6 * k6;
+  camera.position.set(ox + Math.sin(R.angle) * rayon,
+                      PISTE.y + haut,
+                      oz + Math.cos(R.angle) * rayon);
+  camera.lookAt(ox, PISTE.y + 3.2, oz);
   playerMesh.position.copy(state.pos);
   propMesh.rotation.z += 0.25 * dt;       // l'hélice s'arrête presque
 }
@@ -7863,7 +8081,13 @@ function updateRoqEnnemies(dt) {
       announce(t('leurre') + state.leurres);
       SFX.vagueNette();
     }
-    const semee = (state.spinT > 0 && d < ROQ_E_ESQUIVE) || (r.dMin < 140 && d > r.dMin + 30);
+    // CENT QUARANTE MÈTRES, C'ÉTAIT SON PROPRE RAYON DE VIRAGE. À 196 m/s et
+    // 1,5 rad/s elle ne peut pas tourner plus serré que 131 mètres : passer à
+    // moins de 140 puis s'éloigner, c'est ce qu'elle fait mécaniquement à
+    // chaque approche, sans que le joueur y soit pour rien. On annonçait donc
+    // « ESQUIVÉE » pour un raté de la roquette. À soixante-dix mètres, il faut
+    // qu'elle ait vraiment frôlé, donc qu'on se soit vraiment écarté.
+    const semee = (state.spinT > 0 && d < ROQ_E_ESQUIVE) || (r.dMin < 70 && d > r.dMin + 30);
     if (!r.perdue && semee) {
       r.perdue = true;
       stat('roquettesEsquivees');
@@ -7880,13 +8104,19 @@ function updateRoqEnnemies(dt) {
     }
     _segB.copy(r.pos);
     // quelle que soit notre vitesse, elle arrive : elle va toujours plus vite que nous
-    r.pos.addScaledVector(r.dir, Math.max(ROQ_E_VITESSE, state.speed + 70) * dt);
+    r.pos.addScaledVector(r.dir, Math.max(ROQ_E_VITESSE, state.speed + ROQ_E_GAIN) * dt);
     r.fum -= dt;
     while (r.fum <= 0) { semerFumee(_segB.clone().addScaledVector(r.dir, -10), r.dir); r.fum += FUM_PAS; }
     const mur = obstacleEntre(_segB, r.pos);
-    const touche = !r.perdue && d < 14 && !(state.assist || state.roulage || state.pose || state.takeoff);
+    // SUR LE SEGMENT PARCOURU, PAS SUR LE POINT D'ARRIVÉE. Elle avance de six
+    // mètres par image à trente images par seconde : un test « suis-je à moins
+    // de quatorze mètres » pris une fois par image peut enjamber la cellule
+    // entière quand la cadence baisse. Le même défaut avait été corrigé sur
+    // les balles ; il restait ici.
+    const touche = !r.perdue && distSegment(state.pos, _segB, r.pos) < 14
+                && !(state.assist || state.roulage || state.pose || state.takeoff);
     if (touche) stat('roquettesRecues');
-    if (touche || mur || r.t > ROQ_VIE || r.pos.y <= 1.2) {
+    if (touche || mur || r.t > ROQ_E_VIE || r.pos.y <= 1.2) {
       if (mur) { _b1.lerpVectors(_segB, r.pos, mur.t); toucheBat(mur.bat, _b1, ROQ_E_DEGATS); r.pos.copy(_b1); }
       spawnBurst(r.pos, touche ? 12 : 8);
       SFX.roquetteImpact(r.pos);
@@ -11829,6 +12059,12 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.06', fr: 'Le refuge est trois fois plus loin : trois minutes de vol après la crête, dans le vide.', en: 'The refuge is three times further: three minutes of flight past the ridge, over nothing.' },
+  { v: '1.06', fr: 'On roule jusqu’au bout et l’on s’arrête devant la cabane, nez vers la porte.', en: 'You roll to the end and stop in front of the hut, nose to the door.' },
+  { v: '1.06', fr: 'Le pilote descend sur l’aile et reste là : il n’y a rien à réparer.', en: 'The pilot steps down onto the wing and stays there: there is nothing to repair.' },
+  { v: '1.06', fr: 'La caméra du refuge tourne deux fois plus lentement, autour du lieu et non de l’avion.', en: 'The refuge camera turns twice as slowly, around the place rather than around the plane.' },
+  { v: '1.06', fr: 'La bande n’est plus dessinée : de la terre, des ornières, de l’herbe, des pierres, une barrière.', en: 'The strip is no longer drawn: earth, wheel ruts, grass, stones, a fence.' },
+  { v: '1.06', fr: 'La roquette ennemie n’arrivait jamais : elle mourait de vieillesse avant de rattraper.', en: 'The enemy rocket never arrived: it died of old age before catching up.' },
   { v: '1.05', fr: 'Les montagnes ont enfin un corps : le brouillard annulait la couleur qu’on venait de leur donner.', en: 'The mountains finally have a body: fog was cancelling the very colour just given to them.' },
   { v: '1.05', fr: 'Deux viseurs portaient le même identifiant et se croyaient choisis en même temps.', en: 'Two sights shared one identifier and both believed they were selected.' },
   { v: '1.01', fr: 'Cinq figures de plus dans le ciel : la Polaire, Sirius, Cassiopée, les Pléiades et la Croix du Sud.', en: 'Five more figures in the sky: Polaris, Sirius, Cassiopeia, the Pleiades and the Southern Cross.' },
