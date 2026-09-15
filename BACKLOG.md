@@ -1305,3 +1305,69 @@ Ce qui reste à trancher :
 La planche affiche en direct l'écart maximal en pixels et le nombre d'images
 hors cadre sur 92, donc chaque réglage se juge sur un chiffre, pas sur une
 impression.
+
+## v1.00 — le tonneau réglé, l'icône refaite, le refuge sous Vénus
+
+### Ses trois valeurs
+
+    CAM_TONNEAU_VERT   = 0.02
+    CAM_ROULIS_TONNEAU = 5°
+    CAM_SERPENT        = 4.0
+
+La caméra suit donc la cloche à 98 % : il ne reste qu'un mètre et demi d'écart
+au sommet, trente-sept pixels, un vingt-cinquième de la hauteur. Et l'image ne
+bascule presque plus — c'est l'appareil qui tourne, l'horizon reste l'horizon.
+
+### « Tu fais tourner l'avion autour de l'axe vertical »
+
+Vrai pour la planche, faux pour le jeu, et la mesure tranche.
+
+**Dans le jeu** : cap du nez mesuré image par image pendant toute la barrique —
+**0,0° du début à la fin**. Aucun lacet. L'aile monte et descend (|Y| jusqu'à
+0,76), le dessus du fuselage passe à −0,71 : l'appareil se met bel et bien sur
+le dos. C'est un roulis autour de l'axe longitudinal, et rien d'autre.
+
+**Dans la planche** : le bout d'aile décrivait une ellipse écrasée à 0,42 en
+vertical — c'est-à-dire exactement ce que fait un disque tournant autour de la
+verticale, vu de biais. D'où sa lecture, qui était juste. Vu de derrière, le
+bout d'aile décrit un **cercle**. Corrigé, et la dérive aussi, qui était
+dessinée à l'envers. La planche trace maintenant le chemin du bout d'aile :
+l'hélice se voit, l'axe ne fait plus de doute.
+
+### La caméra rentrait dans l'avion
+
+Mesure du recul caméra–avion image par image pendant la figure : au **dixième**
+de la barrique, la caméra tombait à **1,2 mètre** de l'appareil. Elle recevait
+le pas de l'hélice posé à la main *et* le rappel du ressort qui court après le
+même mouvement ; sur la rampe la plus raide de la cloche, le cumul refermait
+tout l'écart d'un coup.
+
+Butée à 16 m — 83 % du recul en vol établi, **mesuré à 19,2 m**. La caméra est
+repoussée le long de son axe vers l'appareil : ni la direction ni le cadrage ne
+changent, seulement la distance. **Après** : minimum 16,0 m au lieu de 1,2.
+
+### L'icône
+
+Plus de cadre arrondi dessiné à la main. L'icône est maintenant **une image du
+jeu**, prise par la caméra du jeu : l'avion et les étoiles, fond noir, ni sol
+ni bâtiments. Le rendu se fait par calques — le jeu remet `visible = true` sur
+la grille et les traits de vitesse à chaque image, donc éteindre ne suffit pas,
+alors que les calques, il n'y touche jamais. La caméra ne regarde plus que le
+calque 1, où l'on n'a mis que la maquette et la voûte.
+
+Le script est gardé dans `outils/rend-icones.mjs` : les icônes se refont à
+l'identique quand la maquette changera.
+
+### Le refuge est-il à la verticale d'Orion ?
+
+Non — **mesuré** : Orion est entre 166° et 197°, plein sud. Le refuge est au
+cap 270°, plein ouest. Il est à la verticale de **Vénus**, l'étoile du Berger,
+qui se lève exactement à 270°.
+
+Il héritait du z de la piste, soit 320 m de décalage — 1,8° d'écart à dix
+kilomètres, imperceptible mais faux. `REFUGE.z = 0` : le cap vaut maintenant
+**270,0°** exactement. Viser l'étoile, c'est viser le terrain.
+
+C'est aussi ce qui sépare les trois secrets du ciel : le chariot montre le
+refuge **sur la boussole**, Vénus le montre **dans le ciel**, et Orion ne
+montre rien — elle donne.

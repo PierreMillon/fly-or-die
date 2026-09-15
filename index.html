@@ -1317,12 +1317,17 @@ const TONNEAU_CABRE = 45;     // degrés de nez levé au plus fort
 const TONNEAU_DECAL = 30;     // le décalage NET à la sortie : deux ailes et demie
 const SPIN_TIME     = 1.70;   // durée du tonneau au double tap
 const SPIN_DODGE    = 110;    // ancien écart latéral : gardé pour l'esquive des roquettes
-const CAM_ROULIS_TONNEAU = 0.42;  // radians d'inclinaison de l'image au plus fort du tonneau, qui revient à plat à la fin
+// CINQ DEGRÉS, PAS VINGT-QUATRE. Réglé au curseur sur la planche : l'image ne
+// bascule presque plus. C'est l'AVION qui tourne — l'horizon reste l'horizon,
+// et c'est bien ce qui rend la barrique lisible. Vingt-quatre degrés faisaient
+// tanguer le repère avec l'appareil, donc on ne savait plus lequel des deux
+// tournait.
+const CAM_ROULIS_TONNEAU = 5 * Math.PI / 180;
 // LE RATTRAPAGE DU DÉCOLLAGE : de combien de mètres par seconde l'écart se
 // referme, et l'écart maximal qu'on laisse s'ouvrir.
 const CAM_FERME     = 24;     // mètres par seconde
 const CAM_ECART_MAX = 130;    // mètres : au-delà, on ne le lâche plus
-const CAM_SERPENT = 3.5;          // mètres : elle serpente vers le côté du tonneau, et revient
+const CAM_SERPENT = 4.0;          // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_LATERAL_MAX = 4.5;      // et le décalage total ne dépasse jamais ceci, sinon l'avion quitte le cadre
 const CAM_TONNEAU   = 0.25;   // part du deport que la camera laisse filer avant de se recaler
 // LA PART DU PAS VERTICAL QUE LA CAMERA LAISSE FILER. A zero elle est rivee a
@@ -1330,7 +1335,16 @@ const CAM_TONNEAU   = 0.25;   // part du deport que la camera laisse filer avant
 // l'avion sort du cadre par le haut. Un dixieme donne sept metres d'ecart au
 // sommet de la cloche : l'appareil monte visiblement dans l'image, s'y arrete,
 // et redescend se ranger au centre a la sortie.
-const CAM_TONNEAU_VERT = 0.10;
+// DEUX POUR CENT. Réglé au curseur : la caméra suit la cloche presque
+// exactement, et il ne reste qu'un mètre et demi d'écart au sommet — trente-
+// sept pixels, un vingt-cinquième de la hauteur. L'appareil respire dans le
+// cadre sans jamais s'en approcher. Ce qui fait la figure, ce n'est pas le
+// déplacement à l'écran : c'est le décor qui défile en hélice derrière lui.
+const CAM_TONNEAU_VERT = 0.02;
+// Le recul en deçà duquel la caméra ne descend jamais. Au repos elle vit à
+// vingt-cinq mètres ; à seize, l'appareil remplit déjà largement le cadre et
+// le plan proche, à trois mètres, ne rogne encore rien.
+const CAM_RECUL_MINI = 16;
 const _camDecal = { dir: null, val: 0 };   // le decalage pose a l'image precedente, a retirer avant le ressort
 const DOUBLE_TAP    = 320;    // ms entre deux appuis pour les lier
 const FIG_TIME      = 1.05;   // durée d'un renversement, Immelmann ou Split-S
@@ -5178,7 +5192,14 @@ const SPECIAL = { largeur: 110, prof: 60, trou: 45, hautU: 200, entreeY: 40, hau
 // TERRAIN_R3, sur la plaine plate du dehors. Y aller prend deux minutes à la
 // croisière, on franchit la crête, et il n'y a plus rien que la plaine. C'est
 // le trajet lui-même qui est la récompense : personne n'y va par hasard.
-const REFUGE = { x: -10000, z: (PISTE.z0 + PISTE.z1) / 2, demiL: 14, demiZ: 180 };
+// ET PILE SOUS L'ÉTOILE DU BERGER. Le refuge héritait du z de la piste, soit
+// 320 mètres de décalage : à dix kilomètres cela fait 1,8° d'écart avec Vénus,
+// qui se lève plein ouest à 270°. Imperceptible, mais faux. À z = 0 le cap du
+// refuge vaut exactement 270° : viser l'étoile, c'est viser le terrain, et la
+// phrase de l'aide devient littéralement vraie. C'est aussi ce qui distingue
+// les trois secrets du ciel — le chariot montre le refuge sur la boussole,
+// Vénus le montre DANS LE CIEL, et Orion ne montre rien : elle donne.
+const REFUGE = { x: -10000, z: 0, demiL: 14, demiZ: 180 };
 const REFUGE_TEMPS = 180;        // secondes de vol avant qu'il existe
 const REFUGE_VUE = 1700;         // distance à laquelle il se laisse voir
 const REFUGE_TOUR = 0.22;        // radians par seconde : la caméra tourne autour
@@ -8921,6 +8942,26 @@ function simulate(dt) {
     _camDecal.dir.copy(_right);
     camera.position.addScaledVector(_camDecal.dir, _camDecal.val);
   }
+  // LE RECUL MINIMAL. Mesuré image par image pendant la barrique : au dixième
+  // de la figure la caméra tombait à UN MÈTRE VINGT de l'appareil — elle lui
+  // rentrait dedans — puis remontait à dix-neuf mètres au lieu des vingt-cinq
+  // du départ. Elle recevait le pas de l'hélice posé à la main ET le rappel du
+  // ressort qui court après le même mouvement : les deux s'ajoutent, et sur la
+  // rampe la plus raide de la cloche — juste après l'entrée, là où la dérivée
+  // de (1 − cos) est maximale — le cumul refermait tout l'écart d'un coup.
+  //
+  // On ne démêle pas les deux : on pose une butée. Sous ce recul, la caméra
+  // est repoussée le long de l'axe qui la relie à l'appareil, ce qui ne change
+  // ni sa direction ni son cadrage — seulement sa distance. Invisible quand
+  // rien ne cloche, et ça ne peut jamais rendre l'image pire.
+  {
+    _v.subVectors(camera.position, state.pos);
+    const dc = _v.length();
+    if (dc < CAM_RECUL_MINI) {
+      if (dc > 0.01) camera.position.copy(state.pos).addScaledVector(_v.divideScalar(dc), CAM_RECUL_MINI);
+      else camera.position.copy(state.pos).addScaledVector(state.forward, -CAM_RECUL_MINI);
+    }
+  }
   updateBoost(dt);
   updateChauffe(dt);
   updateTraits(dt);
@@ -11307,6 +11348,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.00', fr: 'Le tonneau prend les réglages du pilote : deux pour cent de hauteur laissée filer, cinq degrés de roulis d’image.', en: 'The barrel roll takes the pilot’s settings: two per cent of height let slip, five degrees of image roll.' },
+  { v: '1.00', fr: 'L’icône est une image du jeu : l’avion et les étoiles, plus de cadre autour.', en: 'The icon is a picture of the game: the plane and the stars, no frame around it.' },
+  { v: '1.00', fr: 'Le refuge est exactement sous l’étoile du Berger, au cap deux cent soixante-dix.', en: 'The refuge sits exactly beneath the evening star, on bearing two hundred and seventy.' },
   { v: '1.00', fr: 'Les montagnes ont un corps : la nappe qui les remplit n’était pas invisible par accident, elle était de la couleur du ciel.', en: 'The mountains have a body: the sheet filling them was not invisible by accident, it was the colour of the sky.' },
   { v: '1.00', fr: 'Le journal ne répète plus le numéro de version à chaque ligne : un numéro, et tout ce qui a changé dessous.', en: 'The log no longer repeats the version number on every line: one number, and everything that changed beneath it.' },
   { v: '1.00', fr: 'La plaine au-delà des montagnes ne compte plus comme une fuite : on va au refuge tranquillement.', en: 'The plain beyond the mountains no longer counts as fleeing: the trip to the refuge is calm.' },
