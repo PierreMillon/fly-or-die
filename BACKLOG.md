@@ -780,3 +780,24 @@ deux sont remerciés en tête de l'historique de version.
   une face laissent leur arête commune, qui n'apporte aucune information.
 - **La Grande Ourse** : il veut d'autres idées de récompense que les points et
   le viseur.
+
+## v0.88 — le refuge, les montagnes, et le fait de remuer
+
+- **Le refuge.** Une bande d'herbe et une cabane à 3900 m plein ouest, dans la
+  direction de l'étoile du Berger, au ras du sol. Il n'existe qu'après trois
+  minutes de vol et ne se voit qu'à 1700 m. Il n'est ni sur la boussole ni
+  dans l'éditeur. On s'y pose, le moteur se coupe, la caméra s'écarte et
+  tourne, la vie remonte au plafond de la partie, et personne ne vient. On
+  peut y revenir autant de fois qu'on veut. Il débloque la LUNETTE 1917.
+  La musique attend son fichier : le crochet `musiqueRefuge` est en place.
+- Le sol du refuge est un vrai sol : sans cela le plancher des 26 m
+  s'appliquait au-dessus et le terrain restait physiquement inaccessible.
+- **Les montagnes.** Un anneau de crêtes à trois kilomètres, hautes de 100 à
+  230 m, franchissables, rien dans l'axe de la piste.
+- **Remuer suffit.** On mesure la VARIATION du manche, pas sa position : gigoter
+  fait retomber la visée adverse. Il n'y a plus besoin d'une figure pour
+  obtenir un répit.
+- Les murs percés (le U et le double) deviennent un seul volume extrudé : les
+  arêtes de contact entre boîtes empilées, qui ne disaient rien, disparaissent.
+- Le gardien vire moins et va plus vite : intercepteur lourd, plus poursuivant
+  universel.
