@@ -8270,7 +8270,9 @@ function drawHud() {
       if (!pg.front) continue;
       const n = g === GUN_L ? Math.ceil(state.roquettesN / 2) : Math.floor(state.roquettesN / 2);
       if (avion().roquettes === 0) continue;
-      hctx.fillStyle = n > 0 ? 'rgba(143,252,196,0.7)' : 'rgba(255,122,92,0.8)';
+      // à zéro, le chiffre pâlit ; il ne rougit pas. Le rouge est la couleur
+      // de ce qui fait mal, pas de ce qui manque.
+      hctx.fillStyle = n > 0 ? 'rgba(143,252,196,0.7)' : 'rgba(143,252,196,0.3)';
       hctx.font = '10px "IBM Plex Mono", monospace'; hctx.textAlign = 'center';
       hctx.fillText(String(n), pg.x, pg.y + 12);
     }

@@ -507,6 +507,54 @@ dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
 88 % de la course vers le haut tenus un quart de seconde, tour complet en
 1,8 s, même cap à la sortie (mesuré).
 
+## Ses retours du 15 septembre → v0.79 et v0.80
+
+- Toutes nos figures chez les adversaires : tonneau, Immelmann, Split-S,
+  looping complet, choisies selon l'altitude et la distance (mesuré : cap
+  inversé de 172 degrés pour l'Immelmann, 173 pour le Split-S, même cap pour
+  le looping). Ils les lancent quand on les tient à plus de 45 % de charge.
+- Les adversaires blessés vont se soigner aux portails (sous 40 % de vie, ils
+  y foncent et ressortent à 75 %). Jamais en se posant : la piste est à nous.
+- Répit de deux secondes de plus entre les vagues, annoncé.
+- L'inertie : au-dessus de la croisière le rappel moteur est cinq fois plus
+  doux (mesuré : 205 → 144 en trois secondes au lieu de retomber à 78).
+- La catapulte du portail : +60 m/s d'un coup, poussée ×4 pendant deux
+  secondes, secousse à l'écran (mesuré : 78 → 138 instantané, 205 en 1 s).
+- La jauge de poussée monte et descend au même rythme (9,2 s dans les deux
+  sens) et couvre aussi la montée en puissance.
+- Le tonneau : l'avion sortait du cadre. Mesuré EN PIXELS cette fois et pas
+  en mètres — il partait à 49 écrans à gauche. Décalage latéral plafonné à
+  4,5 m ; il reste entre 32 % et 50 % de la largeur, jamais hors cadre.
+- Le demi-tonneau des figures partait à l'envers du doigt : inversé.
+- Le trait du tir ennemi : vert et fin, visible d'où qu'il tire (ramené au
+  bord de l'écran hors cadre), coupé s'il y a un mur.
+- LOCKED dit « BOUGE » : bouger suffit, les figures sont pour les roquettes.
+- Caméra du décollage : trois fois plus de retard (assiette amortie à 2,2 au
+  lieu de 6,5, ressort à 15 au lieu de 44).
+- Les fusils des mécaniciens tirent par salves irrégulières de deux à quatre
+  coups, avec une pause.
+- Le hangar est au milieu de la piste et l'approche vise un point 300 m avant
+  lui : on s'arrête devant la porte (mesuré : 2 m d'écart). Les mécaniciens
+  partent dès l'engagement et sont à 5 m de l'avion quand il s'immobilise.
+- L'avion démarre devant le hangar, mécaniciens autour.
+- DÉCOLLER descend sous le pouce, le défi monte dans la bande du haut.
+- Piqué et poussée s'additionnent : le plafond de vitesse monte avec la
+  poussée (mesuré : 320 en piqué seul, 432 en piqué + poursuite).
+- Effet de sol : sous 40 m, +20 % de vitesse, jamais écrit (mesuré : 78 en
+  altitude, 85 à 20 m, 91 à 5 m).
+- La fente à 45° est deux fois plus large et rend 100 points. ATTENTION : à
+  cette largeur elle passe aussi à plat, elle ne force plus le tonneau.
+- Le plafond de vie monte avec les portails et reste acquis pour la partie ;
+  les mécaniciens réparent jusque-là (mesuré : trois arches → 160 %, tombé à
+  25, réparé à 160).
+- Les deux bandes ont échangé leur place : la vie en haut, le reste en bas.
+- Le compte de roquettes à zéro pâlit au lieu de rougir.
+
+## À trancher avec lui
+
+- Le bouclier : le garder ou le supprimer, maintenant que les portails
+  donnent de la vie et repoussent le plafond. Question posée.
+
 ## Fin du backlog en autonomie → v0.77 et v0.78
 
 - Leurres : trois en soute (quatre sur l'intercepteur, zéro sur le pionnier),
