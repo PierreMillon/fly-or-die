@@ -4241,6 +4241,51 @@ const CHIFFRES = {
         [[2.6,12.6],[7.4,12.6],[7.4,17.4],[2.6,17.4]]]
 };
 
+// ---------------------------------------------------------------------------
+// UN ALPHABET AU TRAIT. Les chiffres de piste sont des CONTOURS — c'est juste,
+// une marque peinte au sol est une forme pleine. Un panneau, non : c'est de la
+// tôle découpée ou des lettres peintes fines, et à trente mètres un contour
+// double chaque jambage et devient illisible. Les lettres sont donc des
+// polylignes d'un seul trait, sur une grille de 6 de large et 10 de haut,
+// origine en bas à gauche. Seules celles dont on a besoin sont écrites : on en
+// ajoutera quand il y aura d'autres panneaux.
+// ---------------------------------------------------------------------------
+const ALPHABET = {
+  'A': [[[0,0],[0,3],[3,10],[6,3],[6,0]], [[0.6,3],[5.4,3]]],
+  'D': [[[0,0],[0,10],[3,10],[6,7],[6,3],[3,0],[0,0]]],
+  'E': [[[6,10],[0,10],[0,0],[6,0]], [[0,5],[4.4,5]]],
+  'F': [[[6,10],[0,10],[0,0]], [[0,5],[4.4,5]]],
+  'G': [[[6,8],[4,10],[2,10],[0,8],[0,2],[2,0],[4,0],[6,2],[6,5],[3,5]]],
+  'L': [[[0,10],[0,0],[6,0]]],
+  'N': [[[0,0],[0,10],[6,0],[6,10]]],
+  'O': [[[2,10],[4,10],[6,8],[6,2],[4,0],[2,0],[0,2],[0,8],[2,10]]],
+  'R': [[[0,0],[0,10],[4,10],[6,8],[6,6],[4,4],[0,4]], [[3,4],[6,0]]],
+  'S': [[[6,9],[4,10],[2,10],[0,8],[0,6],[2,5],[4,5],[6,4],[6,2],[4,0],[2,0],[0,1]]],
+  'U': [[[0,10],[0,2],[2,0],[4,0],[6,2],[6,10]]],
+  ' ': []
+};
+const LETTRE_L = 6, LETTRE_H = 10, LETTRE_ECART = 2.6;
+// la largeur qu'un mot occupera, en unites de grille
+function largeurMot(txt) {
+  return txt.length * LETTRE_L + (txt.length - 1) * LETTRE_ECART;
+}
+// Ecrit un mot dans le plan y-z, tourne vers les x negatifs : c'est le sens
+// sous lequel on le lit depuis la bande. Les segments sont ajoutes a `p`.
+function ecrisEnZ(p, txt, xs, y0, z0, ech) {
+  let u = 0;
+  for (const c of txt) {
+    const g = ALPHABET[c];
+    if (g) for (const ligne of g) {
+      for (let i = 0; i + 1 < ligne.length; i++) {
+        const a = ligne[i], b = ligne[i + 1];
+        p.push(xs, y0 + a[1] * ech, z0 + (u + a[0]) * ech,
+               xs, y0 + b[1] * ech, z0 + (u + b[0]) * ech);
+      }
+    }
+    u += LETTRE_L + LETTRE_ECART;
+  }
+}
+
 (function poserPiste() {
   // La surface est pleine et peinte dans la couleur du fond : invisible mais
   // opaque, elle masque la grille du sol. La piste est donc une découpe dans
@@ -5227,6 +5272,41 @@ let refugeG = null, piloteG = null;
   g.add(new THREE.LineSegments(segGeom(toit), mat));
   // un mât nu, sans manche : il n'y a personne pour la changer
   g.add(new THREE.LineSegments(segGeom([REFUGE.demiL + 20, 0, -12, REFUGE.demiL + 20, 6, -12]), mat));
+
+  // LE PANNEAU. Le terrain n'a pas de nom sur la carte, pas de nom sur la
+  // boussole, et personne pour le dire. Il a juste son nom écrit dessus, en
+  // lettres, sur un panneau planté devant la cabane — comme tous les petits
+  // terrains du monde. C'est la seule fois où le jeu nomme quelque chose sans
+  // qu'on le lui demande, et il faut être venu jusqu'ici pour le lire.
+  //
+  // Il est tourné vers la bande, à hauteur d'homme sur deux poteaux : on le lit
+  // en roulant, pas en volant. Trois lignes, centrées.
+  {
+    const lignes = ['REFUGE', 'DE LA', 'GRANDE OURSE'];
+    // Treize centimètres par unité de grille : la ligne la plus longue fait
+    // 13,1 m et les lettres 1,3 m. À 0,17 le panneau était plus large que la
+    // cabane et l'avalait ; à 0,13 il se tient devant elle sans la cacher, et
+    // une lettre de 1,3 m se lit encore à trente mètres — deux degrés et demi,
+    // quarante pixels de haut.
+    const ech = 0.13;
+    const xs = REFUGE.demiL + 3.5;         // entre la bande et la cabane
+    const interligne = LETTRE_H * ech * 1.55;
+    const yBas = 2.4;
+    const large = largeurMot(lignes[2]) * ech;
+    const p = [];
+    for (let i = 0; i < lignes.length; i++) {
+      const l = largeurMot(lignes[i]) * ech;
+      ecrisEnZ(p, lignes[i], xs, yBas + (lignes.length - 1 - i) * interligne,
+               -l / 2, ech);
+    }
+    // le cadre du panneau, et les deux poteaux qui le portent
+    const hy = yBas - 0.9, hh = yBas + (lignes.length - 1) * interligne + LETTRE_H * ech + 0.9;
+    const hz = large / 2 + 1.1;
+    p.push(xs, hy, -hz, xs, hy, hz,  xs, hh, -hz, xs, hh, hz,
+           xs, hy, -hz, xs, hh, -hz, xs, hy, hz, xs, hh, hz);
+    for (const dz of [-hz + 1.4, hz - 1.4]) p.push(xs, 0, dz, xs, hy, dz);
+    g.add(new THREE.LineSegments(segGeom(p), lineMat(COL_TEXT, 0.9)));
+  }
   g.position.set(REFUGE.x, 0, REFUGE.z);
   g.frustumCulled = false;
   g.visible = false;
@@ -10736,7 +10816,7 @@ const T = {
     rempart: 'Tiendras-tu dix vagues ?',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
-    refuge: 'LE REFUGE  ·  MOTEUR COUPÉ  ·  PERSONNE NE VIENT',
+    refuge: 'REFUGE DE LA GRANDE OURSE  ·  MOTEUR COUPÉ  ·  PERSONNE NE VIENT',
     missionOk: 'MISSION REMPLIE  ·  +', missionKo: 'MISSION MANQUÉE  ·  LE VOL CONTINUE',
     ourse: 'LA GRANDE OURSE  ·  +',
     ourseSous: 'le refuge apparaît sur la boussole, et il est ouvert tout de suite',
@@ -10787,7 +10867,7 @@ const T = {
     rempart: 'Will you survive 10 waves?',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
-    refuge: 'THE REFUGE  ·  ENGINE OFF  ·  NOBODY IS COMING',
+    refuge: 'BIG DIPPER REFUGE  ·  ENGINE OFF  ·  NOBODY IS COMING',
     missionOk: 'MISSION COMPLETE  ·  +', missionKo: 'MISSION MISSED  ·  THE FLIGHT GOES ON',
     ourse: 'THE BIG DIPPER  ·  +',
     ourseSous: 'the refuge shows on the compass, and it opens right away',
@@ -11348,6 +11428,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.00', fr: 'Le terrain secret a un nom écrit dessus : REFUGE DE LA GRANDE OURSE, sur un panneau devant la cabane.', en: 'The secret field has its name written on it: BIG DIPPER REFUGE, on a board in front of the hut.' },
   { v: '1.00', fr: 'Le tonneau prend les réglages du pilote : deux pour cent de hauteur laissée filer, cinq degrés de roulis d’image.', en: 'The barrel roll takes the pilot’s settings: two per cent of height let slip, five degrees of image roll.' },
   { v: '1.00', fr: 'L’icône est une image du jeu : l’avion et les étoiles, plus de cadre autour.', en: 'The icon is a picture of the game: the plane and the stars, no frame around it.' },
   { v: '1.00', fr: 'Le refuge est exactement sous l’étoile du Berger, au cap deux cent soixante-dix.', en: 'The refuge sits exactly beneath the evening star, on bearing two hundred and seventy.' },

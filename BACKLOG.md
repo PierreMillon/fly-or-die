@@ -1371,3 +1371,28 @@ kilomètres, imperceptible mais faux. `REFUGE.z = 0` : le cap vaut maintenant
 C'est aussi ce qui sépare les trois secrets du ciel : le chariot montre le
 refuge **sur la boussole**, Vénus le montre **dans le ciel**, et Orion ne
 montre rien — elle donne.
+
+### Le refuge a un nom, et il est écrit dessus
+
+Le terrain n'a de nom nulle part : pas sur la carte, pas sur la boussole, et il
+n'y a personne pour le dire. Il a maintenant son nom **écrit dessus**, en
+lettres, sur un panneau planté devant la cabane — comme tous les petits
+terrains du monde.
+
+    REFUGE
+    DE LA
+    GRANDE OURSE
+
+C'est la seule fois où le jeu nomme quelque chose sans qu'on le lui demande, et
+il faut être venu jusqu'ici, à dix kilomètres, pour le lire.
+
+Il a fallu un **alphabet au trait**. Les chiffres de piste sont des contours —
+c'est juste, une marque peinte au sol est une forme pleine — mais à trente
+mètres un contour double chaque jambage et devient illisible. Les lettres du
+panneau sont donc des polylignes d'un seul trait, sur une grille de 6 × 10 :
+`ALPHABET`, onze lettres, celles dont ce panneau a besoin. On en ajoutera
+quand il y aura d'autres panneaux.
+
+Le panneau est tourné vers la bande, sur deux poteaux, à hauteur d'homme : on
+le lit en roulant. Les lettres font 1,3 m — deux degrés et demi à trente
+mètres, quarante pixels de haut.
