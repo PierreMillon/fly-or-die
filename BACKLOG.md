@@ -507,7 +507,52 @@ dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
 88 % de la course vers le haut tenus un quart de seconde, tour complet en
 1,8 s, même cap à la sortie (mesuré).
 
-## À vérifier avec lui
+## Fin du backlog en autonomie → v0.77 et v0.78
+
+- Leurres : trois en soute (quatre sur l'intercepteur, zéro sur le pionnier),
+  ils partent seuls à 220 m d'une roquette qui arrive, rechargés au sol après
+  quatre secondes posé. Mesuré : 0 dégât avec, 38,5 sans. Le gardien en a
+  trois contre les nôtres, et on le voit les lâcher.
+- Trois avions (MENU › AVION, et dans le hangar) : le bimoteur ; l'intercepteur
+  (vitesse ×1,3, lacet ×0,8, tangage ×1,15, 4 roquettes, 4 leurres), gagné en
+  entrant dans la légende une fois ; le pionnier, la flèche du premier vol
+  (v0.1), vitesse ×0,85, lacet ×1,3, 2 roquettes, sans leurre.
+- La vitesse en km/h sous la croix, avec un trait qui suit la pente. Le vrai
+  vecteur vitesse serait confondu avec la croix : l'avion va où pointe le nez.
+- L'éditeur de carte dans MENU › CARTE, offert contre une vidéo comptée.
+- L'ailier : prendre le U, le double et la fente dans une même partie le
+  débloque ; il vole à 38 m à droite, tire sur notre cible (9/s), n'est jamais
+  abattu. Mesuré : 60 → 31,7 pv en vingt images.
+
+## Ce qui n'a pas été fait, et pourquoi
+
+- Le relief au sol : tout le jeu suppose un sol plat (plancher, piste,
+  tanks, effondrements, atterrissage). Un relief demande de réécrire les
+  collisions et l'approche : chantier du chapitre 2, pas d'une soirée.
+- Les adversaires qui font nos figures : ils font déjà le tonneau devant
+  nos roquettes et rompent perpendiculairement au tir. L'Immelmann ennemi
+  n'apporterait rien de lisible de loin.
+- Le verrouillage de très près : non démontré, faute de reproduction fiable.
+- Les mécaniciens qui ignorent les bâtiments : la piste est dégagée, ça ne
+  se voit pas.
+
+## Bloqué par lui
+
+- L'adresse de la liste bêta (CONTACT_MAIL dans le code).
+- Sa carte dessinée dans l'éditeur.
+- Le nom de domaine, le SIREN, une ligne par jeu pour la salle de jeux
+  (PR #30 du portfolio, en brouillon).
+- La régie publicitaire et le paiement : rien n'est branché, tout est compté.
+
+## Questions restées ouvertes, tranchées seul
+
+- Le chrono : il ne s'affiche plus que tant que la prime est accessible.
+- Le bouclier encaisse tout, décor et sol compris : gardé, c'est lisible.
+- Les adversaires ne se traversent plus (v0.65).
+- Un blessé qui fuit revient à 1,6× sa vitesse (v0.66) : il ne décroche pas
+  pour de bon, sinon la vague ne finirait jamais.
+- Douze arches, trois tours, trois trous à figure : la carte est fixe, il
+  peut en changer avec l'éditeur.
 
 - Le verrouillage de très près : non démontré corrigé (23/80 → 24/80
   images sur un adversaire qui traverse à 70 m, harnais imparfait).

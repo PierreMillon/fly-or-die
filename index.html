@@ -641,7 +641,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.77</button>
+  <button id="versionBtn">v0.78</button>
   <button id="vagueBtn" hidden data-en="NEXT WAVE · +500">VAGUE SUIVANTE · +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -658,6 +658,8 @@
   <button class="ligne" id="mLangue"></button>
   <button class="ligne" id="mTimbre"></button>
   <button class="ligne" id="mInstall" hidden data-en="INSTALL THE GAME">INSTALLER LE JEU</button>
+  <button class="ligne" id="mCarte"></button>
+  <p class="aide" id="menuAilier"></p>
   <button class="ligne" id="mVersion"></button>
   <button class="ligne" id="mAvance" data-en="ADVANCED MODE · TROPHIES">MODE AVANCÉ · TROPHÉES</button>
   <button class="ligne" id="mCode" data-en="SECRET CODE">CODE SECRET</button>
@@ -1008,6 +1010,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.78</b> — la vitesse sous la croix avec sa pente, l'éditeur de carte dans le menu, et l'ailier qu'on gagne en prenant les trois trous à figure dans une même partie.</div>
   <div><b>v0.77</b> — trois avions à choisir (le bimoteur, l'intercepteur gagné dans la légende, le pionnier du premier vol), et des leurres qui partent seuls devant les roquettes, chez nous comme chez le gardien.</div>
   <div><b>v0.76</b> — le tonneau déporte presque deux fois plus et l'image s'incline avec lui, un coup de manche vite vers le bord le déclenche aussi, et le doigt tenu tout en haut fait un looping complet.</div>
   <div><b>v0.75</b> — le mode avancé et ses cinq trophées, les codes secrets et leur HACKER TIME, la liste bêta de la prochaine carte, et le mot sur la publicité.</div>
@@ -4364,6 +4367,8 @@ const state = {
   leurres: 3,         // les leurres en soute : ils partent seuls quand une roquette arrive
   leurresActifs: [],  // ceux qui brûlent encore, pour les voir tomber
   leurresPleins: false,
+  trous: {},          // les trous à figure pris dans cette partie : les trois donnent l'ailier
+  ailier: null,       // l'ailier en vol { mesh, pos, quat }
   triche: null,       // les codes secrets actifs : la partie ne compte plus
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
@@ -4546,6 +4551,7 @@ function resetGame() {
   state.bouclierT = 0;
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avion().roquettes;
   state.leurres = avion().leurres; state.leurresActifs = []; state.leurresPleins = false;
+  state.trous = {};
   appliqueAvion();
   state.triche = null;
   if (avance.vie50) state.structure = 50;
@@ -6864,6 +6870,7 @@ function simulate(dt) {
   updateBullets(dt);
   updateLock(dt);
   coopTirsAmis(dt);
+  updateAilier(dt);
   updateShots(dt);
   updateRoquettes(dt);
   updateRoqEnnemies(dt);
@@ -6914,6 +6921,48 @@ function simulate(dt) {
 // bas et le rase-mottes possibles au lieu d'être interdits. Le délai empêche
 // qu'un frottement continu vide la jauge en une seconde.
 const t_ = k => t(k);
+// L'AILIER. Prendre les trois trous à figure dans une même partie le
+// débloque pour toujours : dès la partie suivante un appareil ami vole à
+// notre droite, un peu en retrait, et tire sur ce que nous verrouillons.
+// Il ne se fait pas abattre — il n'est pas une cible, il est une récompense.
+const AILIER_DPS = 9, AILIER_DECAL = { x: 38, y: -4, z: 30 };
+function noteTrou(cle) {
+  state.trous[cle] = true;
+  if (state.trous.u && state.trous.double && state.trous.incline && !carnet.ailier) {
+    carnet.ailier = true; sauveCarnet();
+    announce(t('ailier')); SFX.bouclierOn();
+  }
+}
+function updateAilier(dt) {
+  if (!carnet.ailier || !state.running || state.takeoff || state.pose || state.roulage || coop.actif) {
+    if (state.ailier) state.ailier.mesh.visible = false;
+    return;
+  }
+  if (!state.ailier) {
+    const mesh = meshAmi();
+    state.ailier = { mesh, pos: state.pos.clone(), quat: state.quat.clone(), gunT: 0 };
+  }
+  const A = state.ailier;
+  A.mesh.visible = true;
+  _right.crossVectors(state.forward, _up).normalize();
+  _v.copy(state.pos).addScaledVector(_right, AILIER_DECAL.x).addScaledVector(state.forward, -AILIER_DECAL.z);
+  _v.y += AILIER_DECAL.y;
+  A.pos.lerp(_v, 1 - Math.exp(-3.2 * dt));
+  A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
+  A.mesh.position.copy(A.pos); A.mesh.quaternion.copy(A.quat);
+  // il tire sur notre cible verrouillée, à découvert seulement
+  const e = state.lock;
+  if (e && state.lockCharge >= SEUIL_TIR && !obstacleEntre(A.pos, e.pos)) {
+    e.hp -= AILIER_DPS * dt;
+    A.gunT -= dt;
+    if (A.gunT <= 0) {
+      A.gunT = 0.16;
+      const d = new THREE.Vector3().subVectors(e.pos, A.pos).normalize();
+      state.shots.push({ pos: A.pos.clone().addScaledVector(d, 6), dir: d, t: 0 });
+    }
+    if (e.hp <= 0) abattre(e);
+  }
+}
 function scrape(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
 
@@ -6970,7 +7019,7 @@ function scrape(dt) {
           t.priseT[0] = PASSAGE_REPOS;
           stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME));
           state.boostPortail = 2; coopReanime(); marque(600);
-          announce(t_('fente') + TOUR_PRIME); SFX.vagueNette();
+          announce(t_('fente') + TOUR_PRIME); SFX.vagueNette(); noteTrou('incline');
         }
       }
       if (t.priseT[0] > 0) t.priseT[0] -= dt;
@@ -6984,7 +7033,7 @@ function scrape(dt) {
         t.entreeT = 0;
         stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME * 2));
         state.boostPortail = 2.5; coopReanime(); marque(800);
-        announce(t_('puits') + TOUR_PRIME * 2); SFX.vagueNette();
+        announce(t_('puits') + TOUR_PRIME * 2); SFX.vagueNette(); noteTrou('u');
       }
     } else {
       for (let k = 0; k < 2; k++) {
@@ -6995,7 +7044,7 @@ function scrape(dt) {
           const combo = t.priseT[1 - k] > 0;
           stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME * (combo ? 2 : 1)));
           state.boostPortail = 2; coopReanime(); marque(combo ? 900 : 400);
-          announce(combo ? t_('combo') + TOUR_PRIME * 2 : t_('tour') + TOUR_PRIME); SFX.vagueNette();
+          announce(combo ? t_('combo') + TOUR_PRIME * 2 : t_('tour') + TOUR_PRIME); SFX.vagueNette(); noteTrou('double');
         }
       }
     }
@@ -7930,6 +7979,22 @@ function drawHud() {
     }
   }
 
+  // LA VITESSE AU COLLIMATEUR. Le chiffre en km/h sous la croix, et un petit
+  // trait qui monte ou descend avec la pente : on lit d'un coup d'œil si l'on
+  // gagne ou si l'on perd de l'énergie. (L'avion va toujours où pointe son
+  // nez : le vecteur vitesse d'un vrai collimateur serait confondu avec la
+  // croix, c'est donc la vitesse elle-même qu'on montre.)
+  if (state.running && !state.takeoff && !state.pose && !state.roulage && !avance.sansViseur) {
+    const kmh = Math.round(state.speed * 3.6);
+    hctx.fillStyle = 'rgba(143,252,196,0.55)';
+    hctx.font = '10px "IBM Plex Mono", monospace'; hctx.textAlign = 'center';
+    hctx.fillText(kmh + ' km/h', w / 2, h / 2 + 46);
+    const pente = THREE.MathUtils.clamp(state.forward.y, -1, 1);
+    hctx.strokeStyle = 'rgba(143,252,196,0.5)'; hctx.lineWidth = 1;
+    hctx.beginPath(); hctx.moveTo(w / 2 - 34, h / 2 + 52 - pente * 14); hctx.lineTo(w / 2 - 26, h / 2 + 52 - pente * 14); hctx.stroke();
+    hctx.beginPath(); hctx.moveTo(w / 2 + 26, h / 2 + 52 - pente * 14); hctx.lineTo(w / 2 + 34, h / 2 + 52 - pente * 14); hctx.stroke();
+  }
+
   // LE COMPTE DES ROQUETTES, écrit discrètement sous chaque aile
   if (state.running && !state.takeoff && !state.pose) {
     for (const g of [GUN_L, GUN_R]) {
@@ -8443,6 +8508,7 @@ const T = {
     canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
+    ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
     alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', leurre: 'LEURRE LÂCHÉ  ·  RESTE ', leurresPleins: 'LEURRES RECHARGÉS', locked: 'LOCKED  ·  ROLL !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
     rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
@@ -8479,6 +8545,7 @@ const T = {
     canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
+    ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
     alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', leurre: 'FLARE OUT  ·  LEFT ', leurresPleins: 'FLARES RELOADED', locked: 'LOCKED  ·  ROLL!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
     rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
@@ -8842,6 +8909,13 @@ function majMenu() {
   document.getElementById('mTimbre').textContent = timbreBtn.textContent;
   document.getElementById('mVersion').textContent = (fr ? 'NOUVEAUTÉS  ·  ' : 'WHAT’S NEW  ·  ') + versionBtn.textContent;
   document.getElementById('mInstall').hidden = installBtn.hidden;
+  {
+    let ok = false; try { ok = localStorage.getItem('fod_carte_ok') === '1'; } catch (err) {}
+    document.getElementById('mCarte').textContent = (fr ? 'CARTE  ·  ÉDITEUR' : 'MAP  ·  EDITOR') + (ok ? '' : (fr ? '  ·  VIDÉO' : '  ·  VIDEO'));
+    document.getElementById('menuAilier').textContent = carnet.ailier
+      ? (fr ? 'AILIER  ·  DÉBLOQUÉ, IL VOLE AVEC TOI' : 'WINGMAN  ·  UNLOCKED, HE FLIES WITH YOU')
+      : (fr ? 'AILIER  ·  PRENDS LE U, LE DOUBLE ET LA FENTE DANS UNE MÊME PARTIE' : 'WINGMAN  ·  TAKE THE U, THE DOUBLE AND THE SLOT IN ONE GAME');
+  }
   const md = document.getElementById('mDefi');
   md.hidden = state.running;
   md.textContent = document.getElementById('defiBtn').textContent;
@@ -8899,6 +8973,24 @@ menuBtn.addEventListener('click', e => {
 document.getElementById('mViseurs').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); viseurBtn.click(); });
 document.getElementById('mCoop').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); coopBtn.click(); });
 document.getElementById('mAvance').addEventListener('click', e => { e.stopPropagation(); panneauAvance(); });
+// L'ÉDITEUR DE CARTE. Il se gagne contre une vidéo, comme les viseurs — vidéo
+// qui n'est pas branchée : on l'offre, et on compte le clic.
+document.getElementById('mCarte').addEventListener('click', e => {
+  e.stopPropagation();
+  const fr = langue !== 'en';
+  let ok = false; try { ok = localStorage.getItem('fod_carte_ok') === '1'; } catch (err) {}
+  if (ok) { location.href = 'carte.html'; return; }
+  ouvreInfos('<h3>' + (fr ? 'L’ÉDITEUR DE CARTE' : 'THE MAP EDITOR') + '</h3><p>' + (fr
+    ? 'Dessine ta propre carte vue de dessus, pose pylônes, arches, tours et trous à figure, et essaie-la dans le jeu. Il se débloque contre une vidéo. En bêta la vidéo n’est pas branchée : il est offert, et ton clic est compté.'
+    : 'Draw your own map from above, place pylons, arches, towers and figure holes, and try it in the game. It unlocks against a video. In beta the video is not wired: it is on the house, and your tap is counted.')
+    + '</p><button class="ligne" id="carteVideo">' + (fr ? 'REGARDER UNE VIDÉO · OFFERT' : 'WATCH A VIDEO · FREE') + '</button>');
+  document.getElementById('carteVideo').addEventListener('click', ev => {
+    ev.stopPropagation();
+    carnet.videos = (carnet.videos || 0) + 1; sauveCarnet();
+    try { localStorage.setItem('fod_carte_ok', '1'); } catch (err) {}
+    location.href = 'carte.html';
+  });
+});
 document.getElementById('mCode').addEventListener('click', e => { e.stopPropagation(); panneauCode(); });
 document.getElementById('mBeta').addEventListener('click', e => { e.stopPropagation(); panneauBeta(); });
 document.getElementById('mSansPub').addEventListener('click', e => { e.stopPropagation(); panneauSansPub(); });
