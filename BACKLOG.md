@@ -938,3 +938,16 @@ C'était moche et c'était faux.
 - **Le défi du jour descend dans la bande du bas**, moitié-moitié avec MENU.
   Il ne dit plus que son nom : le pacte explique le reste. Mesuré sur 430 px :
   203 et 201 pixels.
+
+## v0.95 — le faucheur, et les sons retenus
+
+- **Le faucheur a enfin sa maquette.** Il reprenait celle du gardien agrandie :
+  on croyait voir un gardien, alors que c'est la seule chose du jeu qui ne vient
+  pas du même monde que nous. C'est maintenant un disque épais de seize mètres,
+  dix-huit côtés, avec un plateau, une tranche, une bombe au-dessus et un cône
+  dessous. Cinquante-six sommets, cent huit faces, généré plutôt qu'écrit.
+  Il ne rejoint aucune vague et ne figure pas dans le hangar.
+- **LE SEUIL** remplace l'AUM au passage d'un portail, retenu sur banc d'essai
+  contre cinq autres. Le petit courant d'air qui l'accompagnait est retiré.
+- **LA CLOCHE SOURDE** ouvre chaque vague, et marque aussi les deux secrets du
+  ciel, la mission remplie et l'arrivée au refuge.

@@ -735,7 +735,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.94</button>
+  <button id="versionBtn">v0.95</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -1991,11 +1991,6 @@ const SFX = {
   bouclier:     () => { ton(880, 1400, 0.12, 'sine', 0.14); souffle(0.14, 3000, 900, 3, 0.09); },
   bouclierOn:   () => { ton(400, 1200, 0.5, 'sine', 0.15); setTimeout(() => ton(600, 1800, 0.45, 'sine', 0.12), 120); },
   bouclierFin:  () => ton(900, 260, 0.5, 'triangle', 0.13),
-  // LE PORTAIL FRANCHI. Trois notes aiguës qui montaient : ça sonnait comme
-  // un jeu de plateau. C'est maintenant un AUM — un fondamental très grave,
-  // sa quinte et son octave, tous en sinus, avec une attaque LENTE pour
-  // qu'aucun claquement n'ouvre le son, et une longue queue. On l'entend dans
-  // la poitrine plutôt que dans les oreilles.
   // LE REFUGE. Une nappe très basse, trois notes tenues qui ne bougent presque
   // pas, et rien de rythmique. C'est un lieu où l'on ne fait rien : la musique
   // ne doit pas donner envie de repartir. Elle tiendra la place jusqu'à ce
@@ -2038,25 +2033,46 @@ const SFX = {
     } catch (e) {}
     for (const o of R.voix) { try { o.stop(t + 1.5); } catch (e) {} }
   },
-  aum:          () => {
+  // LE SEUIL. Trois voix qui glissent vers le haut d'un cinquième de ton
+  // pendant les sept premiers dixièmes, puis se laissent tomber. Aucune
+  // attaque, aucun souffle, aucune percussion : on n'entend pas la porte, on
+  // s'aperçoit qu'on est passé de l'autre côté. Retenu sur banc d'essai contre
+  // cinq autres, et le petit courant d'air qui l'accompagnait a été retiré :
+  // il rappelait un bruitage, et le reste n'en a pas besoin.
+  seuil:        () => {
     if (!actx || muet) return;
     const t = actx.currentTime;
-    // fondamental, quinte, octave, double octave : le spectre d'une cloche
-    // grave, et c'est ce qui donne la sensation de plein
-    const voix = [[55, 0.30, 'sine'], [82.4, 0.17, 'sine'],
-                  [110, 0.11, 'sine'], [164.8, 0.05, 'triangle']];
-    for (const [f, v, type] of voix) {
+    for (const v of [[110, 0.14], [165, 0.09], [220, 0.06]]) {
       const o = actx.createOscillator(), g = actx.createGain();
-      o.type = type;
-      o.frequency.setValueAtTime(f, t);
-      o.frequency.exponentialRampToValueAtTime(f * 0.94, t + 1.9);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(v[0] * 0.82, t);
+      o.frequency.exponentialRampToValueAtTime(v[0], t + 0.7);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(v, t + 0.11);       // attaque douce
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.9);   // longue queue
+      g.gain.exponentialRampToValueAtTime(v[1], t + 0.3);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
       o.connect(g).connect(master);
-      o.start(t); o.stop(t + 1.95);
+      o.start(t); o.stop(t + 2.25);
     }
-    souffle(1.5, 260, 90, 0.6, 0.05);
+  },
+  // LA CLOCHE SOURDE ouvre chaque vague. Une seule cloche très grave, frappée
+  // doucement, avec ses quatre partiels naturels. Elle dure longtemps et ne
+  // revient pas : c'est le son de quelque chose qui commence.
+  cloche:       () => {
+    if (!actx || muet) return;
+    const t = actx.currentTime;
+    const voix = [[73.4, 0.26, 'sine'], [110, 0.12, 'sine'],
+                  [146.8, 0.07, 'sine'], [220, 0.035, 'triangle']];
+    voix.forEach((v, i) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = v[2];
+      o.frequency.setValueAtTime(v[0], t);
+      o.frequency.exponentialRampToValueAtTime(v[0] * 0.985, t + 2.6);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(v[1], t + 0.05 + i * 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6 - i * 0.4);
+      o.connect(g).connect(master);
+      o.start(t); o.stop(t + 2.7);
+    });
   },
   vagueNette:   () => { ton(620, 620, 0.14, 'sine', 0.13);
                         setTimeout(() => ton(830, 830, 0.14, 'sine', 0.13), 140);
@@ -2728,6 +2744,69 @@ const KINDS = [
     cone: Math.cos(16 * Math.PI / 180), portee: 1250, rafale: 6
   },
   {
+    // LE FAUCHEUR. Ce n'est pas un avion, et ça ne doit pas en avoir l'air : il
+    // reprenait la maquette du gardien agrandie, donc on croyait voir un
+    // gardien, alors que c'est la seule chose du jeu qui ne vient pas du même
+    // monde que nous. Un disque épais : un plateau, une tranche, une bombe
+    // au-dessus et un cône dessous. Dix-huit côtés — assez pour que le contour
+    // soit rond, assez peu pour qu'on voie que c'est construit.
+    nom: 'FAUCHEUR', tactique: 'anticipee', etage: [120, 2200],
+    roquettes: true, figures: false, secret: true,
+    verts: [
+      0.0, 2.5, 0.0, 0.0, -1.7999999999999998, 0.0, 5.0, 0.95, 0.0,
+      4.698, 0.95, 1.71, 3.83, 0.95, 3.214, 2.5, 0.95, 4.33,
+      0.868, 0.95, 4.924, -0.868, 0.95, 4.924, -2.5, 0.95, 4.33,
+      -3.83, 0.95, 3.214, -4.698, 0.95, 1.71, -5.0, 0.95, 0.0,
+      -4.698, 0.95, -1.71, -3.83, 0.95, -3.214, -2.5, 0.95, -4.33,
+      -0.868, 0.95, -4.924, 0.868, 0.95, -4.924, 2.5, 0.95, -4.33,
+      3.83, 0.95, -3.214, 4.698, 0.95, -1.71, 5.0, -0.95, 0.0,
+      4.698, -0.95, 1.71, 3.83, -0.95, 3.214, 2.5, -0.95, 4.33,
+      0.868, -0.95, 4.924, -0.868, -0.95, 4.924, -2.5, -0.95, 4.33,
+      -3.83, -0.95, 3.214, -4.698, -0.95, 1.71, -5.0, -0.95, 0.0,
+      -4.698, -0.95, -1.71, -3.83, -0.95, -3.214, -2.5, -0.95, -4.33,
+      -0.868, -0.95, -4.924, 0.868, -0.95, -4.924, 2.5, -0.95, -4.33,
+      3.83, -0.95, -3.214, 4.698, -0.95, -1.71, 2.3, 1.911, 0.0,
+      2.161, 1.911, 0.787, 1.762, 1.911, 1.478, 1.15, 1.911, 1.992,
+      0.399, 1.911, 2.265, -0.399, 1.911, 2.265, -1.15, 1.911, 1.992,
+      -1.762, 1.911, 1.478, -2.161, 1.911, 0.787, -2.3, 1.911, 0.0,
+      -2.161, 1.911, -0.787, -1.762, 1.911, -1.478, -1.15, 1.911, -1.992,
+      -0.399, 1.911, -2.265, 0.399, 1.911, -2.265, 1.15, 1.911, -1.992,
+      1.762, 1.911, -1.478, 2.161, 1.911, -0.787
+    ],
+    tris: [
+      2, 20, 21, 2, 21, 3, 2, 3, 39, 2, 39, 38,
+      38, 39, 0, 21, 20, 1, 3, 21, 22, 3, 22, 4,
+      3, 4, 40, 3, 40, 39, 39, 40, 0, 22, 21, 1,
+      4, 22, 23, 4, 23, 5, 4, 5, 41, 4, 41, 40,
+      40, 41, 0, 23, 22, 1, 5, 23, 24, 5, 24, 6,
+      5, 6, 42, 5, 42, 41, 41, 42, 0, 24, 23, 1,
+      6, 24, 25, 6, 25, 7, 6, 7, 43, 6, 43, 42,
+      42, 43, 0, 25, 24, 1, 7, 25, 26, 7, 26, 8,
+      7, 8, 44, 7, 44, 43, 43, 44, 0, 26, 25, 1,
+      8, 26, 27, 8, 27, 9, 8, 9, 45, 8, 45, 44,
+      44, 45, 0, 27, 26, 1, 9, 27, 28, 9, 28, 10,
+      9, 10, 46, 9, 46, 45, 45, 46, 0, 28, 27, 1,
+      10, 28, 29, 10, 29, 11, 10, 11, 47, 10, 47, 46,
+      46, 47, 0, 29, 28, 1, 11, 29, 30, 11, 30, 12,
+      11, 12, 48, 11, 48, 47, 47, 48, 0, 30, 29, 1,
+      12, 30, 31, 12, 31, 13, 12, 13, 49, 12, 49, 48,
+      48, 49, 0, 31, 30, 1, 13, 31, 32, 13, 32, 14,
+      13, 14, 50, 13, 50, 49, 49, 50, 0, 32, 31, 1,
+      14, 32, 33, 14, 33, 15, 14, 15, 51, 14, 51, 50,
+      50, 51, 0, 33, 32, 1, 15, 33, 34, 15, 34, 16,
+      15, 16, 52, 15, 52, 51, 51, 52, 0, 34, 33, 1,
+      16, 34, 35, 16, 35, 17, 16, 17, 53, 16, 53, 52,
+      52, 53, 0, 35, 34, 1, 17, 35, 36, 17, 36, 18,
+      17, 18, 54, 17, 54, 53, 53, 54, 0, 36, 35, 1,
+      18, 36, 37, 18, 37, 19, 18, 19, 55, 18, 55, 54,
+      54, 55, 0, 37, 36, 1, 19, 37, 20, 19, 20, 2,
+      19, 2, 38, 19, 38, 55, 55, 38, 0, 20, 37, 1
+    ],
+    envergure: 16,
+    vitesse: [120, 140], virage: 0.42, vie: 4000, recharge: [0.55, 1.1],
+    cone: Math.cos(15 * Math.PI / 180), portee: 1500, rafale: 4
+  },
+  {
     nom: 'TANK', tactique: 'sol', sol: true,
     // Posé au sol, il ne bouge pas et tire vers le haut. Il n'empêche pas de
     // passer à la vague suivante : c'est une cible d'occasion, pour qui
@@ -2879,7 +2958,7 @@ function secretsCiel(dt) {
         stat('ourses');
         state.ourseFaite = true;
         announce(t('ourse') + OURSE_PRIME);
-        SFX.aum();
+        SFX.cloche();
         debloqueViseur('ourse');
       }
     }
@@ -2897,7 +2976,7 @@ function secretsCiel(dt) {
       marque(BERGER_PRIME);
       stat('bergers');
       announce(t('berger') + BERGER_PRIME);
-      SFX.aum();
+      SFX.cloche();
       debloqueViseur('berger');
     }
   }
@@ -4237,7 +4316,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   const rang = [{ geo: planeGeom, edges: planeEdges, mat: matPlayer, ech: PLANE_SCALE * 0.9 },
                 { geo: KINDS[2].geom, edges: KINDS[2].edges, mat: legendesN > 0 ? matPlayer : matPale, ech: KINDS[2].echelle * 12 / 7.5 * 0.9 },
                 { lignes: PIONNIER_SHAPE, mat: matPlayer, ech: 12 / 7 * 0.75 }];
-  for (const k of KINDS) if (!k.sol && k !== KINDS[2]) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
+  for (const k of KINDS) if (!k.sol && !k.secret && k !== KINDS[2]) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
   // quatre devant, le reste derriere : tout le monde est visible depuis la
   // piste des que les vantaux sont effaces
   rang.forEach((r, i) => {
@@ -5586,7 +5665,7 @@ function coupDePied() {
   state.boostPortail = 2;
   state.speed = Math.min(SPEED_MAX, state.speed + CATAPULTE);
   state.secousse = 0.55;
-  SFX.aum();
+  SFX.seuil();
 }
 
 // LES COMPTEURS. Tout ce qu'une partie produit de chiffrable, pour ceux qui
@@ -5659,7 +5738,7 @@ function entreAuRefuge() {
   stat('refuges');
   debloqueViseur('ancien');
   announce(t('refuge'));
-  SFX.aum();
+  SFX.cloche();
   redecoBtn.hidden = false;
   SFX.refugeOn();
 }
@@ -5715,7 +5794,7 @@ function updateMission(dt) {
     M.fini = 'reussie';
     marque(MISSION_PRIME);
     announce(t('missionOk') + MISSION_PRIME);
-    SFX.aum();
+    SFX.cloche();
   } else if (M.t >= M.chrono) {
     M.fini = 'ratee';
     announce(t('missionKo'));
@@ -5759,9 +5838,9 @@ const FUITE_DIST = 3500, FUITE_ALERTE = 40, FUITE_DUREE = 60;
 const RADAR_BAS = 80;        // sous cette hauteur, on passe sous les radars
 function lacherFaucheur() {
   state.faucheur = true;
-  const k = KINDS.find(x => x.nom === 'GARDIEN');
+  const k = KINDS.find(x => x.nom === 'FAUCHEUR');
   const mesh = solidWire(k.geom, k.edges, matEnemy);
-  mesh.scale.setScalar(k.echelle * 1.3);
+  mesh.scale.setScalar(k.echelle);
   scene.add(mesh);
   const e = { id: ++coopSeqEnnemi, kind: k, mesh, pos: state.pos.clone().addScaledVector(state.forward, -1400),
     quat: new THREE.Quaternion(), forward: new THREE.Vector3(0, 0, -1), los: new THREE.Vector3(), losOk: false,
@@ -5951,6 +6030,10 @@ function placeTower(t, initial) {
 // ---------------------------------------------------------------------------
 function spawnWave() {
   state.wave++;
+  // LA CLOCHE. Une vague qui commence ne s'annonçait que par un mot à
+  // l'écran. Elle a maintenant son coup de cloche, très grave, qui dure et
+  // ne revient pas.
+  SFX.cloche();
   // le soleil avance d'un cran, et les ruines de la vague précédente sont
   // rebâties loin d'ici
   for (const b of BATIMENTS) {
@@ -10713,6 +10796,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.95', fr: 'Le faucheur devient un disque épais, le portail sonne LE SEUIL et chaque vague ouvre sur une cloche.', en: 'The reaper becomes a thick disc, gates ring THE THRESHOLD and every wave opens on a bell.' },
   { v: '0.94', fr: 'Un posé ne coûte plus jamais de vie, et l’écran de titre ne pose qu’une question.', en: 'A landing never costs life again, and the title screen asks one question.' },
   { v: '0.93', fr: 'Le ciel n’est plus un miroir, et la Grande Ourse ne brille pas plus que les autres.', en: 'The sky is no longer a mirror, and the Big Dipper shines no brighter than the rest.' },
   { v: '0.92', fr: 'Le terrain lui-même se soulève en montagnes, et on ne repart de la piste que quand on le décide.', en: 'The ground itself rises into mountains, and you leave the runway only when you decide to.' },
