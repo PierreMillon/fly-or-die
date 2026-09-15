@@ -1716,3 +1716,32 @@ ses valeurs (0,25) ont été réglées sur l'ancienne version où le sillon éta
 fichier à 0,6 d'amplitude. Dans la version synthétisée, le souffle est à 0,16 ×
 0,25 = 0,04 — quatre fois plus faible. Onze secondes de quasi-silence se lisent
 comme un réglage sans effet.
+
+## v1.09 et au-delà — demandé, pas encore fait
+
+- Le tube d'approche remplace le cercle d'entrée et le bouton POSER : un magnétisme très souple qui guide, dont on sort en forçant.
+- Le menu réorganisé en catégories (gameplay, apparence, son, accessibilité), sur des règles de lisibilité citées.
+- À pied : le joystick déplace le Petit Prince, la caméra passe derrière lui, on entre dans la maison.
+- Le mot sur la porte de la cabane : bouton LIRE, et la lettre d'une femme qui est partie, qui dit que c'est mieux ainsi, et qu'elle souhaite se retrouver un jour dans les étoiles.
+- La Jeep : bouton CONDUIRE, on conduit, on peut la ramener à la base principale à travers les montagnes.
+- La carte-énigme dans la maison : une constellation qu'on ne voit qu'assez loin, et qui ouvre la suite.
+- L'avion ancien : double appui maintenu, un message discret dit qu'on profite des courants d'air, et il devient le plus rapide du jeu.
+- L'avion cassé : quête de réparation très longue, ou jamais — le mystère inachevé est une fin acceptable.
+- Les constellations se débloquent quelle que soit l'étoile de départ, et toutes tracent leurs traits, qui restent jusqu'à la mort.
+- Nez contre nez avec un autre avion pendant une ou deux secondes : on en change, avec un curseur qui se remplit.
+- Un mur invisible devant la porte du hangar, sans perte de vie quand on roule dedans.
+- L'étoile filante n'est pas assez visible.
+- Le faucheur se lâche quand on monte trop haut près du refuge : il ne devrait pas.
+- Les messages de mort deviennent des indices mystérieux, chacun disparaissant quand la chose est débloquée ; le dernier, quand tout l'est : « Everything reminds me of her ».
+
+## Mécanique découverte et conservée
+
+- **Le piqué qui garde sa vitesse.** En palier, sans rien toucher, on vole à la croisière. Un petit piqué rend de la vitesse ; relâché sans rien toucher, on la GARDE en volant droit, et c'est répétable presque indéfiniment. Un virage ou une figure la rend. Ce n'était pas prévu : c'est la conséquence du rappel très doux au-dessus de la croisière, écrit pour que la vitesse soit un capital. On le garde, et on le documente.
+
+## Mesures
+
+- Croisière en palier, plein ouest, sans toucher au manche : **126,3 m/s**.
+- Contraste WCAG du remplissage du relief contre le ciel : **1,10** avec 0x081810, **1,88** avec 0x174630. En dessous de ~1,2, deux surfaces sont la même surface pour l'œil.
+- Roquette ennemie : rapprochement 70 m/s × 7 s de vie = 490 m de rattrapage, pour une portée de tir de 950 m. Huit tirs sur huit disparaissaient sans toucher.
+- Faucheur en phase 2 à ×3 de vitesse : 690 m/s, rayon de virage 821 m, il dépassait. Calé à 180 m il tue en 22 s si l'on ne bouge pas.
+- Posé à 175 m/s : l'appareil flotte **1 100 m** avant que les roues prennent, donc il touche après le hangar. Le freinage n'était pas en cause.
