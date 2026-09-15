@@ -1761,3 +1761,27 @@ minutes de traversée ne sont pas le prix du refuge, elles en sont la moitié.
 
 On garde donc le voyage obligatoire. La note reste ici au cas où l'on changerait
 d'avis, et surtout pour se rappeler pourquoi on ne l'a pas fait.
+
+## L'astuce de la chenillée, et son prix (v1.10)
+
+Laisser une pièce au sol en vie empêche la vague suivante de sortir : c'est
+**l'astuce** pour venir se promener au refuge tranquillement. Sauf qu'une
+chenillée roule. Elle met le temps qu'il faut, elle traverse la chaîne, et elle
+arrive. À pied on ne lui échappe pas — ni en courant, ni en Jeep. Il faut
+remonter dans l'appareil et décoller.
+
+L'astuce marche donc, et elle a un prix, qui arrive en roulant.
+
+### Ce que la distance coûte au moteur — mesuré
+
+- La chenillée survit parfaitement à 32 630 m : aucun nettoyage, aucune limite.
+- **Aucune dérive de position à 32 km.** Les positions sont en flottant double
+  côté script ; la matrice de vue est calculée *relativement à la caméra* avant
+  d'être envoyée à la carte, donc le flottant simple n'y voit que de petits
+  nombres. À 32 km sa résolution vaut 3,9 mm. Mesuré : 0,000 m de dérive.
+- Deux vrais défauts trouvés, eux : elle butait sur la piste (27,7 m/s pendant
+  18 s, puis −5 m/s pour toujours), et elle roulait à l'altitude zéro, donc
+  sous la montagne.
+- Dix-neuf minutes pour traverser à 28 m/s : personne n'attend ça. Hors de vue
+  (au-delà de 2 km) elle marche à 150 m/s, soit 3 min 30 pour la carte entière,
+  et reprend ses 28 m/s dès qu'on peut la voir.

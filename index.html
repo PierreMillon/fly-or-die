@@ -1511,6 +1511,12 @@ const ROQ_VIE       = 7;      // à deux cents mètres par seconde, la portée r
 // pour eux : leur figure fait décrocher les nôtres.
 const ROQ_E_VITESSE = 170;
 const TANK_VITESSE  = 28;     // m/s : cent kilomètres-heure, il nous suit au sol
+// AU LOIN, ELLE MARCHE. Personne ne la voit au-delà de deux kilomètres, et
+// personne n'attend dix-neuf minutes qu'une chenillée traverse la carte. Hors
+// de vue elle avance vite ; dans le champ elle reprend ses cent kilomètres à
+// l'heure, qui est la seule allure qu'on lui connaîtra.
+const TANK_VUE      = 2000;   // mètres : au-delà, plus personne ne la regarde
+const TANK_MARCHE   = 150;    // m/s hors de vue : trente-deux kilomètres en 3 min 30
 const ROQ_E_VIRAGE  = 1.5;    // rad/s : moins agile que la nôtre, sinon rien ne l'esquive
 const ROQ_E_DEGATS  = 50;
 const ROQ_E_RECHARGE = 9;
@@ -7776,6 +7782,22 @@ function updateAPied(dt) {
     const dd = Math.hypot(M.x - (REFUGE.x + q.x), M.z - (REFUGE.z + q.z));
     if (dd < q.d && dd < dMin) { dMin = dd; choix = q.cle; }
   }
+  // ELLE ARRIVE, ET ELLE NE DEMANDE RIEN. Un homme à pied devant une chenillée
+  // n'a aucun recours : pas de manœuvre, pas de riposte, pas de distance à
+  // reprendre. C'est le seul endroit du jeu où l'on meurt sans pouvoir se
+  // battre — et c'est juste, puisqu'on a choisi de descendre.
+  for (const e of state.enemies) {
+    if (!e.kind.sol) continue;
+    if (Math.hypot(M.x - e.pos.x, M.z - e.pos.z) < 6.5) {
+      state.dernierTireur = e.kind.nom;
+      state.pied = null; state.action = null; majActionBtn();
+      state.structure = 0;
+      announce(t('ecrase'));
+      SFX.detruit(_pd.set(M.x, PISTE.y, M.z));
+      gameOver(false);
+      return;
+    }
+  }
   const dAvion = Math.hypot(M.x - state.pos.x, M.z - state.pos.z);
   if (!choix && dAvion < PIED_PORTEE + 2) choix = 'avion';
   if (choix !== state.action) { state.action = choix; majActionBtn(); }
@@ -8269,13 +8291,49 @@ function updateEnemies(dt) {
     if (K.sol) {
       // ELLE ROULE. À cent kilomètres-heure, elle vient sous nous et nous
       // suit : on ne la laisse plus derrière soi sans y penser.
-      if (dist > 260) {
-        _v.copy(state.pos).sub(e.pos); _v.y = 0;
+      // ELLE NE S'ARRÊTE JAMAIS, ET ELLE VA PARTOUT. Deux défauts mesurés.
+      //
+      // Le premier : elle butait sur sa propre piste. Le garde-fou « jamais
+      // sur le bitume » annulait exactement le pas qu'elle venait de faire, si
+      // bien qu'une chenillée dont la route croisait la piste s'y collait pour
+      // toujours — mesuré : partie à 32 630 m du refuge, elle avançait à
+      // 27,7 m/s pendant dix-huit secondes, puis reculait à 5 m/s,
+      // indéfiniment. Elle contourne maintenant : quand le pas la mettrait sur
+      // le bitume, elle glisse le long du bord au lieu de reculer dedans.
+      //
+      // Le second : dix-neuf minutes pour faire trente-deux kilomètres à
+      // vingt-huit mètres par seconde. Personne n'attend dix-neuf minutes. Au
+      // loin — là où personne ne la voit — elle marche beaucoup plus vite ;
+      // dès qu'elle entre dans le champ elle reprend son allure de chenillée,
+      // et c'est la seule qu'on verra jamais. Trente-deux kilomètres en trois
+      // minutes et demie : elle arrive juste après nous.
+      //
+      // Le troisième point n'est pas un défaut mais une conséquence : elle
+      // roulait à l'altitude zéro, donc sous la montagne. Elle suit le relief.
+      const cibleSol = state.pied
+        ? _b0.set(state.pied.x, 0, state.pied.z)   // à pied, c'est NOUS qu'elle vient chercher
+        : _b0.copy(state.pos);
+      const dSol = Math.hypot(cibleSol.x - e.pos.x, cibleSol.z - e.pos.z);
+      const arret = state.pied ? 3.5 : 260;
+      if (dSol > arret) {
+        _v.copy(cibleSol).sub(e.pos); _v.y = 0;
         const dh = _v.length() || 1;
-        e.pos.addScaledVector(_v.divideScalar(dh), TANK_VITESSE * dt);
-        if (surLaPiste(e.pos.x, e.pos.z)) e.pos.addScaledVector(_v, -TANK_VITESSE * dt);   // jamais sur le bitume
-        e.pos.y = 0;
+        _v.divideScalar(dh);
+        const allure = dSol > TANK_VUE ? TANK_MARCHE : TANK_VITESSE;
+        const pas = allure * dt;
+        const nx = e.pos.x + _v.x * pas, nz = e.pos.z + _v.z * pas;
+        if (surLaPiste(nx, nz)) {
+          // le bord de la piste est en x : on longe, on ne recule pas
+          const cote = e.pos.x >= 0 ? 1 : -1;
+          e.pos.x = cote * (PISTE_GARDE_X + 1);
+          e.pos.z += Math.sign(_v.z || cote) * pas;
+        } else {
+          e.pos.x = nx; e.pos.z = nz;
+        }
+        e.pos.y = hauteurSol(e.pos.x, e.pos.z);
         _v.subVectors(e.pos, state.pos);
+      } else {
+        e.pos.y = hauteurSol(e.pos.x, e.pos.z);
       }
       _m4.lookAt(e.pos, state.pos, _up);
       _q.setFromRotationMatrix(_m4);
@@ -9523,6 +9581,18 @@ function simulate(dt) {
   // AU REFUGE, LE MONDE S'ARRÊTE. Pas de vague, pas de tir, pas de poussée :
   // la caméra tourne, et c'est tout ce qui bouge.
   if (state.pied) {
+    // LE MONDE NE S'ARRÊTE PAS PARCE QU'ON EST DESCENDU. Au refuge il n'y a
+    // pas de vague — c'est le seul endroit du jeu qui en est exempt — mais ce
+    // qui était déjà lâché continue. Et notamment la chenillée : laisser une
+    // pièce au sol en vie, c'est ce qui empêche la vague suivante de sortir,
+    // donc c'est L'ASTUCE pour venir se promener ici tranquillement. Sauf
+    // qu'une chenillée roule. Elle met le temps qu'il faut, elle traverse la
+    // chaîne, et elle arrive. À pied on ne lui échappe pas : ni en courant, ni
+    // en Jeep. Il faut remonter dans l'appareil et décoller.
+    //
+    // L'astuce marche donc — et elle a un prix, qui arrive en roulant.
+    updateEnemies(dt);
+    updateBullets(dt);
     updateAPied(dt);
     updateDecor(dt);
     majSoleil(dt);
@@ -12444,6 +12514,7 @@ const T = {
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
     ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
     plafond: 'CELLULE RENFORCÉE  ·  PLAFOND ', affaisse: 'PORTAIL AFFAISSÉ  ·  IL PASSE AU RAS DU SOL', ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
+    ecrase: 'LA CHENILLÉE T’A RATTRAPÉ  ·  À PIED, ON NE LA SÈME PAS',
     aPied: 'ON MARCHE  ·  LE MANCHE DÉPLACE L’HOMME',
     rembarque: 'À BORD',
     pasEncore: 'PAS ENCORE',
@@ -12528,6 +12599,7 @@ const T = {
     objReussi: 'TODAY’S GOAL DONE  ·  +',
     ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
     plafond: 'AIRFRAME REINFORCED  ·  CEILING ', affaisse: 'GATE CAVED IN  ·  IT PASSES AT GROUND LEVEL NOW', ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
+    ecrase: 'THE TRACKED GUN CAUGHT YOU  ·  ON FOOT, YOU CANNOT SHAKE IT',
     aPied: 'ON FOOT  ·  THE STICK MOVES THE MAN',
     rembarque: 'ABOARD',
     pasEncore: 'NOT YET',
@@ -13127,6 +13199,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.10', fr: 'La chenillée traverse la carte entière pour venir nous chercher, même à trente-deux kilomètres.', en: 'The tracked gun crosses the whole map to come and find us, even thirty-two kilometres away.' },
+  { v: '1.10', fr: 'Elle butait sur sa propre piste et y reculait indéfiniment : elle la contourne.', en: 'It used to snag on its own runway and back into it forever: now it goes around.' },
+  { v: '1.10', fr: 'Elle suit le relief au lieu de rouler sous la montagne.', en: 'It follows the terrain instead of driving under the mountain.' },
+  { v: '1.10', fr: 'À pied, elle nous écrase : il faut remonter dans l’avion et décoller.', en: 'On foot it runs us down: you have to get back in and take off.' },
   { v: '1.09', fr: 'On descend de l’avion et on marche : le manche déplace le Petit Prince.', en: 'You step out of the aircraft and walk: the stick moves the Little Prince.' },
   { v: '1.09', fr: 'Il a une écharpe, et elle traîne derrière lui quand il marche.', en: 'He has a scarf, and it trails behind him as he walks.' },
   { v: '1.09', fr: 'Un mot est coincé dans la porte de la maison. On peut le lire.', en: 'A note is wedged in the house door. You can read it.' },
