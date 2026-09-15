@@ -744,3 +744,39 @@ deux sont remerciés en tête de l'historique de version.
   régler la courbe lui-même. À faire.
 - **L'easter egg des étoiles.** Viser la Grande Ourse ou l'étoile du Berger
   donnerait un bonus. Questions à poser.
+
+## v0.87 — le tonneau barriqué, et une longue liste
+
+- **Le tonneau devient barriqué.** L'ancien était un tonneau d'AILERON : l'avion
+  tournait sur son axe et restait dans le même plan. Celui-ci monte, s'enroule
+  autour d'un axe qui garde la direction de départ, et redescend. Réglé par lui
+  au curseur sur une planche dédiée : LAT 62, VERT 37, DURÉE 1,70 s, 1 tour,
+  CABRÉ 45°. Mesuré : 74 m au sommet, 0 m d'écart d'altitude à la sortie,
+  30 m de décalage net, soit 2,5 envergures.
+- Le cabré de la figure ne touche QUE la maquette : ajouté au tangage de vol,
+  il faisait sortir du tonneau cinquante mètres plus haut.
+- **La fente à 45° double en hauteur** sans rien céder sur sa largeur.
+- **Le défi du jour ouvre d'abord un pacte** : ce qu'il enlève, ce qu'il
+  demande, ce qu'il rapporte, et deux boutons. Quatre missions nouvelles avec
+  chrono : abattre six bâtiments, franchir cinq portails, toucher le plafond,
+  douze appareils en trois minutes.
+- **Sous les radars.** Sous quatre-vingts mètres, il faut deux fois plus de
+  distance avant que le faucheur soit lâché.
+- **Les nouvelles.** Un adversaire qui se soigne à un portail ne déclenche plus
+  de bandeau : trois lignes pâles en haut à gauche, avec son type et les points
+  de vie repris.
+- **Deux secrets dans le ciel.** La Grande Ourse se trace en passant le nez sur
+  ses sept étoiles dans l'ordre ; l'étoile du Berger se tient une seconde et
+  demie dans le viseur en sortant d'une figure, et lève le jour : vingt
+  secondes où les adversaires n'y voient plus rien. Chacune donne 2000 points
+  et un viseur qui ne s'achète pas.
+- Décollage plus nerveux, caméra encore plus en retard.
+- Le remerciement à MrTommyPickles passe dans la ligne de la v0.85, entre
+  parenthèses, à côté de la chose qu'il a demandée.
+
+## Reste à faire
+
+- **Les traits en trop** sur les bâtiments percés : deux boîtes qui partagent
+  une face laissent leur arête commune, qui n'apporte aucune information.
+- **La Grande Ourse** : il veut d'autres idées de récompense que les points et
+  le viseur.

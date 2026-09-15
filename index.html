@@ -357,6 +357,33 @@
     text-overflow: ellipsis; white-space: nowrap;
     background: none; border: 1px solid var(--ph-dim); border-radius: 6px; color: var(--ph-text); font-family: inherit; font-size: 10px; letter-spacing: 0.12em; padding: 7px 11px; }
   #defiBtn[hidden] { display: none; }
+  /* LE PACTE DU DÉFI. On ne lance plus un défi d'un doigt distrait : la
+     fenêtre dit ce qu'il enlève, ce qu'il demande, ce qu'il rapporte, et
+     attend un oui. */
+  #pactDefi {
+    position: fixed; z-index: 50;
+    left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(92vw, 420px);
+    background: var(--ph-chrome); border: 1px solid var(--ph-line);
+    border-radius: 10px; padding: 20px 20px 18px;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.65);
+  }
+  #pactDefi[hidden] { display: none; }
+  #pactDefi h2 {
+    margin: 0; font-size: 14px; letter-spacing: 0.16em;
+    color: var(--ph-line); font-weight: 500; line-height: 1.5;
+  }
+  #pactDefi p { margin: 0; font-size: 13px; line-height: 1.75; color: var(--ph-text); }
+  #pactPrime { color: var(--ph-dim) !important; font-size: 11.5px !important; letter-spacing: 0.08em; }
+  #pactDefi .pactBtns { display: flex; gap: 9px; margin-top: 2px; }
+  #pactDefi button {
+    flex: 1; font-family: inherit; font-size: 12px; letter-spacing: 0.16em;
+    padding: 13px 10px; border-radius: 6px; cursor: pointer;
+    background: none; border: 1px solid var(--ph-dim); color: var(--ph-text);
+  }
+  #pactOui { border-color: var(--ph-line) !important; background: var(--ph-fill) !important; }
+
   #changelog, #aide, #viseurs, #coop, #install, #menu, #infos {
     /* et les panneaux par-dessus tout */
     position: fixed;
@@ -469,11 +496,7 @@
   }
   #coop .aide, #viseurs .aide { color: var(--ph-dim); font-size: 11px; margin: 0 0 10px; line-height: 1.6; }
   #changelog div, #aide p { margin: 0 0 8px; }
-  #changelog .merci {
-    border: 1px solid var(--ph-dim); border-radius: 6px;
-    padding: 9px 11px; margin-bottom: 12px; color: var(--ph-text);
-    line-height: 1.7;
-  }
+  #changelog .merci { color: var(--ph-line); }
   #changelog div:last-child, #aide p:last-child { margin-bottom: 0; }
   #changelog b, #aide b { color: var(--ph-line); }
   #aide h2 {
@@ -684,12 +707,22 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.86</button>
+  <button id="versionBtn">v0.87</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
 
 <div id="infos" hidden></div>
+
+<div id="pactDefi" hidden>
+  <h2 id="pactTitre"></h2>
+  <p id="pactTexte"></p>
+  <p id="pactPrime"></p>
+  <div class="pactBtns">
+    <button id="pactOui"></button>
+    <button id="pactNon"></button>
+  </div>
+</div>
 
 <div id="menu" hidden>
   <p class="aide" id="menuEclats"></p>
@@ -1187,8 +1220,28 @@ const MONTEE        = 2.4;    // durée de la vague, de la rotation au palier
 const ASSIETTE      = 1.30;   // sommet de la vague, 74 degrés
 const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte le sol
 const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas en croisière
-const SPIN_TIME     = 0.48;   // durée du tonneau au double tap
-const SPIN_DODGE    = 110;    // écart latéral au plus fort du mouvement : « pas assez », presque doublé
+// ---------------------------------------------------------------------------
+// LE TONNEAU BARRIQUÉ. Ce qu'il y avait était un tonneau d'AILERON : l'avion
+// tournait sur son axe et restait dans le même plan. Celui-ci est un tonneau
+// BARRIQUÉ : on tire, on monte, on s'enroule autour d'un axe qui garde la
+// direction de départ, on redescend. Le chemin est une hélice.
+//
+// Trois exigences, et elles tiennent ensemble :
+//   — on repart à l'altitude où l'on est entré. La montée est une cloche :
+//     VERT×(1−cos) vaut zéro au début ET à la fin, et 2×VERT au sommet.
+//   — on ressort VRAIMENT décalé sur le côté, deux ailes et demie. C'est une
+//     manœuvre d'évitement : on fonce sur un mur, on barrique, on passe à côté.
+//   — le nez se lève pour de bon à l'entrée, et se repose à la sortie.
+//
+// Les cinq premiers nombres viennent de la table à tracer, réglés au curseur.
+// ---------------------------------------------------------------------------
+const TONNEAU_LAT   = 62;     // amplitude latérale de la barrique, en mètres
+const TONNEAU_VERT  = 37;     // la moitié de la hauteur prise au sommet
+const TONNEAU_TOURS = 1;      // tours d'enroulement le long de la barrique
+const TONNEAU_CABRE = 45;     // degrés de nez levé au plus fort
+const TONNEAU_DECAL = 30;     // le décalage NET à la sortie : deux ailes et demie
+const SPIN_TIME     = 1.70;   // durée du tonneau au double tap
+const SPIN_DODGE    = 110;    // ancien écart latéral : gardé pour l'esquive des roquettes
 const CAM_ROULIS_TONNEAU = 0.42;  // radians d'inclinaison de l'image au plus fort du tonneau, qui revient à plat à la fin
 const CAM_SERPENT = 3.5;          // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_LATERAL_MAX = 4.5;      // et le décalage total ne dépasse jamais ceci, sinon l'avion quitte le cadre
@@ -1412,6 +1465,16 @@ const _cx_ = {
 };
 
 const VISEURS = [
+  // LES DEUX DU CIEL. Ils ne s'achetent pas et ne s'offrent pas : on les
+  // trouve, en tracant le chariot ou en tenant Venus. Ce sont les seuls.
+  { id:'ourse',   nom:'CHARIOT',      acces:'secret',
+    dessin:(x,c)=>{const r=13-3*c;_cx_.poly(x,r,4,Math.PI/4);
+                   x.beginPath();x.moveTo(r*0.7,-r*0.7);x.lineTo(r*1.5,-r*1.1);
+                   x.lineTo(r*2.0,-r*0.6);x.stroke();
+                   if(c>0.6)_cx_.disque(x,1.8);} },
+  { id:'berger',  nom:'BERGER',       acces:'secret',
+    dessin:(x,c)=>{const r=12-3*c;_cx_.dards(x,3,r,8,0);
+                   if(c>0.5)_cx_.cercle(x,r+4);_cx_.disque(x,2);} },
   { id:'croix',   nom:'CROIX',        acces:'libre',
     dessin:(x,c)=>_cx_.croix(x, 13-2*c, 4+c) },
   { id:'anneau',  nom:'ANNEAU',       acces:'libre',
@@ -1561,6 +1624,14 @@ function sauveViseurs() {
 // l'accès plutôt qu'énuméré : ajouter un viseur à la vague 40 ne demande donc
 // aucune modification ici — la liste ci-dessus suffit.
 const PALIER = a => /^vague(\d+)$/.test(a) ? +a.slice(5) : Infinity;
+// un viseur qu'on a trouve dans le ciel : il reste acquis pour toujours
+function debloqueViseur(id) {
+  const v = VISEURS.find(x => x.id === id);
+  if (!v || debloques.has(id)) return;
+  debloques.add(id);
+  sauveViseurs();
+  announce(t('viseur') + v.nom);
+}
 function jalonVague(n) {
   const dus = VISEURS.filter(v => n >= PALIER(v.acces));
   for (const v of dus) {
@@ -2652,6 +2723,80 @@ function secretsSoleil(dt) {
       SFX.bouclierOn();
     }
   } else state.solDans = 0;
+  secretsCiel(dt);
+}
+
+// LES DEUX SECRETS DU CIEL.
+//
+// LA GRANDE OURSE se trace : le nez passe sur ses sept etoiles DANS L'ORDRE,
+// du bassin vers la queue, et chacune s'allume au passage en tirant un trait
+// vers la precedente. Se tromper d'etoile ne casse rien, mais ne fait rien non
+// plus : il faut la suivante, et elle seule.
+//
+// L'ETOILE DU BERGER, elle, ne se trace pas : elle se tient. Il faut la garder
+// dans le viseur une seconde et demie EN SORTANT D'UNE FIGURE — les deux
+// secondes qui suivent un tonneau, un Immelmann ou un Split-S. On ne tombe
+// donc jamais dessus par hasard : on finit une figure, on cherche l'ouest, et
+// on tient. Elle leve le jour : vingt secondes pendant lesquelles les
+// adversaires ne voient plus rien et nous si. C'est l'exact contraire de
+// l'eclipse.
+function secretsCiel(dt) {
+  if (state.aube > 0) state.aube = Math.max(0, state.aube - dt);
+  if (state.figSortie > 0) state.figSortie -= dt;
+  const enVol = state.running && !state.pose && !state.auSol && !state.takeoff && !state.roulage;
+  if (!enVol) { state.ourseT = 0; state.bergerT = 0; return; }
+
+  // ---- la Grande Ourse
+  if (state.ourseN < OURSE_DIRS.length) {
+    const vise = state.forward.dot(OURSE_DIRS[state.ourseN]) > OURSE_CONE;
+    state.ourseT = vise ? state.ourseT + dt : Math.max(0, state.ourseT - dt * 2);
+    if (state.ourseT >= OURSE_TENUE) {
+      state.ourseT = 0;
+      state.ourseN++;
+      majTraitOurse();
+      SFX.cale();
+      if (state.ourseN < OURSE_DIRS.length) {
+        announce(OURSE_NOMS[state.ourseN - 1] + '  ·  ' + state.ourseN + ' / 7');
+      } else {
+        marque(OURSE_PRIME);
+        stat('ourses');
+        announce(t('ourse') + OURSE_PRIME);
+        SFX.aum();
+        debloqueViseur('ourse');
+      }
+    }
+  }
+
+  // ---- l'etoile du Berger
+  if (!state.bergerPris) {
+    const vise = state.forward.dot(BERGER_DIR) > BERGER_CONE && state.figSortie > 0;
+    state.bergerT = vise ? state.bergerT + dt : Math.max(0, state.bergerT - dt * 2);
+    if (state.bergerT >= BERGER_TENUE) {
+      state.bergerPris = true;
+      state.bergerT = 0;
+      state.aube = AUBE_DUREE;
+      state.eclipse = 0;
+      marque(BERGER_PRIME);
+      stat('bergers');
+      announce(t('berger') + BERGER_PRIME);
+      SFX.aum();
+      debloqueViseur('berger');
+    }
+  }
+}
+
+// le trait se dessine derriere le nez, etoile apres etoile
+function majTraitOurse() {
+  if (!ourseTrait) return;
+  if (state.ourseN < 2) { ourseTrait.material.opacity = 0; return; }
+  const R = 4500, pts = [];
+  for (let i = 1; i < state.ourseN; i++) {
+    const a = OURSE_DIRS[i - 1], b = OURSE_DIRS[i];
+    pts.push(a.x * R, a.y * R, a.z * R, b.x * R, b.y * R, b.z * R);
+  }
+  ourseTrait.geometry.dispose();
+  ourseTrait.geometry = segGeom(pts);
+  ourseTrait.material.opacity = 0.55;
 }
 const SOL_CONE = Math.cos(24 * Math.PI / 180);   // au-delà, on est ébloui
 const SOL_CONE_E = Math.cos(20 * Math.PI / 180); // et l'adversaire aussi
@@ -2816,6 +2961,7 @@ const GRID_SPAN = 8400, GRID_STEP = 160;
 const grid = scene.getObjectByName('grid');
 let etoiles = [];
 let soleilMesh = null, couronneMesh = null;
+let ourseMesh = null, ourseTrait = null, bergerMesh = null, bergerHalo = null;
 // l'étoile filante : un seul trait, redessiné chaque image tant qu'elle file
 const etoileMesh = new THREE.LineSegments(segGeom([0, 0, 0, 0, 0, 0]),
   new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0, fog: false }));
@@ -3001,6 +3147,51 @@ const CIEL = [
 ]
 ];
 
+// ---------------------------------------------------------------------------
+// DEUX FIGURES DANS LE CIEL. La Grande Ourse et l'etoile du Berger sont les
+// deux seules choses que tout le monde sait trouver la nuit : l'une montre le
+// nord, l'autre annonce le jour. Elles sont donc les deux secrets du ciel,
+// comme le soleil est celui du jour.
+//
+// La FORME du chariot est la vraie — bassin de quatre etoiles, queue de trois,
+// dans les proportions qu'on lui connait. Sa PLACE dans le ciel du jeu est
+// choisie pour qu'on puisse la trouver : plein nord, a quarante-cinq degres.
+// C'est une licence assumee, et elle est ecrite dans l'aide.
+//
+// L'etoile du Berger n'est pas une etoile : c'est Venus, et c'est pour cela
+// qu'elle est plus brillante que tout le reste. Elle se leve a l'ouest, bas
+// sur l'horizon, juste avant le jour.
+// ---------------------------------------------------------------------------
+const OURSE_NOMS = ['DUBHE', 'MERAK', 'PHECDA', 'MEGREZ', 'ALIOTH', 'MIZAR', 'ALKAID'];
+// coordonnees dans le plan du chariot : x le long de la queue, y vers le haut
+const OURSE_PLAN = [[0.00, 0.62], [0.00, 0.30], [0.36, 0.22], [0.40, 0.52],
+                    [0.74, 0.60], [1.02, 0.72], [1.34, 0.62]];
+// Le vrai chariot occupe une trentaine de degres de ciel. A 0,30 rad il n'en
+// faisait que quatorze : deux etoiles voisines tombaient dans le meme cone de
+// visee, et une seule passe en allumait deux. Il s'ouvre donc pour de bon.
+const OURSE_ETAL = 0.66;          // ouverture du chariot, en radians
+const OURSE_HAUT = 46 * Math.PI / 180;   // hauteur du centre au-dessus de l'horizon
+const OURSE_CONE = Math.cos(4.2 * Math.PI / 180);   // il faut vraiment la viser
+const OURSE_TENUE = 0.35;         // secondes sur chaque etoile
+const BERGER_CONE = Math.cos(3.4 * Math.PI / 180);
+const BERGER_TENUE = 1.5;
+const AUBE_DUREE = 20;            // secondes de jour leve : l'inverse de l'eclipse
+const OURSE_PRIME = 2000, BERGER_PRIME = 2000;
+
+// nord = -z, est = +x. On pose le chariot plein nord, incline comme il l'est
+// vraiment quand on le regarde monter.
+const OURSE_DIRS = OURSE_PLAN.map(([px, py]) => {
+  const az = (px - 0.67) * OURSE_ETAL;             // ecart en azimut autour du nord
+  const el = OURSE_HAUT + (py - 0.5) * OURSE_ETAL * 1.05;
+  const ch = Math.cos(el);
+  return new THREE.Vector3(Math.sin(az) * ch, Math.sin(el), -Math.cos(az) * ch).normalize();
+});
+// Venus : plein ouest, douze degres au-dessus de l'horizon
+const BERGER_DIR = (() => {
+  const el = 12 * Math.PI / 180;
+  return new THREE.Vector3(-Math.cos(el), Math.sin(el), 0).normalize();
+})();
+
 (function voute() {
   const R = 4500;
   // Une bande = un rang de magnitude. Les directions sont déjà unitaires,
@@ -3033,6 +3224,57 @@ const CIEL = [
     return p;
   };
   etoiles = [poser(CIEL[2], 1.4, 0.42), poser(CIEL[1], 2.2, 0.7), poser(CIEL[0], 3.4, 1)];
+
+  // LES SEPT DU CHARIOT, plus grosses que les autres : on doit pouvoir les
+  // distinguer du fond sans qu'elles crient.
+  const ptsO = new Float32Array(21);
+  OURSE_DIRS.forEach((d, i) => { ptsO[i*3] = d.x * R; ptsO[i*3+1] = d.y * R; ptsO[i*3+2] = d.z * R; });
+  const gO = new THREE.BufferGeometry();
+  gO.setAttribute('position', new THREE.BufferAttribute(ptsO, 3));
+  ourseMesh = new THREE.Points(gO, new THREE.PointsMaterial({
+    color: COL_TEXT, size: 5.2, sizeAttenuation: false,
+    transparent: true, opacity: 0.85, fog: false, depthWrite: false }));
+  ourseMesh.frustumCulled = false; ourseMesh.renderOrder = -1;
+  scene.add(ourseMesh);
+  etoiles.push(ourseMesh);
+
+  // le trait qui relie ce qu'on a deja touche : il se dessine sous le doigt
+  ourseTrait = new THREE.LineSegments(segGeom([0,0,0, 0,0,0]),
+    new THREE.LineBasicMaterial({ color: COL_LINE, transparent: true, opacity: 0, fog: false }));
+  ourseTrait.frustumCulled = false; ourseTrait.renderOrder = -1;
+  scene.add(ourseTrait);
+  etoiles.push(ourseTrait);
+
+  // VÉNUS. Un point franchement plus gros, et un petit halo autour : c'est
+  // l'astre le plus brillant du ciel apres la Lune, il doit se voir tout de
+  // suite et de n'importe ou.
+  const gB = new THREE.BufferGeometry();
+  gB.setAttribute('position', new THREE.BufferAttribute(
+    new Float32Array([BERGER_DIR.x * R, BERGER_DIR.y * R, BERGER_DIR.z * R]), 3));
+  bergerMesh = new THREE.Points(gB, new THREE.PointsMaterial({
+    color: 0xffffff, size: 9, sizeAttenuation: false,
+    transparent: true, opacity: 1, fog: false, depthWrite: false }));
+  bergerMesh.frustumCulled = false; bergerMesh.renderOrder = -1;
+  scene.add(bergerMesh);
+  etoiles.push(bergerMesh);
+
+  // sa couronne : huit rayons courts, pour qu'elle scintille sans clignoter
+  {
+    const ray = [], u = new THREE.Vector3(0, 1, 0).cross(BERGER_DIR).normalize();
+    const v2 = new THREE.Vector3().crossVectors(BERGER_DIR, u).normalize();
+    const c = BERGER_DIR.clone().multiplyScalar(R * 0.999);
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2;
+      const d = u.clone().multiplyScalar(Math.cos(a)).addScaledVector(v2, Math.sin(a));
+      ray.push(c.x + d.x * 14, c.y + d.y * 14, c.z + d.z * 14,
+               c.x + d.x * 46, c.y + d.y * 46, c.z + d.z * 46);
+    }
+    bergerHalo = new THREE.LineSegments(segGeom(ray),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, fog: false }));
+    bergerHalo.frustumCulled = false; bergerHalo.renderOrder = -1;
+    scene.add(bergerHalo);
+    etoiles.push(bergerHalo);
+  }
   // et la voute est centree sur NOUS, pas sur l'origine du monde : a trois
   // kilometres de la piste, le ciel se decalait comme un decor de theatre.
 
@@ -4222,7 +4464,12 @@ const SPECIAL = { largeur: 110, prof: 60, trou: 45, hautU: 200, entreeY: 40, hau
                   // saumon d'aile est a 6 m de l'axe, soit 6·cos45° = 4,24 m
                   // en travers : au-dessus de 4,24 elle se passe a plat, en
                   // dessous elle EXIGE le tonneau. 3,6 laisse 0,6 m de marge.
-                  murH: 120, murP: 20, fenteL: 3.6, fenteH: 30, fenteY: 66 };
+                  // fenteH : DEMI-hauteur le long de la fente. Elle était de
+                  // trente mètres et l'ouverture paraissait une meurtrière :
+                  // doublée, la fente devient une vraie porte en diagonale
+                  // sans rien céder sur sa largeur, qui est ce qui impose le
+                  // tonneau.
+                  murH: 120, murP: 20, fenteL: 3.6, fenteH: 60, fenteY: 66 };
 const speciaux = [];
 (function construireSpeciaux() {
   const S_ = SPECIAL, L = S_.largeur / 2, P = S_.prof / 2, T = S_.trou / 2;
@@ -4714,6 +4961,13 @@ const state = {
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
   dernierTireur: null, // qui nous a touché en dernier : l'écran de fin le dit
+  ourseN: 0,           // combien d'étoiles du chariot sont déjà allumées
+  ourseT: 0,           // secondes passées sur la suivante
+  bergerT: 0,          // secondes passées sur Vénus
+  bergerPris: false,   // une fois par partie
+  figSortie: 0,        // secondes depuis la fin d'une figure : la fenêtre de Vénus
+  aube: 0,             // secondes de jour levé : les adversaires n'y voient plus
+  mission: null,       // { cle, but, chrono, n, t, fini } quand le défi en est une
   chutes: [],
   fumees: [],
   roqT: 0,
@@ -4723,6 +4977,7 @@ const state = {
   spinDepCam: 0,
   spinPas: 0,          // le pas lateral de cette image, que la camera doit faire aussi
   spinSide: 0,
+  spinCabre: 0,       // radians de nez levé pendant la barrique
   camSpin: 0,
   takeoff: null,
   auSol: true,
@@ -4898,6 +5153,10 @@ function resetGame() {
   state.forme = 0; state.objN = 0; state.defi = false;
   state.stats = statsVides();
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avion().roquettes;
+  state.ourseN = 0; state.ourseT = 0; state.bergerT = 0; state.bergerPris = false;
+  state.aube = 0; state.figSortie = 0; state.dernierTireur = null; state.mission = null;
+  nouvelles.length = 0;
+  if (typeof majTraitOurse === 'function') majTraitOurse();
   state.leurres = avion().leurres; state.leurresActifs = []; state.leurresPleins = false;
   state.trous = {}; state.vieMax = 100;
   appliqueAvion();
@@ -4958,10 +5217,44 @@ function statsVides() {
   return { ballesTirees: 0, ballesRecues: 0, ballesEnnemies: 0, roquettesTirees: 0,
            roquettesRecues: 0, roquettesEsquivees: 0, roquettesEnnemies: 0, abattus: 0,
            passages: 0, poses: 0, tempsPose: 0, mecanoAbattus: 0, mecanoBalles: 0,
+           ourses: 0, bergers: 0,
            altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0, faucheurs: 0, leurres: 0,
            vieGagnee: 0, vieReparee: 0, vieMax: 100 };
 }
-function stat(cle, n) { if (state.stats) state.stats[cle] += (n === undefined ? 1 : n); }
+function stat(cle, n) {
+  if (state.stats) state.stats[cle] += (n === undefined ? 1 : n);
+  compteMission(cle, n === undefined ? 1 : n);
+}
+
+// ---------------------------------------------------------------------------
+// LES MISSIONS. Un but chiffré, un chrono, et un verdict. Elles ne changent
+// rien aux règles du vol : elles disent seulement ce qu'il faut avoir fait
+// quand la sonnerie tombe. Rater une mission ne termine pas la partie — on
+// perd la prime, on garde l'avion.
+// ---------------------------------------------------------------------------
+const MISSION_CLES = { rasage: 'batiments', portails: 'passages', chasse: 'abattus' };
+const MISSION_PRIME = 4000;
+function compteMission(cle, n) {
+  const M = state.mission;
+  if (!M || M.fini) return;
+  if (MISSION_CLES[M.cle] === cle) M.n += n;
+}
+function updateMission(dt) {
+  const M = state.mission;
+  if (!M || M.fini) return;
+  M.t += dt;
+  if (M.cle === 'plafond' && state.pos.y >= CEILING - 20) M.n = M.but;
+  if (M.n >= M.but) {
+    M.fini = 'reussie';
+    marque(MISSION_PRIME);
+    announce(t('missionOk') + MISSION_PRIME);
+    SFX.aum();
+  } else if (M.t >= M.chrono) {
+    M.fini = 'ratee';
+    announce(t('missionKo'));
+    SFX.alerte();
+  }
+}
 function texteStats() {
   const S = state.stats; if (!S) return '';
   const fr = langue !== 'en';
@@ -4980,6 +5273,10 @@ function texteStats() {
     [fr ? 'mécaniciens : abattus · balles' : 'mechanics: kills · rounds', S.mecanoAbattus + ' · ' + S.mecanoBalles],
     [fr ? 'altitude max · moyenne' : 'altitude max · mean', Math.round(S.altMax) + ' · ' + Math.round(S.altN ? S.altSomme / S.altN : 0) + ' m'],
     [fr ? 'distance max de la piste' : 'max distance from runway', Math.round(S.distMax) + ' m'],
+    [fr ? 'secrets du ciel' : 'sky secrets',
+     (S.ourses ? (fr ? 'Grande Ourse' : 'Big Dipper') : '') +
+     (S.ourses && S.bergers ? '  ·  ' : '') +
+     (S.bergers ? (fr ? 'Berger' : 'Evening Star') : '') || '—'],
     [fr ? 'faucheur lâché' : 'reaper launched', S.faucheurs],
     [fr ? 'leurres lâchés' : 'flares dropped', S.leurres],
   ];
@@ -4991,6 +5288,7 @@ function texteStats() {
 // qui n'a plus rien à apprendre des quatre premières vagues.
 const DEFI_VAGUE = 5, DEFI_FACTEUR = 1.5;
 const FUITE_DIST = 3500, FUITE_ALERTE = 40, FUITE_DUREE = 60;
+const RADAR_BAS = 80;        // sous cette hauteur, on passe sous les radars
 function lacherFaucheur() {
   state.faucheur = true;
   const k = KINDS.find(x => x.nom === 'GARDIEN');
@@ -5071,14 +5369,50 @@ function essaieCode(txt) {
 // LE DÉFI DU JOUR. Une variante par jour, la même pour tout le monde, chaque
 // point vaut une fois et demie. La série compte les jours d'affilée où l'on
 // l'a relevé : chaque jour rend une seconde de bouclier au décollage.
+// LES DÉFIS. Deux familles. Les CONTRAINTES enlèvent quelque chose et se
+// jouent sur toute la partie. Les MISSIONS donnent un but chiffré et un chrono :
+// on les réussit ou on les rate, et la partie continue dans les deux cas.
+// Chacun porte sa consigne en clair : on ne demande pas à quelqu'un d'accepter
+// un défi sans lui dire à quoi il s'engage.
 const DEFIS = [
-  { cle: 'vague5',       fr: 'DÉPART VAGUE 5',         en: 'START AT WAVE 5' },
-  { cle: 'roquettes',    fr: 'ROQUETTES SEULES',       en: 'ROCKETS ONLY' },
-  { cle: 'mitrailleuse', fr: 'MITRAILLEUSE SEULE',     en: 'GUNS ONLY' },
-  { cle: 'sansPiste',    fr: 'SANS PISTE',             en: 'NO RUNWAY' },
-  { cle: 'sansBonus',    fr: 'SANS BONUS DE VIE',      en: 'NO LIFE BONUS' },
-  { cle: 'megaDur',      fr: 'MÉGA DUR',               en: 'MEGA HARD' },
-  { cle: 'facile',       fr: 'FACILE',                 en: 'EASY' },
+  { cle: 'vague5', mission: false, fr: 'DÉPART VAGUE 5', en: 'START AT WAVE 5',
+    dFr: 'La partie commence à la vague 5, là où le premier gardien arrive. Les quatre premières vagues ne te sont pas offertes : elles te sont retirées.',
+    dEn: 'The game starts at wave 5, where the first guardian shows up. The first four waves are not given to you: they are taken away.' },
+  { cle: 'roquettes', mission: false, fr: 'ROQUETTES SEULES', en: 'ROCKETS ONLY',
+    dFr: 'Les mitrailleuses restent au sol. Tu n’as que vingt roquettes, et il faut une seconde de verrouillage plein pour en lâcher une.',
+    dEn: 'The guns stay on the ground. You have twenty rockets, and it takes a full second of lock to release one.' },
+  { cle: 'mitrailleuse', mission: false, fr: 'MITRAILLEUSE SEULE', en: 'GUNS ONLY',
+    dFr: 'Pas une roquette en soute. Tout se règle au canon, donc de près, donc en manœuvrant.',
+    dEn: 'Not one rocket aboard. Everything is settled with guns, so up close, so by manoeuvring.' },
+  { cle: 'sansPiste', mission: false, fr: 'SANS PISTE', en: 'NO RUNWAY',
+    dFr: 'Tu ne peux plus te poser. Les portails sont la seule façon de reprendre de la vie, et les mécaniciens ne te verront pas revenir.',
+    dEn: 'You cannot land any more. Gates are the only way to get life back, and the ground crew will not see you again.' },
+  { cle: 'sansBonus', mission: false, fr: 'SANS BONUS DE VIE', en: 'NO LIFE BONUS',
+    dFr: 'Les portails ne rendent plus rien. Tu pars avec ta vie, tu finis avec ce qu’il en reste.',
+    dEn: 'Gates give nothing back. You start with your life and you finish with whatever is left of it.' },
+  { cle: 'megaDur', mission: false, fr: 'MÉGA DUR', en: 'MEGA HARD',
+    dFr: 'Les adversaires sont plus nombreux, plus durs et plus vifs, du premier au dernier. Le score vaut une fois et demie, comme partout.',
+    dEn: 'Opponents are more numerous, tougher and sharper, from the first to the last. Score is worth one and a half, as always.' },
+  { cle: 'facile', mission: false, fr: 'FACILE', en: 'EASY',
+    dFr: 'Une vague allégée, pour aller chercher une vague haute plutôt qu’un gros score. Le multiplicateur reste le même.',
+    dEn: 'A lighter wave, to chase a high wave rather than a big score. The multiplier is unchanged.' },
+  // ---- les missions, avec un chrono et un compteur
+  { cle: 'rasage', mission: true, but: 6, chrono: 150,
+    fr: 'ABATTRE SIX BÂTIMENTS', en: 'BRING DOWN SIX BUILDINGS',
+    dFr: 'Six bâtiments au sol en deux minutes trente. Un portail abattu compte, mais il s’affaisse au lieu de disparaître, et tu devras passer au ras du sol ensuite.',
+    dEn: 'Six buildings down in two and a half minutes. A gate counts, but it caves in rather than vanishing, and you will have to fly at ground level afterwards.' },
+  { cle: 'portails', mission: true, but: 5, chrono: 180,
+    fr: 'FRANCHIR CINQ PORTAILS', en: 'CLEAR FIVE GATES',
+    dFr: 'Cinq passages en trois minutes : arches, tours percées, puits ou fente à 45°. Chacun rend de la vie, donc la mission te soigne pendant que tu la fais.',
+    dEn: 'Five crossings in three minutes: arches, pierced towers, wells or the 45° slot. Each gives life back, so the mission heals you while you fly it.' },
+  { cle: 'plafond', mission: true, but: 1, chrono: 120,
+    fr: 'TOUCHER LE PLAFOND', en: 'TOUCH THE CEILING',
+    dFr: 'Monter au plafond du monde en deux minutes. Ça paraît court, et ça l’est : il faut y aller tout de suite, et tenir la montée sans décrocher.',
+    dEn: 'Climb to the ceiling of the world in two minutes. It sounds short, and it is: you have to go now, and hold the climb without stalling.' },
+  { cle: 'chasse', mission: true, but: 12, chrono: 180,
+    fr: 'DOUZE APPAREILS EN TROIS MINUTES', en: 'TWELVE AIRCRAFT IN THREE MINUTES',
+    dFr: 'Douze adversaires abattus, chrono en main. Appeler la vague suivante rapporte cinq cents points ET t’amène du monde : c’est fait pour.',
+    dEn: 'Twelve opponents down, against the clock. Calling the next wave pays five hundred points AND brings you company: that is the point.' },
 ];
 function defiDuJour() {
   const j = jourISO();
@@ -5347,7 +5681,7 @@ function updateEnemies(dt) {
       e.mesh.quaternion.copy(e.quat);
       e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
       _v.multiplyScalar(-1 / dist);
-      const geneSol = e.gene = state.eclipse > 0 ? 1
+      const geneSol = e.gene = (state.eclipse > 0 || state.aube > 0) ? 1
         : Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
       e.reload -= dt;
       if (e.burst > 0) {
@@ -5402,11 +5736,16 @@ function updateEnemies(dt) {
         const q = e.soin.passage;
         _seg.set(q.x, (q.y0 + q.y1) / 2, q.z);
         if (_seg.distanceTo(e.pos) < 26) {
+          const avant = e.hp;
           e.hp = Math.min(e.hpMax, e.hpMax * 0.75);
           e.soinT = 18; e.soin = null;
           spawnBurst(e.pos, 7);
-          SFX.vagueNette();
-          announce(t('ilSeSoigne'));
+          SFX.cale();
+          // PAS DE BANDEAU. Un adversaire qui se soigne n'est pas un
+          // événement de notre partie : c'est une nouvelle, et une nouvelle se
+          // lit en petit dans un coin. Le bandeau plein écran couvrait le
+          // combat pour dire ce que fait quelqu'un d'autre.
+          nouvelle(K.nom, Math.round(e.hp - avant));
         } else {
           e.goal.copy(_seg);
           e.goalT = 0.4;
@@ -5660,7 +5999,7 @@ function updateEnemies(dt) {
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
     // être bien mieux aligné : c'est tout l'intérêt d'attaquer avec le soleil
     // dans le dos, la plus vieille manœuvre du combat aérien.
-    const gene = e.gene = state.eclipse > 0 ? 1
+    const gene = e.gene = (state.eclipse > 0 || state.aube > 0) ? 1
       : Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
     e.reload -= dt;
     // Lui aussi doit prendre le temps de viser. Depuis que le joueur attend
@@ -6522,7 +6861,13 @@ function simulate(dt) {
   // piste pendant une minute — est prévenu à mi-chemin, puis un appareil
   // spécial vient le chercher, et il ne rate pas.
   if (state.running && !state.faucheur) {
-    const loin = Math.hypot(state.pos.x, state.pos.z - PAPI_Z) > FUITE_DIST;
+    // SOUS LES RADARS. Il n'y a pas de radar dans ce jeu, mais il y en a un
+    // dans la tête du joueur, et c'est le même réflexe : à quatre-vingts
+    // mètres du sol on se fait oublier. La distance à partir de laquelle on
+    // est considéré en fuite est alors DOUBLÉE. Voler bas coûte des nerfs et
+    // rapporte du temps.
+    const bas = state.pos.y < RADAR_BAS;
+    const loin = Math.hypot(state.pos.x, state.pos.z - PAPI_Z) > FUITE_DIST * (bas ? 2 : 1);
     state.fuiteT = loin ? state.fuiteT + dt : Math.max(0, state.fuiteT - dt * 2);
     if (state.fuiteT > FUITE_ALERTE && state.fuiteT - dt <= FUITE_ALERTE) { announce(t('fuite')); SFX.alerte(); }
     if (state.fuiteT > FUITE_DUREE) lacherFaucheur();
@@ -6955,12 +7300,16 @@ function simulate(dt) {
     // prend le relais. Une exponentielle seule pousserait le plus fort à
     // l'instant même du lâcher des freins, ce qu'aucun moteur à pistons ne
     // fait.
+    // ET ÇA POUSSE PLUS FORT. La rampe se raccourcit d'un tiers et
+    // l'amortissement qui prend le relais est deux fois plus vif : l'appareil
+    // arrache au lieu de s'ébranler, et la caméra, elle, garde son retard.
+    // C'est l'écart entre les deux qui fait la sensation.
     const pleine = CRUISE * PLEIN_GAZ;
-    if (tv < RAMPE) {
-      const rr = tv / RAMPE;
+    if (tv < RAMPE * 0.66) {
+      const rr = tv / (RAMPE * 0.66);
       state.speed = pleine * rr * rr * (3 - 2 * rr);
     } else {
-      state.speed = THREE.MathUtils.damp(state.speed, pleine, 3.6, dt);
+      state.speed = THREE.MathUtils.damp(state.speed, pleine, 7.2, dt);
     }
 
     // UNE SEULE VAGUE. Le cosinus relevé n'a aucune couture : dérivée nulle au
@@ -7011,7 +7360,11 @@ function simulate(dt) {
     // n'en bouge plus que de 40, et reste fixe pendant toute la montée. On
     // laisse à la caméra, en partant, la vraie vitesse de l'appareil, si bien
     // que le ressort du vol libre reprend sans écart ni élan à rattraper.
-    springCamera(_v, dt, 15, 6.5, _cd);      // ressort trois fois plus mou : de l'inertie, pas un rail
+    // ENCORE PLUS EN RETARD. Le cameraman court derrière l'avion : à quinze
+    // de raideur il suivait déjà mollement, à huit il se fait vraiment
+    // distancer sur les premières secondes, puis recolle. C'est le plan qu'on
+    // veut au décollage, et il ne coûte rien ailleurs.
+    springCamera(_v, dt, 8, 4.6, _cd);
     majFov(dt);
     updateTraits(dt);
     if (camera.position.y < 2.5) camera.position.y = 2.5;
@@ -7134,6 +7487,7 @@ function simulate(dt) {
       state.camYaw = euler.y;
       state.camRoll = euler.z;
       state.fig = null;
+      state.figSortie = 2;      // deux secondes pour trouver l'ouest
     }
     updateEnemies(dt);
     updateBullets(dt);
@@ -7164,21 +7518,39 @@ function simulate(dt) {
     // la nouvelle parallèle exactement quand le tonneau s'achève.
     const lisseC = u => u * u * u * (u * (u * 6 - 15) + 10);
     const RETARD = 0.28;
-    state.spinDep = SPIN_DODGE * SPIN_TIME * 0.5 * lisseC(t);
-    state.spinDepCam = SPIN_DODGE * SPIN_TIME * 0.5
+    // LA BARRIQUE. On calcule la POSITION voulue à t et à t précédent, et on
+    // applique la différence : le chemin est donc exactement l'hélice, quoi
+    // que fasse le modèle de vol par ailleurs. Le côté latéral porte en plus
+    // un décalage net, lissé, qui ne revient pas : c'est lui qui fait passer
+    // à côté du mur.
+    const tPrec = Math.max(0, t - dt / SPIN_TIME);
+    const angle = u => 2 * Math.PI * TONNEAU_TOURS * u;
+    const lateral = u => TONNEAU_LAT * Math.sin(angle(u)) + TONNEAU_DECAL * lisseC(u);
+    const vertical = u => TONNEAU_VERT * (1 - Math.cos(angle(u)));
+    const dLat = (lateral(t) - lateral(tPrec)) * state.spinSide;
+    const dVert = vertical(t) - vertical(tPrec);
+    // la caméra suit le décalage net, avec un cinquième de figure de retard :
+    // on voit l'appareil partir, l'image le rejoindre sur la nouvelle ligne
+    state.spinDep = TONNEAU_DECAL * lisseC(t);
+    state.spinDepCam = TONNEAU_DECAL
                      * lisseC(THREE.MathUtils.clamp((t - RETARD) / (1 - RETARD), 0, 1));
     // Lent, vite, lent. L'ancienne courbe partait sec et s'asseyait : elle
     // avait un début et pas de fin. Le lissage du second ordre a sa dérivée
     // ET sa courbure nulles aux deux bouts — c'est le geste d'un manche
     // qu'on pousse et qu'on ramène, pas d'un interrupteur.
     const ease = t * t * t * (t * (t * 6 - 15) + 10);
-    spinRoll = -state.spinSide * Math.PI * 2 * ease;
+    spinRoll = -state.spinSide * Math.PI * 2 * TONNEAU_TOURS * ease;
+    // le nez se lève en cloche : il est levé au sommet de la barrique, reposé
+    // à la sortie, et l'appareil ne finit donc pas cabré
+    state.spinCabre = TONNEAU_CABRE * Math.PI / 180 * Math.sin(Math.PI * t);
     _right.crossVectors(state.forward, _up).normalize();
-    state.spinPas = state.spinSide * SPIN_DODGE * Math.sin(Math.PI * t) * dt;
-    state.pos.addScaledVector(_right, state.spinPas);
-  } else if (state.spinDep) {
+    state.spinPas = dLat;
+    state.pos.addScaledVector(_right, dLat);
+    state.pos.y += dVert;
+  } else if (state.spinDep || state.spinCabre) {
     state.spinDep = 0;
     state.spinDepCam = 0;
+    state.spinCabre = 0;
   }
 
   // Magnétisme de visée. Il ne t'emmène pas sur une cible : il t'aide à y
@@ -7292,9 +7664,18 @@ function simulate(dt) {
       if (Math.abs(state.vrilleRoll) < 0.01) state.vrilleRoll = 0;
     }
   }
+  // LE NEZ LEVÉ DE LA BARRIQUE EST UNE ATTITUDE, PAS UNE TRAJECTOIRE. Ajouté
+  // au tangage de vol, il faisait vraiment monter l'appareil : on sortait du
+  // tonneau cinquante mètres plus haut qu'on y était entré, alors que le
+  // chemin de l'hélice est déjà calculé à part et ramène à l'altitude de
+  // départ. Le cabré ne touche donc QUE la maquette.
   euler.set(state.pitch, state.yaw, state.roll + spinRoll + state.vrilleRoll);
   state.quat.setFromEuler(euler);
   state.forward.set(0, 0, -1).applyQuaternion(state.quat);
+  if (state.spinCabre) {
+    euler.set(state.pitch + state.spinCabre, state.yaw, state.roll + spinRoll + state.vrilleRoll);
+    state.quatVu = (state.quatVu || new THREE.Quaternion()).setFromEuler(euler);
+  } else state.quatVu = null;
 
   const yAvant = state.pos.y;
   state.pos.addScaledVector(state.forward, state.speed * dt);
@@ -7324,7 +7705,7 @@ function simulate(dt) {
   }
 
   playerMesh.position.copy(state.pos);
-  playerMesh.quaternion.copy(state.quat);
+  playerMesh.quaternion.copy(state.quatVu || state.quat);
   propMesh.rotation.z += 16 * dt;
 
   // LES TROIS HALOS. Chacun lit une seule chose, déjà calculée ailleurs : le
@@ -7427,6 +7808,8 @@ function simulate(dt) {
   // arrivait trois secondes trop tard. Elle vit maintenant en permanence, et
   // traverse le terrain PENDANT la descente.
   updateMecanos(dt);
+  updateNouvelles(dt);
+  updateMission(dt);
   updateTrainee(dt);
   updateBatiments(dt);
   majSoleil(dt);
@@ -8116,6 +8499,7 @@ function drawHud() {
                    Math.sin(t * 39 + 1.7) * CHAUFFE_SECOUSSE * ksec);
   }
 
+  dessineNouvelles(hctx, w, h);
   const pSelf = project(state.pos);
   state.screenX = pSelf.x;
   state.screenY = pSelf.y;
@@ -8361,6 +8745,7 @@ function drawHud() {
     // de securite du telephone — et on descend encore un peu.
     const barre = document.getElementById('bottombar');
     const hautBarre = barre ? barre.getBoundingClientRect().bottom : 0;
+    window.__hautBande = hautBarre;
     const by = Math.max(h * 0.115, hautBarre + 26), demi = Math.min(w * 0.36, 155), ech = demi / 60;
     const L_ENN = by + 20, L_VIE = by + 32;
     hctx.save();
@@ -8993,6 +9378,40 @@ function majObjectif() {
   el.hidden = false;
 }
 
+// ---------------------------------------------------------------------------
+// LE FIL DES NOUVELLES. Trois lignes au plus, en haut à gauche, très pâles :
+// ce que font les autres. Elles s'effacent toutes seules et ne couvrent
+// jamais le centre de l'écran, qui appartient au pilotage.
+// ---------------------------------------------------------------------------
+const NOUVELLES_MAX = 3, NOUVELLE_DUREE = 4.5;
+const nouvelles = [];
+function nouvelle(qui, pv) {
+  nouvelles.unshift({ qui: qui, pv: pv, t: NOUVELLE_DUREE });
+  while (nouvelles.length > NOUVELLES_MAX) nouvelles.pop();
+}
+function updateNouvelles(dt) {
+  for (let i = nouvelles.length - 1; i >= 0; i--) {
+    nouvelles[i].t -= dt;
+    if (nouvelles[i].t <= 0) nouvelles.splice(i, 1);
+  }
+}
+function dessineNouvelles(hctx, w, h) {
+  if (!nouvelles.length) return;
+  const fr = langue !== 'en';
+  const y0 = (window.__hautBande || 0) + 34;
+  hctx.save();
+  hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+  hctx.textAlign = 'left';
+  for (let i = 0; i < nouvelles.length; i++) {
+    const n = nouvelles[i];
+    const a = Math.min(1, n.t / 0.8) * 0.5;
+    hctx.fillStyle = 'rgba(143,252,196,' + a.toFixed(2) + ')';
+    hctx.fillText(n.qui + '  ' + (fr ? 'au portail' : 'at a gate') + '  +' + n.pv,
+                  12, y0 + i * 14);
+  }
+  hctx.restore();
+}
+
 function noteDegat(cause, montant) {
   if (carnet.degats[cause] === undefined) return;
   carnet.degats[cause] += montant;
@@ -9095,6 +9514,9 @@ const T = {
     rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
+    missionOk: 'MISSION REMPLIE  ·  +', missionKo: 'MISSION MANQUÉE  ·  LE VOL CONTINUE',
+    ourse: 'LA GRANDE OURSE TRACÉE  ·  +',
+    berger: 'L’ÉTOILE DU BERGER  ·  LE JOUR SE LÈVE  ·  +',
     dore: 'SOLEIL TRAVERSÉ  ·  INVINCIBLE 10 s', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
     prepare: 'préparation du code...', pret: 'code prêt. Envoie-le, puis colle la réponse.',
@@ -9133,6 +9555,9 @@ const T = {
     rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
+    missionOk: 'MISSION COMPLETE  ·  +', missionKo: 'MISSION MISSED  ·  THE FLIGHT GOES ON',
+    ourse: 'THE BIG DIPPER TRACED  ·  +',
+    berger: 'THE EVENING STAR  ·  DAY BREAKS  ·  +',
     dore: 'THROUGH THE SUN  ·  INVINCIBLE 10 s', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
     prepare: 'preparing the code...', pret: 'code ready. Send it, then paste the answer.',
@@ -9598,7 +10023,7 @@ document.getElementById('mCarte').addEventListener('click', e => {
 document.getElementById('mCode').addEventListener('click', e => { e.stopPropagation(); panneauCode(); });
 document.getElementById('mBeta').addEventListener('click', e => { e.stopPropagation(); panneauBeta(); });
 document.getElementById('mSansPub').addEventListener('click', e => { e.stopPropagation(); panneauSansPub(); });
-document.getElementById('mDefi').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); if (!state.running) decolle(true); });
+document.getElementById('mDefi').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); ouvrePacte(); });
 document.getElementById('mAxeY').addEventListener('click', e => {
   e.stopPropagation();
   axeInverse = !axeInverse;
@@ -9671,8 +10096,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.87', fr: 'Le tonneau devient barriqué : on monte, on s’enroule, on ressort décalé de deux ailes et demie.', en: 'The roll becomes a barrel roll: you climb, you wind round, you come out two and a half wingspans over.' },
   { v: '0.86', fr: 'Le faucheur traverse notre route avant de revenir par-derrière.', en: 'The reaper crosses our path before coming back from behind.' },
-  { v: '0.85', fr: 'Axe Y inversé, clavier flèches et ZQSD/WASD, et l\'écran se vide de ses chiffres.', en: 'Inverted Y axis, arrow and WASD/ZQSD keys, and the screen sheds its numbers.' },
+  { v: '0.85', fr: 'Axe Y inversé, clavier flèches et ZQSD/WASD, et l\'écran se vide de ses chiffres.', en: 'Inverted Y axis, arrow and WASD/ZQSD keys, and the screen sheds its numbers.', merci: 'MrTommyPickles' },
   { v: '0.84', fr: 'Les mécaniciens ne tirent plus à travers les bâtiments.', en: 'The ground crew no longer shoots through buildings.' },
   { v: '0.83', fr: 'Le bouclier disparaît : la vie est la seule ressource.', en: 'The shield is gone: life is the only resource.' },
   { v: '0.82', fr: 'DÉCOLLER descend sous le pouce et les mécaniciens préparent l\'avion.', en: 'TAKE OFF drops under the thumb and the crew preps the aircraft.' },
@@ -9758,33 +10184,27 @@ const JOURNAL = [
   { v: '0.2', fr: 'La souris garde la main quand elle s\'arrête.', en: 'The mouse keeps control when it stops.' },
   { v: '0.1', fr: 'Premier vol : avion filaire, pilotage à un doigt.', en: 'First flight: wireframe aircraft, one-finger controls.' }
 ];
-// LES PREMIERS QUI ONT PARLÉ. Les deux premiers commentaires reçus sur
-// r/Devvit, le 15 septembre 2026. L'un a demandé l'axe Y inversé pour les
-// pilotes de simulateur : c'est la v0.85. L'autre a simplement dit que c'était
-// beau. Les deux ont changé quelque chose, et ça se dit à la première ligne.
-const MERCIS = [
-  { qui: 'MrTommyPickles', fr: 'a demandé l’axe Y inversé, et le clavier a suivi',
-    en: 'asked for the inverted Y axis, and the keyboard followed' },
-  { qui: 'korok7mgte', fr: 'a été le premier à dire que c’était beau',
-    en: 'was the first to say it looked good' },
-];
+// Le remerciement va DANS la ligne de la version qu'il a fait naître, entre
+// parenthèses. C'est là qu'il veut dire quelque chose : à côté de la chose
+// demandée. Un encadré séparé en haut du panneau n'aurait remercié personne
+// en particulier.
 function rendJournal() {
   const el = document.getElementById('changelog');
   if (!el) return;
   const fr = langue !== 'en';
-  el.innerHTML =
-    '<div class="merci"><b>' + (fr ? 'MERCI' : 'THANK YOU') + '</b><br>'
-    + MERCIS.map(m => m.qui + ' — ' + (fr ? m.fr : m.en)).join('<br>')
-    + '</div>'
-    + JOURNAL.map(j =>
-        '<div><b>v' + j.v + '</b> — ' + (fr ? j.fr : j.en) + '</div>').join('');
+  el.innerHTML = JOURNAL.map(j =>
+    '<div><b>v' + j.v + '</b> — ' + (fr ? j.fr : j.en)
+    + (j.merci ? ' <span class="merci">(' + (fr ? 'merci ' : 'thanks ') + j.merci + ' !)</span>' : '')
+    + '</div>').join('');
 }
 
 function majPause() {
   // en coopération le monde ne s'arrête pas : les autres continuent de voler
+  const pact = document.getElementById('pactDefi');
   state.paused = !coop.actif
     && (!aide.hidden || !changelog.hidden || !panViseurs.hidden || !panCoop.hidden
-        || !panInstall.hidden || !panMenu.hidden || !panInfos.hidden);
+        || !panInstall.hidden || !panMenu.hidden || !panInfos.hidden
+        || (pact && !pact.hidden));
 }
 
 document.addEventListener('pointerdown', e => {
@@ -9983,6 +10403,10 @@ function decolle(defi) {
   if (defi) {
     const d = defiDuJour();
     state.defi = { type: d.cle };
+    // une mission a un but et un chrono ; une contrainte n'en a pas
+    state.mission = d.mission
+      ? { cle: d.cle, but: d.but, chrono: d.chrono, n: 0, t: 0, fini: false }
+      : null;
     if (d.cle === 'vague5') state.wave = DEFI_VAGUE - 1;      // la première vague lancée sera la cinquième
     // la série : un jour de plus si l'on a relevé celui d'hier
     if (!carnet.serie) carnet.serie = { jour: '', n: 0 };
@@ -10000,7 +10424,31 @@ function decolle(defi) {
 }
 const defiBtn = document.getElementById('defiBtn');
 startBtn.addEventListener('click', () => decolle(false));
-defiBtn.addEventListener('click', () => decolle(true));
+defiBtn.addEventListener('click', () => ouvrePacte());
+function ouvrePacte() {
+  const d = defiDuJour(), fr = langue !== 'en';
+  const pact = document.getElementById('pactDefi');
+  document.getElementById('pactTitre').textContent =
+    (fr ? 'DÉFI DU JOUR  ·  ' : 'DAILY CHALLENGE  ·  ') + (fr ? d.fr : d.en);
+  document.getElementById('pactTexte').textContent = fr ? d.dFr : d.dEn;
+  const n = carnet.serie ? carnet.serie.n : 0;
+  const p = Math.min(SERIE_PLAFOND_MAX, n * SERIE_PLAFOND);
+  document.getElementById('pactPrime').textContent =
+    (fr ? 'Chaque point vaut ×1,5.' : 'Every point is worth ×1.5.')
+    + (d.chrono ? (fr ? '  Chrono : ' : '  Clock: ') + Math.round(d.chrono / 60) + (fr ? ' min.' : ' min.') : '')
+    + (n > 0 ? (fr ? '  Série de ' : '  Streak of ') + n + (fr ? ' jours : plafond de vie ' : ' days: life cap ') + (100 + p) + '.' : '');
+  document.getElementById('pactOui').textContent = fr ? 'JE PRENDS' : 'I’LL TAKE IT';
+  document.getElementById('pactNon').textContent = fr ? 'PAS AUJOURD’HUI' : 'NOT TODAY';
+  pact.hidden = false;
+  majPause();
+}
+function fermePacte() { document.getElementById('pactDefi').hidden = true; majPause(); }
+document.getElementById('pactNon').addEventListener('click', e => { e.stopPropagation(); fermePacte(); });
+document.getElementById('pactOui').addEventListener('click', e => {
+  e.stopPropagation();
+  fermePacte();
+  if (!state.running) decolle(true);
+});
 
 // LA LÉGENDE. Dix vagues tenues : la partie s'arrête sur une victoire, pas
 // sur une mort. Même écran, autre titre, et le carnet s'en souvient.
