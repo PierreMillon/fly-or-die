@@ -641,7 +641,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.76</button>
+  <button id="versionBtn">v0.77</button>
   <button id="vagueBtn" hidden data-en="NEXT WAVE · +500">VAGUE SUIVANTE · +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -663,6 +663,8 @@
   <button class="ligne" id="mCode" data-en="SECRET CODE">CODE SECRET</button>
   <button class="ligne" id="mBeta" data-en="NEXT MAP · BETA LIST">PROCHAINE CARTE · LISTE BÊTA</button>
   <button class="ligne" id="mSansPub" data-en="NO ADS · SOON">SANS PUBLICITÉ · BIENTÔT</button>
+  <p class="aide" id="menuAvionTitre" data-en="AIRCRAFT">AVION</p>
+  <div class="puces" id="menuAvions"></div>
   <p class="aide" id="menuTeinteTitre" data-en="AIRCRAFT COLOUR">COULEUR DE L'AVION</p>
   <div class="puces" id="menuTeintes"></div>
   <p class="aide" id="menuTraineeTitre" data-en="TRAIL">TRAÎNÉE</p>
@@ -1006,6 +1008,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.77</b> — trois avions à choisir (le bimoteur, l'intercepteur gagné dans la légende, le pionnier du premier vol), et des leurres qui partent seuls devant les roquettes, chez nous comme chez le gardien.</div>
   <div><b>v0.76</b> — le tonneau déporte presque deux fois plus et l'image s'incline avec lui, un coup de manche vite vers le bord le déclenche aussi, et le doigt tenu tout en haut fait un looping complet.</div>
   <div><b>v0.75</b> — le mode avancé et ses cinq trophées, les codes secrets et leur HACKER TIME, la liste bêta de la prochaine carte, et le mot sur la publicité.</div>
   <div><b>v0.74</b> — trois trous à figure (le U qui se sort par le toit, le double à combo, la fente à 45° qu'on ne passe qu'en tonneau), et un aérodrome au bord de la piste : le hangar et sa porte coulissante qui montre les avions, la table où les mécaniciens jouent aux cartes, la manche à air et l'aire à signaux ; et des mécaniciens qui marchent comme des hommes.</div>
@@ -1250,6 +1253,8 @@ const ROQ_E_RECHARGE = 9;
 const ROQ_E_PORTEE  = [320, 950];
 const ROQ_E_ESQUIVE = 300;    // en deçà, un tonneau la fait décrocher
 const FIG_ENNEMI    = 0.5;    // secondes de tonneau ennemi
+const LEURRE_DIST   = 220;    // à cette distance, le leurre part
+const LEURRE_VIE    = 1.8;    // secondes de flamme
 const FIG_REPOS     = 4;
 const FUM_VIE       = 1.7;    // secondes avant qu'un anneau de fumée s'efface
 const FUM_PAS       = 0.06;   // intervalle d'émission le long de la trajectoire
@@ -2385,7 +2390,7 @@ const KINDS = [
     cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
   },
   {
-    nom: 'GARDIEN', tactique: 'proportionnelle', roquettes: true, figures: true,
+    nom: 'GARDIEN', tactique: 'proportionnelle', roquettes: true, figures: true, leurres: 3,
     // Le seul adversaire qui vient seul. Même croix que le drone, mais bien
     // plus grande et beaucoup plus dure à mettre à terre.
     verts: [
@@ -2529,6 +2534,51 @@ for (const k of KINDS) {
 const playerMesh = solidWire(planeGeom, planeEdges, matPlayer);
 playerMesh.scale.setScalar(PLANE_SCALE);
 scene.add(playerMesh);
+
+// ---------------------------------------------------------------------------
+// TROIS AVIONS. Le bimoteur d'aujourd'hui ; l'intercepteur, plus rapide, plus
+// lourd en lacet, qui emporte des leurres — on le gagne en entrant dans la
+// légende ; et le pionnier, la flèche du tout premier vol de ce jeu, lente et
+// vive, sans leurre et deux roquettes. Chaque avion change la vitesse, le
+// lacet, le tangage et les soutes ; le reste du jeu ne bouge pas.
+// ---------------------------------------------------------------------------
+const AVIONS = [
+  { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 6, leurres: 3, acces: 'libre' },
+  { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 4, leurres: 4, acces: 'legende' },
+  { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 2, leurres: 0, acces: 'libre' },
+];
+let avionChoisi = 'bimoteur';
+try { avionChoisi = localStorage.getItem('fod_avion') || 'bimoteur'; } catch (e) {}
+const avion = () => AVIONS.find(a => a.id === avionChoisi) || AVIONS[0];
+// le carnet n'existe pas encore à cet endroit du fichier : on lit le compte
+// des légendes directement dans le stockage, et legende() le tient à jour
+let legendesN = 0;
+try { legendesN = (JSON.parse(localStorage.getItem('fod_carnet') || '{}').legendes || 0); } catch (e) {}
+const avionOuvert = a => a.acces === 'libre' || legendesN > 0;
+// la flèche du premier vol, telle qu'elle était dessinée en v0.1
+const PIONNIER_SHAPE = [
+   0,  0, -3.4,   -3.5, 0.6, 1.9,    0,  0, -3.4,    3.5, 0.6, 1.9,
+  -3.5, 0.6, 1.9, -0.9, 0,  3.0,     3.5, 0.6, 1.9,  0.9, 0,  3.0,
+  -0.9, 0,  3.0,   0.9, 0,  3.0,    -3.5, 0.6, 1.9, -3.3, 1.15, 2.1,
+   3.5, 0.6, 1.9,  3.3, 1.15, 2.1,   0,  0, -3.4,    0,   0,  3.0,
+   0,  0,  2.3,    0,   1.7, 2.7,    0,  1.7, 2.7,   0,   0,  3.0,
+   0,  0, -3.4,    0,   0.55, -0.7,  0,  0.55, -0.7, 0,   0,   1.1,
+  -0.8, 0, -0.3,   0,   0.55, -0.7,  0.8, 0, -0.3,   0,   0.55, -0.7
+];
+const meshInter = solidWire(KINDS[2].geom, KINDS[2].edges, matPlayer);
+meshInter.scale.setScalar(KINDS[2].echelle * ENVERGURE_JOUEUR / KINDS[2].envergure / PLANE_SCALE);
+const meshPionnier = new THREE.LineSegments(segGeom(PIONNIER_SHAPE), matPlayer);
+meshPionnier.scale.setScalar(12 / 7 / PLANE_SCALE * 0.85);
+meshPionnier.frustumCulled = meshInter.frustumCulled = false;
+playerMesh.add(meshInter, meshPionnier);
+function appliqueAvion() {
+  if (!avionOuvert(avion())) avionChoisi = 'bimoteur';
+  const id = avion().id;
+  playerMesh.children[0].visible = playerMesh.children[1].visible = id === 'bimoteur';
+  meshInter.visible = id === 'intercepteur';
+  meshPionnier.visible = id === 'pionnier';
+  if (typeof propMesh !== 'undefined') propMesh.visible = id !== 'intercepteur';
+}
 function appliqueTeinte() {
   const t = TEINTES.find(x => x.id === teinteChoisie) || TEINTES[0];
   matPlayer.color.setHex(t.col);
@@ -2591,6 +2641,7 @@ const propMesh = new THREE.LineSegments(
 propMesh.frustumCulled = false;
 playerMesh.add(propMesh);
 appliqueTeinte();
+appliqueAvion();
 
 // ---------------------------------------------------------------------------
 // décor : grille au sol et pylônes, seuls repères de vitesse
@@ -3489,10 +3540,15 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   hangar.porteG.position.x = hangar.porteD.position.x = -A.largeur / 2;
   g.add(hangar.porteG, hangar.porteD);
   // les appareils dedans : le nôtre, et les cinq à débloquer, alignés
-  const rang = [{ geo: planeGeom, edges: planeEdges, mat: matPlayer, ech: PLANE_SCALE * 0.9 }];
-  for (const k of KINDS) if (!k.sol) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
+  // les trois avions du joueur d'abord — brillants s'ils sont à lui, pâles
+  // sinon — puis les silhouettes ennemies, pâles
+  const rang = [{ geo: planeGeom, edges: planeEdges, mat: matPlayer, ech: PLANE_SCALE * 0.9 },
+                { geo: KINDS[2].geom, edges: KINDS[2].edges, mat: legendesN > 0 ? matPlayer : matPale, ech: KINDS[2].echelle * 12 / 7.5 * 0.9 },
+                { lignes: PIONNIER_SHAPE, mat: matPlayer, ech: 12 / 7 * 0.75 }];
+  for (const k of KINDS) if (!k.sol && k !== KINDS[2]) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
   rang.forEach((r, i) => {
-    const m = solidWire(r.geo, r.edges, r.mat);
+    const m = r.lignes ? new THREE.LineSegments(segGeom(r.lignes), r.mat) : solidWire(r.geo, r.edges, r.mat);
+    m.frustumCulled = false;
     m.scale.setScalar(r.ech);
     m.position.set(-A.largeur / 2 + 9 + Math.floor(i / 3) * 16, 1.2, -A.prof / 2 + 6 + (i % 3) * 9);
     m.rotation.y = -Math.PI / 2;      // le nez vers la porte
@@ -3634,12 +3690,12 @@ function updateMecanos(dt) {
       m.but.set(g.x, 0, g.z).multiplyScalar(PLANE_SCALE).applyAxisAngle(_up, state.yaw).add(state.pos);
       m.but.y = PISTE.y;
       if (m.p.distanceTo(m.but) < 1.4) {
-        state.roquettesN = Math.min(ROQ_STOCK, state.roquettesN + 2);
+        state.roquettesN = Math.min(avion().roquettes, state.roquettesN + 2);
         announce(t('roquettesPlus'));
         SFX.vagueNette();
         m.livre = null; m.caisse.visible = false; m.t = 0;
       }
-    } else if (state.pose && state.roquettesN < ROQ_STOCK && !mecanos.some(x => x.livre)) {
+    } else if (state.pose && state.roquettesN < avion().roquettes && !mecanos.some(x => x.livre)) {
       state.livraisonT = (state.livraisonT || 0) - dt;
       if (state.livraisonT <= 0) { state.livraisonT = 3.5; m.livre = { gauche: Math.random() < 0.5 }; m.caisse.visible = true; }
     }
@@ -4305,6 +4361,9 @@ const state = {
   vrille: null,       // la vrille en cours { t, side, sortie }
   vrilleRoll: 0,
   roquettesN: 6,      // ce qu'il reste sous les ailes
+  leurres: 3,         // les leurres en soute : ils partent seuls quand une roquette arrive
+  leurresActifs: [],  // ceux qui brûlent encore, pour les voir tomber
+  leurresPleins: false,
   triche: null,       // les codes secrets actifs : la partie ne compte plus
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
@@ -4485,7 +4544,9 @@ function resetGame() {
   state.forme = 0; state.objN = 0; state.defi = false;
   state.stats = statsVides();
   state.bouclierT = 0;
-  state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = ROQ_STOCK;
+  state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avion().roquettes;
+  state.leurres = avion().leurres; state.leurresActifs = []; state.leurresPleins = false;
+  appliqueAvion();
   state.triche = null;
   if (avance.vie50) state.structure = 50;
   if (tricheEnAttente.legende) { state.wave = 8; tricheEnAttente.legende = false; state.triche = Object.assign(state.triche || {}, { legende: true }); }
@@ -4520,7 +4581,7 @@ function statsVides() {
   return { ballesTirees: 0, ballesRecues: 0, ballesEnnemies: 0, roquettesTirees: 0,
            roquettesRecues: 0, roquettesEsquivees: 0, roquettesEnnemies: 0, abattus: 0,
            passages: 0, poses: 0, tempsPose: 0, mecanoAbattus: 0, mecanoBalles: 0,
-           altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0, faucheurs: 0 };
+           altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0, faucheurs: 0, leurres: 0 };
 }
 function stat(cle, n) { if (state.stats) state.stats[cle] += (n === undefined ? 1 : n); }
 function texteStats() {
@@ -4540,6 +4601,7 @@ function texteStats() {
     [fr ? 'altitude max · moyenne' : 'altitude max · mean', Math.round(S.altMax) + ' · ' + Math.round(S.altN ? S.altSomme / S.altN : 0) + ' m'],
     [fr ? 'distance max de la piste' : 'max distance from runway', Math.round(S.distMax) + ' m'],
     [fr ? 'faucheur lâché' : 'reaper launched', S.faucheurs],
+    [fr ? 'leurres lâchés' : 'flares dropped', S.leurres],
   ];
   return l.map(([k, v]) => k + '  ·  <b>' + v + '</b>').join('<br>');
 }
@@ -5359,7 +5421,15 @@ function updateRoquettes(dt) {
     // LEUR TONNEAU. Un appareil qui sait faire des figures voit venir la
     // roquette : à trois cents mètres il rompt d'un tour complet, et elle
     // décroche — exactement ce qu'un tonneau fait aux leurs.
-    if (!morte && r.cible.kind.figures && r.cible.figCd <= 0 && r.pos.distanceTo(r.cible.pos) < 300) {
+    if (!morte && r.cible.kind.leurres && (r.cible.leurresN === undefined ? (r.cible.leurresN = r.cible.kind.leurres) : r.cible.leurresN) > 0
+        && r.pos.distanceTo(r.cible.pos) < 260) {
+      // LUI AUSSI A DES LEURRES : on le voit en lâcher un, on se demande
+      // pourquoi on n'en a pas — et on va chercher l'avion qui en a
+      r.cible.leurresN--;
+      lacheLeurre(r.cible.pos, r.cible.forward);
+      for (const q of state.roquettes) if (q.cible === r.cible) q.cible = null;
+    }
+    if (!morte && r.cible && r.cible.kind.figures && r.cible.figCd <= 0 && r.pos.distanceTo(r.cible.pos) < 300) {
       const c = r.cible;
       c.figT = FIG_ENNEMI; c.figCd = FIG_REPOS; c.figSide = Math.random() < 0.5 ? -1 : 1;
       for (const q of state.roquettes) if (q.cible === c) q.cible = null;
@@ -5426,8 +5496,24 @@ function updateRoquettes(dt) {
 
 // Les leurs guident vers nous, et décrochent si l'on fait un tonneau quand
 // elles sont proches : elles continuent alors tout droit et s'ouvrent au bout.
+// un leurre : une flamme qui tombe en fumant, et la roquette la suit
+function lacheLeurre(pos, dir) {
+  state.leurresActifs.push({ pos: pos.clone().addScaledVector(dir, -8), v: new THREE.Vector3(dir.x * 20, -4, dir.z * 20), t: 0 });
+}
+function updateLeurres(dt) {
+  for (let i = state.leurresActifs.length - 1; i >= 0; i--) {
+    const l = state.leurresActifs[i];
+    l.t += dt;
+    if (l.t > LEURRE_VIE) { state.leurresActifs.splice(i, 1); continue; }
+    l.v.y -= 9.8 * dt;
+    l.pos.addScaledVector(l.v, dt);
+    l.fum = (l.fum || 0) - dt;
+    if (l.fum <= 0) { l.fum = 0.06; spawnBurst(l.pos, 1.6); const f = semerFumee(l.pos.clone(), _up); if (f) f.r0 *= 0.8; }
+  }
+}
 function updateRoqEnnemies(dt) {
   const pts = [];
+  updateLeurres(dt);
   if (state.alerte > 0) state.alerte -= dt;
   if (state.lockedT > 0) state.lockedT -= dt;
   if (coop.actif && !coop.hote) {
@@ -5442,6 +5528,16 @@ function updateRoqEnnemies(dt) {
     const d = r.pos.distanceTo(state.pos);
     r.dMin = Math.min(r.dMin === undefined ? 1e9 : r.dMin, d);
     // le tonneau la sème ; une manœuvre franche aussi, si elle passe à côté
+    // LE LEURRE PART SEUL. Le système regarde venir la roquette : à 220 mètres,
+    // s'il reste un leurre en soute, il le lâche et elle s'y jette.
+    if (!r.perdue && d < LEURRE_DIST && state.leurres > 0 && !(state.assist || state.pose || state.roulage)) {
+      state.leurres--;
+      r.perdue = true; r.leurree = true;
+      stat('roquettesEsquivees'); stat('leurres');
+      lacheLeurre(state.pos, state.forward);
+      announce(t('leurre') + state.leurres);
+      SFX.vagueNette();
+    }
     const semee = (state.spinT > 0 && d < ROQ_E_ESQUIVE) || (r.dMin < 140 && d > r.dMin + 30);
     if (!r.perdue && semee) {
       r.perdue = true;
@@ -5900,6 +5996,11 @@ function simulate(dt) {
     if (d > S.distMax) S.distMax = d;
   }
   if (state.pose) stat('tempsPose', dt);
+  if (state.pose && state.pose.t > 4 && state.leurres < avion().leurres && !state.leurresPleins) {
+    state.leurres = avion().leurres; state.leurresPleins = true;
+    announce(t('leurresPleins'));
+  }
+  if (!state.pose) state.leurresPleins = false;
   if (avance.vie50 && state.structure > 50) state.structure = 50;
   // LE FAUCHEUR. Qui s'éloigne trop longtemps du combat — plus de 3,5 km de la
   // piste pendant une minute — est prévenu à mi-chemin, puis un appareil
@@ -5943,8 +6044,8 @@ function simulate(dt) {
   const rayon = Math.min(1, Math.hypot(dx, dy));
   const courbe = v => v * (0.17 + 0.83 * v * v * v * v);
   const gain = rayon > 1e-4 ? courbe(rayon) / rayon : 0;
-  const yawRate   = -dx * gain * MAX_YAW;
-  const pitchRate = -dy * gain * MAX_PITCH;
+  const yawRate   = -dx * gain * MAX_YAW * avion().lacet;
+  const pitchRate = -dy * gain * MAX_PITCH * avion().tangage;
   // LE LOOPING AU DOIGT. Tout en haut de la course, tenu un quart de seconde :
   // l'avion fait le tour complet et ressort au même cap, à plat.
   if (dy < -0.88 && aim.active && !state.fig && state.spinT <= 0 && !state.takeoff && !state.pose && !state.roulage && !state.vrille) {
@@ -6058,7 +6159,7 @@ function simulate(dt) {
   // divisé par trois par rapport à la v0.65
   // un portail pousse bien plus fort qu'une poursuite : c'est un coup de fouet
   const gainEff = state.boostPortail > 0 ? Math.max(gainBoost, BOOST_PORTAIL_GAIN) : gainBoost;
-  const croisiere = CRUISE * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
+  const croisiere = CRUISE * avion().vit * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
                   * (state.assist ? APPROCHE_GAIN : 1);
   const pesanteur = state.forward.y < 0 ? 2.6 : 1;
   state.speed += (-state.forward.y * GRAV * pesanteur + (croisiere - state.speed) * THRUST) * dt;
@@ -7835,6 +7936,7 @@ function drawHud() {
       const pg = project(_v.set(g.x, g.y - 0.6, g.z).multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos));
       if (!pg.front) continue;
       const n = g === GUN_L ? Math.ceil(state.roquettesN / 2) : Math.floor(state.roquettesN / 2);
+      if (avion().roquettes === 0) continue;
       hctx.fillStyle = n > 0 ? 'rgba(143,252,196,0.7)' : 'rgba(255,122,92,0.8)';
       hctx.font = '10px "IBM Plex Mono", monospace'; hctx.textAlign = 'center';
       hctx.fillText(String(n), pg.x, pg.y + 12);
@@ -8278,8 +8380,9 @@ function refreshBars() {
   structLbl.textContent = st + '%';
   // le bouclier se compte : un carré par coup encaissable, ou ses secondes
   const bl = document.getElementById('bouclierLbl');
-  bl.textContent = state.bouclierT > 0 ? 'SHIELD ' + Math.ceil(state.bouclierT) + 's'
-                 : state.bouclier > 0 ? 'SHIELD ×' + state.bouclier : '';
+  bl.textContent = (state.bouclierT > 0 ? 'SHIELD ' + Math.ceil(state.bouclierT) + 's'
+                 : state.bouclier > 0 ? 'SHIELD ×' + state.bouclier : '')
+                 + (avion().leurres > 0 && state.running ? '  FLARES ×' + state.leurres : '');
 
   // POSER ne se montre que quand la piste est devant et lisible, et ne bat que
   // quand on est réellement sur le plan. Un bouton toujours là qu'on ne peut
@@ -8340,7 +8443,7 @@ const T = {
     canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
-    alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', locked: 'LOCKED  ·  ROLL !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
+    alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', leurre: 'LEURRE LÂCHÉ  ·  RESTE ', leurresPleins: 'LEURRES RECHARGÉS', locked: 'LOCKED  ·  ROLL !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
     rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
@@ -8376,7 +8479,7 @@ const T = {
     canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
-    alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', locked: 'LOCKED  ·  ROLL!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
+    alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', leurre: 'FLARE OUT  ·  LEFT ', leurresPleins: 'FLARES RELOADED', locked: 'LOCKED  ·  ROLL!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
     rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
@@ -8762,6 +8865,26 @@ function majMenu() {
       c.appendChild(b);
     }
   };
+  {
+    const c = document.getElementById('menuAvions');
+    c.innerHTML = '';
+    for (const a of AVIONS) {
+      const b = document.createElement('button');
+      const ouvert = avionOuvert(a);
+      b.className = (a.id === avionChoisi ? 'actif' : '') + (ouvert ? '' : ' verrou');
+      b.textContent = (fr ? a.nom : a.en) + (ouvert ? '' : (fr ? '  ·  LÉGENDE' : '  ·  LEGEND'))
+        + '  ·  ' + (fr ? 'vit. ' : 'spd ') + a.vit + '  ·  ' + a.roquettes + (fr ? ' roq.' : ' rkt') + '  ·  ' + a.leurres + (fr ? ' leurres' : ' flares');
+      b.onclick = e => {
+        e.stopPropagation();
+        if (!ouvert) return;
+        avionChoisi = a.id; appliqueAvion();
+        try { localStorage.setItem('fod_avion', avionChoisi); } catch (err) {}
+        if (!state.running) { state.roquettesN = a.roquettes; state.leurres = a.leurres; }
+        majMenu();
+      };
+      c.appendChild(b);
+    }
+  }
   puces('menuTeintes', TEINTES, 'teinte:', teinteChoisie, id => { teinteChoisie = id; appliqueTeinte(); });
   puces('menuTrainees', TRAINEES, 'trainee:', traineeChoisie, id => { traineeChoisie = id; });
 }
@@ -9058,7 +9181,10 @@ defiBtn.addEventListener('click', () => decolle(true));
 // sur une mort. Même écran, autre titre, et le carnet s'en souvient.
 function legende() {
   state.running = false;
+  const premiere = !(carnet.legendes > 0);
   carnet.legendes = (carnet.legendes || 0) + 1;
+  legendesN = carnet.legendes;
+  if (premiere) state.nouveauxTrophees = (state.nouveauxTrophees || []).concat(langue === 'en' ? 'INTERCEPTOR UNLOCKED' : 'INTERCEPTEUR DÉBLOQUÉ');
   gameOver(true);
 }
 
