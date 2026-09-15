@@ -640,3 +640,12 @@ dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
   travail que la vie ne fait pas ? Question posée, réponse attendue.
 - La fente à 45°, doublée en largeur, se passe maintenant à plat : elle
   n'oblige plus au tonneau. À garder large et facile, ou à re-serrer ?
+
+## v0.82 — ce qui a été fait
+
+- DÉCOLLER passe en bas de l'écran de titre (y = 769 sur 932) : c'est là
+  qu'un pouce arrive. Le défi du jour devient une pastille en haut à gauche.
+- Les mécaniciens préparent l'avion dès l'écran de titre. Ils étaient à 30 m,
+  assis à leur table : `mecanosTable()` était appelé APRÈS
+  `preparentLAvion()` et défaisait tout. Mesuré : 5 à 7 m, autour de la
+  cellule.
