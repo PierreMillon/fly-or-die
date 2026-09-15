@@ -296,6 +296,16 @@
      en haut le défi du jour : ce sont les deux seules choses à toucher sur cet
      écran, et un pouce ne vise pas une pastille de quarante pixels. Le corps
      porte la classe « accueil » tant que le panneau de titre est ouvert. */
+  /* LA PASTILLE DU DÉFI PREND SA PLACE. Posée en absolu, elle passait
+     par-dessus le titre : le panneau se décale donc vers le bas d'autant. */
+  body.accueil #overlay { padding-top: calc(62px + env(safe-area-inset-top, 0px)); }
+  /* ET DÉCOLLER REMONTE AU-DESSUS DE L'AVION. Poussé tout en bas, il tombait
+     sous la cellule et le texte de série se retrouvait coincé entre les deux.
+     Il se pose maintenant un peu sous le texte, donc juste au-dessus du nez,
+     et tout le reste descend au bas de l'écran. */
+  body.accueil #startBtn { margin-top: clamp(30px, 16vh, 170px); }
+  body.accueil #objectif { margin-top: auto; }
+  body.accueil #installBtn { margin-top: 0; }
   body.accueil #topbar { padding-left: 10px; padding-right: 10px; }
   /* les compteurs de partie n'ont rien à dire sur l'écran de titre : ils
      laissaient pourtant leurs gouttières, et le bouton débordait d'autant */
@@ -711,7 +721,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.90</button>
+  <button id="versionBtn">v0.91</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -1440,6 +1450,7 @@ const FUM_R0        = 0.55;   // rayon à la naissance : le calibre de l'engin
 // qu'il y avait deux engins. À trois, chacune garde son fil.
 const FUM_R1        = 3.1;    // rayon en fin de vie
 const FUM_MAX       = 220;    // au-delà, les plus vieux cèdent la place
+const COL_FOND      = 0x04070a;   // le fond de l'écran : la nappe du sol en prend la couleur
 const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
 const COL_LOCK      = 0xffffff;
@@ -3045,7 +3056,24 @@ const GRID_SPAN = 8400, GRID_STEP = 160;
   grid.frustumCulled = false;
   grid.name = 'grid';
   scene.add(grid);
+
+  // LE SOL EST OPAQUE. En fermant la voûte étoilée sous l'horizon (v0.86) on a
+  // gagné le ciel jusqu'au sol, et perdu le sol : la grille n'est que des
+  // traits, donc les étoiles du dessous se voyaient AU TRAVERS et la terre
+  // paraissait transparente. Une nappe pleine, de la couleur du fond, glissée
+  // juste sous la grille : elle n'ajoute pas un trait à l'image et arrête tout
+  // ce qui est dessous.
+  const nappe = new THREE.Mesh(
+    new THREE.PlaneGeometry(GRID_SPAN * 1.4, GRID_SPAN * 1.4).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: COL_FOND, fog: false, depthWrite: true })
+  );
+  nappe.position.y = -0.6;
+  nappe.frustumCulled = false;
+  nappe.renderOrder = -0.5;        // après les étoiles, avant tout le reste
+  nappe.name = 'nappe';
+  scene.add(nappe);
 })();
+const nappeSol = scene.getObjectByName('nappe');
 const grid = scene.getObjectByName('grid');
 let etoiles = [];
 let soleilMesh = null, couronneMesh = null;
@@ -8499,6 +8527,8 @@ function updateDecor() {
     0,
     Math.round(state.pos.z / GRID_STEP) * GRID_STEP
   );
+  // la nappe suit la grille : elles ne doivent jamais se décaler l'une de l'autre
+  if (nappeSol) { nappeSol.position.x = grid.position.x; nappeSol.position.z = grid.position.z; }
   // la carte est fixe : rien ne se déplace dans le dos du joueur
   if (!CARTE.fixe) {
     for (const t of towers) {
@@ -9746,10 +9776,12 @@ function majObjectif() {
     document.getElementById('defiBtn').textContent = (fr ? 'DÉFI DU JOUR  ·  ' : 'DAILY CHALLENGE  ·  ') + (fr ? d.fr : d.en) + '  ·  ×1,5';
     const n = carnet.serie ? carnet.serie.n : 0;
     if (n > 0) {
+      // UNE SEULE LIGNE. La phrase complète passait à la ligne et cassait la
+      // mise en page : on garde le nombre de jours et le plafond, qui sont
+      // les deux seules choses à savoir.
       const p = Math.min(SERIE_PLAFOND_MAX, n * SERIE_PLAFOND);
-      el.innerHTML = (fr ? 'SÉRIE  ·  ' : 'STREAK  ·  ') + n + (fr ? ' JOURS' : ' DAYS') + '  →  <b>'
-        + (100 + p) + (fr ? ' % DE PLAFOND DE VIE' : ' % LIFE CAP') + '</b>'
-        + (fr ? ' AU DÉCOLLAGE' : ' AT TAKE OFF');
+      el.innerHTML = (fr ? 'SÉRIE ' : 'STREAK ') + n + (fr ? ' J' : ' D')
+        + '  ·  ' + (fr ? 'PLAFOND ' : 'CAP ') + '<b>' + (100 + p) + '</b>';
       el.hidden = false;
     } else el.hidden = true;
     return;
@@ -10485,6 +10517,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.91', fr: 'Le sol redevient opaque, et DÉCOLLER se pose juste au-dessus de l’avion.', en: 'The ground turns opaque again, and TAKE OFF sits just above the aircraft.' },
   { v: '0.90', fr: 'Les montagnes deviennent dures : on passe au-dessus, plus au travers.', en: 'The mountains turn solid: you go over them, no longer through them.' },
   { v: '0.89', fr: 'La Grande Ourse montre le refuge, et on y descend soi-même de l’avion.', en: 'The Big Dipper points to the refuge, and there you climb out of the aircraft yourself.' },
   { v: '0.88', fr: 'Un refuge sans nom à l’ouest, un anneau de montagnes, et remuer suffit à casser leur visée.', en: 'A nameless refuge to the west, a ring of mountains, and moving about is enough to spoil their aim.' },

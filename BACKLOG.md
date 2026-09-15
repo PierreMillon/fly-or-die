@@ -853,3 +853,23 @@ moitié moins qu'un mur : c'est de la terre, pas du béton.
 
 Mesuré : au-dessus du sommet d'une crête de 229 m, l'avion est ramené à 230 m
 et perd 6 points ; à deux rayons et demi de là, rien.
+
+## v0.91 — le sol redevient opaque
+
+Il l'a vu tout de suite : le sol était transparent. C'est la contrepartie de la
+voûte fermée sous l'horizon de la v0.86. La grille n'est faite que de traits,
+donc les étoiles du dessous se voyaient au travers et la terre paraissait
+percée. Une nappe pleine de la couleur du fond, glissée à 60 cm sous la
+grille, arrête tout ce qui est dessous sans ajouter un seul trait à l'image.
+Elle suit la grille, qui suit l'avion.
+
+Trois corrections d'écran, mesurées sur 430, 390 et 360 px de large :
+
+- La pastille du défi passait par-dessus FLY OR DIE. Le panneau se décale de
+  62 px plus la marge de l'encoche : la pastille finit à 47, le titre commence
+  à 62.
+- DÉCOLLER remonte au-dessus de l'avion, à 331 px sur 932, au lieu du bas de
+  l'écran.
+- La ligne de série tenait sur deux lignes et cassait la mise en page. Elle
+  dit maintenant les deux seules choses utiles : le nombre de jours, et le
+  plafond.
