@@ -1745,3 +1745,19 @@ comme un réglage sans effet.
 - Roquette ennemie : rapprochement 70 m/s × 7 s de vie = 490 m de rattrapage, pour une portée de tir de 950 m. Huit tirs sur huit disparaissaient sans toucher.
 - Faucheur en phase 2 à ×3 de vitesse : 690 m/s, rayon de virage 821 m, il dépassait. Calé à 180 m il tue en 22 s si l'on ne bouge pas.
 - Posé à 175 m/s : l'appareil flotte **1 100 m** avant que les roues prennent, donc il touche après le hangar. Le freinage n'était pas en cause.
+
+## Question laissée ouverte — commencer directement au refuge
+
+Une fois le refuge de la Grande Ourse débloqué, on pourrait proposer d'y
+commencer la partie. **Je n'y crois pas**, et voici pourquoi, dans mes termes :
+
+> Tout l'intérêt, c'est de pouvoir s'éloigner. On ne sera jamais aussi calme
+> qu'en quittant les zones de combat, et ce temps-là, c'est un temps qu'on
+> mérite quelque part.
+
+Autrement dit : le calme n'est pas un lieu, c'est une différence. Livré
+d'emblée, il ne vaut plus rien — il n'y a plus rien qu'il interrompe. Les trois
+minutes de traversée ne sont pas le prix du refuge, elles en sont la moitié.
+
+On garde donc le voyage obligatoire. La note reste ici au cas où l'on changerait
+d'avis, et surtout pour se rappeler pourquoi on ne l'a pas fait.

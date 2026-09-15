@@ -628,6 +628,56 @@
     padding: 13px 30px;
   }
   #redecoBtn[hidden] { display: none; }
+  /* LE BOUTON D'ACTION. Même place que REDÉCOLLER mais juste au-dessus : on
+     n'a jamais les deux à la fois, sauf debout à côté de l'appareil, et alors
+     ils se lisent l'un sous l'autre sans se marcher dessus. */
+  #actionBtn {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(112px + env(safe-area-inset-bottom));
+    z-index: 42;
+    background: var(--ph-fill);
+    border: 1px solid var(--ph-line);
+    border-radius: 6px;
+    color: var(--ph-text);
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    padding: 13px 30px;
+  }
+  #actionBtn[hidden] { display: none; }
+  /* LA LETTRE. Du papier, pas un panneau de jeu : elle est plus étroite que
+     l'écran, elle respire, et son texte est le seul du jeu qui ne soit pas en
+     capitales — parce que personne n'écrit une lettre en capitales. */
+  #lettre {
+    position: fixed; inset: 0; z-index: 70;
+    background: rgba(4, 7, 10, 0.94);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px 20px;
+  }
+  #lettre[hidden] { display: none; }
+  #lettre .feuille {
+    max-width: 30rem; width: 100%;
+    border: 1px solid var(--ph-dim);
+    padding: 26px 22px 18px;
+    max-height: 100%; overflow-y: auto;
+  }
+  #lettre .ecrit {
+    margin: 0 0 18px; color: var(--ph-text);
+    font-size: 15px; line-height: 1.85; text-transform: none;
+    letter-spacing: 0.02em; white-space: pre-line;
+  }
+  #lettre .signe {
+    margin: 0 0 22px; color: var(--ph-line);
+    font-size: 14px; text-align: right; text-transform: none;
+  }
+  #lettre button {
+    display: block; margin: 0 auto;
+    background: transparent; border: 1px solid var(--ph-dim); border-radius: 4px;
+    color: var(--ph-text); font-family: inherit; font-size: 12px;
+    letter-spacing: 0.22em; padding: 10px 26px;
+  }
 
   /* POSER : même place que REDÉCOLLER, un cran plus haut. Il n'apparaît que
      quand la piste est devant et lisible, et il bat quand on est sur le plan —
@@ -732,6 +782,15 @@
 <canvas id="hud"></canvas>
 
 <button id="redecoBtn" hidden data-en="TAKE OFF AGAIN">REDÉCOLLER</button>
+<button id="actionBtn" hidden></button>
+
+<div id="lettre" hidden>
+  <div class="feuille">
+    <p class="ecrit" id="lettreTxt"></p>
+    <p class="signe" id="lettreSig"></p>
+    <button id="lettreFerme"></button>
+  </div>
+</div>
 <button id="poserBtn" hidden data-en="LAND">POSER</button>
 <button id="installPastille" hidden data-en="INSTALL · NO NETWORK NEEDED">INSTALLER · SANS RÉSEAU</button>
 <button id="majPastille" hidden data-en="ONE CLICK FREE UPDATE">MISE À JOUR GRATUITE EN UN CLIC</button>
@@ -6059,6 +6118,21 @@ let refugeG = null, piloteG = null, panneauG = null;
     const pz = 0.6;
     p.push(-dx, 0, -pz, -dx, 2.0, -pz, -dx, 0, pz, -dx, 2.0, pz, -dx, 2.0, -pz, -dx, 2.0, pz);
     p.push(-dx, 0.9, pz - 0.18, -dx, 1.05, pz - 0.18);           // la poignée
+    // LE MOT, PLIÉ, COINCÉ DANS LA PORTE. Il se voit de loin — un carré clair
+    // sur du bois sombre, à hauteur des yeux — et on ne sait pas ce que c'est
+    // avant d'être devant. C'est le seul objet du terrain qui donne envie de
+    // s'approcher pour une raison qui n'est pas le vol.
+    const mz0 = 0.15, my0 = 1.52, mw = 0.19, mh = 0.26, mx = -dx - 0.035;
+    const mot = [];
+    mot.push(mx, my0, mz0 - mw, mx, my0, mz0 + mw,
+             mx, my0 + mh, mz0 - mw, mx, my0 + mh, mz0 + mw,
+             mx, my0, mz0 - mw, mx, my0 + mh, mz0 - mw,
+             mx, my0, mz0 + mw, mx, my0 + mh, mz0 + mw);
+    // le pli, et deux traits d'écriture qu'on ne peut pas lire d'ici
+    mot.push(mx, my0 + mh * 0.62, mz0 - mw, mx, my0 + mh * 0.62, mz0 + mw);
+    for (const fy of [0.24, 0.42]) mot.push(mx, my0 + mh * fy, mz0 - mw * 0.6,
+                                            mx, my0 + mh * fy, mz0 + mw * 0.55);
+    s.add(new THREE.LineSegments(segGeom(mot), lineMat(COL_TEXT, 0.95)));
     // une fenêtre sur le pignon sud, avec sa croisée
     const fz = -dz, fx0 = -0.7, fx1 = 0.7, fy0 = 1.3, fy1 = 2.3;
     p.push(fx0, fy0, fz, fx1, fy0, fz, fx1, fy0, fz, fx1, fy1, fz,
@@ -6357,15 +6431,83 @@ function majPanneauRefuge() {
 // travaillons. C'est la même silhouette que les hommes du terrain — un mètre
 // quatre-vingts — et c'est voulu : on découvre qu'on a la taille des gens
 // qu'on regardait courir sous l'aile depuis le début.
+// LE PETIT PRINCE. C'était une boîte d'un mètre quatre-vingts : de loin, sous
+// l'aile, ça suffisait — on ne voyait qu'une silhouette. Mais on marche
+// maintenant, et la caméra est à six mètres derrière lui : une boîte, à six
+// mètres, est une boîte.
+//
+// Il n'en faut pas beaucoup pour que ce soit quelqu'un : des jambes, un tronc
+// plus étroit, une tête, et une écharpe. C'est l'écharpe qui fait tout — elle
+// dit qui il est sans que le jeu l'écrive, et elle traîne derrière lui quand
+// il marche, ce qui est la seule chose animée du refuge.
+//
+// Elle vit dans son propre objet parce qu'elle bouge : le corps est fixe, elle
+// non.
+let echarpeG = null;
 (function poserPilote() {
-  const h = 1.8;
-  const geo = new THREE.BoxGeometry(0.62, h, 0.42).translate(0, h / 2, 0);
-  const g = solidWire(geo, new THREE.EdgesGeometry(geo, 20), lineMat(COL_TEXT, 0.85));
+  const g = new THREE.Group();
+  const mat = lineMat(COL_TEXT, 0.85);
+  const p = [];
+  const boite = (cx, cy, cz, lx, ly, lz) => {
+    const c = [];
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1])
+      c.push([cx + sx * lx / 2, cy + sy * ly / 2, cz + sz * lz / 2]);
+    const ar = [[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
+    for (const [i, j] of ar) p.push(c[i][0], c[i][1], c[i][2], c[j][0], c[j][1], c[j][2]);
+  };
+  // deux jambes, un tronc, une tête : la proportion d'un enfant, pas d'un homme
+  for (const sx of [-0.13, 0.13]) {
+    p.push(sx, 0, 0, sx, 0.78, 0);
+    p.push(sx - 0.07, 0, 0.02, sx + 0.07, 0, 0.02);        // les pieds
+  }
+  boite(0, 1.10, 0, 0.42, 0.64, 0.26);
+  for (const sx of [-0.27, 0.27]) p.push(sx, 1.36, 0, sx * 1.15, 0.84, 0.04);   // les bras
+  boite(0, 1.60, 0, 0.26, 0.26, 0.26);
+  for (let k = -2; k <= 2; k++)                                                  // les cheveux
+    p.push(k * 0.055, 1.73, 0, k * 0.075, 1.83 - Math.abs(k) * 0.02, -0.02);
+  g.add(new THREE.LineSegments(segGeom(p), mat));
+
+  // L'ÉCHARPE. Deux pans qui partent du cou et traînent derrière, reliés par
+  // des traverses : un ruban, pas deux fils. Au repos elle pend ; en marche
+  // elle s'allonge et ondule.
+  echarpeG = new THREE.Group();
+  echarpeG.userData.mat = lineMat(COL_TEXT, 0.7);
+  g.add(echarpeG);
+
   g.frustumCulled = false;
   g.visible = false;
   scene.add(g);
   piloteG = g;
 })();
+
+// Elle est refaite à chaque image : c'est six segments, et ça coûte moins cher
+// qu'une chaîne d'os. `v` va de 0 (arrêté) à 1 (au pas).
+const ECHARPE_N = 7;
+function majEcharpe(v, tps) {
+  if (!echarpeG) return;
+  const p = [];
+  const long = 0.55 + 0.75 * v;
+  for (let i = 0; i <= ECHARPE_N; i++) {
+    const u = i / ECHARPE_N;
+    const z = u * long;                                   // derrière lui
+    const y = 1.42 - u * u * (0.55 - 0.42 * v)
+            + Math.sin(tps * 6.2 - u * 3.4) * 0.05 * v * u;
+    const x = Math.sin(tps * 4.1 - u * 2.6) * 0.09 * v * u;
+    for (const sx of [-0.09, 0.09]) {
+      if (i > 0) {
+        const u0 = (i - 1) / ECHARPE_N, z0 = u0 * long;
+        const y0 = 1.42 - u0 * u0 * (0.55 - 0.42 * v)
+                 + Math.sin(tps * 6.2 - u0 * 3.4) * 0.05 * v * u0;
+        const x0 = Math.sin(tps * 4.1 - u0 * 2.6) * 0.09 * v * u0;
+        p.push(x0 + sx, y0, z0, x + sx, y, z);
+      }
+    }
+    if (i % 2 === 0) p.push(x - 0.09, y, z, x + 0.09, y, z);
+  }
+  const vieux = echarpeG.children[0];
+  if (vieux) { echarpeG.remove(vieux); vieux.geometry.dispose(); }
+  echarpeG.add(new THREE.LineSegments(segGeom(p), echarpeG.userData.mat));
+}
 
 // ---------------------------------------------------------------------------
 const speciaux = [];
@@ -6987,6 +7129,8 @@ const state = {
   gunT: 0,
   roquettes: [],
   roqEnnemies: [],    // les leurs
+  pied: null,         // quand on marche : le bonhomme a pris la main
+  action: null,       // ce que le bouton du bas propose ici, s'il propose
   alerte: 0,          // secondes d'alerte roquette à l'écran
   lockedT: 0,         // repos entre deux avertissements LOCKED
   lockTenu: 0,        // secondes de verrouillage plein tenu : ça vibre
@@ -7127,6 +7271,12 @@ function redecoller() {
 }
 
 const redecoBtn = document.getElementById('redecoBtn');
+const actionBtn = document.getElementById('actionBtn');
+const lettrePan = document.getElementById('lettre');
+actionBtn.addEventListener('click', e => { e.stopPropagation(); faitAction(); });
+document.getElementById('lettreFerme').addEventListener('click', e => {
+  e.stopPropagation(); fermeLettre();
+});
 const poserBtn = document.getElementById('poserBtn');
 poserBtn.addEventListener('click', e => {
   e.stopPropagation();
@@ -7435,7 +7585,8 @@ function updateRefugePose(dt) {
     piloteG.position.set(state.pos.x + dx * c - dz * sn, PISTE.y,
                          state.pos.z - dx * sn - dz * c);
     piloteG.rotation.y = state.yaw;      // il regarde où l'avion regarde
-    piloteG.rotation.x = 0;
+    piloteG.rotation.x = 0; piloteG.rotation.z = 0;
+    majEcharpe(0, R.t);                  // à l'arrêt, elle pend
   }
   // ELLE TOURNE AUTOUR DU LIEU, PAS AUTOUR DE L'AVION. Centrée sur l'appareil
   // et rayon trente mètres, elle passait DERRIÈRE le panneau — qui est à
@@ -7448,6 +7599,16 @@ function updateRefugePose(dt) {
   const cxz = REFUGE_CENTRE;
   const ox = state.pos.x - sy * cxz, oz = state.pos.z - cy * cxz;
   const k6 = Math.min(1, R.t / 8);
+  // ON PART À PIED EN POUSSANT. Rien ne l'annonce et rien ne le demande : une
+  // fois descendu, le manche ne pilote plus rien — alors on essaie, et c'est
+  // le bonhomme qui bouge. C'est la seule manière de faire découvrir un verbe
+  // nouveau sans écrire un tutoriel.
+  if (piloteG && piloteG.visible && !state.pied) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const ref = Math.min(w, h) * 0.42;
+    const rr = Math.hypot((aim.x - w / 2) / ref, (aim.y - h / 2) / ref);
+    if (aim.active && rr > 0.22) { passeAPied(); return; }
+  }
   const rayon = 34 + 10 * k6;
   const haut = 9 + 6 * k6;
   camera.position.set(ox + Math.sin(R.angle) * rayon,
@@ -7460,6 +7621,7 @@ function updateRefugePose(dt) {
 
 function quitteRefuge() {
   if (piloteG) piloteG.visible = false;
+  state.pied = null; state.action = null; majActionBtn();
   state.refuge = null;
   state.waveTimer = 2.5;
   state.regime = 1;
@@ -7481,6 +7643,180 @@ function quitteRefuge() {
   state.camYaw = state.yaw; state.camPitch = 0; state.camRoll = 0; state.camSpin = 0;
   state.speed = 0; state.regime = 0;
   state.takeoff = { t: 0, yaw: state.yaw };
+}
+
+
+// ---------------------------------------------------------------------------
+// À PIED.
+//
+// C'est le seul endroit du jeu où l'on quitte l'appareil, et c'est pour ça
+// qu'il existe. Tout le reste se joue à cent vingt mètres par seconde, à trois
+// cents mètres du sol, dans une machine : ici on marche à deux mètres par
+// seconde, on fait le tour d'une cabane, et on lit ce qui est écrit sur une
+// porte. Le changement d'échelle est le propos — on découvre qu'on a la taille
+// des gens qu'on regardait courir sous l'aile depuis le début.
+//
+// Rien ne se déclenche : le manche, qui pilotait, déplace maintenant quelqu'un.
+// C'est le même doigt, au même endroit, et il fait une chose entièrement
+// différente. On ne l'annonce pas — on le découvre en poussant.
+// ---------------------------------------------------------------------------
+const PIED_VIT    = 2.4;    // mètres par seconde : un pas de promenade
+const PIED_TOURNE = 6.0;    // rad/s : il se tourne vite, il ne dérape pas
+const PIED_RECUL  = 7.4;    // la caméra le suit d'aussi loin
+const PIED_HAUT   = 2.9;    // et d'aussi haut
+const PIED_VISE   = 1.35;   // elle regarde à hauteur d'épaule
+const PIED_SOUPLE = 2.2;    // amortissement : très souple, jamais collée
+const PIED_RAYON  = 320;    // on ne s'éloigne pas du terrain à pied
+const PIED_PORTEE = 4.2;    // à quelle distance un objet se propose
+
+// Les points d'intérêt du refuge, en coordonnées du terrain. Chacun sait à
+// quelle distance il se propose et ce qu'il offre.
+function pointsDuRefuge() {
+  const P = REFUGE_PLAN;
+  return [
+    { cle: 'mot',    x: P.maison.x - P.maison.w / 2 - 0.8, z: P.maison.z + 0.6, d: 3.4 },
+    { cle: 'jeep',   x: P.jeep.x,   z: P.jeep.z,   d: 4.0 },
+    { cle: 'ancien', x: P.avionAncien.x, z: P.avionAncien.z, d: 5.5 },
+    { cle: 'casse',  x: P.avionCasse.x,  z: P.avionCasse.z,  d: 5.5 },
+  ];
+}
+
+function passeAPied() {
+  if (!piloteG || state.pied) return;
+  state.pied = {
+    x: piloteG.position.x, z: piloteG.position.z,
+    cap: piloteG.rotation.y, v: 0, t: 0,
+    camX: camera.position.x, camZ: camera.position.z, camY: camera.position.y
+  };
+  announce(t('aPied'));
+  SFX.cale();
+}
+
+function remonteEnAvion() {
+  state.pied = null;
+  state.action = null;
+  majActionBtn();
+  if (state.refuge) state.refuge.t = REFUGE_ARRET + REFUGE_SORTIE + 0.1;
+  announce(t('rembarque'));
+  SFX.cale();
+}
+
+const _pd = new THREE.Vector3();
+function updateAPied(dt) {
+  const M = state.pied;
+  M.t += dt;
+
+  // LE MANCHE DÉPLACE QUELQU'UN. On lit le doigt exactement comme en vol —
+  // l'écart au centre de l'écran — mais on l'interprète dans le repère de la
+  // caméra : pousser vers le haut, c'est aller devant soi, quel que soit le
+  // cap. C'est la seule convention qu'un pouce comprenne sans explication.
+  const w = window.innerWidth, h = window.innerHeight;
+  const ref = Math.min(w, h) * 0.42;
+  const dx = THREE.MathUtils.clamp((aim.x - w / 2) / ref, -1, 1);
+  const dy = THREE.MathUtils.clamp((aim.y - h / 2) / ref, -1, 1);
+  const r = Math.hypot(dx, dy);
+  const pousse = aim.active ? THREE.MathUtils.clamp((r - 0.10) / 0.55, 0, 1) : 0;
+
+  if (pousse > 0.01) {
+    // la caméra regarde le marcheur : son cap est celui qui va d'elle vers lui
+    const capCam = Math.atan2(M.x - M.camX, M.z - M.camZ);
+    // devant = le cap de la caméra ; droite = un quart de tour
+    const ax = -dy * Math.sin(capCam) + dx * Math.cos(capCam);
+    const az = -dy * Math.cos(capCam) - dx * Math.sin(capCam);
+    const voulu = Math.atan2(ax, az);
+    M.cap = dampAngle(M.cap, voulu, PIED_TOURNE, dt);
+    M.v = THREE.MathUtils.damp(M.v, PIED_VIT * pousse, 5, dt);
+    M.x += Math.sin(M.cap) * M.v * dt;
+    M.z += Math.cos(M.cap) * M.v * dt;
+  } else {
+    M.v = THREE.MathUtils.damp(M.v, 0, 7, dt);
+  }
+
+  // ON NE S'ÉLOIGNE PAS. Trois cent vingt mètres, c'est le terrain et ses
+  // abords ; au-delà il n'y a que la plaine, et marcher trente-deux kilomètres
+  // n'est pas une proposition de jeu. Le bord est mou : on ralentit, on ne
+  // bute pas.
+  const cx = REFUGE.x + REFUGE_PLAN.bande.x, cz = REFUGE.z + REFUGE_PLAN.bande.z;
+  const d = Math.hypot(M.x - cx, M.z - cz);
+  if (d > PIED_RAYON) {
+    const k = PIED_RAYON / d;
+    M.x = cx + (M.x - cx) * k;
+    M.z = cz + (M.z - cz) * k;
+  }
+
+  // LE BONHOMME. Il avance, et il se balance un peu : sans ce balancement il
+  // glisserait, et un bonhomme qui glisse n'est pas quelqu'un qui marche.
+  if (piloteG) {
+    piloteG.visible = true;
+    piloteG.position.set(M.x, PISTE.y, M.z);
+    piloteG.rotation.y = M.cap + Math.PI;     // sa face regarde son -z
+    const cadence = M.t * 5.4;
+    piloteG.rotation.z = Math.sin(cadence) * 0.055 * (M.v / PIED_VIT);
+    piloteG.position.y = PISTE.y + Math.abs(Math.sin(cadence)) * 0.055 * (M.v / PIED_VIT);
+    majEcharpe(THREE.MathUtils.clamp(M.v / PIED_VIT, 0, 1), M.t);
+  }
+
+  // LA CAMÉRA LE SUIT, DE TRÈS LOIN DERRIÈRE SES ÉPAULES. Elle ne se recale
+  // pas sur son cap : elle traîne, et c'est ce qui la rend douce. On tourne, et
+  // elle met une seconde à se remettre dans l'axe — comme quelqu'un qui suit.
+  const vx = M.x - Math.sin(M.cap) * PIED_RECUL;
+  const vz = M.z - Math.cos(M.cap) * PIED_RECUL;
+  M.camX = THREE.MathUtils.damp(M.camX, vx, PIED_SOUPLE, dt);
+  M.camZ = THREE.MathUtils.damp(M.camZ, vz, PIED_SOUPLE, dt);
+  M.camY = THREE.MathUtils.damp(M.camY, PISTE.y + PIED_HAUT, PIED_SOUPLE * 1.6, dt);
+  camera.position.set(M.camX, M.camY, M.camZ);
+  camera.lookAt(M.x, PISTE.y + PIED_VISE, M.z);
+  playerMesh.position.copy(state.pos);
+  propMesh.rotation.z += 0.05 * dt;
+
+  // CE QUI SE PROPOSE. Le plus proche des points d'intérêt, s'il est à portée,
+  // et l'appareil lui-même — sur lequel on peut toujours remonter.
+  let choix = null, dMin = 1e9;
+  for (const q of pointsDuRefuge()) {
+    const dd = Math.hypot(M.x - (REFUGE.x + q.x), M.z - (REFUGE.z + q.z));
+    if (dd < q.d && dd < dMin) { dMin = dd; choix = q.cle; }
+  }
+  const dAvion = Math.hypot(M.x - state.pos.x, M.z - state.pos.z);
+  if (!choix && dAvion < PIED_PORTEE + 2) choix = 'avion';
+  if (choix !== state.action) { state.action = choix; majActionBtn(); }
+}
+
+// Le bouton du bas dit ce qu'on peut faire ici, et rien quand on ne peut rien.
+function majActionBtn() {
+  if (!actionBtn) return;
+  const c = state.action;
+  actionBtn.hidden = !c || !state.pied;
+  if (c) actionBtn.textContent = t('act_' + c);
+}
+
+function faitAction() {
+  const c = state.action;
+  if (c === 'avion') { remonteEnAvion(); return; }
+  if (c === 'mot')   { ouvreLettre(); return; }
+  if (c === 'jeep')  { announce(t('pasEncore')); return; }
+  if (c === 'ancien' || c === 'casse') { announce(t('pasEncore')); return; }
+}
+
+// ---------------------------------------------------------------------------
+// LA LETTRE. Sur la porte, un mot plié. C'est la seule chose du jeu qui parle
+// de quelqu'un, et elle n'est ni une récompense, ni un objet, ni un bonus :
+// on la lit, ou on ne la lit pas, et rien ne change. C'est pour ça qu'elle
+// compte.
+// ---------------------------------------------------------------------------
+function ouvreLettre() {
+  if (!lettrePan) return;
+  document.getElementById('lettreTxt').textContent = t('lettreTxte');
+  document.getElementById('lettreSig').textContent = '— ' + t('lettreSig');
+  document.getElementById('lettreFerme').textContent = t('lettreFerme');
+  lettrePan.hidden = false;
+  state.paused = true;
+  try { localStorage.setItem('fod_lettre_lue', '1'); } catch (e) {}
+  SFX.cloche();
+}
+function fermeLettre() {
+  if (!lettrePan) return;
+  lettrePan.hidden = true;
+  state.paused = false;
 }
 
 function updateMission(dt) {
@@ -9186,6 +9522,13 @@ function simulate(dt) {
   if (state.running) state.dureeVol += dt;
   // AU REFUGE, LE MONDE S'ARRÊTE. Pas de vague, pas de tir, pas de poussée :
   // la caméra tourne, et c'est tout ce qui bouge.
+  if (state.pied) {
+    updateAPied(dt);
+    updateDecor(dt);
+    majSoleil(dt);
+    refreshBars();
+    return;
+  }
   if (state.refuge) {
     updateRefuge(dt);
     updateDecor(dt);
@@ -12101,6 +12444,29 @@ const T = {
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
     ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
     plafond: 'CELLULE RENFORCÉE  ·  PLAFOND ', affaisse: 'PORTAIL AFFAISSÉ  ·  IL PASSE AU RAS DU SOL', ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
+    aPied: 'ON MARCHE  ·  LE MANCHE DÉPLACE L’HOMME',
+    rembarque: 'À BORD',
+    pasEncore: 'PAS ENCORE',
+    act_avion: 'REMONTER',
+    act_mot: 'LIRE',
+    act_jeep: 'CONDUIRE',
+    act_ancien: 'L’AVION ANCIEN',
+    act_casse: 'L’AVION CASSÉ',
+    lettreFerme: 'REPLIER',
+    lettreSig: 'Elle',
+    lettreTxte:
+      'Je pars, et je ne laisse pas d’adresse. Ne me cherche pas : tu es\n' +
+      'quelqu’un qui cherche, et tu chercherais très bien, et ce serait la\n' +
+      'pire des choses pour nous deux.\n\n' +
+      'Tu as toujours regardé le ciel comme si quelque chose y manquait. Je\n' +
+      'croyais que c’était moi. Ce n’était pas moi, et j’ai mis longtemps à\n' +
+      'comprendre que ce n’était pas grave — que tu n’y pouvais rien, et que\n' +
+      'moi non plus.\n\n' +
+      'Alors c’est mieux ainsi. Je le pense vraiment, et pas seulement pour\n' +
+      'me consoler en l’écrivant.\n\n' +
+      'Le poste marche encore. Le disque aussi, une fois. Fais attention en\n' +
+      'le posant, l’aiguille est vieille.\n\n' +
+      'Un jour, dans les étoiles.',
     alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', leurre: 'LEURRE LÂCHÉ  ·  RESTE ', leurresPleins: 'LEURRES RECHARGÉS', locked: 'LOCKED  ·  BOUGE !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
     rempart: 'Tiendras-tu dix vagues ?',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
@@ -12162,6 +12528,29 @@ const T = {
     objReussi: 'TODAY’S GOAL DONE  ·  +',
     ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
     plafond: 'AIRFRAME REINFORCED  ·  CEILING ', affaisse: 'GATE CAVED IN  ·  IT PASSES AT GROUND LEVEL NOW', ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
+    aPied: 'ON FOOT  ·  THE STICK MOVES THE MAN',
+    rembarque: 'ABOARD',
+    pasEncore: 'NOT YET',
+    act_avion: 'GET BACK IN',
+    act_mot: 'READ',
+    act_jeep: 'DRIVE',
+    act_ancien: 'THE OLD AIRCRAFT',
+    act_casse: 'THE BROKEN AIRCRAFT',
+    lettreFerme: 'FOLD IT BACK',
+    lettreSig: 'Her',
+    lettreTxte:
+      'I am leaving, and I am not leaving an address. Do not look for me:\n' +
+      'you are someone who looks, and you would look very well, and that\n' +
+      'would be the worst thing for us both.\n\n' +
+      'You always watched the sky as though something were missing from it.\n' +
+      'I thought it was me. It was not me, and it took me a long time to\n' +
+      'understand that this was all right — that you could do nothing about\n' +
+      'it, and neither could I.\n\n' +
+      'So it is better this way. I mean it, and not only to console myself\n' +
+      'by writing it down.\n\n' +
+      'The wireless still works. So does the record, once. Be careful\n' +
+      'setting it down, the needle is old.\n\n' +
+      'One day, among the stars.',
     alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', leurre: 'FLARE OUT  ·  LEFT ', leurresPleins: 'FLARES RELOADED', locked: 'LOCKED  ·  MOVE!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
     rempart: 'Will you survive 10 waves?',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
@@ -12738,6 +13127,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.09', fr: 'On descend de l’avion et on marche : le manche déplace le Petit Prince.', en: 'You step out of the aircraft and walk: the stick moves the Little Prince.' },
+  { v: '1.09', fr: 'Il a une écharpe, et elle traîne derrière lui quand il marche.', en: 'He has a scarf, and it trails behind him as he walks.' },
+  { v: '1.09', fr: 'Un mot est coincé dans la porte de la maison. On peut le lire.', en: 'A note is wedged in the house door. You can read it.' },
   { v: '1.08', fr: 'Les montagnes n’étaient pas transparentes : leur remplissage avait un contraste de 1,10 contre le ciel.', en: 'The mountains were not transparent: their fill had a contrast ratio of 1.10 against the sky.' },
   { v: '1.08', fr: 'Le refuge est rebâti sur son plan : barrière, portillon ouvert, maison en bois, hangar, Jeep.', en: 'The refuge is rebuilt from its plan: fence, open gate, wooden house, hangar, Jeep.' },
   { v: '1.08', fr: 'Dans le hangar du refuge, un avion démonté et un avion des tout débuts de l’aviation.', en: 'In the refuge hangar, a stripped-down aircraft and one from aviation’s first days.' },
