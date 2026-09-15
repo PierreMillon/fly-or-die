@@ -1435,15 +1435,34 @@ parties ne franchissent jamais la chaîne.
 Quatre constantes à régler à l'oreille sur la planche :
 `MUSIQUE_GAIN`, `MUSIQUE_TAMISE`, `MUSIQUE_FONDU`, `MUSIQUE_RETOUR`.
 
-### Le fichier envoyé est coupé
+### La guitare, et mon erreur de lecture
 
-`sons/refuge.m4a` fait 1,76 Mo mais son index ne décrit que **96 échantillons
-AAC**, soit 2,048 s. `mvhd`, `mdhd` et `stsz` disent tous deux secondes,
-alors que le `mdat` pèse 1 825 396 octets : à 2 s il faudrait 7 100 kbit/s,
-ce qu'aucun encodage AAC ne produit. Le son est là, le sommaire n'a pas été
-écrit jusqu'au bout — export interrompu. Irréparable sans l'index : les
-limites des trames AAC ne sont pas retrouvables. À réexporter par
-Partager → Enregistrer dans Fichiers.
+`sons/refuge.m4a` : **1 min 49 s, 135 kbit/s, AAC 48 kHz, 1,76 Mo.** Le fichier
+est bon, et le premier envoi l'était déjà.
+
+J'avais annoncé qu'il était coupé à 2 s. C'était faux, et l'erreur mérite
+d'être écrite ici parce qu'elle se reproduira si je ne la note pas : je
+cherchais les atomes MP4 avec `buffer.find(b'stsz')`. Sur 1,8 Mo de données
+AAC, une suite de quatre octets valant `stsz` apparaît par hasard — et elle
+apparaissait avant le vrai atome, dans le `mdat`. J'ai lu un sommaire
+imaginaire (96 échantillons) au lieu du vrai (5 151), et les trois « champs
+concordants » que je citais venaient tous de la même fausse piste.
+
+**La règle** : un conteneur MP4 se lit en parcourant l'arbre des atomes depuis
+l'octet zéro, jamais en cherchant un nom dans les octets. `find()` sur un
+format binaire qui contient des données arbitraires n'est pas une lecture,
+c'est une coïncidence.
+
+Le contrôle qui l'aurait attrapé tout de suite, et que j'avais sous les yeux :
+1,8 Mo en 2 s ferait 7 100 kbit/s. Aucun encodage AAC ne fait ça. J'ai cité ce
+chiffre comme preuve que le fichier était cassé, alors qu'il prouvait que ma
+lecture l'était.
+
+**Mesuré** : le déclenchement bascule à 8 885 m, juste après le seuil de
+8 800. La lecture elle-même n'est pas vérifiable ici — le Chromium du bac
+d'essai n'a pas de décodeur AAC (`canPlayType('audio/mp4; codecs="mp4a.40.2"')`
+renvoie une chaîne vide) — c'est une limite de l'outil, pas du fichier. Safari
+sur iPhone lit l'AAC nativement.
 
 ### Sa direction, notée
 
