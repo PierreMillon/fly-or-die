@@ -823,3 +823,23 @@ Ce qui s'arrête vraiment, mesuré sur la carte fixe :
 Donc tout le monde habité tient dans 3 km, le refuge est le seul objet au-delà,
 et à 18 km il y a de l'herbe et rien d'autre. Les montagnes sont bien le bord
 visible du monde : ce qu'on franchit pour aller voir s'il y a quelque chose.
+
+## v0.89 — la Grande Ourse montre le refuge
+
+C'était la question ouverte : que donne le chariot, en plus des points et du
+viseur ? La réponse est dans ce qu'il fait depuis toujours dans le vrai ciel.
+Il sert à se repérer.
+
+- **Le chariot tracé pose le refuge sur la boussole**, en petit chevron, et lève
+  les trois minutes d'attente. C'est le seul repère du monde qui ne s'affiche
+  pas d'office. Les deux secrets sont donc liés : le ciel donne le sol.
+- **Le pilote descend de l'avion** au refuge. Même silhouette que les hommes du
+  terrain, un mètre quatre-vingts : on découvre qu'on a leur taille. Il fait le
+  tour de la cellule en s'arrêtant sur le moteur, l'aile, le train.
+- **Une nappe très basse** au refuge, quatre voix tenues avec un battement
+  lent, montée en trois secondes et demie. Elle tiendra la place jusqu'à ce
+  qu'il envoie la sienne.
+- L'aide dit qu'il y a des choses cachées, et ne dit pas lesquelles. Trois
+  indications, pas une de plus.
+- Les blocs de la bande du haut ne se chevauchent plus quand un nombre
+  s'allonge.

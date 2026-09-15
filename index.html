@@ -87,6 +87,10 @@
   /* sur un téléphone étroit, tout doit pouvoir rétrécir plutôt que
      pousser le bouton de version hors de l'écran */
   #topbar > *, #bottombar > * { flex-shrink: 1; min-width: 0; white-space: nowrap; }
+  /* un nombre long ne doit pas passer par-dessus son voisin : chaque bloc
+     coupe ce qui déborde plutôt que de mordre sur le suivant */
+  #topbar > *, #bottombar > * { overflow: hidden; text-overflow: clip; }
+  #bottombar #bouclierLbl { flex-shrink: 2; }
 
   /* au-dessus du menu : sans ça les boutons du haut étaient couverts par
      l'écran de titre, donc inaccessibles au moment précis où l'on veut
@@ -707,7 +711,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.88</button>
+  <button id="versionBtn">v0.89</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -885,6 +889,18 @@
   deux secondes et demie, ça pousse. La vitesse visée passe de 78 à 121 m/s
   et l'air se met à filer. Rompre l'alignement coupe tout, trois fois plus
   vite que ça ne s'était accumulé.</p>
+
+  <h2>CE QUI NE S'ÉCRIT PAS</h2>
+  <p>Le ciel et le sol cachent des choses que l'aide ne détaillera pas. Trois
+  indications, et rien de plus.</p>
+  <p><b>Le soleil.</b> Il se regarde, il se tient, il se traverse. Trois choses
+  différentes arrivent selon ce qu'on en fait.</p>
+  <p><b>Deux figures dans le ciel.</b> La Grande Ourse et l'étoile du Berger
+  sont là où elles doivent être. L'une montre le chemin, comme elle l'a
+  toujours fait. L'autre annonce le jour, et elle ne se laisse prendre qu'en
+  sortant d'une figure.</p>
+  <p><b>Quelque part à l'ouest.</b> Il y a un terrain qui n'est sur aucune
+  carte. On y arrive en volant longtemps et bas.</p>
 
   <h2>LE SOLEIL</h2>
   <p>Le regarder en face rend la cible plus dure à tenir et le tir plus
@@ -1069,6 +1085,17 @@
   <p>Every aircraft destroyed adds three seconds, up to nine, of a state where
   the guns fire twice as fast and the dial shakes. Chaining is easier than
   starting.</p>
+
+  <h2>WHAT IS NOT WRITTEN DOWN</h2>
+  <p>The sky and the ground hide things this help will not spell out. Three
+  hints, and nothing more.</p>
+  <p><b>The sun.</b> It can be looked at, held, and flown through. Three
+  different things happen depending on what you do with it.</p>
+  <p><b>Two figures in the sky.</b> The Big Dipper and the Evening Star are
+  where they should be. One points the way, as it always has. The other
+  announces the day, and it only yields on the way out of a figure.</p>
+  <p><b>Somewhere west.</b> There is an airfield on no map. You get there by
+  flying long and low.</p>
 
   <h2>THE SUN</h2>
   <p>Looking at it makes the target harder to hold and the fire weaker.
@@ -1939,6 +1966,48 @@ const SFX = {
   // sa quinte et son octave, tous en sinus, avec une attaque LENTE pour
   // qu'aucun claquement n'ouvre le son, et une longue queue. On l'entend dans
   // la poitrine plutôt que dans les oreilles.
+  // LE REFUGE. Une nappe très basse, trois notes tenues qui ne bougent presque
+  // pas, et rien de rythmique. C'est un lieu où l'on ne fait rien : la musique
+  // ne doit pas donner envie de repartir. Elle tiendra la place jusqu'à ce
+  // qu'il envoie la sienne.
+  refugeOn:     () => {
+    if (!actx || muet || SFX._refuge) return;
+    const t = actx.currentTime;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.11, t + 3.5);
+    g.connect(master);
+    const voix = [];
+    for (const [f, d, type] of [[65.4, 0, 'sine'], [98, 0.4, 'sine'],
+                                [130.8, 0.9, 'sine'], [196, 1.6, 'triangle']]) {
+      const o = actx.createOscillator(), og = actx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(f, t);
+      og.gain.setValueAtTime(0.0001, t);
+      og.gain.exponentialRampToValueAtTime(0.9 / (1 + d * 2), t + 4 + d * 2);
+      // un très léger battement : deux voix presque accordées, et l'air respire
+      const l = actx.createOscillator(), lg = actx.createGain();
+      l.frequency.setValueAtTime(0.07 + d * 0.03, t);
+      lg.gain.setValueAtTime(f * 0.0016, t);
+      l.connect(lg).connect(o.frequency);
+      o.connect(og).connect(g);
+      o.start(t); l.start(t);
+      voix.push(o, l);
+    }
+    SFX._refuge = { g: g, voix: voix };
+  },
+  refugeOff:    () => {
+    const R = SFX._refuge;
+    if (!R || !actx) return;
+    SFX._refuge = null;
+    const t = actx.currentTime;
+    try {
+      R.g.gain.cancelScheduledValues(t);
+      R.g.gain.setValueAtTime(R.g.gain.value, t);
+      R.g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    } catch (e) {}
+    for (const o of R.voix) { try { o.stop(t + 1.5); } catch (e) {} }
+  },
   aum:          () => {
     if (!actx || muet) return;
     const t = actx.currentTime;
@@ -2771,8 +2840,14 @@ function secretsCiel(dt) {
       if (state.ourseN < OURSE_DIRS.length) {
         announce(OURSE_NOMS[state.ourseN - 1] + '  ·  ' + state.ourseN + ' / 7');
       } else {
+        // ELLE SERT À SE REPÉRER, ET C'EST SA RÉCOMPENSE. Dans le vrai ciel,
+        // le chariot donne le nord : ici il donne le refuge. Une fois tracée,
+        // la Grande Ourse le pose sur la boussole et lève les trois minutes
+        // d'attente. C'est la seule façon de le trouver sans le chercher au
+        // hasard, et elle relie les deux secrets du jeu.
         marque(OURSE_PRIME);
         stat('ourses');
+        state.ourseFaite = true;
         announce(t('ourse') + OURSE_PRIME);
         SFX.aum();
         debloqueViseur('ourse');
@@ -4505,7 +4580,7 @@ const REFUGE = { x: -3900, z: (PISTE.z0 + PISTE.z1) / 2, demiL: 14, demiZ: 180 }
 const REFUGE_TEMPS = 180;        // secondes de vol avant qu'il existe
 const REFUGE_VUE = 1700;         // distance à laquelle il se laisse voir
 const REFUGE_TOUR = 0.22;        // radians par seconde : la caméra tourne autour
-let refugeG = null;
+let refugeG = null, piloteG = null;
 (function poserRefuge() {
   const g = new THREE.Group();
   const mat = lineMat(COL_LINE, 0.55);
@@ -4534,6 +4609,21 @@ let refugeG = null;
   g.visible = false;
   scene.add(g);
   refugeG = g;
+})();
+
+// LE PILOTE. Au refuge il n'y a personne : pas de mécanicien, pas de table, pas
+// de fusil. C'est donc nous qui descendons, qui ouvrons le capot et qui
+// travaillons. C'est la même silhouette que les hommes du terrain — un mètre
+// quatre-vingts — et c'est voulu : on découvre qu'on a la taille des gens
+// qu'on regardait courir sous l'aile depuis le début.
+(function poserPilote() {
+  const h = 1.8;
+  const geo = new THREE.BoxGeometry(0.62, h, 0.42).translate(0, h / 2, 0);
+  const g = solidWire(geo, new THREE.EdgesGeometry(geo, 20), lineMat(COL_TEXT, 0.85));
+  g.frustumCulled = false;
+  g.visible = false;
+  scene.add(g);
+  piloteG = g;
 })();
 
 // ---------------------------------------------------------------------------
@@ -5099,6 +5189,7 @@ const state = {
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
   dernierTireur: null, // qui nous a touché en dernier : l'écran de fin le dit
+  ourseFaite: false,   // le chariot est tracé : le refuge est sur la boussole
   ourseN: 0,           // combien d'étoiles du chariot sont déjà allumées
   ourseT: 0,           // secondes passées sur la suivante
   bergerT: 0,          // secondes passées sur Vénus
@@ -5298,6 +5389,7 @@ function resetGame() {
   state.stats = statsVides();
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avion().roquettes;
   state.ourseN = 0; state.ourseT = 0; state.bergerT = 0; state.bergerPris = false;
+  state.ourseFaite = false;
   state.aube = 0; state.figSortie = 0; state.dernierTireur = null; state.mission = null;
   nouvelles.length = 0;
   if (typeof majTraitOurse === 'function') majTraitOurse();
@@ -5388,7 +5480,9 @@ function compteMission(cle, n) {
 // repère du monde qui ne s'y trouve pas.
 function updateRefuge(dt) {
   if (!refugeG) return;
-  const trouvable = state.running && state.dureeVol >= REFUGE_TEMPS;
+  // le chariot tracé vaut les trois minutes de vol : on a mérité le chemin
+  const trouvable = state.running
+    && (state.ourseFaite || state.dureeVol >= REFUGE_TEMPS);
   const d = Math.hypot(state.pos.x - REFUGE.x, state.pos.z - REFUGE.z);
   refugeG.visible = trouvable && d < REFUGE_VUE;
   if (state.refuge) { updateRefugePose(dt); return; }
@@ -5425,7 +5519,7 @@ function entreAuRefuge() {
   announce(t('refuge'));
   SFX.aum();
   redecoBtn.hidden = false;
-  if (typeof musiqueRefuge === 'function') musiqueRefuge(true);
+  SFX.refugeOn();
 }
 
 // La caméra s'écarte et tourne. Très lentement : un tour en une demi-minute.
@@ -5434,6 +5528,21 @@ function updateRefugePose(dt) {
   const R = state.refuge;
   R.t += dt;
   R.angle += REFUGE_TOUR * dt;
+  // il met deux secondes à descendre, puis il fait le tour de l'appareil en
+  // s'arrêtant sur le moteur, sur l'aile, sur le train. Rien ne le presse.
+  if (piloteG) {
+    piloteG.visible = R.t > 1.6;
+    const u = Math.max(0, R.t - 1.6);
+    const tour = u * 0.28;
+    const rp = 4.6 + Math.sin(u * 0.55) * 1.4;
+    piloteG.position.set(state.pos.x + Math.sin(tour) * rp,
+                         PISTE.y,
+                         state.pos.z + Math.cos(tour) * rp);
+    piloteG.rotation.y = Math.atan2(state.pos.x - piloteG.position.x,
+                                    state.pos.z - piloteG.position.z);
+    // il se penche sur ce qu'il répare, et se redresse de temps en temps
+    piloteG.rotation.x = 0.16 + Math.sin(u * 0.9) * 0.10;
+  }
   const rayon = 26 + 10 * Math.min(1, R.t / 6);
   const haut = 7 + 4 * Math.min(1, R.t / 6);
   camera.position.set(state.pos.x + Math.sin(R.angle) * rayon,
@@ -5445,12 +5554,13 @@ function updateRefugePose(dt) {
 }
 
 function quitteRefuge() {
+  if (piloteG) piloteG.visible = false;
   state.refuge = null;
   state.waveTimer = 2.5;
   state.regime = 1;
   state.speed = CRUISE;
   redecoBtn.hidden = true;
-  if (typeof musiqueRefuge === 'function') musiqueRefuge(false);
+  SFX.refugeOff();
   state.takeoff = { t: 0, yaw: state.yaw };
 }
 
@@ -9031,6 +9141,20 @@ function drawHud() {
       hctx.lineWidth = 1.5;
     }
 
+    // LE REFUGE — un petit chevron, et SEULEMENT si l'on a tracé le chariot.
+    // C'est le seul repère du monde qui ne s'affiche pas d'office : il faut
+    // l'avoir mérité dans le ciel pour l'avoir sur la boussole.
+    if (state.ourseFaite) {
+      const d = dc(capDe(_v.set(REFUGE.x, 0, REFUGE.z)));
+      const x = px(d);
+      hctx.strokeStyle = bord(d) ? 'rgba(190,255,220,0.35)' : 'rgba(190,255,220,0.9)';
+      hctx.lineWidth = 1.4;
+      hctx.beginPath();
+      hctx.moveTo(x - 5, by + 14); hctx.lineTo(x, by + 4); hctx.lineTo(x + 5, by + 14);
+      hctx.stroke();
+      hctx.lineWidth = 1.5;
+    }
+
     // LES ADVERSAIRES — un triangle chacun, sur leur propre ligne
     for (const e of state.enemies) {
       const d = dc(capDe(e.pos));
@@ -9755,7 +9879,7 @@ const T = {
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
     refuge: 'LE REFUGE  ·  MOTEUR COUPÉ  ·  PERSONNE NE VIENT',
     missionOk: 'MISSION REMPLIE  ·  +', missionKo: 'MISSION MANQUÉE  ·  LE VOL CONTINUE',
-    ourse: 'LA GRANDE OURSE TRACÉE  ·  +',
+    ourse: 'LA GRANDE OURSE  ·  ELLE MONTRE LE REFUGE  ·  +',
     berger: 'L’ÉTOILE DU BERGER  ·  LE JOUR SE LÈVE  ·  +',
     dore: 'SOLEIL TRAVERSÉ  ·  INVINCIBLE 10 s', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
@@ -9797,7 +9921,7 @@ const T = {
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
     refuge: 'THE REFUGE  ·  ENGINE OFF  ·  NOBODY IS COMING',
     missionOk: 'MISSION COMPLETE  ·  +', missionKo: 'MISSION MISSED  ·  THE FLIGHT GOES ON',
-    ourse: 'THE BIG DIPPER TRACED  ·  +',
+    ourse: 'THE BIG DIPPER  ·  IT POINTS TO THE REFUGE  ·  +',
     berger: 'THE EVENING STAR  ·  DAY BREAKS  ·  +',
     dore: 'THROUGH THE SUN  ·  INVINCIBLE 10 s', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
@@ -10337,6 +10461,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.89', fr: 'La Grande Ourse montre le refuge, et on y descend soi-même de l’avion.', en: 'The Big Dipper points to the refuge, and there you climb out of the aircraft yourself.' },
   { v: '0.88', fr: 'Un refuge sans nom à l’ouest, un anneau de montagnes, et remuer suffit à casser leur visée.', en: 'A nameless refuge to the west, a ring of mountains, and moving about is enough to spoil their aim.' },
   { v: '0.87', fr: 'Le tonneau devient barriqué : on monte, on s’enroule, on ressort décalé de deux ailes et demie.', en: 'The roll becomes a barrel roll: you climb, you wind round, you come out two and a half wingspans over.' },
   { v: '0.86', fr: 'Le faucheur traverse notre route avant de revenir par-derrière.', en: 'The reaper crosses our path before coming back from behind.' },
