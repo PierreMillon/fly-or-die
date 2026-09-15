@@ -1531,3 +1531,70 @@ Latécoère.
 
 Trois candidates sont dans le dépôt en attendant son choix : `refuge-leger`,
 `refuge-8bits`, `refuge-tsf`.
+
+## v1.03 — le gramophone, et le disque qui se casse
+
+### Sa direction : la musique a une source dans le monde
+
+Elle ne sort plus de nulle part. Dans le hangar du refuge il y a un
+**gramophone**, une guitare posée à côté, une partition. On s'approche, le
+plateau se met à tourner, les premières notes sortent du pavillon.
+
+Ça change tout, y compris techniquement : à partir du moment où la musique sort
+d'une machine de 1930, on ne cache plus la compression — on l'assume, et la
+dégradation devient du décor. Ce qui coûtait de la qualité rapporte de la
+vérité.
+
+### Le bruit de surface, synthétisé
+
+Rien n'est emprunté : le souffle et les craquements sont fabriqués pour ce jeu,
+en Python, échantillon par échantillon.
+
+- **Le souffle** : du bruit blanc passé deux fois dans un filtre à un pôle
+  (`y += (b − y) × 0,35`), ce qui lui ôte ses aigus les plus durs et lui donne
+  le grain du shellac.
+- **Les craquements** : des impulsions à décroissance exponentielle, longueur
+  et amplitude tirées au hasard, semées de 6 à 46 fois par seconde selon
+  l'usure. L'amplitude suit une loi en puissance 2,4 : beaucoup de petits, peu
+  de gros — comme une vraie surface.
+- **Le sillon rayé** : le même choc, identique, **toutes les 1,8 seconde** —
+  la durée d'un tour à 33 ⅓. C'est ce qui fait entendre que le disque *tourne*,
+  pas seulement qu'il est vieux.
+- **Le pleurage** : un vibrato à moins de 2 Hz et 0,28 de profondeur. La
+  vitesse d'un plateau n'est jamais constante, et c'est ce qui trahit une
+  machine mécanique avant tout le reste.
+
+### Les six disques
+
+| | Poids | |
+|---|---|---|
+| Minimal | 221 Ko | sa retenue, sans ajout |
+| Gramophone | 279 Ko | pavillon 250–2 900, souffle léger |
+| Disque usé | 251 Ko | trois fois plus de craquements |
+| Cire 78 tours | 222 Ko | 300–2 200 Hz, cinq bits |
+| Rayé | 251 Ko | un choc à chaque tour |
+| TSF lointaine | 195 Ko | un poste mal capté |
+
+### Le disque se casse
+
+À la fin du morceau : dernier sillon, craquement sec, le bras se relève, et le
+disque se fend. Il ne rejouera plus — **pas seulement cette partie : plus jamais
+sur cet appareil**. Il faut effacer les données du jeu pour en retrouver un
+neuf.
+
+Techniquement c'est un drapeau persistant, trois lignes. Ce qui compte est
+ailleurs : le jeu ne prévient pas. On le découvre en l'écoutant jusqu'au bout,
+ou on le rate. Un joueur qui a fait dix kilomètres pour arriver là aura entendu
+quelque chose qu'il ne réentendra pas.
+
+### Ce que ça vise, et pourquoi c'est juste
+
+Un jeu très neuf sous l'apparence d'une machine très ancienne, qui raconte
+quelque chose d'universel. La mélancolie ne vient pas d'un effet : elle vient de
+ce qu'on y a laissé du temps et qu'on ne peut pas le reprendre. C'est la même
+raison qui fait qu'un disque rayé émeut plus qu'un fichier propre — on entend
+qu'il a servi.
+
+Un jeu d'avion sur téléphone où l'on tire sur des cibles, et dedans : un
+terrain que personne n'a cartographié, une guitare enregistrée par son auteur,
+et une écoute qu'on ne peut pas répéter. Ce qui survit n'est pas le jeu.
