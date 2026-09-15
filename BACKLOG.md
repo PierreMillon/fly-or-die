@@ -1680,3 +1680,39 @@ Ses réglages du premier tour :
 
 Une sixième constante apparaît, `DISQUE_DENSITE` (craquements par seconde), à
 régler au même tour — l'échelle des deux niveaux a changé avec la synthèse.
+
+## v1.05 — deux régressions que j'avais introduites
+
+### Le brouillard annulait la couleur du relief
+
+J'avais donné un corps à la nappe (`COL_RELIEF`) **et** activé le brouillard,
+dans le même geste, pour étager les plans. Les deux se défaisaient dans la même
+ligne.
+
+`scene.fog` est un `FogExp2` de couleur `COL_BG = 0x04070a` — la couleur
+**exacte** du fond. À trois kilomètres son facteur vaut déjà 0,91 : la nappe
+redevenait à 91 % le ciel. La montagne n'avait donc de corps que sous le nez de
+l'appareil, et au-delà elle redevenait un filet.
+
+`fog: false`. La profondeur ne vient pas du brouillard mais de **l'occultation** :
+une crête proche cache celles de derrière, et c'est ça qui étage les plans. La
+teinte passe à `0x081810`, un peu plus franche puisqu'elle ne s'éteint plus.
+
+### Deux viseurs, un seul identifiant
+
+Le viseur CROIX existe depuis toujours avec l'id `croix`. J'ai ajouté CROIX DU
+SUD avec **le même id**. La sélection se faisant par identifiant, les deux
+s'affichaient EN PLACE en même temps. Renommé en `croixsud`.
+
+**Mesuré** : 41 viseurs, zéro identifiant en double.
+
+### L'amorce du disque
+
+Il la dit inopérante. **Mesurée** : réglée à 3,0 s, la bascule du sillon vers la
+musique tombe à 3,0 s exactement. Le minutage fonctionne.
+
+Ce qui ne fonctionne pas, c'est qu'on n'entend presque rien pendant ce temps :
+ses valeurs (0,25) ont été réglées sur l'ancienne version où le sillon était un
+fichier à 0,6 d'amplitude. Dans la version synthétisée, le souffle est à 0,16 ×
+0,25 = 0,04 — quatre fois plus faible. Onze secondes de quasi-silence se lisent
+comme un réglage sans effet.

@@ -744,7 +744,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v1.02</button>
+  <button id="versionBtn">v1.05</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -1539,7 +1539,7 @@ const COL_FOND      = 0x04070a;   // le fond de l'écran : la nappe du sol en pr
 // l'autre — et trop peu pour éclairer quoi que ce soit. La valeur est
 // volontairement basse : c'est la silhouette qui fait le travail, pas la
 // teinte.
-const COL_RELIEF    = 0x07130e;
+const COL_RELIEF    = 0x081810;
 const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
 const COL_LOCK      = 0xffffff;
@@ -1624,7 +1624,10 @@ const VISEURS = [
                    if(c>0.6)_cx_.disque(x,1.6);} },
   // LA CROIX DU SUD : quatre branches inegales, la longue vers le bas — c'est
   // elle qui montre le sud.
-  { id:'croix',   nom:'CROIX DU SUD', acces:'secret',
+  // 'croixsud', PAS 'croix' : le viseur CROIX existe depuis toujours, et lui
+  // donner le même identifiant faisait que les deux se croyaient choisis en
+  // même temps — la sélection se fait par identifiant, pas par nom.
+  { id:'croixsud', nom:'CROIX DU SUD', acces:'secret',
     dessin:(x,c)=>{const r=14-3*c;x.beginPath();
                    x.moveTo(0,-r*0.6);x.lineTo(0,r);
                    x.moveTo(-r*0.55,r*0.1);x.lineTo(r*0.55,r*0.15);x.stroke();
@@ -3672,12 +3675,18 @@ function batisRelief(cx, cz) {
     // cinq kilomètres : les quatre mètres de décalage géométrique valent huit
     // crans de profondeur, largement assez, et ils ne dépendent d'aucun angle.
     //
-    // ET ELLE PREND LE BROUILLARD. Sans lui, une crête à cinq kilomètres a
-    // exactement le même corps qu'une crête à trois cents mètres, et la
-    // profondeur disparaît : c'est une découpe de papier. Avec, les plans
-    // s'étagent — le proche est franc, le lointain se fond dans l'horizon,
-    // comme les traits qui sont posés dessus, qui prennent déjà le brouillard.
-    new THREE.MeshBasicMaterial({ color: COL_RELIEF, fog: true, depthWrite: true })
+    // ET SURTOUT PAS LE BROUILLARD. Je l'avais mis dans le même geste que la
+    // couleur, pour étager les plans — et il annulait exactement ce qu'il
+    // accompagnait. Le brouillard tire vers COL_BG, qui vaut 0x04070a : la
+    // couleur EXACTE du fond. À trois kilomètres le facteur de FogExp2 vaut
+    // déjà 0,91, donc la nappe redevenait à 91 % le ciel, et la montagne
+    // n'avait de corps que sous le nez de l'appareil. Une correction qui
+    // défaisait la précédente dans la même ligne.
+    //
+    // La profondeur ne vient pas du brouillard mais de l'OCCULTATION : une
+    // crête proche cache celles de derrière, et c'est ce qui étage les plans.
+    // La nappe garde donc sa couleur, entière, à toutes les distances.
+    new THREE.MeshBasicMaterial({ color: COL_RELIEF, fog: false, depthWrite: true })
   );
   relief.frustumCulled = false;
   relief.renderOrder = -0.4;     // après la nappe, avant tous les traits
@@ -4078,7 +4087,7 @@ const CIEL_SUITE = [
   },
   {
     cle: 'croix', dirs: CROIX_DIRS, noms: CROIX_NOMS,
-    cone: OURSE_CONE, tenue: OURSE_TENUE, prime: 4000, viseur: 'croix',
+    cone: OURSE_CONE, tenue: OURSE_TENUE, prime: 4000, viseur: 'croixsud',
     liens: [[0, 1], [2, 3]],
     // ELLE NE SE LÈVE QUE DEHORS. Il faut être au-delà de la chaîne, sur la
     // plaine où plus rien n'est dessiné. Personne ne tombe dessus par hasard :
@@ -11820,6 +11829,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.05', fr: 'Les montagnes ont enfin un corps : le brouillard annulait la couleur qu’on venait de leur donner.', en: 'The mountains finally have a body: fog was cancelling the very colour just given to them.' },
+  { v: '1.05', fr: 'Deux viseurs portaient le même identifiant et se croyaient choisis en même temps.', en: 'Two sights shared one identifier and both believed they were selected.' },
   { v: '1.01', fr: 'Cinq figures de plus dans le ciel : la Polaire, Sirius, Cassiopée, les Pléiades et la Croix du Sud.', en: 'Five more figures in the sky: Polaris, Sirius, Cassiopeia, the Pleiades and the Southern Cross.' },
   { v: '1.01', fr: 'La Polaire ne se trouve qu’en suivant le chariot, et Sirius qu’en prolongeant le baudrier d’Orion.', en: 'Polaris is only found by following the Dipper, and Sirius by extending Orion’s belt.' },
   { v: '1.01', fr: 'La Polaire supprime la vrille pour toute la partie : c’est le seul point fixe du ciel.', en: 'Polaris removes the spin for the whole game: it is the sky’s one fixed point.' },
