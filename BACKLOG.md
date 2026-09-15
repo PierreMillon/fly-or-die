@@ -1396,3 +1396,59 @@ quand il y aura d'autres panneaux.
 Le panneau est tourné vers la bande, sur deux poteaux, à hauteur d'homme : on
 le lit en roulant. Les lettres font 1,3 m — deux degrés et demi à trente
 mètres, quarante pixels de haut.
+
+## v1.01 — cinq figures de plus, et la guitare
+
+### Le ciel devient une table
+
+La Grande Ourse et Orion ont chacune leur bloc écrit à la main. C'était tenable
+à deux ; à sept, non. Les nouvelles figures sont des **données** — `CIEL_SUITE`
+— où chaque entrée dit où elle est, comment on la prend, ce qu'elle exige
+d'avoir déjà fait, et ce qu'elle donne. Ajouter une constellation, c'est
+ajouter une ligne.
+
+**Mesuré, dans le navigateur :**
+
+| Figure | Étoiles | Prise en | Prime | Ce qu'elle donne |
+|---|---|---|---|---|
+| Polaire | 1 | 3,0 s | 1 500 | `pivot` — plus jamais de vrille |
+| Sirius | 1 | 2,5 s | 1 800 | 20 s d'éblouissement adverse |
+| Cassiopée | 5 | 10,1 s | 2 200 | vieMax 100 → **150**, réparation ×2 |
+| Pléiades | 1 | 4,0 s | 2 600 | cône 1,99° → **1,39°**, dégâts ×1,3 |
+| Croix du Sud | 4 | 8,1 s | 4 000 | éditeur de carte débloqué (`fod_carte_ok = 1`) |
+
+Les deux verrous sont vérifiés : avant le chariot et avant Orion,
+`polaire.ouvre()` et `sirius.ouvre()` valent `false` ; après, `true`. Trois
+viseurs de plus — POLAIRE, CASSIOPÉE, CROIX DU SUD. Aucune erreur JavaScript.
+
+### La guitare du passage
+
+Une seule fois par partie, au franchissement de `TERRAIN_R3` vers le dehors.
+Revenir puis repartir ne la relance pas : ce n'est pas une zone, c'est un
+passage. Pendant qu'elle joue, tout le reste se tamise — pas coupé, tamisé.
+
+Elle passe par un élément `<audio>` plutôt qu'un tampon décodé : deux
+mégaoctets décodés d'un bloc bloqueraient l'image sur un téléphone. Elle n'est
+pas pré-chargée par le service worker, pour la même raison : la plupart des
+parties ne franchissent jamais la chaîne.
+
+Quatre constantes à régler à l'oreille sur la planche :
+`MUSIQUE_GAIN`, `MUSIQUE_TAMISE`, `MUSIQUE_FONDU`, `MUSIQUE_RETOUR`.
+
+### Le fichier envoyé est coupé
+
+`sons/refuge.m4a` fait 1,76 Mo mais son index ne décrit que **96 échantillons
+AAC**, soit 2,048 s. `mvhd`, `mdhd` et `stsz` disent tous deux secondes,
+alors que le `mdat` pèse 1 825 396 octets : à 2 s il faudrait 7 100 kbit/s,
+ce qu'aucun encodage AAC ne produit. Le son est là, le sommaire n'a pas été
+écrit jusqu'au bout — export interrompu. Irréparable sans l'index : les
+limites des trames AAC ne sont pas retrouvables. À réexporter par
+Partager → Enregistrer dans Fichiers.
+
+### Sa direction, notée
+
+Saint-Exupéry. Un rêveur qui aime les étoiles, la solitude et le calme, et
+qu'on force à faire la guerre. Le pilote qui descend de l'avion au refuge
+**est le Petit Prince**. C'est la ligne directrice de tout ce qui viendra —
+l'aventure, les lieux très lointains, le jeu de piste, les cartes qu'on gagne
+en volant plutôt qu'en payant.

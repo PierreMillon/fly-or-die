@@ -744,7 +744,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v1.00</button>
+  <button id="versionBtn">v1.01</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -945,6 +945,11 @@
   <p>Le chariot montre le chemin, comme il l'a toujours fait. Orion est un
   chasseur, et donne ce qu'un chasseur donne. Vénus annonce le jour, et ne se
   laisse prendre qu'en sortant d'une figure ou d'un portail.</p>
+  <p><b>Et il y en a d'autres.</b> Deux d'entre elles ne se trouvent qu'en
+  suivant celles qu'on a déjà tracées — dans le vrai ciel, le bord du chariot
+  pointe sur l'une, et le baudrier d'Orion prolongé tombe sur l'autre. Une
+  troisième demande de viser vraiment, pas de viser large. Une quatrième ne se
+  lève que très loin d'ici. On ne t'en dira pas plus.</p>
   <p><b>Loin à l'ouest.</b> Il y a un terrain qui n'est sur aucune carte, bien
   au-delà des montagnes, sur la plaine qui recommence derrière elles. Dix
   kilomètres. On y arrive en volant longtemps et bas, ou en ayant tracé le
@@ -1606,6 +1611,24 @@ const VISEURS = [
   { id:'berger',  nom:'BERGER',       acces:'secret',
     dessin:(x,c)=>{const r=12-3*c;_cx_.dards(x,3,r,8,0);
                    if(c>0.5)_cx_.cercle(x,r+4);_cx_.disque(x,2);} },
+  // LA POLAIRE : une croix fine et un point qui ne bouge pas. C'est tout le
+  // sujet de cette etoile.
+  { id:'polaire', nom:'POLAIRE',      acces:'secret',
+    dessin:(x,c)=>{const r=14-3*c;_cx_.croix(x,r,3);
+                   if(c>0.4)_cx_.cercle(x,r*0.42);_cx_.disque(x,1.6);} },
+  // CASSIOPEE : le W, tourne d'un quart pour tenir dans un viseur.
+  { id:'cassio',  nom:'CASSIOPÉE',    acces:'secret',
+    dessin:(x,c)=>{const r=13-3*c;x.beginPath();
+                   x.moveTo(-r,r*0.5);x.lineTo(-r*0.5,-r*0.4);x.lineTo(0,r*0.35);
+                   x.lineTo(r*0.5,-r*0.55);x.lineTo(r,r*0.2);x.stroke();
+                   if(c>0.6)_cx_.disque(x,1.6);} },
+  // LA CROIX DU SUD : quatre branches inegales, la longue vers le bas — c'est
+  // elle qui montre le sud.
+  { id:'croix',   nom:'CROIX DU SUD', acces:'secret',
+    dessin:(x,c)=>{const r=14-3*c;x.beginPath();
+                   x.moveTo(0,-r*0.6);x.lineTo(0,r);
+                   x.moveTo(-r*0.55,r*0.1);x.lineTo(r*0.55,r*0.15);x.stroke();
+                   if(c>0.5)_cx_.cercle(x,r*0.95);} },
   { id:'orion',   nom:'BAUDRIER',     acces:'secret',
     dessin:(x,c)=>{const r=13-3*c;
                    x.beginPath();
@@ -1789,6 +1812,61 @@ function jalonVague(n) {
 // l'utilisateur — il est donc créé au clic sur DÉCOLLER.
 // ---------------------------------------------------------------------------
 let actx = null, master = null, bruitBuf = null, moteur = null, moteurG = null;
+
+// ---------------------------------------------------------------------------
+// LA MUSIQUE DU REFUGE. Une guitare, enregistrée pour ce jeu, qui part UNE
+// SEULE FOIS par partie : à l'instant où l'on franchit la chaîne de montagnes
+// et où la plaine du dehors commence. C'est le seul moment où le jeu cesse
+// d'être un jeu de combat — le compteur de fuite ne monte plus là-bas, plus
+// personne ne vient, et il reste dix kilomètres de rien.
+//
+// Pendant qu'elle joue, TOUT LE RESTE se tamise : le moteur, les canons, les
+// alarmes. Pas coupé — tamisé. On entend encore l'appareil, en dessous, comme
+// on entend un moteur à travers une vitre. Le fondu prend plusieurs secondes
+// de chaque côté : il ne faut pas qu'on entende le jeu « baisser le son », il
+// faut qu'on s'aperçoive après coup qu'il s'est éloigné.
+//
+// Elle passe par un élément <audio> plutôt que par un tampon décodé : le
+// fichier fait près de deux mégaoctets, et le décoder d'un bloc bloquerait
+// l'image sur un téléphone. L'élément, lui, lit au fil de l'eau.
+// ---------------------------------------------------------------------------
+const MUSIQUE_URL = './sons/refuge.m4a';
+let musiqueEl = null, musiqueG = null, musiqueEtat = 'rien';
+function joueMusiqueRefuge() {
+  if (musiqueEtat !== 'rien' || muet || !actx) return;
+  musiqueEtat = 'joue';
+  try {
+    musiqueEl = new Audio(MUSIQUE_URL);
+    musiqueEl.preload = 'auto';
+    musiqueEl.crossOrigin = 'anonymous';
+    const src = actx.createMediaElementSource(musiqueEl);
+    musiqueG = actx.createGain();
+    musiqueG.gain.value = 0.0001;
+    src.connect(musiqueG).connect(actx.destination);
+    const t = actx.currentTime;
+    musiqueG.gain.exponentialRampToValueAtTime(MUSIQUE_GAIN, t + MUSIQUE_FONDU);
+    // le reste du jeu s'éloigne
+    master.gain.cancelScheduledValues(t);
+    master.gain.setValueAtTime(master.gain.value, t);
+    master.gain.linearRampToValueAtTime(MUSIQUE_TAMISE * 0.55, t + MUSIQUE_FONDU);
+    musiqueEl.addEventListener('ended', finMusique);
+    musiqueEl.play().catch(() => { musiqueEtat = 'rien'; });
+  } catch (e) { musiqueEtat = 'rien'; }
+}
+function finMusique() {
+  if (musiqueEtat !== 'joue') return;
+  musiqueEtat = 'fini';
+  if (!actx || !master) return;
+  const t = actx.currentTime;
+  master.gain.cancelScheduledValues(t);
+  master.gain.setValueAtTime(master.gain.value, t);
+  master.gain.linearRampToValueAtTime(muet ? 0 : 0.55, t + MUSIQUE_RETOUR);
+}
+function couperMusique() {
+  if (musiqueEl) { try { musiqueEl.pause(); } catch (e) {} }
+  musiqueEtat = 'rien'; musiqueEl = null; musiqueG = null;
+  if (actx && master) master.gain.value = muet ? 0 : 0.55;
+}
 let reverbe = null, loinG = null, moteurLP = null, sousG = null;
 // 'clair' est celui d'origine ; 'profond' est plus grave et plus gras
 let timbre = 'clair';
@@ -1809,6 +1887,11 @@ const SON_NIVEAU = 0.056;
 // produire — 220 à 590 Hz. Le caractère grave est conservé, c'est l'octave
 // audible qui le porte.
 const SON_MONDE = SON_NIVEAU * 4;
+// LES TROIS RÉGLAGES DE LA MUSIQUE, à fixer à l'oreille sur la planche d'essai.
+const MUSIQUE_GAIN   = 0.85;  // son niveau à elle
+const MUSIQUE_TAMISE = 0.30;  // ce que devient le reste du jeu, en proportion
+const MUSIQUE_FONDU  = 5;     // secondes pour qu'elle monte et que le jeu s'éloigne
+const MUSIQUE_RETOUR = 6;     // secondes pour que le jeu revienne, à la fin
 const TIMBRES = {
   clair:   { base: 70,  ecart: 1.7, coupe: 420,  sous: 0,    gain: 0.050 },
   profond: { base: 47,  ecart: 3.1, coupe: 640,  sous: 0.52, gain: 0.062 }
@@ -3048,9 +3131,24 @@ function secretsSoleil(dt) {
 function secretsCiel(dt) {
   if (state.aube > 0) state.aube = Math.max(0, state.aube - dt);
   if (state.chasse > 0) state.chasse = Math.max(0, state.chasse - dt);
+  if (state.sirius > 0) state.sirius = Math.max(0, state.sirius - dt);
+  // elle se lève quand on franchit la chaîne, et se couche quand on rentre
+  const dehors = Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R3;
+  if (croixMesh) croixMesh.visible = dehors;
+  // ET LA MUSIQUE PART. Au franchissement, vers le dehors, une seule fois par
+  // partie. Rentrer ne la relance pas : ce n'est pas une zone, c'est un
+  // passage, et on ne franchit une frontière qu'une fois.
+  if (dehors && !state.dehorsDeja && state.running && !state.auSol) {
+    state.dehorsDeja = true;
+    joueMusiqueRefuge();
+  }
   if (state.figSortie > 0) state.figSortie -= dt;
   const enVol = state.running && !state.pose && !state.auSol && !state.takeoff && !state.roulage;
-  if (!enVol) { state.ourseT = 0; state.bergerT = 0; state.orionT = 0; return; }
+  if (!enVol) {
+    state.ourseT = 0; state.bergerT = 0; state.orionT = 0;
+    for (const F of CIEL_SUITE) state.suite[F.cle] = 0;
+    return;
+  }
 
   // ---- la Grande Ourse
   if (state.ourseN < OURSE_DIRS.length) {
@@ -3120,6 +3218,40 @@ function secretsCiel(dt) {
     }
   }
 
+  // ---- LE RESTE DU CIEL, en table. Une figure par entrée, la même boucle
+  // pour toutes : on vise l'étoile suivante, on la tient, elle s'allume. Une
+  // figure qui n'est pas encore OUVERTE ne se prend pas — c'est ce qui fait
+  // que la Polaire suit le chariot et Sirius suit Orion.
+  for (const F of CIEL_SUITE) {
+    const fini = state.suiteFaite[F.cle];
+    if (fini && !F.refaire) continue;
+    if (!F.ouvre()) { state.suite[F.cle] = 0; continue; }
+    // une figure qu'on refait se reprend sur sa première étoile
+    const n = fini ? 0 : (state.suite[F.cle + 'N'] || 0);
+    const vise = state.forward.dot(F.dirs[n]) > F.cone;
+    const t0 = state.suite[F.cle] || 0;
+    const t1 = vise ? t0 + dt : Math.max(0, t0 - dt * 2);
+    state.suite[F.cle] = t1;
+    if (t1 < F.tenue) continue;
+    state.suite[F.cle] = 0;
+    const suivant = n + 1;
+    if (!fini && suivant < F.dirs.length) {
+      state.suite[F.cle + 'N'] = suivant;
+      majTraitSuite(F);
+      SFX.cale();
+      announce(F.noms[n] + '  ·  ' + suivant + ' / ' + F.dirs.length);
+      continue;
+    }
+    if (!fini) { state.suite[F.cle + 'N'] = F.dirs.length; majTraitSuite(F); state.suiteFaite[F.cle] = true; }
+    const prime = fini ? Math.round(F.prime / 4) : F.prime;
+    marque(prime);
+    stat('constellations');
+    if (F.viseur && !fini) debloqueViseur(F.viseur);
+    F.donne();
+    announce(t('c_' + F.cle) + prime, t('c_' + F.cle + '_s'));
+    SFX.cloche();
+  }
+
   // ---- l'etoile du Berger
   if (!state.bergerPris) {
     const vise = state.forward.dot(BERGER_DIR) > BERGER_CONE && state.figSortie > 0;
@@ -3143,6 +3275,30 @@ function secretsCiel(dt) {
 // la figure est un quadrilatère traversé par le Baudrier. On dessine donc les
 // segments qu'un oeil trace vraiment, dans l'ordre où les étoiles s'allument.
 const ORION_SEGS = [[0,1],[1,6],[6,5],[5,0],[2,3],[3,4]];
+// Chaque figure de la table porte son propre trait, construit à la demande :
+// une seule figure sur sept est tracée à un instant donné, inutile de garder
+// sept objets dans la scène depuis le début.
+const traitsSuite = {};
+function majTraitSuite(F) {
+  const n = state.suite[F.cle + 'N'] || 0;
+  let tr = traitsSuite[F.cle];
+  if (!tr) {
+    tr = traitsSuite[F.cle] = new THREE.LineSegments(segGeom([0,0,0, 0,0,0]),
+      new THREE.LineBasicMaterial({ color: COL_LINE, transparent: true, opacity: 0, fog: false }));
+    tr.frustumCulled = false; tr.renderOrder = -1;
+    scene.add(tr);
+  }
+  const R = 4500, pts = [];
+  const segs = F.liens || F.dirs.map((_, i) => [i - 1, i]).slice(1);
+  for (const [i, j] of segs) {
+    if (i >= n || j >= n) continue;
+    const a = F.dirs[i], b = F.dirs[j];
+    pts.push(a.x * R, a.y * R, a.z * R, b.x * R, b.y * R, b.z * R);
+  }
+  tr.geometry.dispose();
+  tr.geometry = segGeom(pts.length ? pts : [0,0,0, 0,0,0]);
+  tr.material.opacity = pts.length ? 0.55 : 0;
+}
 function majTraitOrion() {
   if (!orionTrait) return;
   if (state.orionN < 2) { orionTrait.material.opacity = 0; return; }
@@ -3492,7 +3648,7 @@ const grid = scene.getObjectByName('grid');
 let etoiles = [];
 let soleilMesh = null, couronneMesh = null, soleilPlein = null;
 let ourseMesh = null, ourseTrait = null, bergerMesh = null, bergerHalo = null;
-let orionMesh = null, orionTrait = null;
+let orionMesh = null, orionTrait = null, croixMesh = null;
 // l'étoile filante : un seul trait, redessiné chaque image tant qu'elle file
 const etoileMesh = new THREE.LineSegments(segGeom([0, 0, 0, 0, 0, 0]),
   new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0, fog: false }));
@@ -3761,6 +3917,34 @@ const OURSE_DIRS = OURSE_PLAN.map(([px, py]) => {
   const ch = Math.cos(el);
   return new THREE.Vector3(Math.sin(az) * ch, Math.sin(el), -Math.cos(az) * ch).normalize();
 });
+// ---------------------------------------------------------------------------
+// LE RESTE DU CIEL. La Grande Ourse et Orion ont chacune leur bloc écrit à la
+// main, et c'était tenable à deux. À sept, non : on recopierait sept fois la
+// même boucle, et la huitième constellation coûterait autant que la première.
+//
+// Les nouvelles figures sont donc des DONNÉES. Une entrée dit où elle est,
+// comment on la prend, ce qu'elle exige d'avoir déjà fait, et ce qu'elle
+// donne. Ajouter une constellation, c'est ajouter une ligne — et c'est ce
+// qu'il fallait pour que le ciel puisse continuer de grandir.
+//
+// Les positions sont en cap (0 = nord, 90 = est) et en hauteur au-dessus de
+// l'horizon : les deux grandeurs qu'on lit sur la boussole et au collimateur,
+// pas des radians de repère interne.
+// ---------------------------------------------------------------------------
+function dirCiel(capDeg, elDeg) {
+  const az = capDeg * Math.PI / 180, el = elDeg * Math.PI / 180, ch = Math.cos(el);
+  return new THREE.Vector3(Math.sin(az) * ch, Math.sin(el), -Math.cos(az) * ch).normalize();
+}
+// une figure posée à partir d'un plan en unités de grille, comme les deux
+// premières : [u, v] dans [0,1], étalé sur `larg` degrés de cap et `haut` de
+// hauteur. L'étalement en cap est divisé par le cosinus de la hauteur, sans
+// quoi une figure haute dans le ciel se retrouve écrasée.
+function figureCiel(plan, cap0, el0, larg, haut) {
+  const k = 1 / Math.max(0.35, Math.cos(el0 * Math.PI / 180));
+  return plan.map(([u, v]) =>
+    dirCiel(cap0 + (u - 0.5) * larg * k, el0 + (v - 0.5) * haut));
+}
+
 // sud = +z. Orion se lève au sud, plus bas que le chariot.
 const ORION_DIRS = ORION_PLAN.map(([px, py]) => {
   const az = (px - 0.5) * ORION_ETAL;
@@ -3774,6 +3958,100 @@ const BERGER_DIR = (() => {
   const el = 12 * Math.PI / 180;
   return new THREE.Vector3(-Math.cos(el), Math.sin(el), 0).normalize();
 })();
+
+// ---- CASSIOPÉE, le W, haute au nord-est. Dans le vrai ciel elle est à
+// l'opposé du chariot par rapport à la Polaire : quand l'un descend, l'autre
+// monte. Prendre les deux, c'est faire le tour du pôle.
+const CASSIO_DIRS = figureCiel(
+  [[0.00, 0.10], [0.25, 0.75], [0.50, 0.15], [0.75, 0.85], [1.00, 0.30]],
+  40, 65, 16, 9);
+const CASSIO_NOMS = ['CAPH', 'SCHEDAR', 'GAMMA CAS', 'RUCHBAH', 'SEGIN'];
+
+// ---- LA CROIX DU SUD. Elle n'est pas visible depuis nos latitudes : il faut
+// descendre vers le sud pour la voir se lever. Dans le jeu, il faut être sorti
+// de la chaîne de montagnes — donc avoir trouvé le pays du refuge.
+const CROIX_DIRS = figureCiel(
+  [[0.50, 1.00], [0.50, 0.00], [0.12, 0.55], [0.88, 0.60]],
+  180, 9, 9, 10);
+const CROIX_NOMS = ['GACRUX', 'ACRUX', 'IMAI', 'MIMOSA'];
+
+// ---- LES PLÉIADES. Un amas minuscule, et depuis l'Antiquité le test de la
+// vue : combien en distingues-tu. C'est donc la seule qui se prend d'un bloc,
+// sur un cône serré — l'exact contraire de la règle du gros viseur.
+const PLEIADE_DIR = dirCiel(210, 40);
+
+// ---- LES DEUX ÉTOILES QUI SE TROUVENT EN SUIVANT UNE AUTRE. Les deux
+// étoiles du bord du chariot pointent sur la Polaire ; le Baudrier d'Orion
+// prolongé tombe sur Sirius. C'est comme ça qu'on les trouve dans le vrai
+// ciel, et c'est comme ça qu'on les ouvre ici : elles n'existent qu'une fois
+// la figure qui les désigne tracée.
+const POLAIRE_DIR = dirCiel(0, 45);
+const SIRIUS_DIR = dirCiel(155, 10);
+
+const CIEL_SUITE = [
+  {
+    cle: 'polaire', dirs: [POLAIRE_DIR], noms: ['POLARIS'],
+    cone: Math.cos(9 * Math.PI / 180), tenue: 3, prime: 1500, viseur: 'polaire',
+    ouvre: () => state.ourseFaite,
+    // ELLE NE TOMBE JAMAIS. C'est le seul point fixe du ciel, celui autour
+    // duquel tout tourne. Elle donne donc la seule chose qui ne tourne plus :
+    // l'appareil peut encore décrocher, l'alarme sonne encore, le nez retombe
+    // encore — mais il ne part plus en autorotation. Acquis pour la partie.
+    donne: () => { state.pivot = true; }
+  },
+  {
+    cle: 'sirius', dirs: [SIRIUS_DIR], noms: ['SIRIUS'],
+    cone: Math.cos(9 * Math.PI / 180), tenue: 2.5, prime: 1800, viseur: null,
+    ouvre: () => state.orionFaite,
+    // La plus brillante du ciel. Vingt secondes pendant lesquelles tous les
+    // adversaires te voient comme s'ils avaient le soleil en pleine face :
+    // l'exact contraire de la chasse d'Orion — au lieu de mieux tirer, on ne
+    // te tire plus dessus. Renouvelable, comme elle se relève chaque nuit.
+    donne: () => { state.sirius = SIRIUS_DUREE; }, refaire: true
+  },
+  {
+    cle: 'cassio', dirs: CASSIO_DIRS, noms: CASSIO_NOMS,
+    cone: OURSE_CONE, tenue: OURSE_TENUE, prime: 2200, viseur: 'cassio',
+    ouvre: () => true,
+    liens: [[0, 1], [1, 2], [2, 3], [3, 4]],
+    // LA COQUE. Le jeu n'avait aucune récompense défensive : tout ce qu'on
+    // gagnait dans le ciel servait à frapper ou à se placer. Cinquante points
+    // de plafond de vie, définitivement, et une équipe au sol qui répare deux
+    // fois plus vite. Le pendant exact d'Orion.
+    donne: () => {
+      state.vieMax += CASSIO_VIE;
+      state.structure = Math.min(state.vieMax, state.structure + CASSIO_VIE);
+      state.coque = true;
+    }
+  },
+  {
+    cle: 'pleiades', dirs: [PLEIADE_DIR], noms: ['ALCYONE'],
+    cone: Math.cos(3 * Math.PI / 180), tenue: 4, prime: 2600, viseur: null,
+    ouvre: () => true,
+    // LE MARCHÉ. Trois degrés et quatre secondes : la seule du ciel qui demande
+    // vraiment de viser. En échange, le viseur se resserre pour de bon — le
+    // cône de verrouillage aussi — et les canons rendent trente pour cent de
+    // plus. Ce n'est pas un cadeau, c'est un échange, et il faut le vouloir.
+    donne: () => { state.pleiades = true; }
+  },
+  {
+    cle: 'croix', dirs: CROIX_DIRS, noms: CROIX_NOMS,
+    cone: OURSE_CONE, tenue: OURSE_TENUE, prime: 4000, viseur: 'croix',
+    liens: [[0, 1], [2, 3]],
+    // ELLE NE SE LÈVE QUE DEHORS. Il faut être au-delà de la chaîne, sur la
+    // plaine où plus rien n'est dessiné. Personne ne tombe dessus par hasard :
+    // il faut déjà savoir que le dehors existe.
+    ouvre: () => Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R3,
+    // Elle ouvre l'éditeur de carte, définitivement et sans vidéo. La carte se
+    // gagne en volant, ou se paye — c'était la règle, et voler est la bonne
+    // moitié du marché.
+    donne: () => { try { localStorage.setItem('fod_carte_ok', '1'); } catch (e) {} }
+  }
+];
+const SIRIUS_DUREE = 20;
+const CASSIO_VIE = 50;
+const PLEIADE_VISEUR = 0.7;    // ce que devient le cone de verrouillage
+const PLEIADE_DEGATS = 1.3;
 
 (function voute() {
   const R = 4500;
@@ -3844,6 +4122,34 @@ const BERGER_DIR = (() => {
       new THREE.LineBasicMaterial({ color: COL_LINE, transparent: true, opacity: 0, fog: false }));
     orionTrait.frustumCulled = false; orionTrait.renderOrder = -1;
     scene.add(orionTrait); etoiles.push(orionTrait);
+  }
+
+  // LES NOUVELLES FIGURES. Même taille que les autres étoiles de première
+  // grandeur : on les reconnaît à leur forme, pas à leur éclat. Les Pléiades
+  // font exception — c'est un amas, donc sept points serrés autour du même
+  // point de visée, et c'est précisément ce qui en fait un test de la vue.
+  for (const F of CIEL_SUITE) {
+    const dirs = F.cle === 'pleiades'
+      ? (() => {
+          const u = new THREE.Vector3(0, 1, 0).cross(F.dirs[0]).normalize();
+          const v = new THREE.Vector3().crossVectors(F.dirs[0], u).normalize();
+          const g = [[0,0],[0.9,0.5],[-0.7,0.65],[0.25,1.2],[1.3,-0.35],[-1.1,-0.3],[0.6,-0.95]];
+          return g.map(([a, b2]) => F.dirs[0].clone()
+            .addScaledVector(u, a * 0.012).addScaledVector(v, b2 * 0.012).normalize());
+        })()
+      : F.dirs;
+    const pts = new Float32Array(dirs.length * 3);
+    dirs.forEach((d, i) => { pts[i*3] = d.x * R; pts[i*3+1] = d.y * R; pts[i*3+2] = d.z * R; });
+    const g2 = new THREE.BufferGeometry();
+    g2.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+    const m2 = new THREE.Points(g2, new THREE.PointsMaterial({
+      color: COL_TEXT, size: F.cle === 'pleiades' ? 2.4 : 3.4, sizeAttenuation: false,
+      transparent: true, opacity: 1, fog: false, depthWrite: false }));
+    m2.frustumCulled = false; m2.renderOrder = -1;
+    // LA CROIX DU SUD NE SE LÈVE QUE DEHORS. Tant qu'on est au-dessus de la
+    // carte, elle n'est pas dans le ciel — pas seulement imprenable : absente.
+    if (F.cle === 'croix') { m2.visible = false; croixMesh = m2; }
+    scene.add(m2); etoiles.push(m2);
   }
 
   // VÉNUS. Un point franchement plus gros, et un petit halo autour : c'est
@@ -5847,6 +6153,13 @@ const state = {
   regime: 0,
   boostFin: 0,
   boostPortail: 0,    // secondes de poussée offertes par un portail
+  suite: {},          // avancement de chaque figure de CIEL_SUITE
+  suiteFaite: {},     // celles qui sont deja tracees
+  dehorsDeja: false,  // la chaine a deja ete franchie : la musique ne part qu'une fois
+  pivot: false,       // la Polaire : plus jamais de vrille
+  coque: false,       // Cassiopee : les mecaniciens reparent deux fois plus vite
+  pleiades: false,    // le marche des Pleiades : viseur fin, canons plus forts
+  sirius: 0,          // secondes d'eblouissement adverse
   orionN: 0,          // etoiles d'Orion deja touchees
   orionT: 0,
   orionFaite: false,
@@ -6108,6 +6421,15 @@ function resetGame() {
   state.ourseN = 0; state.ourseT = 0; state.bergerT = 0; state.bergerPris = false;
   state.ourseFaite = false;
   state.orionN = 0; state.orionT = 0; state.orionFaite = false; state.chasse = 0;
+  state.suite = {}; state.suiteFaite = {};
+  state.dehorsDeja = false;
+  couperMusique();
+  state.pivot = false; state.coque = false; state.pleiades = false; state.sirius = 0;
+  for (const cle in traitsSuite) {
+    traitsSuite[cle].material.opacity = 0;
+    traitsSuite[cle].geometry.dispose();
+    traitsSuite[cle].geometry = segGeom([0,0,0, 0,0,0]);
+  }
   state.aube = 0; state.figSortie = 0; state.dernierTireur = null; state.mission = null;
   nouvelles.length = 0;
   if (typeof majTraitOurse === 'function') majTraitOurse();
@@ -6204,7 +6526,7 @@ function statsVides() {
   return { ballesTirees: 0, ballesRecues: 0, ballesEnnemies: 0, roquettesTirees: 0,
            roquettesRecues: 0, roquettesEsquivees: 0, roquettesEnnemies: 0, abattus: 0,
            passages: 0, poses: 0, tempsPose: 0, mecanoAbattus: 0, mecanoBalles: 0,
-           ourses: 0, bergers: 0, orions: 0, refuges: 0,
+           ourses: 0, bergers: 0, orions: 0, constellations: 0, refuges: 0,
            altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0, faucheurs: 0, leurres: 0,
            vieGagnee: 0, vieReparee: 0, vieMax: 100 };
 }
@@ -6357,6 +6679,7 @@ function texteStats() {
     [fr ? 'faucheur lâché' : 'reaper launched', S.faucheurs],
     [fr ? 'leurres lâchés' : 'flares dropped', S.leurres],
     [fr ? 'Orion tracée' : 'Orion traced', S.orions],
+    [fr ? 'figures du ciel prises' : 'sky figures taken', S.constellations],
   ];
   return l.map(([k, v]) => k + '  ·  <b>' + v + '</b>').join('<br>');
 }
@@ -6767,7 +7090,7 @@ function updateEnemies(dt) {
       e.mesh.quaternion.copy(e.quat);
       e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
       _v.multiplyScalar(-1 / dist);
-      const geneSol = e.gene = (state.eclipse > 0 || state.aube > 0) ? 1
+      const geneSol = e.gene = (state.eclipse > 0 || state.aube > 0 || state.sirius > 0) ? 1
         : Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
       e.reload -= dt;
       if (e.burst > 0) {
@@ -7085,7 +7408,7 @@ function updateEnemies(dt) {
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
     // être bien mieux aligné : c'est tout l'intérêt d'attaquer avec le soleil
     // dans le dos, la plus vieille manœuvre du combat aérien.
-    const gene = e.gene = (state.eclipse > 0 || state.aube > 0) ? 1
+    const gene = e.gene = (state.eclipse > 0 || state.aube > 0 || state.sirius > 0) ? 1
       : Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
     e.reload -= dt;
     // Lui aussi doit prendre le temps de viser. Depuis que le joueur attend
@@ -7710,7 +8033,8 @@ function seuilLock(e, d) {
   // qu'on s'est déporté de soixante mètres en une demi-seconde
   return (Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE * (1 - 0.55 * eblouissement()))
        * (state.spinT > 0 ? 2 : 1)
-       * (state.chasse > 0 ? ORION_CONE : 1);
+       * (state.chasse > 0 ? ORION_CONE : 1)
+       * (state.pleiades ? PLEIADE_VISEUR : 1);
 }
 
 // L'INVERSE, vu du joueur. Un ennemi placé droit devant vous vous regarde
@@ -7794,6 +8118,7 @@ function updateLock(dt) {
   const dps = (DPS_MIN + (DPS_MAX - DPS_MIN) * charge)
             * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1)
             * (state.chasse > 0 ? ORION_DEGATS : 1)
+            * (state.pleiades ? PLEIADE_DEGATS : 1)
             * (1 - 0.6 * eblouissement());
   // DERRIÈRE UN BÂTIMENT. Le viseur tient, la charge monte, mais les balles
   // s'arrêtent sur le mur : c'est lui qui encaisse, jusqu'à tomber.
@@ -8386,7 +8711,8 @@ function simulate(dt) {
                      && m.p.distanceTo(state.pos) < MECANO_PORTEE).length;
     const valides = mecanos.filter(m => !m.mort).length;
     const avant = state.structure;
-    state.structure = Math.min(state.vieMax, state.structure + REPARE_PAR_S * (debout / 3) * dt);
+    state.structure = Math.min(state.vieMax,
+      state.structure + REPARE_PAR_S * (debout / 3) * (state.coque ? 2 : 1) * dt);
     stat('vieReparee', state.structure - avant);
     // ET ELLE SE PAIE. Cinq points de score par point de structure rendu :
     // aller se poser reste toujours possible, mais ce n'est plus gratuit.
@@ -8854,7 +9180,11 @@ function simulate(dt) {
     const cabre = state.speed <= SPEED_MIN + 2 && state.pitch > DECRO_ANGLE && !state.vrille;
     state.decrocheT = cabre ? state.decrocheT + dt : Math.max(0, state.decrocheT - 2 * dt);
     if (cabre && state.decrocheT >= DECRO_ALARME && state.decrocheT - dt < DECRO_ALARME) { announce(t('decrochage')); SFX.alerte(); }
-    if (cabre && state.decrocheT >= DECRO_VRILLE) {
+    // LA POLAIRE TIENT LE PIVOT. Le décrochage reste entier — l'alarme, le nez
+    // qui retombe, la vitesse perdue — mais l'appareil ne part plus en
+    // autorotation. C'est le seul point fixe du ciel, et c'est ce qu'il donne.
+    if (cabre && state.decrocheT >= DECRO_VRILLE && state.pivot) state.decrocheT = 0;
+    if (cabre && state.decrocheT >= DECRO_VRILLE && !state.pivot) {
       state.vrille = { t: 0, side: Math.random() < 0.5 ? -1 : 1, sortie: 0 };
       state.vrilleRoll = 0; state.decrocheT = 0;
       announce(t('vrille')); SFX.alerte();
@@ -10822,6 +11152,16 @@ const T = {
     ourseSous: 'le refuge apparaît sur la boussole, et il est ouvert tout de suite',
     berger: 'L’ÉTOILE DU BERGER  ·  +',
     bergerSous: 'le jour se lève vingt secondes : eux ne voient plus rien, nous si',
+    c_polaire: 'L’ÉTOILE POLAIRE  ·  +',
+    c_polaire_s: 'le seul point fixe du ciel : l’avion ne partira plus jamais en vrille',
+    c_sirius: 'SIRIUS  ·  +',
+    c_sirius_s: 'vingt secondes : ils te voient comme s’ils avaient le soleil en face',
+    c_cassio: 'CASSIOPÉE  ·  +',
+    c_cassio_s: 'cinquante points de vie en plus, pour toujours, et l’équipe répare deux fois plus vite',
+    c_pleiades: 'LES PLÉIADES  ·  +',
+    c_pleiades_s: 'le viseur se resserre pour de bon, et les canons rendent trente pour cent de plus',
+    c_croix: 'LA CROIX DU SUD  ·  +',
+    c_croix_s: 'l’éditeur de carte est à toi, sans rien payer',
     fenteSous: 'AS DE LA VOLTIGE',
     orion: 'ORION  ·  +',
     orionSous: 'la chasse est ouverte : vingt-cinq secondes de canons doublés',
@@ -10873,6 +11213,16 @@ const T = {
     ourseSous: 'the refuge shows on the compass, and it opens right away',
     berger: 'THE EVENING STAR  ·  +',
     bergerSous: 'day breaks for twenty seconds: they see nothing, we see everything',
+    c_polaire: 'THE POLE STAR  ·  +',
+    c_polaire_s: 'the one fixed point in the sky: the plane will never spin again',
+    c_sirius: 'SIRIUS  ·  +',
+    c_sirius_s: 'twenty seconds: they see you as if the sun were in their eyes',
+    c_cassio: 'CASSIOPEIA  ·  +',
+    c_cassio_s: 'fifty more points of life, for good, and the crew repairs twice as fast',
+    c_pleiades: 'THE PLEIADES  ·  +',
+    c_pleiades_s: 'the reticle tightens for good, and the guns give thirty per cent more',
+    c_croix: 'THE SOUTHERN CROSS  ·  +',
+    c_croix_s: 'the map editor is yours, without paying',
     fenteSous: 'AEROBATIC ACE',
     orion: 'ORION  ·  +',
     orionSous: 'the hunt is open: twenty-five seconds of doubled guns',
@@ -11428,6 +11778,13 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.01', fr: 'Cinq figures de plus dans le ciel : la Polaire, Sirius, Cassiopée, les Pléiades et la Croix du Sud.', en: 'Five more figures in the sky: Polaris, Sirius, Cassiopeia, the Pleiades and the Southern Cross.' },
+  { v: '1.01', fr: 'La Polaire ne se trouve qu’en suivant le chariot, et Sirius qu’en prolongeant le baudrier d’Orion.', en: 'Polaris is only found by following the Dipper, and Sirius by extending Orion’s belt.' },
+  { v: '1.01', fr: 'La Polaire supprime la vrille pour toute la partie : c’est le seul point fixe du ciel.', en: 'Polaris removes the spin for the whole game: it is the sky’s one fixed point.' },
+  { v: '1.01', fr: 'Sirius ébloui tous les adversaires vingt secondes, et Cassiopée donne cinquante points de vie pour toujours.', en: 'Sirius dazzles every enemy for twenty seconds, and Cassiopeia gives fifty life points for good.' },
+  { v: '1.01', fr: 'Les Pléiades demandent de viser vraiment : trois degrés, quatre secondes, contre un viseur fin et des canons plus forts.', en: 'The Pleiades demand real aim: three degrees, four seconds, for a tighter reticle and stronger guns.' },
+  { v: '1.01', fr: 'La Croix du Sud ne se lève qu’au-delà des montagnes, et elle offre l’éditeur de carte.', en: 'The Southern Cross only rises beyond the mountains, and it gives the map editor.' },
+  { v: '1.01', fr: 'Une guitare part une seule fois par partie, quand on franchit la chaîne, et le reste du jeu s’éloigne.', en: 'A guitar plays once per game, when you cross the range, and the rest of the game recedes.' },
   { v: '1.00', fr: 'Le terrain secret a un nom écrit dessus : REFUGE DE LA GRANDE OURSE, sur un panneau devant la cabane.', en: 'The secret field has its name written on it: BIG DIPPER REFUGE, on a board in front of the hut.' },
   { v: '1.00', fr: 'Le tonneau prend les réglages du pilote : deux pour cent de hauteur laissée filer, cinq degrés de roulis d’image.', en: 'The barrel roll takes the pilot’s settings: two per cent of height let slip, five degrees of image roll.' },
   { v: '1.00', fr: 'L’icône est une image du jeu : l’avion et les étoiles, plus de cadre autour.', en: 'The icon is a picture of the game: the plane and the stars, no frame around it.' },

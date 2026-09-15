@@ -11,7 +11,7 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v1.00';
+const VERSION = 'v1.01';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
@@ -27,6 +27,11 @@ const SOCLE = [
   './manifest.webmanifest',
   './icone-192.png',
   './icone-512.png',
+  // LA MUSIQUE N'EST PAS PRE-CHARGEE. Elle pese pres de deux megaoctets, et la
+  // tres grande majorite des parties ne franchit jamais la chaine : on ne va
+  // pas la faire telecharger a tout le monde a l'installation. Elle sera mise
+  // en cache la premiere fois qu'elle joue, par la regle generale, et sera la
+  // les fois suivantes, y compris hors ligne.
   './vendor/three/three.module.js',
   './vendor/three/three.core.js',
 ];
