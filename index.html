@@ -662,7 +662,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.82</button>
+  <button id="versionBtn">v0.83</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -826,12 +826,16 @@
   lumière.</p>
 
   <h2>REPRENDRE DE LA VIE</h2>
-  <p>Trois façons, toutes payantes en risque.</p>
+  <p>Quatre façons, toutes payantes en risque. Il n'y a plus de bouclier :
+  la vie est la seule ressource, et le plafond monte avec ce que tu prends.</p>
   <p><b>Les arches.</b> Passer dessous rend 10 % de vie. Chacune ne se laisse
   prendre qu'une fois par vague, mais elles se cumulent — il y en a six.</p>
   <p><b>Les tours percées.</b> Une fenêtre de 45 mètres à 197 mètres de haut :
   il faut monter la chercher, et elle est deux fois plus étroite qu'une arche.
   25 % de vie.</p>
+  <p><b>La fente à 45°.</b> Le mur fendu en diagonale. Elle est trop étroite
+  pour passer à plat : il faut arriver en tonneau, l'aile dans l'axe de la
+  fente. 100 points de vie, et le plafond monte d'autant.</p>
   <p><b>La piste.</b> Passe bas, dans l'axe, le nez pas trop haut : tu te poses
   tout seul. Les mécaniciens accourent, la vie remonte de 17 points par
   seconde, et l'avion repart au bout de dix secondes — ou tout de suite si tu
@@ -994,11 +998,15 @@
   beats around every opponent searching for you in the light.</p>
 
   <h2>GETTING LIFE BACK</h2>
-  <p>Three ways, all paid for in risk.</p>
+  <p>Four ways, all paid for in risk. There is no shield any more: life is the
+  only resource, and its ceiling rises with what you take.</p>
   <p><b>Arches.</b> Passing under one gives 10 % life. Each can only be taken
   once per wave, but they add up — there are six.</p>
   <p><b>Pierced towers.</b> A 45-metre window 197 metres up: you have to climb
   for it, and it is twice as narrow as an arch. 25 % life.</p>
+  <p><b>The 45° slot.</b> The wall split on the diagonal. It is too narrow to
+  fly through level: you have to arrive rolled, wing along the slot. 100 points
+  of life, and the ceiling rises by as much.</p>
   <p><b>The runway.</b> Come in low, in line, nose not too high: you land by
   yourself. The ground crew runs up, life climbs 17 points a second, and the
   aircraft leaves again after ten seconds — or at once if you press TAKE OFF
@@ -1064,6 +1072,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.83</b> — le bouclier disparaît : la vie est la seule ressource. La série du défi donne 10 % de plafond de vie par jour tenu, jusqu'à 200 %. Une vague sans une égratignure monte le plafond de 25 points. Le doré du soleil reste, huit secondes où rien ne passe. La fente à 45° se resserre : elle ne se passe plus à plat, il faut le tonneau.</div>
   <div><b>v0.82</b> — DÉCOLLER descend sous le pouce, en bas de l'écran. Le défi du jour devient une pastille en haut à gauche. Les mécaniciens préparent l'avion autour de la cellule dès l'écran de titre : ils étaient renvoyés à leur table par un appel de trop.</div>
   <div><b>v0.81</b> — le doigt qui quitte l'écran par le haut ou par le bas fait l'Immelmann ou le Split-S. Le doigt tenu en haut ne déclenche plus rien. Les adversaires ne se touchent plus, ni entre eux ni avec nous. Un bâtiment à passage ne disparaît plus : il s'affaisse au ras du sol. L'écran de fin compte les portails, la vie reprise et le plafond atteint. Le hangar fait soixante mètres de façade et ses deux vantaux se rangent dehors, sur leur rail. L'équipe au sol traverse le terrain pendant la descente et vous entoure à l'arrêt. L'aide explique le carré à signaux, le T, la manche à air et le PAPI.</div>
   <div><b>v0.80</b> — vingt roquettes en soute, une seconde de verrouillage plein de plus avant qu'elles partent, et elles touchent enfin les pièces au sol ; la fente à 45° est deux fois plus large et rend cent points, le plafond de vie monte avec les portails et les mécaniciens réparent jusque-là, l'effet de sol : sous quarante mètres l'aile s'appuie sur son coussin d'air et rend vingt pour cent de vitesse, sans que rien ne l'écrive.</div>
@@ -2612,7 +2621,7 @@ function secretsSoleil(dt) {
   if (state.etoileT > 0) state.etoileT -= dt;
   if (state.dore > 0) {
     state.dore -= dt;
-    if (state.dore <= 0) { state.dore = 0; state.bouclier = 0; announce(t('bouclierFin')); SFX.bouclierFin(); }
+    if (state.dore <= 0) { state.dore = 0; announce(t('doreFin')); SFX.bouclierFin(); }
   }
   const enVol = !state.pose && !state.auSol && !state.takeoff && !state.roulage;
   if (enVol && state.eclipse <= 0 && eblouissement() >= 0.98) {
@@ -2620,7 +2629,6 @@ function secretsSoleil(dt) {
     if (state.solDans >= DORE_TENUE && state.doreVague < 0) {
       state.doreVague = state.wave;          // une seule fois par partie : le joueur le voyait revenir à chaque vague
       state.dore = DORE_DUREE;
-      state.bouclier = BOUCLIER_COUPS;
       announce(t('dore'));
       SFX.bouclierOn();
     }
@@ -2631,7 +2639,12 @@ const SOL_CONE_E = Math.cos(20 * Math.PI / 180); // et l'adversaire aussi
 const ESQUIVE_DUREE = [1.0, 1.6];  // secondes de dégagement quand on est visé
 const ESQUIVE_REPOS  = 0.8;        // avant de pouvoir recommencer
 const CHARGE_DECROIT = 0.8;        // la montée en puissance retombe, elle ne s'efface pas
-const BOUCLIER_COUPS = 10;         // impacts absorbés avant évaporation
+// PLUS DE BOUCLIER. Il faisait double emploi avec la vie depuis que les
+// portails en rendent et font monter le plafond, et depuis que la piste
+// repare jusqu'a ce plafond. Une seule ressource, une seule jauge : la vie.
+// Tout ce qui donnait du bouclier donne maintenant de la vie ou du plafond.
+const SERIE_PLAFOND = 10;          // pour cent de plafond de vie par jour de serie
+const SERIE_PLAFOND_MAX = 100;     // et jamais plus de cent points ajoutes
 const LIMITE_BASE    = 9;          // chrono d'une vague : base plus tant par appareil
 const LIMITE_PAR     = 4.5;   // constante de navigation proportionnelle
 
@@ -4144,7 +4157,11 @@ for (let i = 0; i < CARTE.pylones.length; i++) {
 //   C'est le seul bâtiment qui regarde les bouts d'aile, pas seulement le nez.
 // ---------------------------------------------------------------------------
 const SPECIAL = { largeur: 110, prof: 60, trou: 45, hautU: 200, entreeY: 40, hautD: 170, y0D: 60, barre: 6,
-                  murH: 120, murP: 20, fenteL: 6.6, fenteH: 30, fenteY: 66 };
+                  // fenteL : demi-largeur EN TRAVERS de la fente. A plat, un
+                  // saumon d'aile est a 6 m de l'axe, soit 6·cos45° = 4,24 m
+                  // en travers : au-dessus de 4,24 elle se passe a plat, en
+                  // dessous elle EXIGE le tonneau. 3,6 laisse 0,6 m de marge.
+                  murH: 120, murP: 20, fenteL: 3.6, fenteH: 30, fenteY: 66 };
 const speciaux = [];
 (function construireSpeciaux() {
   const S_ = SPECIAL, L = S_.largeur / 2, P = S_.prof / 2, T = S_.trou / 2;
@@ -4594,7 +4611,6 @@ const state = {
   boostT: 0,
   recordBattu: null,
   impacts: [],
-  bouclier: 0,
   eclipse: 0,         // secondes d'éclipse restantes
   solTir: 0,          // secondes de tir cumulées en plein éblouissement
   dore: 0,            // secondes de bouclier doré restantes
@@ -4603,7 +4619,6 @@ const state = {
   etoileT: 0,         // repos avant la prochaine étoile filante
   forme: 0,           // -1 en difficulté, +1 en pleine forme : la courbe s'y adapte
   stats: null,        // les compteurs de la partie, pour l'écran de fin
-  bouclierT: 0,       // secondes de bouclier chronométré (la série du défi)
   defi: false,        // parti de la vague 5, chaque point vaut une fois et demie
   objN: 0,            // avancement de l'objectif du jour dans cette partie
   vagueTouche: false,
@@ -4799,7 +4814,6 @@ function resetGame() {
   state.waveTimer = 99;   // aucun ennemi tant qu'on n'est pas en l'air
   state.hitFlash = 0;
   state.impacts.length = 0;
-  state.bouclier = 0;
   state.vagueTouche = false;
   state.vagueT = 0;
   state.vagueLimite = 0;
@@ -4821,7 +4835,6 @@ function resetGame() {
   state.etoileT = 0;
   state.forme = 0; state.objN = 0; state.defi = false;
   state.stats = statsVides();
-  state.bouclierT = 0;
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avion().roquettes;
   state.leurres = avion().leurres; state.leurresActifs = []; state.leurresPleins = false;
   state.trous = {}; state.vieMax = 100;
@@ -5014,8 +5027,8 @@ function bilanVague() {
   state.forme = THREE.MathUtils.clamp(state.forme + forme, -1, 1);
 
   if (dansTemps && intact) {
+    gagneVie(25);
     state.structure = Math.max(state.structure, state.vieMax);
-    state.bouclier = BOUCLIER_COUPS;
     marque(750);
     announce(t('sansFaute'));
     SFX.vagueNette(); SFX.bouclierOn();
@@ -5026,7 +5039,7 @@ function bilanVague() {
     announce(t('dansTemps'));
     SFX.vagueNette();
   } else if (intact) {
-    state.bouclier = BOUCLIER_COUPS;
+    gagneVie(25);
     marque(400);
     announce(t('egratignure'));
     SFX.bouclierOn();
@@ -6057,22 +6070,14 @@ function damagePlayer(amount, source, cause) {
   if (cause) noteDegat(cause, amount);
   noteImpact(source);
 
-  // le bouclier de la série : tant qu'il dure, rien ne passe
-  if (state.bouclierT > 0) { state.hitFlash = Math.max(state.hitFlash, 0.4); SFX.bouclier(); return; }
+  // LE DORÉ : huit secondes gagnées en traversant le soleil, rien ne passe.
+  // C'est le seul reste de l'ancien bouclier, et il se mérite.
+  if (state.dore > 0) { state.hitFlash = Math.max(state.hitFlash, 0.4); SFX.bouclier(); return; }
   // EN PLEINE POUSSÉE, INVINCIBLE face aux ennemis : balles, roquettes et
   // chocs glissent. Le décor et le sol, eux, restent durs.
   if (state.boost > BOOST_INVINCIBLE && (cause === 'balles' || cause === 'roquette' || cause === 'choc')) {
     state.hitFlash = Math.max(state.hitFlash, 0.3); SFX.bouclier(); return;
   }
-  // le bouclier encaisse, coup par coup, puis s'évapore
-  if (state.bouclier > 0) {
-    state.bouclier--;
-    state.hitFlash = Math.max(state.hitFlash, 0.6);
-    SFX.bouclier();
-    if (state.bouclier === 0) { announce(t('bouclierFin')); SFX.bouclierFin(); }
-    return;
-  }
-
   state.vagueTouche = true;
   state.structure -= amount;
   state.hitFlash = 1;
@@ -6396,7 +6401,6 @@ function simulate(dt) {
     if (state.fuiteT > FUITE_ALERTE && state.fuiteT - dt <= FUITE_ALERTE) { announce(t('fuite')); SFX.alerte(); }
     if (state.fuiteT > FUITE_DUREE) lacherFaucheur();
   }
-  if (state.bouclierT > 0) state.bouclierT -= dt;
   if (state.secousse > 0) state.secousse = Math.max(0, state.secousse - dt);
 
   // La manette écrit dans « aim » comme le ferait un pouce : elle doit donc
@@ -6884,10 +6888,15 @@ function simulate(dt) {
       state.takeoff = null;
       state.pitch = 0;
       if (state.wave === 0) state.waveTimer = 0.8;
-      // la série du défi : autant de secondes de bouclier que de jours
+      // LA SÉRIE DU DÉFI MONTE LE PLAFOND. Dix points de vie de plus par jour
+      // tenu, jusqu'à cent : on ne part pas protégé, on part avec plus de
+      // marge — et la piste réparera jusque-là.
       if (state.wave === 0 && state.defi && carnet.serie && carnet.serie.n > 0) {
-        state.bouclierT = carnet.serie.n;
-        announce((langue === 'en' ? 'STREAK SHIELD  ·  ' : 'BOUCLIER DE SÉRIE  ·  ') + carnet.serie.n + ' s');
+        const p = Math.min(SERIE_PLAFOND_MAX, carnet.serie.n * SERIE_PLAFOND);
+        state.vieMax = Math.max(state.vieMax, 100 + p);
+        state.structure = state.vieMax;
+        if (state.stats) state.stats.vieMax = state.vieMax;
+        announce((langue === 'en' ? 'STREAK  ·  LIFE CAP  ' : 'SÉRIE  ·  PLAFOND DE VIE  ') + Math.round(state.vieMax) + ' %');
       }
       // ON NE RELIT PAS LE QUATERNION. On connaît les trois angles : ce sont
       // ceux qu'on vient d'écrire. Les redéduire d'un quaternion est un
@@ -7185,8 +7194,7 @@ function simulate(dt) {
   // bouclier qui reste, l'alignement au soleil, les secondes de surchauffe.
   {
     const t = performance.now() / 1000;
-    majHalo(HALOS.bouclier,
-            state.bouclier > 0 && state.dore <= 0 ? 0.3 + 0.7 * (state.bouclier / BOUCLIER_COUPS) : 0, t);
+    majHalo(HALOS.bouclier, state.dore > 0 ? 0.3 + 0.7 * (state.dore / DORE_DUREE) : 0, t);
     majHalo(HALOS.dore, state.dore > 0 ? Math.min(1, state.dore / 1.5) : 0, t);
     majHalo(HALOS.soleil, dosSoleil(), t);
     majHalo(HALOS.canons,
@@ -8846,7 +8854,9 @@ function majObjectif() {
     document.getElementById('defiBtn').textContent = (fr ? 'DÉFI DU JOUR  ·  ' : 'DAILY CHALLENGE  ·  ') + (fr ? d.fr : d.en) + '  ·  ×1,5';
     const n = carnet.serie ? carnet.serie.n : 0;
     if (n > 0) {
-      el.innerHTML = (fr ? 'SÉRIE  ·  ' : 'STREAK  ·  ') + n + (fr ? ' JOURS' : ' DAYS') + '  →  ' + n + ' × 1 s = <b>' + n + (fr ? ' s DE BOUCLIER' : ' s OF SHIELD') + '</b>'
+      const p = Math.min(SERIE_PLAFOND_MAX, n * SERIE_PLAFOND);
+      el.innerHTML = (fr ? 'SÉRIE  ·  ' : 'STREAK  ·  ') + n + (fr ? ' JOURS' : ' DAYS') + '  →  <b>'
+        + (100 + p) + (fr ? ' % DE PLAFOND DE VIE' : ' % LIFE CAP') + '</b>'
         + (fr ? ' AU DÉCOLLAGE' : ' AT TAKE OFF');
       el.hidden = false;
     } else el.hidden = true;
@@ -8887,10 +8897,9 @@ function refreshBars() {
   gaugeFill.style.width = Math.min(100, st / Math.max(100, state.vieMax) * 100) + '%';
   gaugeFill.classList.toggle('bonus', state.vieMax > 100);
   structLbl.textContent = st + (state.vieMax > 100 ? ' / ' + Math.round(state.vieMax) : '') + '%';
-  // le bouclier se compte : un carré par coup encaissable, ou ses secondes
+  // il ne reste que le doré, et il se compte en secondes
   const bl = document.getElementById('bouclierLbl');
-  bl.textContent = (state.bouclierT > 0 ? 'SHIELD ' + Math.ceil(state.bouclierT) + 's'
-                 : state.bouclier > 0 ? 'SHIELD ×' + state.bouclier : '')
+  bl.textContent = (state.dore > 0 ? 'GOLD ' + Math.ceil(state.dore) + 's' : '')
                  + (avion().leurres > 0 && state.running ? '  FLARES ×' + state.leurres : '');
 
   // POSER ne se montre que quand la piste est devant et lisible, et ne bat que
@@ -8942,10 +8951,10 @@ const T = {
     decollage: 'DÉCOLLAGE', auSol: 'AU SOL  ·  RÉPARATION',
     tour: 'TOUR TRAVERSÉE  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
     fente: 'FENTE PASSÉE  ·  +', puits: 'SORTI PAR LE TOIT  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
-    bouclierFin: 'BOUCLIER ÉPUISÉ', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
-    sansFaute: 'SANS FAUTE  ·  VIE PLEINE  ·  BOUCLIER',
+    doreFin: 'DORÉ ÉPUISÉ', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
+    sansFaute: 'SANS FAUTE  ·  VIE PLEINE  ·  PLAFOND +25',
     dansTemps: 'DANS LES TEMPS  ·  VIE PLEINE',
-    egratignure: 'PAS UNE ÉGRATIGNURE  ·  BOUCLIER',
+    egratignure: 'PAS UNE ÉGRATIGNURE  ·  PLAFOND +25',
     degagee: 'VAGUE DÉGAGÉE  ·  +12',
     coop: 'COOP  ·  ', appareils: ' APPAREILS', releve: 'RELEVÉ PAR UN ÉQUIPIER',
     vague: 'VAGUE ', gardien: 'GARDIEN', abattu: 'ABATTU',
@@ -8958,7 +8967,7 @@ const T = {
     rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
-    dore: 'SOLEIL TRAVERSÉ  ·  BOUCLIER DORÉ', etoile: 'ÉTOILE FILANTE  ·  +',
+    dore: 'SOLEIL TRAVERSÉ  ·  DORÉ 8 s', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
     prepare: 'préparation du code...', pret: 'code prêt. Envoie-le, puis colle la réponse.',
     ajoute: 'joueur ajouté. Recommence pour le suivant.',
@@ -8980,10 +8989,10 @@ const T = {
     decollage: 'TAKE OFF', auSol: 'ON THE GROUND  ·  REPAIRS',
     tour: 'TOWER THREADED  ·  +', arche: 'ARCH CLEARED  ·  +',
     fente: 'SLOT THREADED  ·  +', puits: 'OUT THROUGH THE ROOF  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
-    bouclierFin: 'SHIELD SPENT', viseur: 'SIGHT UNLOCKED  ·  ',
-    sansFaute: 'FLAWLESS  ·  FULL LIFE  ·  SHIELD',
+    doreFin: 'GOLD SPENT', viseur: 'SIGHT UNLOCKED  ·  ',
+    sansFaute: 'FLAWLESS  ·  FULL LIFE  ·  CAP +25',
     dansTemps: 'ON TIME  ·  FULL LIFE',
-    egratignure: 'NOT A SCRATCH  ·  SHIELD',
+    egratignure: 'NOT A SCRATCH  ·  CAP +25',
     degagee: 'WAVE CLEARED  ·  +12',
     coop: 'CO-OP  ·  ', appareils: ' AIRCRAFT', releve: 'PICKED UP BY A WINGMAN',
     vague: 'WAVE ', gardien: 'GUARDIAN', abattu: 'SHOT DOWN',
@@ -8996,7 +9005,7 @@ const T = {
     rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
-    dore: 'THROUGH THE SUN  ·  GOLDEN SHIELD', etoile: 'SHOOTING STAR  ·  +',
+    dore: 'THROUGH THE SUN  ·  GOLD 8 s', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
     prepare: 'preparing the code...', pret: 'code ready. Send it, then paste the answer.',
     ajoute: 'player added. Do it again for the next one.',
@@ -9681,8 +9690,7 @@ videoBtn.addEventListener('click', async () => {
   sauveCarnet();
   {
     overlay.hidden = true;
-    state.structure = 100;
-    state.bouclier = BOUCLIER_COUPS;
+    state.structure = Math.max(100, state.vieMax);
     state.hitFlash = 0;
     state.impacts.length = 0;
     state.enemies.forEach(e => scene.remove(e.mesh));

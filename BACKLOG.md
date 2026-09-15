@@ -649,3 +649,22 @@ dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
   assis à leur table : `mecanosTable()` était appelé APRÈS
   `preparentLAvion()` et défaisait tout. Mesuré : 5 à 7 m, autour de la
   cellule.
+
+## v0.83 — le bouclier supprimé (décidé avec lui au quiz)
+
+Trois questions posées, trois réponses : on supprime le bouclier, la série
+donne du plafond de vie, et la fente à 45° se resserre.
+
+- **Plus de bouclier.** `state.bouclier` et `state.bouclierT` n'existent plus.
+  Une seule ressource, une seule jauge. Mesuré : 20 points de dégâts passent
+  directement dans la vie, l'étiquette SHIELD a disparu de la bande.
+- Ce qui donnait du bouclier donne maintenant du plafond de vie : une vague
+  sans égratignure monte le plafond de 25 points, la reprise après vidéo rend
+  la vie jusqu'au plafond débloqué.
+- **La série du défi** donne 10 % de plafond par jour tenu, plafonné à +100.
+  Mesuré : série de 1 jour → on décolle à 110 %, et la piste répare jusque-là.
+- **Le doré du soleil** survit : huit secondes où rien ne passe, une fois par
+  partie. C'est le seul reste de l'ancien bouclier, et il se mérite.
+- **La fente à 45°** passe de 6,6 à 3,6 m de demi-largeur. Mesuré : à plat les
+  saumons d'aile sont à 4,24 m en travers, donc bloqués ; entre 30° et 60° de
+  roulis dans le bon sens, elle s'ouvre. Elle exige de nouveau le tonneau.
