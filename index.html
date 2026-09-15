@@ -514,6 +514,15 @@
   }
   #coop .aide, #viseurs .aide { color: var(--ph-dim); font-size: 11px; margin: 0 0 10px; line-height: 1.6; }
   #changelog div, #aide p { margin: 0 0 8px; }
+  /* le numéro de version est un titre, la liste est en dessous */
+  #changelog .bloc { margin: 0 0 16px; }
+  #changelog .bloc b { display: block; margin-bottom: 5px; letter-spacing: 0.08em; }
+  #changelog .bloc ul { margin: 0; padding: 0 0 0 15px; list-style: none; }
+  #changelog .bloc li { margin: 0 0 5px; position: relative; }
+  #changelog .bloc li::before {
+    content: '—'; position: absolute; left: -15px; opacity: 0.45;
+  }
+  #changelog .bloc li:last-child { margin-bottom: 0; }
   #changelog .merci { color: var(--ph-line); }
   #changelog div:last-child, #aide p:last-child { margin-bottom: 0; }
   #changelog b, #aide b { color: var(--ph-line); }
@@ -1499,6 +1508,19 @@ const FUM_R0        = 0.55;   // rayon à la naissance : le calibre de l'engin
 const FUM_R1        = 3.1;    // rayon en fin de vie
 const FUM_MAX       = 220;    // au-delà, les plus vieux cèdent la place
 const COL_FOND      = 0x04070a;   // le fond de l'écran : la nappe du sol en prend la couleur
+// LA COULEUR DU RELIEF. Peinte en rouge pour l'essai, la nappe qui suit la
+// carte de hauteur couvrait exactement les montagnes et masquait exactement ce
+// qu'il fallait : l'occultation marchait déjà. Ce qui ne marchait pas, c'est
+// qu'elle était de la couleur EXACTE du ciel — donc invisible. Une montagne
+// n'avait pas de corps : c'était un filet de traits suspendu dans le noir, et
+// on la voyait « au travers » parce qu'il n'y avait rien dedans.
+//
+// Elle prend maintenant un vert très sombre, à peine au-dessus du fond. Assez
+// pour que la crête devienne une ARÊTE — le ciel d'un côté, une masse de
+// l'autre — et trop peu pour éclairer quoi que ce soit. La valeur est
+// volontairement basse : c'est la silhouette qui fait le travail, pas la
+// teinte.
+const COL_RELIEF    = 0x07130e;
 const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
 const COL_LOCK      = 0xffffff;
@@ -3423,12 +3445,27 @@ function batisRelief(cx, cz) {
 
   const relief = new THREE.Mesh(
     batisRelief(0, 0),
-    // polygonOffset s'ajoute au decalage geometrique et, lui, SUIT LA PENTE :
-    // une surface vue de biais — le cas exact d'une crete lointaine — recoit un
-    // decalage proportionnel a sa pente en profondeur. C'est ce qui manquait.
-    new THREE.MeshBasicMaterial({ color: COL_FOND, fog: false, depthWrite: true,
-                                  polygonOffset: true, polygonOffsetFactor: 3,
-                                  polygonOffsetUnits: 6 })
+    // SURTOUT PAS DE polygonOffset. Je l'avais mis pour « suivre la pente » —
+    // c'était l'erreur, et elle rendait la nappe INUTILE là où elle comptait le
+    // plus. L'offset vaut factor × DZ + units × r, où DZ est la pente en
+    // profondeur du polygone PAR PIXEL. Une nappe de sol vue à angle rasant —
+    // le cas exact d'un survol en plongée douce — a une pente en profondeur
+    // énorme : des dizaines de mètres par pixel. Multipliée par trois, elle
+    // repoussait la surface de plusieurs centaines de mètres derrière
+    // elle-même, et tout ce qui se trouvait dans cet intervalle repassait
+    // devant. D'où : le relief proche était bien caché (mesuré 44 %), le
+    // relief lointain ne l'était plus du tout (mesuré −1 %).
+    //
+    // Le tampon fait vingt-quatre bits et sa résolution vaut un demi-mètre à
+    // cinq kilomètres : les quatre mètres de décalage géométrique valent huit
+    // crans de profondeur, largement assez, et ils ne dépendent d'aucun angle.
+    //
+    // ET ELLE PREND LE BROUILLARD. Sans lui, une crête à cinq kilomètres a
+    // exactement le même corps qu'une crête à trois cents mètres, et la
+    // profondeur disparaît : c'est une découpe de papier. Avec, les plans
+    // s'étagent — le proche est franc, le lointain se fond dans l'horizon,
+    // comme les traits qui sont posés dessus, qui prennent déjà le brouillard.
+    new THREE.MeshBasicMaterial({ color: COL_RELIEF, fog: true, depthWrite: true })
   );
   relief.frustumCulled = false;
   relief.renderOrder = -0.4;     // après la nappe, avant tous les traits
@@ -11270,6 +11307,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.00', fr: 'Les montagnes ont un corps : la nappe qui les remplit n’était pas invisible par accident, elle était de la couleur du ciel.', en: 'The mountains have a body: the sheet filling them was not invisible by accident, it was the colour of the sky.' },
+  { v: '1.00', fr: 'Le journal ne répète plus le numéro de version à chaque ligne : un numéro, et tout ce qui a changé dessous.', en: 'The log no longer repeats the version number on every line: one number, and everything that changed beneath it.' },
   { v: '1.00', fr: 'La plaine au-delà des montagnes ne compte plus comme une fuite : on va au refuge tranquillement.', en: 'The plain beyond the mountains no longer counts as fleeing: the trip to the refuge is calm.' },
   { v: '1.00', fr: 'Orion se trace plein sud et ouvre la chasse : vingt-cinq secondes de canons doublés.', en: 'Orion traces due south and opens the hunt: twenty-five seconds of doubled guns.' },
   { v: '1.00', fr: 'Enchaîner les portails cumule la poussée, et chaque passage fait perdre la main aux adversaires.', en: 'Chaining gates stacks the thrust, and every pass makes the enemies lose their aim.' },
@@ -11397,10 +11436,23 @@ function rendJournal() {
   const el = document.getElementById('changelog');
   if (!el) return;
   const fr = langue !== 'en';
-  el.innerHTML = JOURNAL.map(j =>
-    '<div><b>v' + j.v + '</b> — ' + (fr ? j.fr : j.en)
-    + (j.merci ? ' <span class="merci">(' + (fr ? 'merci ' : 'thanks ') + j.merci + ' !)</span>' : '')
-    + '</div>').join('');
+  // UN NUMÉRO DE VERSION, UNE FOIS. Chaque ligne portait le sien, donc une
+  // mise à jour qui touche dix choses écrivait dix fois « v1.00 » et on ne
+  // lisait plus rien. Le numéro est un TITRE : il apparaît une seule fois, et
+  // tout ce qui a changé sous lui se lit dessous, quelle qu'en soit la
+  // quantité. Les entrées sont déjà dans l'ordre, il suffit de les regrouper
+  // à la volée.
+  const blocs = [];
+  for (const j of JOURNAL) {
+    if (!blocs.length || blocs[blocs.length - 1].v !== j.v) blocs.push({ v: j.v, lignes: [] });
+    blocs[blocs.length - 1].lignes.push(j);
+  }
+  el.innerHTML = blocs.map(b =>
+    '<div class="bloc"><b>v' + b.v + '</b><ul>'
+    + b.lignes.map(j => '<li>' + (fr ? j.fr : j.en)
+        + (j.merci ? ' <span class="merci">(' + (fr ? 'merci ' : 'thanks ') + j.merci + ' !)</span>' : '')
+        + '</li>').join('')
+    + '</ul></div>').join('');
 }
 
 function majPause() {

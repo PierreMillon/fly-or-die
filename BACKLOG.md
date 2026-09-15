@@ -1241,3 +1241,45 @@ trois secondes passées dehors : il retombe à 23,9 s.
 **Test de bout en bout** : dix-huit secondes de vol réel au doigt, deux vagues,
 faucheur lâché, quatre adversaires en l'air, aucune erreur JavaScript, 34
 images par seconde en rendu logiciel.
+
+### Les montagnes transparentes — la vraie cause, enfin
+
+Trois corrections successives n'avaient rien donné, parce que je cherchais au
+mauvais endroit. Le plan proche, la précision du tampon, `polygonOffset` :
+aucun n'était le coupable.
+
+**La mesure qui a tranché** : peindre la nappe de relief en rouge sombre le
+temps d'une capture. Elle couvrait exactement les montagnes, masquait
+exactement ce qu'il fallait, et la silhouette des crêtes était nette.
+**L'occultation marchait déjà.**
+
+Ce qui ne marchait pas, c'est qu'elle était de la couleur **exacte** du ciel,
+`COL_FOND`. Une montagne n'avait donc pas de corps : c'était un filet de traits
+suspendu dans le noir, et on la voyait « au travers » parce qu'il n'y avait
+rien dedans. Le mot était juste — elle était transparente — mais la cause
+n'était pas géométrique, elle était picturale.
+
+`COL_RELIEF = 0x07130e`, un vert très sombre à peine au-dessus du fond, plus le
+brouillard, qui manquait aussi : sans lui une crête à cinq kilomètres a le même
+corps qu'une crête à trois cents mètres et la profondeur disparaît.
+
+Le vrai apport des trois corrections précédentes reste : le plan proche à 3 m
+est juste, et `polygonOffset` était bel et bien nuisible — l'offset vaut
+`factor × DZ + units × r`, et `DZ`, la pente en profondeur par pixel, est
+énorme pour un sol vu à angle rasant. Il repoussait la nappe de plusieurs
+centaines de mètres derrière elle-même. Mesuré avant retrait : −1,1 % de traits
+cachés en plongée à 1 800 m. Après : 3,5 %.
+
+### Le journal des versions
+
+Chaque ligne portait son numéro : une mise à jour qui touche dix choses
+écrivait dix fois « v1.00 ». Le numéro devient un **titre**, une seule fois, et
+tout ce qui a changé sous lui se lit dessous. **Mesuré** : 100 blocs, aucun
+numéro en double, dix lignes sous v1.00 et dix sous v0.99.
+
+### Sa réponse sur le cockpit
+
+    COCKPIT = nu        (viseur et instruments, aucune structure)
+    OEIL    = 1.30
+    CHAMP   = 57
+    MONTANTS= 5
