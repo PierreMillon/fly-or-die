@@ -926,3 +926,15 @@ C'était moche et c'était faux.
   permanence. Une constellation se reconnaît à sa forme, pas à l'éclat de ses
   étoiles : la chercher fait partie du plaisir. Ses sept étoiles ont la taille
   des autres étoiles de première grandeur.
+
+## v0.94 — le posé, l'écran de titre
+
+- **Un posé ne coûte plus rien.** Il pouvait reprendre jusqu'à trente-quatre
+  points : on revenait se faire soigner et on repartait plus bas qu'en
+  arrivant. La note du posé reste affichée, elle ne prélève plus rien.
+- **L'écran de titre ne pose qu'une question** : « Tiendras-tu dix vagues ? ».
+  Le texte d'histoire tenait trois lignes et poussait DÉCOLLER en plein milieu
+  de l'avion.
+- **Le défi du jour descend dans la bande du bas**, moitié-moitié avec MENU.
+  Il ne dit plus que son nom : le pacte explique le reste. Mesuré sur 430 px :
+  203 et 201 pixels.

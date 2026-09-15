@@ -296,14 +296,20 @@
      en haut le défi du jour : ce sont les deux seules choses à toucher sur cet
      écran, et un pouce ne vise pas une pastille de quarante pixels. Le corps
      porte la classe « accueil » tant que le panneau de titre est ouvert. */
-  /* LA PASTILLE DU DÉFI PREND SA PLACE. Posée en absolu, elle passait
-     par-dessus le titre : le panneau se décale donc vers le bas d'autant. */
-  body.accueil #overlay { padding-top: calc(62px + env(safe-area-inset-top, 0px)); }
+  /* LE DÉFI DESCEND DANS LA BANDE. Il était en pastille au-dessus du titre,
+     où il le gênait et où le pouce ne va pas. Il partage maintenant la bande
+     du bas avec MENU, moitié-moitié : les deux seules choses à toucher sur
+     cet écran sont côte à côte, en bas, et larges. */
+  body.accueil #defiBtn, body.accueil #menuBtn { flex: 1 1 0; min-width: 0; }
   /* ET DÉCOLLER REMONTE AU-DESSUS DE L'AVION. Poussé tout en bas, il tombait
      sous la cellule et le texte de série se retrouvait coincé entre les deux.
      Il se pose maintenant un peu sous le texte, donc juste au-dessus du nez,
      et tout le reste descend au bas de l'écran. */
-  body.accueil #startBtn { margin-top: clamp(30px, 16vh, 170px); }
+  /* DANS LE VIDE, PAS SUR L'AVION. Le texte d'accueil tenait trois lignes et
+     poussait le bouton en plein milieu de la cellule. Il ne reste qu'une
+     question, et le bouton se pose dans l'espace libre entre le record et le
+     nez de l'appareil. */
+  body.accueil #startBtn { margin-top: clamp(24px, 11vh, 120px); }
   body.accueil #objectif { margin-top: auto; }
   body.accueil #installBtn { margin-top: 0; }
   body.accueil #topbar { padding-left: 10px; padding-right: 10px; }
@@ -311,13 +317,11 @@
      laissaient pourtant leurs gouttières, et le bouton débordait d'autant */
   body.accueil #topbar > span { display: none; }
   body.accueil #menuBtn {
-    flex: 1 0 100%; min-width: 0; width: auto; text-align: center;
-    padding-top: 13px; padding-bottom: 13px; border-radius: 8px;
+    text-align: center; padding-top: 13px; padding-bottom: 13px; border-radius: 8px;
   }
   body.accueil #defiBtn {
-    left: 10px; right: 10px; width: auto; max-width: none;
-    text-align: center; padding-top: 12px; padding-bottom: 12px;
-    border-radius: 8px; font-size: 11px;
+    text-align: center; padding-top: 13px; padding-bottom: 13px;
+    border-radius: 8px; font-size: 11px; letter-spacing: 0.14em;
   }
   #menuBtn {
     background: none;
@@ -366,10 +370,10 @@
      etaient au milieu de l'ecran, l'un sous l'autre : le plus gros bouton du
      jeu se trouvait la ou la main n'est pas, et une proposition secondaire
      lui volait la place. Le defi devient une pastille en haut a gauche. */
-  #defiBtn { position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); left: 12px;
-    margin: 0; max-width: min(66vw, 320px); text-align: left; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap;
-    background: none; border: 1px solid var(--ph-dim); border-radius: 6px; color: var(--ph-text); font-family: inherit; font-size: 10px; letter-spacing: 0.12em; padding: 7px 11px; }
+  #defiBtn { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: none; border: 1px solid var(--ph-dim); border-radius: 6px;
+    color: var(--ph-text); font-family: inherit; font-size: 10px;
+    letter-spacing: 0.12em; padding: 7px 11px; }
   #defiBtn[hidden] { display: none; }
   /* LE PACTE DU DÉFI. On ne lance plus un défi d'un doigt distrait : la
      fenêtre dit ce qu'il enlève, ce qu'il demande, ce qu'il rapporte, et
@@ -731,8 +735,9 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.93</button>
+  <button id="versionBtn">v0.94</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
+  <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
 </div>
 
@@ -1214,7 +1219,6 @@
   <p id="overlayScore" hidden></p>
   <button id="videoBtn" hidden data-en="WATCH A VIDEO · CONTINUE">REGARDER UNE VIDÉO · REPRENDRE</button>
   <button id="startBtn" data-en="TAKE OFF">DÉCOLLER</button>
-  <button id="defiBtn">DÉFI DU JOUR</button>
   <p id="objectif" hidden></p>
   <button id="partageBtn" hidden data-en="SHARE THE SCORE">PARTAGER LE SCORE</button>
   <button id="coopBtn" data-en="CO-OP">COOP</button>
@@ -5465,10 +5469,15 @@ function toucherPiste() {
   const sens = state.forward.z < 0 ? -1 : 1;
   const restant = sens < 0 ? state.pos.z - PISTE.z1 : PISTE.z0 - state.pos.z;
   const hors = Math.abs(state.pos.x) > PISTE.demiL + 5;
+  // UN POSÉ NE COÛTE PLUS RIEN. On revenait se faire soigner, et le posé lui
+  // même reprenait jusqu'à trente-quatre points : on repartait parfois plus
+  // bas qu'en arrivant, ce qui rend la piste inutile. Le posé est un refuge,
+  // pas une épreuve. La note reste affichée — on veut savoir si c'était propre
+  // — mais elle ne prélève plus une seule unité de structure.
   let degat = 0, mot = 'poseBon';
-  if (vz > TOUCHER_DUR) { degat += Math.min(34, (vz - TOUCHER_DUR) * 6); mot = 'poseDur'; }
-  if (hors) { degat += 16; mot = 'poseHors'; }
-  if (restant < ROULAGE_M) { degat += 12; mot = 'poseLong'; }
+  if (vz > TOUCHER_DUR) mot = 'poseDur';
+  if (hors) mot = 'poseHors';
+  if (restant < ROULAGE_M) mot = 'poseLong';
   state.pos.y = SOL_Y;
   state.assist = false;
   state.lock = null;
@@ -9950,7 +9959,10 @@ function majObjectif() {
   // texte dit la série avec son calcul.
   {
     const d = defiDuJour(), fr = langue !== 'en';
-    document.getElementById('defiBtn').textContent = (fr ? 'DÉFI DU JOUR  ·  ' : 'DAILY CHALLENGE  ·  ') + (fr ? d.fr : d.en) + '  ·  ×1,5';
+    // il ne dit que son nom : ce qu'il demande, le pacte l'explique en entier
+    void d;
+    document.getElementById('defiBtn').textContent = fr ? 'DÉFI DU JOUR' : 'DAILY CHALLENGE';
+    document.getElementById('defiBtn').hidden = state.running;
     const n = carnet.serie ? carnet.serie.n : 0;
     if (n > 0) {
       // UNE SEULE LIGNE. La phrase complète passait à la ligne et cassait la
@@ -10025,7 +10037,9 @@ function refreshBars() {
   // s'efface dès qu'elle est perdue, plutôt que de compter dans le vide
   // la classe qui dit « on est sur l'écran de titre » : la mise en page des
   // deux boutons pleine largeur en dépend
-  document.body.classList.toggle('accueil', (!!overlay && !overlay.hidden) || !state.running);
+  const surTitre = (!!overlay && !overlay.hidden) || !state.running;
+  document.body.classList.toggle('accueil', surTitre);
+  document.getElementById('defiBtn').hidden = !surTitre;
   const reste = state.vagueLimite - state.vagueT;
   chronoLbl.textContent = (state.vagueLimite > 0 && reste > 0) ? reste.toFixed(0) + 's' : '';
   const st = Math.max(0, Math.ceil(state.structure));
@@ -10107,7 +10121,7 @@ const T = {
     ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
     plafond: 'CELLULE RENFORCÉE  ·  PLAFOND ', affaisse: 'PORTAIL AFFAISSÉ  ·  IL PASSE AU RAS DU SOL', ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
     alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', leurre: 'LEURRE LÂCHÉ  ·  RESTE ', leurresPleins: 'LEURRES RECHARGÉS', locked: 'LOCKED  ·  BOUGE !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
-    rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
+    rempart: 'Tiendras-tu dix vagues ?',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
     effondre: 'BÂTIMENT ABATTU  ·  +', eclipse: 'ÉCLIPSE  ·  ILS NE VOIENT PLUS RIEN',
     refuge: 'LE REFUGE  ·  MOTEUR COUPÉ  ·  PERSONNE NE VIENT',
@@ -10149,7 +10163,7 @@ const T = {
     ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
     plafond: 'AIRFRAME REINFORCED  ·  CEILING ', affaisse: 'GATE CAVED IN  ·  IT PASSES AT GROUND LEVEL NOW', ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
     alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', leurre: 'FLARE OUT  ·  LEFT ', leurresPleins: 'FLARES RELOADED', locked: 'LOCKED  ·  MOVE!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
-    rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
+    rempart: 'Will you survive 10 waves?',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
     effondre: 'BUILDING DOWN  ·  +', eclipse: 'ECLIPSE  ·  THEY ARE BLIND',
     refuge: 'THE REFUGE  ·  ENGINE OFF  ·  NOBODY IS COMING',
@@ -10699,6 +10713,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.94', fr: 'Un posé ne coûte plus jamais de vie, et l’écran de titre ne pose qu’une question.', en: 'A landing never costs life again, and the title screen asks one question.' },
   { v: '0.93', fr: 'Le ciel n’est plus un miroir, et la Grande Ourse ne brille pas plus que les autres.', en: 'The sky is no longer a mirror, and the Big Dipper shines no brighter than the rest.' },
   { v: '0.92', fr: 'Le terrain lui-même se soulève en montagnes, et on ne repart de la piste que quand on le décide.', en: 'The ground itself rises into mountains, and you leave the runway only when you decide to.' },
   { v: '0.91', fr: 'Le sol redevient opaque, et DÉCOLLER se pose juste au-dessus de l’avion.', en: 'The ground turns opaque again, and TAKE OFF sits just above the aircraft.' },
