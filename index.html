@@ -653,7 +653,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.80</button>
+  <button id="versionBtn">v0.81</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -840,6 +840,23 @@
   l'autorité du manche : il ne peut jamais prendre la main ni t'emmener sur
   une cible que tu ne vises pas.</p>
 
+  <h2>LE TERRAIN</h2>
+  <p>Trois signaux au sol, les vrais, ceux d'un aérodrome. Ils sont là pour
+  te dire comment te poser sans radio.</p>
+  <p><b>Le carré de signalisation et le T.</b> Le carré blanc au nord du
+  hangar est l'aire à signaux. Le grand T qu'il contient est l'indicateur de
+  direction d'atterrissage : on se pose <b>parallèlement à sa jambe et vers
+  sa barre</b>. Ici la barre est au nord : c'est le sens en service. Le jeu
+  t'accepte dans les deux sens, un vrai terrain non.</p>
+  <p><b>La manche à air.</b> Le cône au bout du mât montre d'où vient le vent
+  et sa force : plus il est tendu à l'horizontale, plus ça souffle. On décolle
+  et on se pose <b>face au vent</b>, jamais dans le dos.</p>
+  <p><b>Le PAPI.</b> Les quatre feux de chaque côté de la piste donnent ta pente.
+  Quatre blancs, tu es trop haut. Deux blancs deux rouges, tu es pile sur les
+  3 degrés. Quatre rouges, tu es trop bas — et trop bas, c'est le sol.</p>
+  <p class="src">Sources : OACI annexe 14 (aire à signaux, T d'atterrissage,
+  PAPI).</p>
+
   <h2>EN FACE</h2>
   <p>Quatre adversaires, quatre silhouettes, quatre manières de poursuivre.
   Les vagues traversent le siècle : les anciens ne disparaissent pas, ils
@@ -978,6 +995,22 @@
   aircraft leaves again after ten seconds — or at once if you press TAKE OFF
   AGAIN. Meanwhile you can neither turn, nor shoot, nor dodge. They can.</p>
 
+  <h2>THE AIRFIELD</h2>
+  <p>Three real ground signals, the ones a real aerodrome uses. They tell you
+  how to land without a radio.</p>
+  <p><b>The signal square and the T.</b> The white square north of the hangar
+  is the signals area. The large T inside it is the landing direction
+  indicator: you land <b>parallel to its shaft and towards its crossbar</b>.
+  Here the crossbar is to the north: that is the direction in use. The game
+  takes you either way, a real airfield would not.</p>
+  <p><b>The windsock.</b> The cone on the mast shows where the wind comes from
+  and how hard: the flatter it sits, the stronger it blows. You take off and
+  land <b>into the wind</b>, never with it behind you.</p>
+  <p><b>The PAPI.</b> The four lights on each side of the runway give your slope.
+  Four white, too high. Two white two red, dead on the 3 degrees. Four red,
+  too low — and too low is the ground.</p>
+  <p class="src">Sources: ICAO Annex 14 (signals area, landing T, PAPI).</p>
+
   <h2>WHO YOU FACE</h2>
   <p>Four opponents, four silhouettes, four ways of pursuing. The waves cross
   the century: the old ones do not disappear, they become a minority.</p>
@@ -1022,7 +1055,8 @@
 </div>
 
 <div id="changelog" hidden>
-  <div><b>v0.80</b> — la fente à 45° est deux fois plus large et rend cent points, le plafond de vie monte avec les portails et les mécaniciens réparent jusque-là, l'effet de sol : sous quarante mètres l'aile s'appuie sur son coussin d'air et rend vingt pour cent de vitesse, sans que rien ne l'écrive.</div>
+  <div><b>v0.81</b> — le doigt qui quitte l'écran par le haut ou par le bas fait l'Immelmann ou le Split-S. Le doigt tenu en haut ne déclenche plus rien. Les adversaires ne se touchent plus, ni entre eux ni avec nous. Un bâtiment à passage ne disparaît plus : il s'affaisse au ras du sol. L'écran de fin compte les portails, la vie reprise et le plafond atteint. Le hangar fait soixante mètres de façade et ses deux vantaux se rangent dehors, sur leur rail. L'équipe au sol traverse le terrain pendant la descente et vous entoure à l'arrêt. L'aide explique le carré à signaux, le T, la manche à air et le PAPI.</div>
+  <div><b>v0.80</b> — vingt roquettes en soute, une seconde de verrouillage plein de plus avant qu'elles partent, et elles touchent enfin les pièces au sol ; la fente à 45° est deux fois plus large et rend cent points, le plafond de vie monte avec les portails et les mécaniciens réparent jusque-là, l'effet de sol : sous quarante mètres l'aile s'appuie sur son coussin d'air et rend vingt pour cent de vitesse, sans que rien ne l'écrive.</div>
   <div><b>v0.79</b> — le hangar passe au milieu de la piste et on s'arrête devant, les mécaniciens viennent nous attendre dès l'approche, l'avion ne quitte plus l'écran pendant un tonneau, le trait de tir ennemi est vert et fin, DÉCOLLER descend sous le pouce et le défi monte dans la bande du haut, les adversaires ont toutes nos figures, Immelmann, Split-S et looping compris, ils vont se soigner aux portails, la vitesse gagnée ne retombe plus, et la jauge de poussée monte et descend au même rythme.</div>
   <div><b>v0.78</b> — la vitesse sous la croix avec sa pente, l'éditeur de carte dans le menu, et l'ailier qu'on gagne en prenant les trois trous à figure dans une même partie.</div>
   <div><b>v0.77</b> — trois avions à choisir (le bimoteur, l'intercepteur gagné dans la légende, le pionnier du premier vol), et des leurres qui partent seuls devant les roquettes, chez nous comme chez le gardien.</div>
@@ -1215,7 +1249,8 @@ const BURST_GAP     = 0.1;
 const BULLET_SPEED  = 300;    // celles d'en face
 const BULLET_LIFE   = 3.2;
 const BULLET_HIT    = 8;     // une balle qui passe à 8 m touche la cellule
-const RAM_DIST      = 42;    // distance sous laquelle un ennemi s'écarte de nous : ils font tout pour ne pas nous toucher
+const RAM_DIST      = 70;    // distance sous laquelle un ennemi s'écarte de nous : ils font tout pour ne pas nous toucher
+const RAM_MINI      = 34;    // et jamais, jamais plus près que ceci : on les repousse d'autorité
 // Bouches des deux mitrailleuses, relevées sur le modèle lui-même : ce sont
 // les nacelles d'aile, à 30 % de la demi-envergure. Les traçantes partent de
 // là et convergent sur la cible — c'est le réglage d'harmonisation des armes
@@ -1245,9 +1280,12 @@ const SHOT_RATE     = 0.075;  // secondes entre deux salves
 // parce qu'il fallait une seconde de verrouillage CONTINU, et qu'un doigt ne
 // la tient jamais — la charge retombe au premier tremblement. Une demi-seconde
 // suffit a dire qu'on tenait bien la cible.
-const ROQ_SEUIL     = 1.0;    // secondes de verrouillage avant le départ
+// UNE SECONDE DE PLUS. Le verrouillage se referme, et il faut ENCORE le tenir
+// une seconde pleine avant que les roquettes partent : on a le temps de voir
+// venir, et l'adversaire a le temps de rompre.
+const ROQ_TENUE     = 1.0;    // secondes de verrouillage PLEIN avant le départ
 const ROQ_PORTEE    = 750;    // au-delà, on garde ses roquettes
-const ROQ_STOCK     = 6;      // sous les ailes au départ : trois salves, puis il faut se poser
+const ROQ_STOCK     = 20;     // sous les ailes au départ : dix salves
 const DECRO_ALARME  = 0.5;    // secondes trop lent et trop cabré avant l'alarme
 const DECRO_VRILLE  = 1.6;    // ...et avant de partir en vrille
 const VRILLE_SORTIE = 0.55;   // secondes de manche à l'opposé pour en sortir (le joueur : « trop dur », on a divisé par deux)
@@ -1256,7 +1294,7 @@ const VRILLE_SORTIE = 0.55;   // secondes de manche à l'opposé pour en sortir 
 // arriver, là où à 420 m/s elle disparaissait dans l'image suivante. Trois
 // fois plus lente qu'une balle, et pourtant c'est elle qui fait mal.
 const ROQ_VITESSE   = 200;
-const ROQ_VIRAGE    = 2.2;    // rad/s de guidage : moins vite, donc moins nerveux
+const ROQ_VIRAGE    = 3.2;    // rad/s de guidage : de quoi piquer sur une pièce au sol
 const ROQ_DEGATS    = 55;
 const ROQ_RECHARGE  = 6.5;
 const ROQ_VIE       = 7;      // à deux cents mètres par seconde, la portée reste large
@@ -2618,9 +2656,9 @@ scene.add(playerMesh);
 // lacet, le tangage et les soutes ; le reste du jeu ne bouge pas.
 // ---------------------------------------------------------------------------
 const AVIONS = [
-  { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 6, leurres: 3, acces: 'libre' },
-  { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 4, leurres: 4, acces: 'legende' },
-  { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 2, leurres: 0, acces: 'libre' },
+  { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 20, leurres: 3, acces: 'libre' },
+  { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 14, leurres: 4, acces: 'legende' },
+  { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 8,  leurres: 0, acces: 'libre' },
 ];
 let avionChoisi = 'bimoteur';
 try { avionChoisi = localStorage.getItem('fod_avion') || 'bimoteur'; } catch (e) {}
@@ -3628,7 +3666,11 @@ const MECANO_POSTES = [[-3.4, -3.0], [3.4, -3.2], [0.9, -6.4]];
 // et on s'arrêtait n'importe où, souvent hors de vue du terrain. Le hangar est
 // maintenant à mi-piste, et c'est à sa hauteur qu'on s'immobilise, dans les
 // deux sens d'atterrissage.
-const AERO = { x: 78, z: (PISTE.z0 + PISTE.z1) / 2, largeur: 44, prof: 30, haut: 13 };
+// LARGE DANS LE SENS DE LA PISTE. Un hangar se lit de la piste, pas d'en
+// haut : sa facade est parallele au bitume et fait soixante metres, ses deux
+// vantaux coulissent sur un rail qui DEPASSE du batiment des deux cotes, et
+// s'effacent entierement. Porte ouverte, on voit toute la flotte alignee.
+const AERO = { x: 78, z: (PISTE.z0 + PISTE.z1) / 2, largeur: 40, prof: 60, haut: 15, baie: 40 };
 const matHangar = lineMat(COL_LINE, 0.8);
 const matPale = lineMat(COL_LINE, 0.35);
 const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0.6, ventCible: 0.6 };
@@ -3646,10 +3688,22 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   g.add(paroi(A.largeur, A.haut, 0.4, 0, A.haut / 2, -A.prof / 2));         // côté nord
   g.add(paroi(A.largeur, A.haut, 0.4, 0, A.haut / 2, A.prof / 2));          // côté sud
   g.add(paroi(A.largeur, 0.4, A.prof, 0, A.haut, 0));                        // toit
-  // la porte en deux vantaux, sur la face ouest, qui glissent vers le nord et le sud
-  hangar.porteG = paroi(0.4, A.haut - 0.6, A.prof / 2, 0, (A.haut - 0.6) / 2, -A.prof / 4);
-  hangar.porteD = paroi(0.4, A.haut - 0.6, A.prof / 2, 0, (A.haut - 0.6) / 2, A.prof / 4);
-  hangar.porteG.position.x = hangar.porteD.position.x = -A.largeur / 2;
+  // la facade ouest : deux trumeaux aux extremites, et entre eux la baie de
+  // quarante metres par ou sortent les avions
+  const tr = (A.prof - A.baie) / 2;
+  g.add(paroi(0.4, A.haut, tr, -A.largeur / 2, A.haut / 2, -(A.baie + tr) / 2));
+  g.add(paroi(0.4, A.haut, tr, -A.largeur / 2, A.haut / 2,  (A.baie + tr) / 2));
+  // le rail : une poutre au-dessus de la facade, DEBORDANT du batiment des
+  // deux cotes — c'est elle qui porte les vantaux quand ils sont dehors
+  g.add(paroi(1.2, 0.5, A.baie * 2 + 4, -A.largeur / 2 - 0.9, A.haut - 0.3, 0));
+  for (const c of [-1, 1])
+    g.add(paroi(0.5, A.haut, 0.5, -A.largeur / 2 - 0.9, A.haut / 2, c * (A.baie + 2)));
+  // deux vantaux qui ferment la baie, et qui coulissent jusqu'a se ranger
+  // devant les trumeaux : ils DEPASSENT alors de dix metres de chaque cote du
+  // batiment, et la baie est entierement degagee — on voit toute la flotte.
+  hangar.porteG = paroi(0.5, A.haut - 0.8, A.baie / 2, 0, (A.haut - 0.8) / 2, -A.baie / 4);
+  hangar.porteD = paroi(0.5, A.haut - 0.8, A.baie / 2, 0, (A.haut - 0.8) / 2, A.baie / 4);
+  hangar.porteG.position.x = hangar.porteD.position.x = -A.largeur / 2 - 1.5;
   g.add(hangar.porteG, hangar.porteD);
   // les appareils dedans : le nôtre, et les cinq à débloquer, alignés
   // les trois avions du joueur d'abord — brillants s'ils sont à lui, pâles
@@ -3658,16 +3712,19 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
                 { geo: KINDS[2].geom, edges: KINDS[2].edges, mat: legendesN > 0 ? matPlayer : matPale, ech: KINDS[2].echelle * 12 / 7.5 * 0.9 },
                 { lignes: PIONNIER_SHAPE, mat: matPlayer, ech: 12 / 7 * 0.75 }];
   for (const k of KINDS) if (!k.sol && k !== KINDS[2]) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
+  // quatre devant, le reste derriere : tout le monde est visible depuis la
+  // piste des que les vantaux sont effaces
   rang.forEach((r, i) => {
     const m = r.lignes ? new THREE.LineSegments(segGeom(r.lignes), r.mat) : solidWire(r.geo, r.edges, r.mat);
     m.frustumCulled = false;
     m.scale.setScalar(r.ech);
-    m.position.set(-A.largeur / 2 + 9 + Math.floor(i / 3) * 16, 1.2, -A.prof / 2 + 6 + (i % 3) * 9);
+    const col = Math.floor(i / 4), k = i % 4;
+    m.position.set(-A.largeur / 2 + 11 + col * 17, 1.2, -A.prof / 2 + 9 + k * 14 + col * 7);
     m.rotation.y = -Math.PI / 2;      // le nez vers la porte
     g.add(m);
   });
   // la table et les tabourets, devant la porte, côté sud
-  const table = paroi(1.6, 0.08, 1.0, 0, 0.78, 0); table.position.set(-A.largeur / 2 - 7, 0, A.prof / 2 + 5);
+  const table = paroi(1.6, 0.08, 1.0, 0, 0.78, 0); table.position.set(-A.largeur / 2 - 29, 0, A.prof / 2 - 18);
   g.add(table);
   for (const [tx, tz] of [[-1.3, 0], [1.3, 0], [0, 1.1]]) {
     const tab = paroi(0.42, 0.46, 0.42, 0, 0.23, 0);
@@ -3677,7 +3734,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   hangar.table = new THREE.Vector3(A.x + table.position.x, PISTE.y, A.z + table.position.z);
   // la manche à air : un mât, et un cône qui suit le vent
   const mat = new THREE.LineSegments(segGeom([0, 0, 0, 0, 7, 0]), matHangar);
-  mat.position.set(-A.largeur / 2 - 4, 0, -A.prof / 2 - 8);
+  mat.position.set(-A.largeur / 2 - 5, 0, -A.prof / 2 - 6);
   g.add(mat);
   const cone = [];
   for (let i = 0; i < 8; i++) {
@@ -3690,11 +3747,11 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   hangar.manche.position.set(mat.position.x, 7, mat.position.z);
   g.add(hangar.manche);
   // l'aire à signaux : un carré et le T d'atterrissage, à plat au sol
-  const y = PISTE.y + 0.06, sx = -A.largeur / 2 - 16, sz = -A.prof / 2 - 22, c = 5;
+  const y = PISTE.y + 0.06, sx = -A.largeur / 2 - 16, sz = -A.prof / 2 - 16, c = 5;
   const sig = [sx - c, y, sz - c, sx + c, y, sz - c, sx + c, y, sz - c, sx + c, y, sz + c,
                sx + c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz - c,
-               sx - 2.4, y, sz + 2.6, sx + 2.4, y, sz + 2.6,          // la barre du T
-               sx, y, sz + 2.6, sx, y, sz - 2.8];                      // et sa jambe, vers le nord : on se pose vers là
+               sx - 2.4, y, sz - 2.6, sx + 2.4, y, sz - 2.6,          // la barre du T, au nord
+               sx, y, sz - 2.6, sx, y, sz + 2.8];                      // la jambe part au sud : on se pose PARALLELEMENT a elle et VERS la barre (OACI annexe 14)
   g.add(new THREE.LineSegments(segGeom(sig), matHangar));
   g.frustumCulled = false;
   scene.add(g);
@@ -3703,8 +3760,8 @@ function updateAerodrome(dt) {
   // la porte s'ouvre quand on est au sol, se referme quand on vole
   const veut = (state.auSol || state.pose || state.roulage || state.takeoff || !state.running) ? 1 : 0;
   hangar.ouverture = THREE.MathUtils.damp(hangar.ouverture, veut, 1.6, dt);
-  hangar.porteG.position.z = -hangar.ouverture * AERO.prof / 2;
-  hangar.porteD.position.z =  hangar.ouverture * AERO.prof / 2;
+  hangar.porteG.position.z = -hangar.ouverture * AERO.baie / 2;
+  hangar.porteD.position.z =  hangar.ouverture * AERO.baie / 2;
   // le vent tourne lentement, et la manche frissonne
   if (Math.random() < 0.004) hangar.ventCible = Math.random() * Math.PI * 2;
   hangar.vent = dampAngle(hangar.vent, hangar.ventCible, 0.3, dt);
@@ -3738,6 +3795,22 @@ function mecanosVersPiste() {
     m.g.visible = true;
     m.g.rotation.set(0, 0, 0);
     m.but.set(PISTE.demiL + 4 + i * 2.5, PISTE.y, AERO.z + (i - 1) * 6);
+  });
+}
+
+// DEJA EN PLACE QUAND LES ROUES S'ARRETENT. Des que les roues touchent, ils
+// quittent le bord du bitume et prennent leurs postes autour du point d'arret
+// — qui est connu d'avance, puisque l'avion est guide sur l'axe jusqu'au
+// hangar. Ils sont donc autour de l'appareil a la seconde ou il s'immobilise,
+// et non trois secondes plus tard.
+function mecanosVersArret() {
+  mecanos.forEach((m, i) => {
+    const [dx, dz] = MECANO_POSTES[i];
+    m.repos = false; m.mort = false; m.fuite = 0; m.tire = false; m.livre = null;
+    m.caisse.visible = false; m.fusil.visible = false;
+    m.g.visible = true;
+    m.g.rotation.set(0, 0, 0);
+    m.but.set(dx, PISTE.y, AERO.z + dz);
   });
 }
 
@@ -3845,14 +3918,16 @@ function updateMecanos(dt) {
     // au hasard toutes les deux secondes pendant qu'il traverse le terrain.
     m.t -= dt;
     const loin = m.p.distanceTo(state.pos) > 14;
-    if (m.t <= 0 && !m.livre && !loin) {
+    if (m.t <= 0 && !m.livre && !loin && !state.roulage) {
       m.t = 1.2 + Math.random() * 2.4;
       m.but.set(state.pos.x + (Math.random() - 0.5) * 9,
                 PISTE.y,
                 state.pos.z - 2 - Math.random() * 6);
     }
-    // et dès que l'avion est arrêté, il va bien à lui, où qu'il fût
-    if (loin && (state.pose || state.roulage)) {
+    // PENDANT LE ROULAGE il colle au poste, sans jamais tirer un but au
+    // hasard : l'avion glisse encore, il l'accompagne et se trouve deja la
+    // quand les roues s'immobilisent.
+    if (state.roulage || (loin && state.pose)) {
       m.but.set(state.pos.x + MECANO_POSTES[mecanos.indexOf(m)][0],
                 PISTE.y,
                 state.pos.z + MECANO_POSTES[mecanos.indexOf(m)][1]);
@@ -3862,7 +3937,7 @@ function updateMecanos(dt) {
     const marche = d > 0.15;
     if (marche) {
       // loin de l'avion il court, près il marche
-      m.p.addScaledVector(_v.divideScalar(d), Math.min(d, (d > 12 ? 9 : 2.1) * dt));
+      m.p.addScaledVector(_v.divideScalar(d), Math.min(d, (d > 4 ? 15 : 2.1) * dt));
       m.g.rotation.y = Math.atan2(_v.x, _v.z);
     }
     // ORGANIQUE : le pas rebondit, le corps se penche dans la marche, et à
@@ -4147,6 +4222,8 @@ const BATIMENTS = [...pylones, ...arches, ...tours, ...speciaux];
 function rebatir(b) {
   b.hp = BAT_HP[b.type];
   b.mort = false;
+  b.ruine = false;
+  b.rabaisse = false;
   b.chute = 0;
   b.g.visible = true;
   b.g.scale.y = b.sy;
@@ -4189,6 +4266,14 @@ function obstacleEntre(p0, p1) {
   return _obst.bat ? _obst : null;
 }
 
+// Quand un portail s'affaisse, ses volumes ET son passage descendent avec lui.
+function rabaisseBoites(b) {
+  if (b.rabaisse) return;
+  b.rabaisse = true;
+  const liste = [...b.boites, ...(b.passages || [])];
+  if (b.passage) liste.push(b.passage);
+  for (const bo of liste) { bo.y0 *= RUINE; bo.y1 *= RUINE; }
+}
 const _pouss = new THREE.Vector3();
 function toucheBat(b, point, degats) {
   if (b.mort) return;
@@ -4211,7 +4296,25 @@ function toucheBat(b, point, degats) {
   if (b.hp <= 0) effondrer(b);
 }
 
+// UN PORTAIL NE DISPARAÎT JAMAIS TOUT À FAIT. Si les bâtiments troués
+// pouvaient s'effondrer comme les autres — et les adversaires tirent dedans —
+// on finirait sans un seul endroit où reprendre de la vie, et casser la carte
+// deviendrait leur meilleure stratégie. Ceux qui portent un passage
+// s'affaissent donc jusqu'à une ruine très basse : le trou reste, mais il
+// passe au ras du sol, et devient bien plus dangereux qu'avant.
+const RUINE = 0.22;
+function portail(b) { return !!(b.passage || (b.passages && b.passages.length)); }
 function effondrer(b, distant) {
+  if (portail(b)) {
+    if (b.ruine) return;
+    b.ruine = true;
+    b.hp = BAT_HP[b.type] * 0.35;
+    b.chute = BAT_CHUTE;
+    if (!distant) { stat('batiments'); marque(BAT_PRIME); announce(t('affaisse')); }
+    _pouss.copy(b.g.position); _pouss.y += 6;
+    SFX.roquetteImpact(_pouss);
+    return;
+  }
   b.mort = true;
   b.chute = BAT_CHUTE;
   b.hp = 0;
@@ -4234,7 +4337,8 @@ function updateBatiments(dt) {
     if (b.chute <= 0) continue;
     b.chute -= dt;
     const k = Math.max(0, b.chute / BAT_CHUTE);
-    b.g.scale.y = b.sy * (0.02 + 0.98 * k * k);
+    const bas = b.ruine ? RUINE : 0.02;
+    b.g.scale.y = b.sy * (bas + (1 - bas) * k * k);
     if (b.poussT <= 0) {
       b.poussT = 0.08;
       const bo = b.boites[0];
@@ -4246,7 +4350,7 @@ function updateBatiments(dt) {
       const f = semerFumee(_pouss.clone(), d);
       if (f) f.r0 *= 3;
     }
-    if (b.chute <= 0) b.g.visible = false;
+    if (b.chute <= 0) { if (b.ruine) rabaisseBoites(b); else b.g.visible = false; }
   }
 }
 
@@ -4662,6 +4766,7 @@ function toucherPiste() {
   // damagePlayer peut avoir mis fin à la partie : on ne met en roulage que ce
   // qui roule encore
   if (state.running) state.roulage = { t: 0, v0: state.speed, sens, degat, vz, restant };
+  if (state.running) { state.mecanosEnRoute = true; mecanosVersArret(); }
   setTimeout(() => { if (state.roulage) announce(t('freinage')); }, 900);
 }
 
@@ -4743,9 +4848,11 @@ function announce(txt) { state.announce = txt; state.announceT = 2.2; }
 // se posant, si l'on a su aller chercher les trous. Le potentiel gagné en
 // volant reste acquis même quand la vie, elle, est repartie.
 function gagneVie(n) {
+  stat('vieGagnee', n);
   state.structure = Math.min(VIE_MAX, state.structure + n);
   if (state.structure > state.vieMax) {
     state.vieMax = state.structure;
+    if (state.stats) state.stats.vieMax = state.vieMax;
     announce(t('plafond') + Math.round(state.vieMax) + ' %');
   }
 }
@@ -4764,7 +4871,8 @@ function statsVides() {
   return { ballesTirees: 0, ballesRecues: 0, ballesEnnemies: 0, roquettesTirees: 0,
            roquettesRecues: 0, roquettesEsquivees: 0, roquettesEnnemies: 0, abattus: 0,
            passages: 0, poses: 0, tempsPose: 0, mecanoAbattus: 0, mecanoBalles: 0,
-           altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0, faucheurs: 0, leurres: 0 };
+           altMax: 0, altSomme: 0, altN: 0, distMax: 0, batiments: 0, esquives: 0, faucheurs: 0, leurres: 0,
+           vieGagnee: 0, vieReparee: 0, vieMax: 100 };
 }
 function stat(cle, n) { if (state.stats) state.stats[cle] += (n === undefined ? 1 : n); }
 function texteStats() {
@@ -4777,7 +4885,9 @@ function texteStats() {
     [fr ? 'balles ennemies' : 'enemy bullets', S.ballesEnnemies],
     [fr ? 'roquettes tirées' : 'rockets fired', S.roquettesTirees],
     [fr ? 'roquettes reçues / esquivées' : 'rockets taken / dodged', S.roquettesRecues + ' / ' + S.roquettesEsquivees],
-    [fr ? 'portails' : 'checkpoints', S.passages],
+    [fr ? 'portails franchis' : 'checkpoints cleared', S.passages],
+    [fr ? 'vie reprise · aux portails' : 'life regained · at gates', Math.round(S.vieGagnee + S.vieReparee) + ' · ' + Math.round(S.vieGagnee)],
+    [fr ? 'vie maximale atteinte' : 'peak life', Math.round(S.vieMax) + ' %'],
     [fr ? 'bâtiments abattus' : 'buildings down', S.batiments],
     [fr ? 'posés · temps au sol' : 'landings · time on ground', S.poses + ' · ' + dureeFine(S.tempsPose)],
     [fr ? 'mécaniciens : abattus · balles' : 'mechanics: kills · rounds', S.mecanoAbattus + ' · ' + S.mecanoBalles],
@@ -5082,6 +5192,19 @@ const _right = new THREE.Vector3();
 const _los = new THREE.Vector3();
 const _impactSrc = new THREE.Vector3();
 const _seg = new THREE.Vector3();
+// SEPARATION DURE. Appelee sur TOUS les chemins et AVANT le test de choc :
+// un adversaire ne peut geometriquement plus entrer dans la sphere. C'est la
+// seule facon d'etre sur qu'il ne nous touche jamais, quelle que soit la
+// vitesse de rapprochement et quel que soit le branchement qu'il a pris.
+function ecarteDuJoueur(e) {
+  if (e.kind.sol) return;
+  _seg.subVectors(e.pos, state.pos);
+  const d = _seg.length();
+  if (d >= RAM_MINI) return;
+  if (d < 1e-6) _seg.set(0, 1, 0); else _seg.divideScalar(d);
+  e.pos.copy(state.pos).addScaledVector(_seg, RAM_MINI);
+  if (e.mesh) e.mesh.position.copy(e.pos);
+}
 const _segA = new THREE.Vector3();
 const _segB = new THREE.Vector3();
 const _pn = new THREE.Vector3();
@@ -5209,6 +5332,7 @@ function updateEnemies(dt) {
       e.mesh.position.copy(e.pos);
       e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
       e.visee = 0; e.burst = 0;
+      ecarteDuJoueur(e);
       continue;
     }
     if (K.figures && state.lock === e && e.charge > 0.45 && e.figCd <= 0
@@ -5360,6 +5484,7 @@ function updateEnemies(dt) {
     // rentre cabosse. Dix points de structure, et l'adversaire est abattu comme
     // s'il avait ete descendu, score compris. C'est cher paye pour lui, et
     // c'est bien pourquoi ils s'ecartent maintenant de si loin.
+    ecarteDuJoueur(e);
     if (!K.sol && state.running && !state.pose && !state.roulage && !state.takeoff && !state.assist) {
       const contact = (ENVERGURE_JOUEUR + K.envergure) * 0.42;
       if (e.pos.distanceTo(state.pos) < contact) {
@@ -5434,8 +5559,13 @@ function updateEnemies(dt) {
     // rien ne doit la corriger dans notre dos. L'écart est le plus discret
     // possible, juste de quoi ne pas se traverser à l'écran, et il se fait
     // progressivement plutôt que d'un bloc.
+    // ILS NE NOUS TOUCHENT JAMAIS. L'écart était progressif : à grande vitesse
+    // relative, l'appareil traversait quand même. Sous la distance de sécurité
+    // il est maintenant REPOUSSÉ D'AUTORITÉ hors de la sphère, en plus de
+    // l'écart doux — la traversée devient géométriquement impossible.
     if (dist < RAM_DIST) {
       e.pos.addScaledVector(_v, -(RAM_DIST - dist) * Math.min(1, 10 * dt) - 0.05);
+      ecarteDuJoueur(e);
     }
     // et ils voient venir : à moins de 120 m en rapprochement, le but s'écarte
     if (dist < 120 && !K.sol && e.forward.dot(_v) < -0.7) {
@@ -5456,14 +5586,24 @@ function updateEnemies(dt) {
       const b = es[j];
       if (b.kind.sol) continue;
       _v.subVectors(b.pos, a.pos);
-      const d = _v.length(), sep = (a.kind.envergure + b.kind.envergure) * 0.6;
+      const d = _v.length(), sep = (a.kind.envergure + b.kind.envergure) * 1.8;
       if (d >= sep || d < 1e-3) continue;
-      const pas = (sep - d) * 0.5 * Math.min(1, 7 * dt);
       _v.divideScalar(d);
+      // écart doux d'abord, puis séparation d'autorité : deux maquettes ne se
+      // traversent plus jamais, quelle que soit leur vitesse de rapprochement
+      const pas = (sep - d) * 0.5 * Math.min(1, 9 * dt);
       a.pos.addScaledVector(_v, -pas); b.pos.addScaledVector(_v, pas);
+      const d2 = a.pos.distanceTo(b.pos), mini = (a.kind.envergure + b.kind.envergure) * 0.85;
+      if (d2 < mini) {
+        const reste = (mini - d2) * 0.5;
+        a.pos.addScaledVector(_v, -reste); b.pos.addScaledVector(_v, reste);
+      }
       a.mesh.position.copy(a.pos); b.mesh.position.copy(b.pos);
     }
   }
+  // dernier mot : s'ecarter l'un de l'autre a pu en repousser un sur nous.
+  // On repasse une fois sur tout le monde, apres tout le reste.
+  for (let i = 0; i < es.length; i++) ecarteDuJoueur(es[i]);
 }
 
 // ---------------------------------------------------------------------------
@@ -5629,11 +5769,16 @@ function updateRoquettes(dt) {
     // finit — au sol ou au bout de sa vie. Une roquette qui disparaît en plein
     // ciel ne veut rien dire ; une roquette qui va au bout, si.
     if (morte) r.dir.y -= 0.16 * dt;
+    // UNE PIÈCE AU SOL EST À HAUTEUR DE BITUME : la roquette s'ouvrait sur le
+    // plancher juste avant de l'atteindre, et aucune n'avait jamais touché un
+    // tank. Elle vise donc un point trois mètres au-dessus de lui, et le
+    // plancher ne la déclenche plus tant qu'elle est en approche finale.
+    const versSol = !morte && r.cible.kind.sol;
     // La cible d'abord, le sol ensuite : une pièce posée au sol est à trois
     // mètres de haut, et la roquette s'ouvrait sur le plancher juste avant de
     // l'atteindre. Aucune roquette n'a jamais touché un tank.
-    const auBut = !morte && r.pos.distanceTo(r.cible.pos) < (r.cible.kind.sol ? 20 : 14);
-    if (!auBut && (r.t > ROQ_VIE || r.pos.y <= 1.2)) {
+    const auBut = !morte && r.pos.distanceTo(r.cible.pos) < (r.cible.kind.sol ? 26 : 14);
+    if (!auBut && (r.t > ROQ_VIE || (r.pos.y <= 1.2 && !(versSol && r.pos.distanceTo(r.cible.pos) < 90)))) {
       spawnBurst(r.pos, 11);
       for (let k = 0; k < 6; k++) {
         _seg.set((Math.random() - 0.5) * 2, Math.random(), (Math.random() - 0.5) * 2).normalize();
@@ -5661,7 +5806,9 @@ function updateRoquettes(dt) {
       lanceFigEnnemi(c, 'tonneau');
     }
     if (!morte && r.cible) {
-      _seg.subVectors(r.cible.pos, r.pos).normalize();
+      _seg.subVectors(r.cible.pos, r.pos);
+      if (versSol) _seg.y += 3;            // on vise la tourelle, pas le sol sous elle
+      _seg.normalize();
       // on tourne vers la cible sans dépasser le taux de virage
       const cosA = THREE.MathUtils.clamp(r.dir.dot(_seg), -1, 1);
       const ang = Math.acos(cosA);
@@ -6094,7 +6241,7 @@ function updateLock(dt) {
 
   // deux roquettes après une seconde de verrouillage tenu
   state.roqT -= dt;
-  if (state.roqT <= 0 && best.charge * LOCK_SPOOL >= ROQ_SEUIL && !defiEst('mitrailleuse')
+  if (state.roqT <= 0 && state.lockTenu >= ROQ_TENUE && !defiEst('mitrailleuse')
       && best.pos.distanceTo(state.pos) < ROQ_PORTEE && state.roquettesN >= 2) {
     state.roqT = ROQ_RECHARGE;
     if (!(state.triche && state.triche.munitions)) state.roquettesN -= 2;
@@ -6273,16 +6420,10 @@ function simulate(dt) {
   const gain = rayon > 1e-4 ? courbe(rayon) / rayon : 0;
   const yawRate   = -dx * gain * MAX_YAW * avion().lacet;
   const pitchRate = -dy * gain * MAX_PITCH * avion().tangage;
-  // LE LOOPING AU DOIGT. Tout en haut de la course, tenu un quart de seconde :
-  // l'avion fait le tour complet et ressort au même cap, à plat.
-  if (dy < -0.88 && aim.active && !state.fig && state.spinT <= 0 && !state.takeoff && !state.pose && !state.roulage && !state.vrille) {
-    state.loopT = (state.loopT || 0) + dt;
-    if (state.loopT > 0.25) {
-      state.loopT = 0;
-      state.fig = { t: 0, side: 1, type: 'loop', base: state.quat.clone(), yaw0: state.yaw };
-      SFX.renversement();
-    }
-  } else state.loopT = 0;
+  // LE DOIGT TOUT EN HAUT NE DÉCLENCHE PLUS RIEN. Il partait dès qu'on montait
+  // franchement, et la montée rapide — le geste le plus naturel du jeu —
+  // devenait impossible. Les figures se font au double tap, ou au coup de
+  // manche qui quitte l'écran.
 
   // Le lacet est ramené dans un tour à chaque image. Laissé libre il dérive
   // indéfiniment, et tout ce qui l'interpole — l'alignement sur la piste, la
@@ -6356,7 +6497,7 @@ function simulate(dt) {
     // ILS SORTENT DÈS QUE L'APPROCHE EST ENGAGÉE : le temps qu'on descende,
     // ils ont traversé le terrain, et ils sont déjà là quand les roues
     // s'arrêtent. On ne les voit plus apparaître, on les voit venir.
-    if (state.assist && !state.mecanosEnRoute) { state.mecanosEnRoute = true; mecanosVersPiste(); }
+    if (state.assist && !state.mecanosEnRoute) { state.mecanosEnRoute = true; mecanosVersArret(); }
     if (!state.assist && !state.roulage && !state.pose) state.mecanosEnRoute = false;
   }
   if (state.assist) {
@@ -6572,6 +6713,7 @@ function simulate(dt) {
     const debout = mecanos.filter(m => !m.mort && !m.tire).length;
     const avant = state.structure;
     state.structure = Math.min(state.vieMax, state.structure + REPARE_PAR_S * (debout / 3) * dt);
+    stat('vieReparee', state.structure - avant);
     // ET ELLE SE PAIE. Cinq points de score par point de structure rendu :
     // aller se poser reste toujours possible, mais ce n'est plus gratuit.
     state.score = Math.max(0, state.score - (state.structure - avant) * REPARE_COUT);
@@ -7123,6 +7265,11 @@ function simulate(dt) {
 
   updateDecor(dt);
   updateAerodrome(dt);
+  // ILS BOUGENT AUSSI QUAND ON VOLE. L'equipe au sol etait figee des qu'on
+  // quittait le bitume : elle ne partait donc qu'au toucher des roues et
+  // arrivait trois secondes trop tard. Elle vit maintenant en permanence, et
+  // traverse le terrain PENDANT la descente.
+  updateMecanos(dt);
   updateTrainee(dt);
   updateBatiments(dt);
   majSoleil(dt);
@@ -8794,7 +8941,7 @@ const T = {
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
     ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
-    plafond: 'CELLULE RENFORCÉE  ·  PLAFOND ', ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
+    plafond: 'CELLULE RENFORCÉE  ·  PLAFOND ', affaisse: 'PORTAIL AFFAISSÉ  ·  IL PASSE AU RAS DU SOL', ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
     alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', leurre: 'LEURRE LÂCHÉ  ·  RESTE ', leurresPleins: 'LEURRES RECHARGÉS', locked: 'LOCKED  ·  BOUGE !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
     rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
@@ -8832,7 +8979,7 @@ const T = {
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
     ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
-    plafond: 'AIRFRAME REINFORCED  ·  CEILING ', ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
+    plafond: 'AIRFRAME REINFORCED  ·  CEILING ', affaisse: 'GATE CAVED IN  ·  IT PASSES AT GROUND LEVEL NOW', ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
     alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', leurre: 'FLARE OUT  ·  LEFT ', leurresPleins: 'FLARES RELOADED', locked: 'LOCKED  ·  MOVE!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
     rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
@@ -9787,14 +9934,28 @@ function coupDeManche(e) {
   const a = recent[0], b = recent[recent.length - 1];
   const dtms = Math.max(1, b.t - a.t);
   const vx = (b.x - a.x) / dtms, vy = (b.y - a.y) / dtms;      // px/ms
-  const bord = b.x < 36 || b.x > window.innerWidth - 36 || e.type === 'pointercancel';
-  // 0,6 px/ms sur au moins 120 px : un coup sec, pas une dérive de pilotage
-  if (Math.abs(vx) > 0.6 && Math.abs(vx) > 1.6 * Math.abs(vy) && Math.abs(b.x - a.x) > 120 && bord
-      && state.running && state.spinT <= 0 && !state.fig && !state.takeoff && !state.pose && !state.roulage) {
+  const libre = state.running && state.spinT <= 0 && !state.fig
+             && !state.takeoff && !state.pose && !state.roulage;
+  if (!libre) return false;
+  const W = window.innerWidth, H = window.innerHeight;
+  const sorti = e.type === 'pointercancel';
+  // 0,6 px/ms sur au moins 120 px : un coup sec, pas une dérive de pilotage.
+  // Sur le côté, c'est un tonneau ; vers le haut, un Immelmann ; vers le bas,
+  // un Split-S. Le double tap fait toujours la même chose, les deux coexistent.
+  if (Math.abs(vx) > 0.6 && Math.abs(vx) > 1.6 * Math.abs(vy) && Math.abs(b.x - a.x) > 120
+      && (b.x < 36 || b.x > W - 36 || sorti)) {
     state.spinT = SPIN_TIME;
     state.spinSide = vx > 0 ? 1 : -1;
     SFX.tonneau();
     tonneauSoleil();
+    return true;
+  }
+  if (Math.abs(vy) > 0.6 && Math.abs(vy) > 1.6 * Math.abs(vx) && Math.abs(b.y - a.y) > 120
+      && (b.y < 36 || b.y > H - 36 || sorti)) {
+    state.fig = { t: 0, side: Math.random() < 0.5 ? -1 : 1,
+                  type: vy < 0 ? 'imm' : 'split',
+                  base: state.quat.clone(), yaw0: state.yaw };
+    SFX.renversement();
     return true;
   }
   return false;

@@ -97,7 +97,7 @@ trois petits pavés viennent se presser autour de l'appareil : les mécanos.
 Au bout de dix secondes il redécolle seul, et un bouton REDÉCOLLER permet
 de repartir avant.
 
-## Les adversaires ont les mêmes figures que le joueur
+## Les adversaires ont les mêmes figures que le joueur → fait en v0.79
 
 Tonneau, Immelmann, Split-S. Aujourd'hui ces trois figures sont réservées
 au joueur, ce qui rend les esquives adverses lisibles et un peu pauvres.
@@ -577,9 +577,6 @@ dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
 - Le relief au sol : tout le jeu suppose un sol plat (plancher, piste,
   tanks, effondrements, atterrissage). Un relief demande de réécrire les
   collisions et l'approche : chantier du chapitre 2, pas d'une soirée.
-- Les adversaires qui font nos figures : ils font déjà le tonneau devant
-  nos roquettes et rompent perpendiculairement au tir. L'Immelmann ennemi
-  n'apporterait rien de lisible de loin.
 - Le verrouillage de très près : non démontré, faute de reproduction fiable.
 - Les mécaniciens qui ignorent les bâtiments : la piste est dégagée, ça ne
   se voit pas.
@@ -614,3 +611,32 @@ dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
 - Les adversaires se traversent entre eux.
 - Un adversaire blessé fuit puis revient. Faut-il qu'il décroche pour de bon ?
 - Combien d'arches, combien de tours percées dans le monde ?
+
+
+## v0.81 — ce qui a été fait
+
+- Le doigt qui quitte l'écran par le haut ou par le bas déclenche
+  l'Immelmann ou le Split-S. Le doigt tenu en haut ne déclenche plus rien.
+- Séparation dure : un adversaire ne peut plus entrer à moins de 34 m de
+  nous, ni à moins de 0,85 envergure d'un autre. Mesuré : on le colle sur
+  nous toutes les trois images, il ressort à 49,5 m, zéro dégât.
+- Un bâtiment qui porte un passage ne disparaît plus. Il s'affaisse à 22 %
+  de sa hauteur : le trou reste franchissable, très bas, très dangereux.
+- L'écran de fin compte les portails passés, la vie reprise en tout, et le
+  plafond de vie atteint.
+- Le hangar fait 60 m de façade le long de la piste, baie de 40 m, deux
+  vantaux qui se rangent dehors sur un rail débordant. Toute la flotte est
+  visible depuis le bitume.
+- L'équipe au sol vit aussi quand on vole. Elle part dès que l'approche est
+  engagée et se tient à 3–6 m de l'avion à la seconde où il s'arrête.
+- Le T d'atterrissage était dessiné à l'envers : on se pose parallèlement à
+  la jambe et VERS la barre (OACI annexe 14).
+- L'aide explique le carré à signaux, le T, la manche à air et le PAPI.
+
+## À discuter avec lui
+
+- **Le bouclier.** Les portails rendent de la vie et font monter le plafond,
+  l'atterrissage répare jusqu'à ce plafond. Le bouclier fait-il encore un
+  travail que la vie ne fait pas ? Question posée, réponse attendue.
+- La fente à 45°, doublée en largeur, se passe maintenant à plat : elle
+  n'oblige plus au tonneau. À garder large et facile, ou à re-serrer ?
