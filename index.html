@@ -731,7 +731,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.92</button>
+  <button id="versionBtn">v0.93</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -3139,7 +3139,7 @@ const nappeSol = scene.getObjectByName('nappe');
 const grid = scene.getObjectByName('grid');
 let etoiles = [];
 let soleilMesh = null, couronneMesh = null;
-let ourseMesh = null, ourseTrait = null, ourseFond = null, bergerMesh = null, bergerHalo = null;
+let ourseMesh = null, ourseTrait = null, bergerMesh = null, bergerHalo = null;
 // l'étoile filante : un seul trait, redessiné chaque image tant qu'elle file
 const etoileMesh = new THREE.LineSegments(segGeom([0, 0, 0, 0, 0, 0]),
   new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0, fog: false }));
@@ -3405,31 +3405,18 @@ const BERGER_DIR = (() => {
   const gO = new THREE.BufferGeometry();
   gO.setAttribute('position', new THREE.BufferAttribute(ptsO, 3));
   ourseMesh = new THREE.Points(gO, new THREE.PointsMaterial({
-    color: COL_TEXT, size: 7.5, sizeAttenuation: false,
+    color: COL_TEXT, size: 3.4, sizeAttenuation: false,
     transparent: true, opacity: 1, fog: false, depthWrite: false }));
   ourseMesh.frustumCulled = false; ourseMesh.renderOrder = -1;
   scene.add(ourseMesh);
   etoiles.push(ourseMesh);
 
-  // ON NE LE TROUVAIT PAS. Sept points un peu plus gros parmi neuf cents, ça
-  // ne se repère pas — alors que le chariot est justement la figure que tout le
-  // monde reconnaît au premier regard, et c'est sa FORME qui le rend
-  // reconnaissable, pas l'éclat de ses étoiles. On le trace donc en
-  // permanence, très faiblement : assez pour l'accrocher quand on balaie le
-  // nord, pas assez pour qu'il crie. Le secret reste entier : il faut encore
-  // comprendre qu'on peut le suivre, et dans quel ordre.
-  {
-    const pf = [];
-    for (let i2 = 1; i2 < OURSE_DIRS.length; i2++) {
-      const a = OURSE_DIRS[i2 - 1], b2 = OURSE_DIRS[i2];
-      pf.push(a.x * R, a.y * R, a.z * R, b2.x * R, b2.y * R, b2.z * R);
-    }
-    ourseFond = new THREE.LineSegments(segGeom(pf),
-      new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.17, fog: false }));
-    ourseFond.frustumCulled = false; ourseFond.renderOrder = -1;
-    scene.add(ourseFond);
-    etoiles.push(ourseFond);
-  }
+  // ON NE LA MET PAS EN AVANT. Tracer le chariot en permanence le désignait :
+  // ce n'était plus une constellation à trouver, c'était une flèche. Une
+  // constellation se reconnaît à sa FORME, pas à l'éclat de ses étoiles, et
+  // c'est tout l'intérêt de la chercher. Les sept gardent donc la taille des
+  // autres étoiles de première grandeur, et rien ne les relie tant qu'on ne
+  // les a pas touchées soi-même.
   // le trait qui relie ce qu'on a deja touche : il se dessine sous le doigt
   ourseTrait = new THREE.LineSegments(segGeom([0,0,0, 0,0,0]),
     new THREE.LineBasicMaterial({ color: COL_LINE, transparent: true, opacity: 0, fog: false }));
@@ -10712,6 +10699,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.93', fr: 'Le ciel n’est plus un miroir, et la Grande Ourse ne brille pas plus que les autres.', en: 'The sky is no longer a mirror, and the Big Dipper shines no brighter than the rest.' },
   { v: '0.92', fr: 'Le terrain lui-même se soulève en montagnes, et on ne repart de la piste que quand on le décide.', en: 'The ground itself rises into mountains, and you leave the runway only when you decide to.' },
   { v: '0.91', fr: 'Le sol redevient opaque, et DÉCOLLER se pose juste au-dessus de l’avion.', en: 'The ground turns opaque again, and TAKE OFF sits just above the aircraft.' },
   { v: '0.90', fr: 'Les montagnes deviennent dures : on passe au-dessus, plus au travers.', en: 'The mountains turn solid: you go over them, no longer through them.' },

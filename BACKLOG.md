@@ -910,3 +910,19 @@ Trois corrections d'écran, mesurées sur 430, 390 et 360 px de large :
   panneau défilant. L'écran de fin ne débordait plus.
 - **Les phrases ironiques disparaissent** de l'écran de fin. À la place, une
   chose vraie et utile sur la partie qui vient de finir.
+
+## v0.93 — le ciel redevient un ciel
+
+Il a dessiné sur une capture la ligne de symétrie et les deux zones d'étoiles
+qui se répondaient : le reflet sous l'horizon était visible, et le plan du
+miroir passait à la hauteur de l'oeil, donc AU-DESSUS de l'horizon apparent.
+C'était moche et c'était faux.
+
+- Le reflet est supprimé. Sous l'horizon il n'y a rien à voir, et c'est
+  correct : ce qu'il y a sous l'horizon, c'est la Terre. La nappe opaque du
+  sol (v0.91) s'en charge, et elle déborde largement du dôme d'étoiles, donc
+  aucune bande noire ne revient.
+- La Grande Ourse ne brille plus plus que les autres et n'est plus tracée en
+  permanence. Une constellation se reconnaît à sa forme, pas à l'éclat de ses
+  étoiles : la chercher fait partie du plaisir. Ses sept étoiles ont la taille
+  des autres étoiles de première grandeur.
