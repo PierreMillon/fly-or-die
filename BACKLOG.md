@@ -1283,3 +1283,25 @@ numéro en double, dix lignes sous v1.00 et dix sous v0.99.
     OEIL    = 1.30
     CHAMP   = 57
     MONTANTS= 5
+
+### La planche du cadrage du tonneau
+
+Trois curseurs, l'écran en haut, les explications en bas :
+https://claude.ai/artifact/AfBGfExBbk9zMDDWGAvptb
+
+La figure y est figée à ses valeurs — 62 / 37 / 1 tour / 45° / 30 m / 1,70 s —
+et la simulation reprend les formules du jeu : caméra à 26 m derrière, champ de
+70°, écran de 430 × 932, soit 665 pixels par radian. Un écart de sept mètres
+donne 175 pixels, un cinquième de la hauteur.
+
+Ce qui reste à trancher :
+
+1. `CAM_TONNEAU_VERT` — la part des 74 m de la cloche que la caméra laisse
+   filer. Actuellement 0,10. C'est le seul réglage qui décide si la figure se
+   voit ou se subit.
+2. `CAM_ROULIS_TONNEAU` — de combien l'image bascule. Actuellement 24°.
+3. `CAM_SERPENT` — la caméra part sur le côté et revient. Actuellement 3,5 m.
+
+La planche affiche en direct l'écart maximal en pixels et le nombre d'images
+hors cadre sur 92, donc chaque réglage se juge sur un chiffre, pas sur une
+impression.
