@@ -695,7 +695,17 @@
     width: min(92vw, 460px);
   }
   #coopBtn { display: none; }
-  #stats { margin: 6px 0 0; font-size: 11px; color: var(--ph-dim); letter-spacing: 0.06em; line-height: 1.7; text-align: left; }
+  /* LE RAPPORT DE VOL. Dix-huit lignes de chiffres débordaient de l'écran de
+     fin et passaient sous la bande du bas. Elles vivent maintenant dans leur
+     propre panneau, qui défile, et l'écran de fin ne garde que ce qu'on lit
+     vraiment tout de suite : le score, le record, et qui vous a eu. */
+  #statsBtn {
+    background: none; border: 1px solid var(--ph-dim); border-radius: 6px;
+    color: var(--ph-text); font-family: inherit; font-size: 11px;
+    letter-spacing: 0.16em; padding: 11px 18px;
+  }
+  #statsBtn[hidden] { display: none; }
+  #stats { margin: 0; font-size: 12px; color: var(--ph-dim); letter-spacing: 0.06em; line-height: 1.9; text-align: left; }
   #stats b { color: var(--ph-text); font-weight: 500; }
   #stats[hidden] { display: none; }
   /* à l'accueil et à la fin, ni vie ni chiffres : ils n'apparaissent qu'en vol */
@@ -721,7 +731,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.91</button>
+  <button id="versionBtn">v0.92</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -1210,8 +1220,8 @@
   <button id="coopBtn" data-en="CO-OP">COOP</button>
   <button id="installBtn" hidden data-en="INSTALL THE GAME">INSTALLER LE JEU</button>
   <button id="expliqueBtn" hidden data-en="NEED AN EXPLANATION?">BESOIN D'EXPLICATIONS ?</button>
+  <button id="statsBtn" hidden data-en="FLIGHT REPORT">RAPPORT DE VOL</button>
   <label id="plusJamais" hidden><input type="checkbox" id="plusJamaisCase"> <span data-en="don't show again">ne plus afficher</span></label>
-  <p id="stats" hidden></p>
 </div>
 
 <script>
@@ -1243,6 +1253,7 @@ import * as THREE from 'three';
 // constantes de vol et de combat
 // ---------------------------------------------------------------------------
 const CRUISE        = 78;     // vitesse d'équilibre en palier
+const DECRO_ANGLE   = 80 * Math.PI / 180;   // le nez doit être quasi vertical
 const SPEED_MIN     = 46;     // sous cette valeur l'aile ne porte plus vraiment
 const SPEED_MAX     = 320;    // le piqué et la poursuite s'ajoutent : il faut de la place au-dessus
 const GRAV          = 48;     // ce que la pesanteur donne ou reprend selon l'assiette
@@ -1280,6 +1291,10 @@ const TONNEAU_DECAL = 30;     // le décalage NET à la sortie : deux ailes et d
 const SPIN_TIME     = 1.70;   // durée du tonneau au double tap
 const SPIN_DODGE    = 110;    // ancien écart latéral : gardé pour l'esquive des roquettes
 const CAM_ROULIS_TONNEAU = 0.42;  // radians d'inclinaison de l'image au plus fort du tonneau, qui revient à plat à la fin
+// LE RATTRAPAGE DU DÉCOLLAGE : de combien de mètres par seconde l'écart se
+// referme, et l'écart maximal qu'on laisse s'ouvrir.
+const CAM_FERME     = 24;     // mètres par seconde
+const CAM_ECART_MAX = 130;    // mètres : au-delà, on ne le lâche plus
 const CAM_SERPENT = 3.5;          // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_LATERAL_MAX = 4.5;      // et le décalage total ne dépasse jamais ceci, sinon l'avion quitte le cadre
 const CAM_TONNEAU   = 0.25;   // part du deport que la camera laisse filer avant de se recaler
@@ -3046,6 +3061,53 @@ appliqueAvion();
 // décor : grille au sol et pylônes, seuls repères de vitesse
 // ---------------------------------------------------------------------------
 const GRID_SPAN = 8400, GRID_STEP = 160;
+
+// ---------------------------------------------------------------------------
+// LE RELIEF. Pas des maquettes de montagnes posées sur un plancher : c'est LA
+// GRILLE ELLE-MÊME qui monte. Chaque sommet de la trame reçoit une altitude,
+// nulle au-dessus de la ville et de plus en plus haute à mesure qu'on s'en
+// éloigne. Le terrain cesse donc d'être plat progressivement, et au bout d'un
+// moment tout monte : on est dans la montagne.
+//
+// La hauteur est une somme de trois ondulations de périodes incommensurables.
+// Deux sinus dont le rapport des périodes est irrationnel ne se remettent
+// jamais en phase : le motif ne se répète pas, et pourtant il n'y a pas une
+// ligne de bruit à stocker. La fonction est pure, donc la même partout et
+// toujours — le décor, la collision et le dessin lisent le même sol.
+// ---------------------------------------------------------------------------
+const TERRAIN_R0 = 2400;      // jusque-là, parfaitement plat : c'est la ville
+const TERRAIN_R1 = 5600;      // au-delà, le relief est à pleine amplitude
+const TERRAIN_H  = 240;       // mètres de dénivelé au plus fort
+function hauteurSol(x, z) {
+  const d = Math.hypot(x, z);
+  if (d <= TERRAIN_R0) return 0;
+  let k = (d - TERRAIN_R0) / (TERRAIN_R1 - TERRAIN_R0);
+  if (k > 1) k = 1;
+  k = k * k * (3 - 2 * k);                        // montée douce, sans cassure
+  const n = Math.sin(x / 640) * Math.cos(z / 517)
+          + 0.55 * Math.sin(x / 263 + 1.7) * Math.cos(z / 311 - 0.4)
+          + 0.28 * Math.sin((x + z) / 149 + 2.6);
+  // ramené dans 0..1 puis creusé : des vallées larges et des crêtes franches
+  const u = (n / 1.83 + 1) / 2;
+  return k * TERRAIN_H * u * u;
+}
+
+let gridSnapX = 1e9, gridSnapZ = 1e9;
+function batisGrille(cx, cz) {
+  const pts = [], R = GRID_SPAN / 2;
+  for (let i = -R; i <= R; i += GRID_STEP) {
+    for (let j = -R; j < R; j += GRID_STEP) {
+      // une ligne le long de z, et une le long de x, segment par segment :
+      // c'est ce qui permet à chaque tronçon de suivre le relief
+      pts.push(cx + i, hauteurSol(cx + i, cz + j), cz + j,
+               cx + i, hauteurSol(cx + i, cz + j + GRID_STEP), cz + j + GRID_STEP);
+      pts.push(cx + j, hauteurSol(cx + j, cz + i), cz + i,
+               cx + j + GRID_STEP, hauteurSol(cx + j + GRID_STEP, cz + i), cz + i);
+    }
+  }
+  return segGeom(pts);
+}
+
 (function buildGrid() {
   const pts = [];
   for (let i = -GRID_SPAN / 2; i <= GRID_SPAN / 2; i += GRID_STEP) {
@@ -3077,7 +3139,7 @@ const nappeSol = scene.getObjectByName('nappe');
 const grid = scene.getObjectByName('grid');
 let etoiles = [];
 let soleilMesh = null, couronneMesh = null;
-let ourseMesh = null, ourseTrait = null, bergerMesh = null, bergerHalo = null;
+let ourseMesh = null, ourseTrait = null, ourseFond = null, bergerMesh = null, bergerHalo = null;
 // l'étoile filante : un seul trait, redessiné chaque image tant qu'elle file
 const etoileMesh = new THREE.LineSegments(segGeom([0, 0, 0, 0, 0, 0]),
   new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0, fog: false }));
@@ -3291,6 +3353,7 @@ const OURSE_CONE = Math.cos(4.2 * Math.PI / 180);   // il faut vraiment la viser
 const OURSE_TENUE = 0.35;         // secondes sur chaque etoile
 const BERGER_CONE = Math.cos(3.4 * Math.PI / 180);
 const BERGER_TENUE = 1.5;
+const BERGER_FENETRE = 6;     // secondes ouvertes par une figure pour aller la chercher
 const AUBE_DUREE = 20;            // secondes de jour leve : l'inverse de l'eclipse
 const OURSE_PRIME = 2000, BERGER_PRIME = 2000;
 
@@ -3312,21 +3375,15 @@ const BERGER_DIR = (() => {
   const R = 4500;
   // Une bande = un rang de magnitude. Les directions sont déjà unitaires,
   // il ne reste qu'à les poser sur la sphère de rayon R.
-  // ELLE SE REFERME SOUS L'HORIZON. Les directions relevees au-dessus de
-  // Bayonne ne couvrent que l'hemisphere visible : des qu'on montait, la ligne
-  // de visee vers l'horizon passait SOUS l'equateur de la sphere, et il n'y
-  // avait plus rien — d'ou la bande noire entre le sol et les etoiles. On
-  // ajoute donc le reflet de chaque etoile sous l'horizon : la voute est
-  // complete, et le ciel descend jusqu'au sol de tous les cotes.
+  // IL AVAIT RAISON : C'ÉTAIT UN MIROIR. Pour boucher la bande noire entre
+  // l'horizon et les premières étoiles, on avait recopié chaque étoile sous
+  // l'horizon — donc le ciel du dessous était exactement le reflet du dessus,
+  // et ça se voit. Depuis que le sol est une nappe pleine (v0.91), rien de ce
+  // qui est sous l'horizon n'est visible : le reflet ne sert plus à rien et
+  // disparaît. Le ciel n'a plus qu'un seul ciel.
   const poser = (dirs, taille, opacite) => {
-    const n3 = dirs.length;
-    const pts = new Float32Array(n3 * 2);
-    for (let i = 0; i < n3; i++) pts[i] = dirs[i] * R;
-    for (let i = 0; i < n3; i += 3) {
-      pts[n3 + i]     =  dirs[i]     * R;
-      pts[n3 + i + 1] = -Math.abs(dirs[i + 1]) * R;   // le reflet, toujours dessous
-      pts[n3 + i + 2] =  dirs[i + 2] * R;
-    }
+    const pts = new Float32Array(dirs.length);
+    for (let i = 0; i < dirs.length; i++) pts[i] = dirs[i] * R;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pts, 3));
     const m = new THREE.PointsMaterial({
@@ -3348,12 +3405,31 @@ const BERGER_DIR = (() => {
   const gO = new THREE.BufferGeometry();
   gO.setAttribute('position', new THREE.BufferAttribute(ptsO, 3));
   ourseMesh = new THREE.Points(gO, new THREE.PointsMaterial({
-    color: COL_TEXT, size: 5.2, sizeAttenuation: false,
-    transparent: true, opacity: 0.85, fog: false, depthWrite: false }));
+    color: COL_TEXT, size: 7.5, sizeAttenuation: false,
+    transparent: true, opacity: 1, fog: false, depthWrite: false }));
   ourseMesh.frustumCulled = false; ourseMesh.renderOrder = -1;
   scene.add(ourseMesh);
   etoiles.push(ourseMesh);
 
+  // ON NE LE TROUVAIT PAS. Sept points un peu plus gros parmi neuf cents, ça
+  // ne se repère pas — alors que le chariot est justement la figure que tout le
+  // monde reconnaît au premier regard, et c'est sa FORME qui le rend
+  // reconnaissable, pas l'éclat de ses étoiles. On le trace donc en
+  // permanence, très faiblement : assez pour l'accrocher quand on balaie le
+  // nord, pas assez pour qu'il crie. Le secret reste entier : il faut encore
+  // comprendre qu'on peut le suivre, et dans quel ordre.
+  {
+    const pf = [];
+    for (let i2 = 1; i2 < OURSE_DIRS.length; i2++) {
+      const a = OURSE_DIRS[i2 - 1], b2 = OURSE_DIRS[i2];
+      pf.push(a.x * R, a.y * R, a.z * R, b2.x * R, b2.y * R, b2.z * R);
+    }
+    ourseFond = new THREE.LineSegments(segGeom(pf),
+      new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.17, fog: false }));
+    ourseFond.frustumCulled = false; ourseFond.renderOrder = -1;
+    scene.add(ourseFond);
+    etoiles.push(ourseFond);
+  }
   // le trait qui relie ce qu'on a deja touche : il se dessine sous le doigt
   ourseTrait = new THREE.LineSegments(segGeom([0,0,0, 0,0,0]),
     new THREE.LineBasicMaterial({ color: COL_LINE, transparent: true, opacity: 0, fog: false }));
@@ -3374,20 +3450,32 @@ const BERGER_DIR = (() => {
   scene.add(bergerMesh);
   etoiles.push(bergerMesh);
 
-  // sa couronne : huit rayons courts, pour qu'elle scintille sans clignoter
+  // ELLE DOIT RESSEMBLER À UNE ÉTOILE. Un point rendu par le moteur est un
+  // carré, et un carré au fond du ciel n'est pas un astre. On lui dessine donc
+  // ce que l'oeil attend : QUATRE LONGUES POINTES en croix — l'aigrette qu'on
+  // voit à l'oeil nu et sur toutes les photos — et QUATRE COURTES en diagonale,
+  // qui font la seconde croix. Chaque pointe est un triangle fin, large au
+  // centre et terminé en aiguille.
   {
     const ray = [], u = new THREE.Vector3(0, 1, 0).cross(BERGER_DIR).normalize();
     const v2 = new THREE.Vector3().crossVectors(BERGER_DIR, u).normalize();
-    const c = BERGER_DIR.clone().multiplyScalar(R * 0.999);
-    for (let i = 0; i < 8; i++) {
-      const a = i / 8 * Math.PI * 2;
+    const c = BERGER_DIR.clone().multiplyScalar(R * 0.998);
+    const pointe = (a, longueur, large) => {
       const d = u.clone().multiplyScalar(Math.cos(a)).addScaledVector(v2, Math.sin(a));
-      ray.push(c.x + d.x * 14, c.y + d.y * 14, c.z + d.z * 14,
-               c.x + d.x * 46, c.y + d.y * 46, c.z + d.z * 46);
-    }
+      const t = u.clone().multiplyScalar(-Math.sin(a)).addScaledVector(v2, Math.cos(a));
+      const A = c.clone().addScaledVector(t, large);
+      const B = c.clone().addScaledVector(t, -large);
+      const S = c.clone().addScaledVector(d, longueur);
+      ray.push(A.x, A.y, A.z, S.x, S.y, S.z);
+      ray.push(B.x, B.y, B.z, S.x, S.y, S.z);
+      ray.push(A.x, A.y, A.z, B.x, B.y, B.z);
+    };
+    for (let i2 = 0; i2 < 4; i2++) pointe(i2 / 4 * Math.PI * 2, 104, 12);
+    for (let i2 = 0; i2 < 4; i2++) pointe((i2 / 4 + 0.125) * Math.PI * 2, 46, 8);
     bergerHalo = new THREE.LineSegments(segGeom(ray),
-      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, fog: false }));
-    bergerHalo.frustumCulled = false; bergerHalo.renderOrder = -1;
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, fog: false }));
+    bergerHalo.frustumCulled = false;
+    bergerHalo.renderOrder = -1;
     scene.add(bergerHalo);
     etoiles.push(bergerHalo);
   }
@@ -3840,6 +3928,11 @@ const ALIGN_TENUE = 2;
 // portails posés au sol. Rien ne l'écrit à l'écran : on le sent en rasant, et
 // c'est ce qui rend le vol au ras des pâquerettes payant au lieu d'être
 // seulement dangereux.
+// LE COUSSIN. Épaisseur de la bande où le sol reprend la main, poussée à
+// pleine profondeur, et l'assiette vers laquelle le nez se relève tout seul.
+const SOL_COUSSIN   = 14;     // mètres
+const SOL_POUSSEE   = 34;     // mètres par seconde, au plus bas du coussin
+const SOL_ASSIETTE  = 0.05;   // radians : trois degrés de nez haut, pas plus
 const SOL_EFFET_H   = 40;     // mètres sous lesquels le coussin d'air porte
 const SOL_EFFET     = 0.20;   // ce qu'il rend, au contact du sol
 const TOUCHER_AVANT = 300;    // mètres avant le hangar où l'approche assistée pose les roues
@@ -4283,6 +4376,60 @@ function preparentLAvion() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// LA VIE DU TERRAIN. Un mécanicien qui n'a rien à faire ne reste pas planté :
+// il joue aux cartes, il marche, il va bricoler un appareil dans le hangar, il
+// tire un coup en l'air, ou il s'allonge et dort. Chacun choisit sa
+// distraction, en change au bout d'un moment, et ils n'en changent pas tous en
+// même temps. C'est ce qui fait qu'un terrain a l'air habité quand on s'arrête
+// pour le regarder.
+// ---------------------------------------------------------------------------
+const OCCUPS = ['table', 'marche', 'hangar', 'bord', 'sieste'];
+function nouvelleOccupation(m, i) {
+  const o = OCCUPS[Math.floor(Math.random() * OCCUPS.length)];
+  m.occup = o;
+  m.occupT = 7 + Math.random() * 14;
+  m.couche = 0;
+  m.g.rotation.set(0, 0, 0);
+  if (o === 'table') {
+    m.but.copy(hangar.table).add(_mec.set([-1.3, 1.3, 0][i], 0, [0, 0, 1.1][i]));
+  } else if (o === 'hangar') {
+    // sous l'aile d'un des appareils alignés, dans le hangar
+    m.but.set(AERO.x - AERO.largeur / 2 + 11 + (i % 2) * 17, PISTE.y,
+              AERO.z - AERO.prof / 2 + 9 + i * 14 + 5);
+  } else if (o === 'bord') {
+    m.but.set(MECANO_BORD + i * 2.4, PISTE.y, AERO.z + (i - 1) * 7);
+  } else if (o === 'sieste') {
+    m.but.copy(hangar.table).add(_mec.set(4.5 + i * 1.4, 0, 2.6));
+  } else {
+    // il se promène : un point au hasard entre la table et le hangar
+    m.but.set(AERO.x - AERO.largeur / 2 - 6 - Math.random() * 26, PISTE.y,
+              AERO.z + (Math.random() - 0.5) * 60);
+  }
+}
+
+function updateOccupations(dt) {
+  // seulement quand personne ne les réclame : au posé, ils travaillent
+  if (state.pose || state.roulage || state.assist || state.refuge) return;
+  mecanos.forEach((m, i) => {
+    if (m.mort || m.fuite > 0 || m.tire) return;
+    if (!m.repos) return;
+    m.occupT = (m.occupT || 0) - dt;
+    if (m.occupT <= 0) nouvelleOccupation(m, i);
+    if (m.occup === 'sieste') {
+      // il s'allonge une fois arrivé, et il ne bouge plus
+      if (m.p.distanceTo(m.but) < 1.2) {
+        m.couche = Math.min(1, (m.couche || 0) + dt * 1.2);
+        m.g.rotation.set(-m.couche * Math.PI / 2, m.g.rotation.y, 0);
+        m.g.position.set(m.p.x, PISTE.y + 0.12, m.p.z + m.couche * 0.9);
+      }
+    } else if (m.couche) {
+      m.couche = Math.max(0, m.couche - dt * 1.6);
+      m.g.rotation.x = -m.couche * Math.PI / 2;
+    }
+  });
+}
+
 // quand il n'y a rien à réparer, ils sont à la table
 function mecanosTable() {
   mecanos.forEach((m, i) => {
@@ -4655,49 +4802,6 @@ let refugeG = null, piloteG = null;
 })();
 
 // ---------------------------------------------------------------------------
-// LES MONTAGNES. Un anneau de reliefs bas, loin autour de la ville, à peu près
-// la moitié du plus haut pylône. Elles ne sont pas un mur : on les franchit
-// sans rien demander. Elles disent seulement où finit le monde connu — et
-// c'est en les passant qu'on tombe sur ce qu'il y a derrière.
-// ---------------------------------------------------------------------------
-const MONT_RAYON = 3100, MONT_N = 22, MONT_H = 180;
-const montagnes = [];        // { x, z, r, h } : un cône par crête, pour la collision
-(function poserMontagnes() {
-  const pts = [];
-  for (let i = 0; i < MONT_N; i++) {
-    const a = i / MONT_N * Math.PI * 2 + 0.17;
-    const r = MONT_RAYON * (0.86 + Math.random() * 0.3);
-    const cx = Math.cos(a) * r, cz = Math.sin(a) * r;
-    if (Math.abs(cx) < PISTE_GARDE_X + 260) continue;     // rien dans l'axe de la piste
-    const h = MONT_H * (0.55 + Math.random() * 0.75);
-    const l = h * (1.5 + Math.random());
-    // une crête à quatre arêtes : deux versants, deux flancs. C'est le
-    // minimum pour qu'un relief se lise en fil de fer.
-    montagnes.push({ x: cx, z: cz, r: l, h: h });
-    const dir = Math.random() * Math.PI;
-    const ux = Math.cos(dir) * l, uz = Math.sin(dir) * l;
-    const vx = -Math.sin(dir) * l * 0.55, vz = Math.cos(dir) * l * 0.55;
-    const S0 = [cx + ux, 0, cz + uz], S1 = [cx - ux, 0, cz - uz];
-    const S2 = [cx + vx, 0, cz + vz], S3 = [cx - vx, 0, cz - vz];
-    const C = [cx, h, cz];
-    for (const P of [S0, S1, S2, S3]) pts.push(P[0], P[1], P[2], C[0], C[1], C[2]);
-    pts.push(S0[0], 0, S0[2], S2[0], 0, S2[2]);
-    pts.push(S2[0], 0, S2[2], S1[0], 0, S1[2]);
-    pts.push(S1[0], 0, S1[2], S3[0], 0, S3[2]);
-    pts.push(S3[0], 0, S3[2], S0[0], 0, S0[2]);
-    // une ligne de crête intermédiaire de chaque côté : ça donne le volume
-    const M = (P, k) => [P[0] + (C[0] - P[0]) * k, C[1] * k, P[2] + (C[2] - P[2]) * k];
-    const a0 = M(S0, 0.45), a1 = M(S2, 0.45), a2 = M(S1, 0.45), a3 = M(S3, 0.45);
-    pts.push(a0[0], a0[1], a0[2], a1[0], a1[1], a1[2]);
-    pts.push(a1[0], a1[1], a1[2], a2[0], a2[1], a2[2]);
-    pts.push(a2[0], a2[1], a2[2], a3[0], a3[1], a3[2]);
-    pts.push(a3[0], a3[1], a3[2], a0[0], a0[1], a0[2]);
-  }
-  const m = new THREE.LineSegments(segGeom(pts), lineMat(COL_LINE, 0.34));
-  m.frustumCulled = false;
-  scene.add(m);
-})();
-
 const speciaux = [];
 (function construireSpeciaux() {
   const S_ = SPECIAL, L = S_.largeur / 2, P = S_.prof / 2, T = S_.trou / 2;
@@ -4736,21 +4840,33 @@ const speciaux = [];
     const g = new THREE.Group(), blocs = [], passages = [];
     if (c.forme === 'u') {
       const H = S_.hautU, e0 = S_.entreeY, e1 = e0 + S_.trou;
-      boite(g, blocs, L - T, H, S_.prof, -(L + T) / 2, H / 2, 0);            // flanc gauche
-      boite(g, blocs, L - T, H, S_.prof,  (L + T) / 2, H / 2, 0);            // flanc droit
-      // la façade percée d'une porte, d'un seul tenant
-      murPerce(g, S_.trou, H, P, [{ hx: T, y0: e0, y1: e1 }], P / 2);
+      // LA FAÇADE ENTIÈRE D'UN SEUL TENANT, flancs compris : un seul pourtour,
+      // un seul trou, et pas une couture. Le puits derrière reste creux : il
+      // n'est fermé que sur l'avant et sur le fond.
+      murPerce(g, S_.largeur - DEBORD * 2, H, P, [{ hx: T, y0: e0, y1: e1 }], P / 2);
+      blocs.push({ cx: -(L + T) / 2, cz: 0, hx: (L - T) / 2, hz: P, y0: 0, y1: H });
+      blocs.push({ cx:  (L + T) / 2, cz: 0, hx: (L - T) / 2, hz: P, y0: 0, y1: H });
       blocs.push({ cx: 0, cz: P / 2, hx: T, hz: P / 2, y0: 0, y1: e0 });
       blocs.push({ cx: 0, cz: P / 2, hx: T, hz: P / 2, y0: e1, y1: H });
+      // les deux flancs qui montent derrière la façade, et le fond du puits
+      boite(g, blocs, L - T, H, P, -(L + T) / 2, H / 2, -P / 2);
+      boite(g, blocs, L - T, H, P,  (L + T) / 2, H / 2, -P / 2);
       boite(g, blocs, S_.trou, e0, P, 0, e0 / 2, -P / 2);                     // le fond du puits
       passages.push({ cx: 0, cz: P / 2, hx: T, hz: P / 2, y0: e0, y1: e1, role: 'entree' });
       passages.push({ cx: 0, cz: -P / 2, hx: T, hz: P / 2, y0: H - 12, y1: H + 14, role: 'sortie' });
     } else if (c.forme === 'double') {
       const H = S_.hautD, y0 = S_.y0D, y1 = y0 + S_.trou, y2 = y1 + S_.barre, y3 = y2 + S_.trou;
-      boite(g, blocs, L - T, H, S_.prof, -(L + T) / 2, H / 2, 0);
-      boite(g, blocs, L - T, H, S_.prof,  (L + T) / 2, H / 2, 0);
-      // le mur du milieu, percé de ses deux fenêtres, d'un seul tenant
-      murPerce(g, S_.trou, H, S_.prof, [{ hx: T, y0, y1 }, { hx: T, y0: y2, y1: y3 }], 0);
+      // UN SEUL VOLUME. Le bâtiment était fait de cinq boîtes : deux flancs et
+      // trois morceaux de mur empilés. Chacune traçait son propre contour, donc
+      // la façade se retrouvait barrée de traits là où il n'y a ni angle ni
+      // arête — juste la couture de la construction. Une face plane est une
+      // face plane : elle n'a que son pourtour, et le pourtour de ses trous.
+      // On extrude donc la façade entière d'un coup, percée de ses deux
+      // fenêtres, et il ne reste plus un seul trait qui ne dise quelque chose.
+      murPerce(g, S_.largeur - DEBORD * 2, H, S_.prof,
+               [{ hx: T, y0, y1 }, { hx: T, y0: y2, y1: y3 }], 0);
+      blocs.push({ cx: -(L + T) / 2, cz: 0, hx: (L - T) / 2, hz: P, y0: 0, y1: H });
+      blocs.push({ cx:  (L + T) / 2, cz: 0, hx: (L - T) / 2, hz: P, y0: 0, y1: H });
       blocs.push({ cx: 0, cz: 0, hx: T, hz: P, y0: 0, y1: y0 });
       blocs.push({ cx: 0, cz: 0, hx: T, hz: P, y0: y1, y1: y2 });
       blocs.push({ cx: 0, cz: 0, hx: T, hz: P, y0: y3, y1: H });
@@ -7164,6 +7280,35 @@ function springCamera(desired, dt, k, d, vitesse) {
     if (camVel.y < 0) camVel.y = 0;
   }
 }
+// L'AVION NE SORT JAMAIS DU CADRE. Pendant la barrique il s'écarte de
+// soixante-cinq mètres sur le côté et de soixante-quatorze en hauteur, alors
+// que la caméra le suit à dix-huit mètres : le moindre retard le fait sortir
+// de l'écran, et on ne comprend plus ce qui se passe. Le ressort garde donc
+// tout son retard — c'est lui qui donne le mouvement — et l'on ajoute ensuite,
+// en dernier, le strict nécessaire pour ramener l'appareil dans le cadre.
+// Le calcul est exact : à la distance où il est, l'écran montre une
+// demi-hauteur de dist × tan(champ/2), et une demi-largeur qui vaut cela
+// multiplié par le format. On lui laisse cinquante-cinq pour cent de cette
+// réserve, donc il reste toujours bien à l'intérieur.
+const _camCadre = new THREE.Vector3();
+const _cdrV = new THREE.Vector3(), _cdrD = new THREE.Vector3(), _cdrH = new THREE.Vector3();
+function cadreLAvion() {
+  if (state.spinT <= 0 && !state.fig) return;
+  _cdrV.subVectors(state.pos, camera.position);
+  const dist = _cdrV.length();
+  if (dist < 1) return;
+  _cdrD.set(1, 0, 0).applyQuaternion(camera.quaternion);
+  _cdrH.set(0, 1, 0).applyQuaternion(camera.quaternion);
+  const hh = dist * Math.tan(camera.fov * Math.PI / 360);
+  const hw = hh * camera.aspect;
+  const limX = hw * 0.55, limY = hh * 0.55;
+  const dx = _cdrV.dot(_cdrD), dy = _cdrV.dot(_cdrH);
+  _camCadre.set(0, 0, 0);
+  if (Math.abs(dx) > limX) _camCadre.addScaledVector(_cdrD, dx - Math.sign(dx) * limX);
+  if (Math.abs(dy) > limY) _camCadre.addScaledVector(_cdrH, dy - Math.sign(dy) * limY);
+  if (_camCadre.lengthSq()) camera.position.add(_camCadre);
+}
+
 let last = performance.now();
 
 function step(now) {
@@ -7423,7 +7568,16 @@ function simulate(dt) {
   // s'en sert longtemps.
   const rappel = state.boostPortail > 0 ? THRUST * CATAPULTE_POUSSEE
                : state.speed > croisiere ? THRUST * 0.2 : THRUST;
-  state.speed += (-state.forward.y * GRAV * pesanteur + (croisiere - state.speed) * rappel) * dt;
+  // NEZ SOUS L'HORIZON, ON ACCÉLÈRE. Au-dessus de la croisière, le rappel du
+  // moteur est négatif, et à faible piqué il dépassait le gain de la
+  // pesanteur : on descendait EN RALENTISSANT, ce qu'aucun avion ne fait. Dès
+  // que le nez passe sous l'horizon, le bilan ne peut plus être négatif : il
+  // vaut au moins un tiers de ce que la pesanteur donne. Doux à deux degrés,
+  // franc à trente.
+  const gainPesanteur = -state.forward.y * GRAV * pesanteur;
+  let dv = gainPesanteur + (croisiere - state.speed) * rappel;
+  if (state.forward.y < 0) dv = Math.max(dv, gainPesanteur * 0.34);
+  state.speed += dv * dt;
   // Le plafond lui-même monte avec la poussée : sans cela le piqué seul
   // atteignait déjà la limite et la poursuite n'ajoutait plus rien.
   const plafond = SPEED_MAX * (1 + 0.35 * state.boost);
@@ -7607,7 +7761,11 @@ function simulate(dt) {
     if (camera.position.y < 2.5) camera.position.y = 2.5;
     majFov(dt);
     // ça ne repart seul qu'à 100 %, ou quand plus personne ne peut réparer
-    if ((state.structure >= 100 && state.pose.t >= 2) || (valides === 0 && state.pose.t >= REPARATION)) redecoller();
+    // ON REPART QUAND ON VEUT. L'appareil redécollait tout seul dès cent points
+    // ou au bout de dix secondes : on n'avait pas le temps de finir la
+    // réparation, ni de regarder ce qui se passe sur le terrain. C'est
+    // maintenant le bouton, et lui seul. Tant qu'on reste, ils réparent.
+    void valides;
     updateEnemies(dt);
     updateBullets(dt);
     updateShots(dt);
@@ -7738,11 +7896,24 @@ function simulate(dt) {
     // n'en bouge plus que de 40, et reste fixe pendant toute la montée. On
     // laisse à la caméra, en partant, la vraie vitesse de l'appareil, si bien
     // que le ressort du vol libre reprend sans écart ni élan à rattraper.
-    // ENCORE PLUS EN RETARD. Le cameraman court derrière l'avion : à quinze
-    // de raideur il suivait déjà mollement, à huit il se fait vraiment
-    // distancer sur les premières secondes, puis recolle. C'est le plan qu'on
-    // veut au décollage, et il ne coûte rien ailleurs.
-    springCamera(_v, dt, 8, 4.6, _cd);
+    // LE PLAN DU DÉCOLLAGE. Ce n'est plus un ressort : un ressort rattrape
+    // d'autant plus vite qu'il est loin, donc il se jette sur l'avion et le
+    // mouvement meurt aussitôt. Ici l'écart se referme À VITESSE CONSTANTE,
+    // tant de mètres par seconde, quoi qu'il arrive. L'appareil prend donc
+    // franchement l'avant — plein gaz, il part —, puis la caméra revient sur
+    // lui régulièrement, sans jamais accélérer, et se retrouve à la bonne
+    // distance juste au moment où le vol commence. C'est cet écart qui dit
+    // que l'avion est rapide, et ce retour régulier qui dit qu'on en reprend
+    // les commandes.
+    {
+      const d = camera.position.distanceTo(_v);
+      const dVise = Math.min(d, CAM_ECART_MAX);
+      const reste = Math.max(0, dVise - CAM_FERME * dt);
+      if (d > 1e-3) {
+        _cd.subVectors(camera.position, _v).divideScalar(d);
+        camera.position.copy(_v).addScaledVector(_cd, reste);
+      } else camera.position.copy(_v);
+    }
     majFov(dt);
     updateTraits(dt);
     if (camera.position.y < 2.5) camera.position.y = 2.5;
@@ -7865,7 +8036,11 @@ function simulate(dt) {
       state.camYaw = euler.y;
       state.camRoll = euler.z;
       state.fig = null;
-      state.figSortie = 2;      // deux secondes pour trouver l'ouest
+      // SIX SECONDES, PAS DEUX. Il fallait tenir Vénus une seconde et demie
+      // DANS une fenêtre de deux secondes : le temps de sortir de la figure et
+      // de trouver l'ouest, elle était déjà fermée. La fenêtre s'ouvre
+      // largement — on a le temps de chercher, de pointer, et de tenir.
+      state.figSortie = BERGER_FENETRE;
     }
     updateEnemies(dt);
     updateBullets(dt);
@@ -7925,6 +8100,7 @@ function simulate(dt) {
     state.spinPas = dLat;
     state.pos.addScaledVector(_right, dLat);
     state.pos.y += dVert;
+    if (state.spinT <= 0) state.figSortie = BERGER_FENETRE;   // le tonneau compte aussi
   } else if (state.spinDep || state.spinCabre) {
     state.spinDep = 0;
     state.spinDepCam = 0;
@@ -8012,7 +8188,11 @@ function simulate(dt) {
   // à l'opposé de la rotation un bon moment pour en sortir — pendant qu'on
   // perd de l'altitude.
   {
-    const cabre = state.speed <= SPEED_MIN + 2 && state.pitch > 0.55 && !state.vrille;
+    // QUATRE-VINGTS DEGRÉS, PAS TRENTE. Le seuil était à 0,55 radian, soit
+    // trente-et-un degrés : on décrochait en montant normalement, ce qui n'a
+    // aucun sens et rend la montée désagréable. On ne décroche plus qu'à la
+    // quasi-verticale, et seulement si la vitesse est déjà tombée au plancher.
+    const cabre = state.speed <= SPEED_MIN + 2 && state.pitch > DECRO_ANGLE && !state.vrille;
     state.decrocheT = cabre ? state.decrocheT + dt : Math.max(0, state.decrocheT - 2 * dt);
     if (cabre && state.decrocheT >= DECRO_ALARME && state.decrocheT - dt < DECRO_ALARME) { announce(t('decrochage')); SFX.alerte(); }
     if (cabre && state.decrocheT >= DECRO_VRILLE) {
@@ -8123,6 +8303,10 @@ function simulate(dt) {
   euler.set(state.camPitch + CAM_DECLIN, state.camYaw, state.camRoll + state.camSpin);
   camera.quaternion.setFromEuler(euler);         // et la visée seule plonge
   majFov(dt);
+  cadreLAvion();
+  // on retire la correction de cadrage de l'image précédente avant que le
+  // ressort ne tourne : sans cela il la prendrait pour un écart à rattraper
+  if (_camCadre.lengthSq()) { camera.position.sub(_camCadre); _camCadre.set(0, 0, 0); }
   _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
   // Le ressort integre la position de la camera d'une image a l'autre : ce
   // qu'on lui ajoute apres coup, il le retrouve au depart de l'image suivante
@@ -8187,6 +8371,7 @@ function simulate(dt) {
   // traverse le terrain PENDANT la descente.
   updateMecanos(dt);
   updateNouvelles(dt);
+  updateOccupations(dt);
   updateMission(dt);
   updateRefuge(dt);
   updateTrainee(dt);
@@ -8297,46 +8482,44 @@ function updateAilier(dt) {
 function scrape(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
 
-  if (state.pos.y <= FLOOR + 0.5 && !auDessusDuBitume(60)) {
-    state.pos.y = FLOOR + 0.5;
-    // L'EFFLEUREMENT. Toucher le sol a plat n'est pas s'y ecraser : un pilote
-    // qui rase de trop pres rebondit sur son coussin d'air, sans un bruit et
-    // sans une egratignure. Au-dela de six degres de pente c'est un impact,
-    // et la ca coute. La frontiere est la composante verticale du nez.
+  // LE COUSSIN D'AIR. Arriver à plat sur le sol n'est pas taper dedans : sous
+  // l'aile l'air se comprime, la portance monte, et l'appareil se redresse
+  // tout seul. On ne plafonne donc plus l'altitude d'autorité — ce plafond
+  // était un mur invisible, et un mur se sent, même à deux degrés.
+  //
+  // À la place, une bande de quatorze mètres au-dessus du plancher où le sol
+  // REPREND LA MAIN, d'autant plus fermement qu'on s'y enfonce : la poussée
+  // croît comme le carré de l'enfoncement, donc elle est imperceptible en haut
+  // du coussin et franche tout en bas. Le nez se relève au même rythme. Il n'y
+  // a ni bruit, ni dégât, ni saut : on sent seulement qu'on ne descend plus.
+  //
+  // Au-delà de six degrés de piqué, ce n'est plus un effleurement mais un
+  // impact, et là ça coûte.
+  {
     const pente = -state.forward.y;                  // >0 : on pique
     const doux = pente < Math.sin(6 * Math.PI / 180);
-    if (doux) {
-      // on glisse. Le nez se releve a peine, la vitesse ne bouge presque pas,
-      // rien ne sonne, rien ne clignote.
-      state.pitch = Math.max(state.pitch, 0.02);
-      state.speed *= 0.998;
-    } else if (state.scrapeT <= 0) {
-      damagePlayer(5, null, 'sol'); state.scrapeT = 0.45; SFX.eraflure();
-      state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
-      state.speed *= 0.99;
+    // le plancher n'est plus une constante : c'est le relief sous nous
+    const plancher = FLOOR + 0.5 + hauteurSol(state.pos.x, state.pos.z);
+    const hs = state.pos.y - plancher;
+    if (hs < SOL_COUSSIN && !auDessusDuBitume(60)) {
+      if (doux) {
+        const k = THREE.MathUtils.clamp(1 - hs / SOL_COUSSIN, 0, 1);
+        // la reprise, en mètres par seconde : nulle en haut, franche en bas
+        state.pos.y += k * k * SOL_POUSSEE * dt;
+        // et le nez suit, d'autant plus vite qu'on est bas. Jamais d'un coup.
+        state.pitch = THREE.MathUtils.damp(state.pitch, SOL_ASSIETTE, 2.2 * k, dt);
+        state.speed *= (1 - 0.06 * k * dt);
+      } else if (state.pos.y <= plancher) {
+        state.pos.y = plancher;
+        if (state.scrapeT <= 0) {
+          damagePlayer(5, null, 'sol'); state.scrapeT = 0.45; SFX.eraflure();
+          state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
+          state.speed *= 0.99;
+        }
+      }
     }
-  }
-
-  // LES MONTAGNES SONT DURES. Sans cela on les traversait comme un dessin, et
-  // un relief qu'on traverse n'est pas un relief. Chacune est un cône : la
-  // hauteur du sol sous nous vaut h × (1 − d/r), et l'on ne descend pas
-  // dessous. On ne s'y écrase pas non plus — le versant nous repousse vers le
-  // haut, comme une vraie pente le ferait à un avion qui la rase.
-  for (const m of montagnes) {
-    const dx = state.pos.x - m.x, dz = state.pos.z - m.z;
-    const d = Math.hypot(dx, dz);
-    if (d > m.r) continue;
-    const sol = m.h * (1 - d / m.r);
-    if (state.pos.y >= sol + 2) continue;
-    state.pos.y = sol + 2;
-    if (state.scrapeT <= 0) {
-      // rase la crête et ça coûte, mais moitié moins qu'un mur : c'est de la
-      // terre, pas du béton
-      damagePlayer(4, _impactSrc.set(m.x, sol, m.z), 'decor');
-      state.scrapeT = 0.5; SFX.eraflure();
-    }
-    state.pitch = Math.max(state.pitch, 0.18);
-    state.speed *= 0.985;
+    // dernier filet, très bas : on ne passe jamais sous le monde
+    if (state.pos.y < plancher - 6 && !auDessusDuBitume(60)) state.pos.y = plancher - 6;
   }
 
   // on érafle le décor de la même façon, qu'il s'agisse d'un pylône ou d'une
@@ -8522,13 +8705,20 @@ function updateDecor() {
       etoileMesh.visible = true;
     }
   }
-  grid.position.set(
-    Math.round(state.pos.x / GRID_STEP) * GRID_STEP,
-    0,
-    Math.round(state.pos.z / GRID_STEP) * GRID_STEP
-  );
-  // la nappe suit la grille : elles ne doivent jamais se décaler l'une de l'autre
-  if (nappeSol) { nappeSol.position.x = grid.position.x; nappeSol.position.z = grid.position.z; }
+  // LA GRILLE SE REBÂTIT QUAND ELLE CHANGE DE CASE. Elle porte le relief, donc
+  // on ne peut plus se contenter de la déplacer : ses sommets ont chacun leur
+  // altitude. On ne la refait qu'au franchissement d'une case de 160 m, soit
+  // une fois toutes les deux secondes en croisière.
+  const sx = Math.round(state.pos.x / GRID_STEP) * GRID_STEP;
+  const sz = Math.round(state.pos.z / GRID_STEP) * GRID_STEP;
+  if (sx !== gridSnapX || sz !== gridSnapZ) {
+    gridSnapX = sx; gridSnapZ = sz;
+    grid.geometry.dispose();
+    grid.geometry = batisGrille(sx, sz);
+  }
+  grid.position.set(0, 0, 0);
+  // la nappe reste sous le point le plus bas du relief et suit l'avion
+  if (nappeSol) { nappeSol.position.x = sx; nappeSol.position.z = sz; }
   // la carte est fixe : rien ne se déplace dans le dos du joueur
   if (!CARTE.fixe) {
     for (const t of towers) {
@@ -10445,6 +10635,11 @@ document.getElementById('mCode').addEventListener('click', e => { e.stopPropagat
 document.getElementById('mBeta').addEventListener('click', e => { e.stopPropagation(); panneauBeta(); });
 document.getElementById('mSansPub').addEventListener('click', e => { e.stopPropagation(); panneauSansPub(); });
 document.getElementById('mDefi').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); ouvrePacte(); });
+document.getElementById('statsBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  ouvreInfos('<p class="aide">' + (langue === 'en' ? 'FLIGHT REPORT' : 'RAPPORT DE VOL')
+    + '</p><p id="stats">' + texteStats() + '</p>');
+});
 document.getElementById('mAxeY').addEventListener('click', e => {
   e.stopPropagation();
   axeInverse = !axeInverse;
@@ -10517,6 +10712,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.92', fr: 'Le terrain lui-même se soulève en montagnes, et on ne repart de la piste que quand on le décide.', en: 'The ground itself rises into mountains, and you leave the runway only when you decide to.' },
   { v: '0.91', fr: 'Le sol redevient opaque, et DÉCOLLER se pose juste au-dessus de l’avion.', en: 'The ground turns opaque again, and TAKE OFF sits just above the aircraft.' },
   { v: '0.90', fr: 'Les montagnes deviennent dures : on passe au-dessus, plus au travers.', en: 'The mountains turn solid: you go over them, no longer through them.' },
   { v: '0.89', fr: 'La Grande Ourse montre le refuge, et on y descend soi-même de l’avion.', en: 'The Big Dipper points to the refuge, and there you climb out of the aircraft yourself.' },
@@ -10664,65 +10860,47 @@ const overlayText = document.getElementById('overlayText');
 const startBtn = document.getElementById('startBtn');
 const overlayTitle = overlay.querySelector('h1');
 
-// L'écran de fin se moque, avec un peu de mesure : la pique dépend de ce qui
-// a été fait. Zéro abattu n'appelle pas la même remarque qu'une cinquième
-// vague atteinte.
-const PIQUES = {
+// LA LIGNE DE FIN. Elle se moquait du joueur, avec des piques écrites pour
+// être drôles. Elles ne l'étaient pas au bon moment : on vient de perdre, et
+// on n'a pas envie qu'on se paie sa tête. Elle dit maintenant une chose vraie
+// et utile sur la partie qui vient de finir, tirée de ce qui s'est passé.
+const FINS = {
   zero: [
-    "Zéro abattu. L'avion était pourtant fourni avec des armes.",
-    "Le sol était signalé sur toute sa surface.",
-    "Ce n'était pas un simulateur de chute.",
-    "Rassure-toi : personne ne t'a vu.",
-    "L'appareil était neuf."
+    { fr: "Aucun abattu. La montée en puissance du viseur demande de tenir la croix sur la cible, pas de la croiser.",
+      en: 'No kills. The sight spools up while you hold the cross on the target, not while you cross it.' },
+    { fr: "Le canon porte à neuf cents mètres par seconde : il faut viser devant, pas dessus.",
+      en: 'Your rounds fly at nine hundred metres a second: aim ahead of the target, not at it.' },
+    { fr: "Les portails rendent de la vie. Il y en a douze, et ils se voient de loin.",
+      en: 'Gates give life back. There are twelve of them, and they can be seen from far off.' }
   ],
   moyen: [
-    "Belle trajectoire. Courte, mais belle.",
-    "Bilan : un avion, aucune excuse.",
-    "On note des progrès. On les cherche encore.",
-    "Les intercepteurs te remercient pour le déplacement.",
-    "Tu as tenu plus longtemps que la moyenne des cailloux.",
-    "Le ciel est grand. Tu as trouvé le seul endroit occupé."
+    { fr: "Le boost se déclenche en tenant une cible lointaine dans l'axe. C'est comme ça qu'on comble une distance.",
+      en: 'The boost triggers when you hold a distant target in line. That is how you close a gap.' },
+    { fr: "Remuer le manche dans tous les sens fait retomber la visée de celui qui te tient.",
+      en: 'Moving the stick around makes the aim of whoever holds you fall away.' },
+    { fr: "Se poser sur la piste rend dix-sept points de vie par seconde, tant que l'équipe est autour de l'avion.",
+      en: 'Landing gives back seventeen points of life a second, as long as the crew is around the aircraft.' },
+    { fr: "Prendre de l'altitude met hors de portée de ce qui vole bas. Chaque appareil a son plafond.",
+      en: 'Climbing puts you out of reach of what flies low. Every aircraft has its own ceiling.' }
   ],
   bon: [
-    "Honorable. L'avion, lui, aurait préféré rentrer.",
-    "Presque respectable. Presque.",
-    "Tu commences à savoir voler. Il faudrait savoir atterrir.",
-    "Du bon travail, gâché à la toute fin.",
-    "Ils étaient plus nombreux. C'est la seule excuse valable."
-  ]
-};
-
-const PIQUES_EN = {
-  zero: [
-    'No kills. The aircraft did ship with guns.',
-    'The ground was clearly marked, across its entire surface.',
-    'This was not a falling simulator.',
-    'Take heart: nobody saw you.',
-    'The airframe was brand new.'
-  ],
-  moyen: [
-    'Lovely trajectory. Short, but lovely.',
-    'Tally: one aircraft, no excuses.',
-    'Progress is noted. It is still being looked for.',
-    'The interceptors thank you for making the trip.',
-    'You lasted longer than the average rock.',
-    'The sky is vast. You found the one busy spot.'
-  ],
-  bon: [
-    'Respectable. The aircraft would have preferred to come home.',
-    'Almost creditable. Almost.',
-    'You are learning to fly. Landing is the next part.',
-    'Good work, wasted at the very end.',
-    'They outnumbered you. That is the only valid excuse.'
+    { fr: "Le tonneau barriqué décale de deux ailes et demie : c'est la manoeuvre qui fait passer à côté d'un mur.",
+      en: 'The barrel roll shifts you two and a half wingspans: that is the manoeuvre that takes you past a wall.' },
+    { fr: "Appeler la vague suivante rapporte cinq cents points, et amène du monde.",
+      en: 'Calling the next wave pays five hundred points, and brings company.' },
+    { fr: "Le soleil se regarde, se tient et se traverse. Trois choses différentes arrivent.",
+      en: 'The sun can be looked at, held, and flown through. Three different things happen.' },
+    { fr: "Dix vagues tenues font entrer dans la légende, et débloquent le deuxième appareil.",
+      en: 'Ten waves held take you into the legend, and unlock the second aircraft.' }
   ]
 };
 
 function pique() {
-  const table = langue === 'en' ? PIQUES_EN : PIQUES;
-  const lot = state.score >= 900 || state.wave >= 5 ? table.bon
-            : state.score === 0 ? table.zero
-            : table.moyen;
-  return lot[Math.floor(Math.random() * lot.length)];
+  const lot = state.score >= 900 || state.wave >= 5 ? FINS.bon
+            : state.score === 0 ? FINS.zero
+            : FINS.moyen;
+  const l = lot[Math.floor(Math.random() * lot.length)];
+  return langue === 'en' ? l.en : l.fr;
 }
 if (record.score > 0) {
   overlayScore.hidden = false;
@@ -10823,7 +11001,7 @@ function decolle(defi) {
   overlay.hidden = true;
   videoBtn.hidden = true;
   partageBtn.hidden = true;
-  document.getElementById('stats').hidden = true;
+  document.getElementById('statsBtn').hidden = true;
   resetGame();
   if (defi) {
     const d = defiDuJour();
@@ -10951,8 +11129,7 @@ function gameOver(victoire) {
   state.nouveauxTrophees = [];
   startBtn.textContent = t('redecoller');   // le défi reste accessible par le menu
   document.getElementById('objectif').hidden = true;
-  const st = document.getElementById('stats');
-  st.innerHTML = texteStats(); st.hidden = false;
+  document.getElementById('statsBtn').hidden = false;
   partageBtn.hidden = false;
   partageBtn.textContent = t('partage');
   videoBtn.hidden = state.reprises >= REPRISES_MAX;

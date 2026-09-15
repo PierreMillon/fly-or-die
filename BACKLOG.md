@@ -873,3 +873,40 @@ Trois corrections d'écran, mesurées sur 430, 390 et 360 px de large :
 - La ligne de série tenait sur deux lignes et cassait la mise en page. Elle
   dit maintenant les deux seules choses utiles : le nombre de jours, et le
   plafond.
+
+## v0.92 — le relief, le cadrage, et une longue liste
+
+- **Le terrain lui-même se soulève.** Plus de pyramides posées sur un plancher :
+  chaque sommet de la grille reçoit une altitude, nulle jusqu'à 2 400 m du
+  centre et à pleine amplitude au-delà de 5 600 m, jusqu'à 240 m de dénivelé.
+  La hauteur est une somme de trois ondulations de périodes incommensurables :
+  le motif ne se répète jamais et rien n'est stocké. La grille se rebâtit au
+  franchissement d'une case de 160 m. Le sol dur, lui, lit la même fonction.
+- **La caméra ne perd plus l'avion.** Pendant une figure, on ajoute en dernier
+  le strict nécessaire pour le ramener dans les 55 % centraux de l'écran. Le
+  ressort garde tout son retard, c'est lui qui donne le mouvement.
+- **Le décollage se filme à vitesse constante.** L'écart se referme de 24 m par
+  seconde quoi qu'il arrive, au lieu d'un ressort qui se jette sur l'avion.
+  L'appareil prend l'avant, la caméra revient régulièrement.
+- **Nez sous l'horizon, on accélère toujours.** Au-dessus de la croisière le
+  rappel moteur dépassait le gain de la pesanteur à faible piqué : on
+  descendait en ralentissant.
+- **Le décrochage passe de 31° à 80°.** On ne décroche plus qu'à la verticale.
+- **Le sol ne plafonne plus d'autorité.** Un coussin de 14 m où la reprise
+  croît comme le carré de l'enfoncement, sans bruit ni dégât.
+- **Plus de départ automatique** quand on est posé : c'est le bouton, et lui
+  seul. Tant qu'on reste, ils réparent.
+- **La vie du terrain.** Cartes, promenade, bricolage dans le hangar, bord de
+  piste, sieste : chacun choisit et change au bout de sept à vingt secondes.
+- **Le bâtiment double est un seul volume**, percé de deux fenêtres. Plus une
+  arête interne sur la façade.
+- **Vénus a quatre longues pointes et quatre courtes**, au lieu d'un carré. Le
+  chariot se trace en permanence, très faiblement, pour être trouvable.
+- **Le ciel n'est plus un miroir.** Il avait raison : le dessous était le reflet
+  du dessus. Depuis que le sol est opaque, il ne sert plus à rien.
+- **La fenêtre de Vénus passe de 2 à 6 secondes** après une figure : il fallait
+  tenir une seconde et demie dans une fenêtre de deux, donc c'était injouable.
+- **Les statistiques passent derrière un bouton**, RAPPORT DE VOL, qui ouvre un
+  panneau défilant. L'écran de fin ne débordait plus.
+- **Les phrases ironiques disparaissent** de l'écran de fin. À la place, une
+  chose vraie et utile sur la partie qui vient de finir.
