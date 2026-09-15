@@ -1226,3 +1226,18 @@ et ferme le menu.
 - D'autres constellations encore : Cassiopée au nord-est, la Croix du Sud.
 - Adresse de la liste bêta (`CONTACT_MAIL`), sa carte dessinée, nom de domaine
   et SIREN pour le portfolio.
+
+### Le trajet du refuge devait être calme
+
+À dix kilomètres, s'y rendre déclenchait le faucheur à tous les coups :
+`FUITE_DIST` vaut 3 500 m et le compteur monte dès qu'on dépasse. Au-delà de
+`TERRAIN_R3`, on n'est plus en train de se dérober au combat — on est sorti de
+la carte. Le compteur ne monte plus là-bas et redescend deux fois plus vite.
+
+**Mesuré** : posé au refuge à 10 010 m, `refuge` actif, compteur de fuite 0 s,
+faucheur non lâché, refuge visible à l'approche. Compteur placé à 30 s puis
+trois secondes passées dehors : il retombe à 23,9 s.
+
+**Test de bout en bout** : dix-huit secondes de vol réel au doigt, deux vagues,
+faucheur lâché, quatre adversaires en l'air, aucune erreur JavaScript, 34
+images par seconde en rendu logiciel.

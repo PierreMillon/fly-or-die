@@ -7865,7 +7865,13 @@ function simulate(dt) {
     // rapporte du temps.
     const bas = state.pos.y < RADAR_BAS;
     const loin = Math.hypot(state.pos.x, state.pos.z - PAPI_Z) > FUITE_DIST * (bas ? 2 : 1);
-    state.fuiteT = loin ? state.fuiteT + dt : Math.max(0, state.fuiteT - dt * 2);
+    // LA PLAINE DU DEHORS NE COMPTE PAS COMME UNE FUITE. Le refuge est à dix
+    // kilomètres : y aller déclenchait le faucheur à tous les coups, et le
+    // trajet devait être calme. Au-delà de la chaîne, on n'a plus rien à voir
+    // avec le combat — on est sorti de la carte, pas en train de s'y dérober.
+    // Le compteur ne monte donc plus, et il redescend deux fois plus vite.
+    const dehors = Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R3;
+    state.fuiteT = (loin && !dehors) ? state.fuiteT + dt : Math.max(0, state.fuiteT - dt * 2);
     if (state.fuiteT > FUITE_ALERTE && state.fuiteT - dt <= FUITE_ALERTE) { announce(t('fuite')); SFX.alerte(); }
     if (state.fuiteT > FUITE_DUREE) lacherFaucheur();
   }
@@ -11264,6 +11270,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.00', fr: 'La plaine au-delà des montagnes ne compte plus comme une fuite : on va au refuge tranquillement.', en: 'The plain beyond the mountains no longer counts as fleeing: the trip to the refuge is calm.' },
   { v: '1.00', fr: 'Orion se trace plein sud et ouvre la chasse : vingt-cinq secondes de canons doublés.', en: 'Orion traces due south and opens the hunt: twenty-five seconds of doubled guns.' },
   { v: '1.00', fr: 'Enchaîner les portails cumule la poussée, et chaque passage fait perdre la main aux adversaires.', en: 'Chaining gates stacks the thrust, and every pass makes the enemies lose their aim.' },
   { v: '1.00', fr: 'Le moteur ne bat plus quand la cellule est abîmée : il sonne comme au premier tour de piste.', en: 'The engine no longer beats when the airframe is damaged: it sounds like the first lap.' },
