@@ -100,15 +100,19 @@
   #topbar, #bottombar { pointer-events: none; }
   #topbar button { pointer-events: auto; }
 
+  /* LA VIE EN HAUT, LES BOUTONS EN BAS. On lit une jauge du coin de l'oeil en
+     haut de l'écran ; on touche un bouton avec le pouce en bas. Les deux
+     bandes ont donc échangé leur place : #bottombar porte la vie et se colle
+     en haut, #topbar porte le score et les boutons et descend. */
   #topbar {
     z-index: 40;
-    top: 0;
-    padding: calc(7px + env(safe-area-inset-top)) 10px 7px;
-  }
-  #bottombar {
     bottom: 0;
     padding: 7px 10px calc(7px + env(safe-area-inset-bottom));
-    justify-content: space-between;
+  }
+  #bottombar {
+    top: 0;
+    padding: calc(7px + env(safe-area-inset-top)) 10px 7px;
+    justify-content: flex-start;
   }
 
   .spacer { flex: 1; }
@@ -312,6 +316,7 @@
   #menu .ligne[hidden] { display: none; }
   #menu .aide { color: var(--ph-dim); font-size: 10px; letter-spacing: 0.12em; margin: 10px 0 6px; }
   #menu .aide:first-child { margin-top: 0; }
+  /* les panneaux tombent sous la bande du haut, qui porte maintenant la vie */
   #menu .puces { display: flex; flex-wrap: wrap; gap: 6px; }
   #menu .puces button {
     background: none;
@@ -627,6 +632,7 @@
   #stats[hidden] { display: none; }
   /* à l'accueil et à la fin, ni vie ni chiffres : ils n'apparaissent qu'en vol */
   body.accueil #bottombar, body.accueil #topbar .chiffre { visibility: hidden; }
+  /* la barre de vie, désormais en haut, laisse la place au titre */
 </style>
 </head>
 <body>
@@ -647,7 +653,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.79</button>
+  <button id="versionBtn">v0.80</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="menuBtn">MENU</button>
 </div>
@@ -1016,6 +1022,7 @@
 </div>
 
 <div id="changelog" hidden>
+  <div><b>v0.80</b> — la fente à 45° est deux fois plus large et rend cent points, le plafond de vie monte avec les portails et les mécaniciens réparent jusque-là, l'effet de sol : sous quarante mètres l'aile s'appuie sur son coussin d'air et rend vingt pour cent de vitesse, sans que rien ne l'écrive.</div>
   <div><b>v0.79</b> — le hangar passe au milieu de la piste et on s'arrête devant, les mécaniciens viennent nous attendre dès l'approche, l'avion ne quitte plus l'écran pendant un tonneau, le trait de tir ennemi est vert et fin, DÉCOLLER descend sous le pouce et le défi monte dans la bande du haut, les adversaires ont toutes nos figures, Immelmann, Split-S et looping compris, ils vont se soigner aux portails, la vitesse gagnée ne retombe plus, et la jauge de poussée monte et descend au même rythme.</div>
   <div><b>v0.78</b> — la vitesse sous la croix avec sa pente, l'éditeur de carte dans le menu, et l'ailier qu'on gagne en prenant les trois trous à figure dans une même partie.</div>
   <div><b>v0.77</b> — trois avions à choisir (le bimoteur, l'intercepteur gagné dans la légende, le pionnier du premier vol), et des leurres qui partent seuls devant les roquettes, chez nous comme chez le gardien.</div>
@@ -3371,6 +3378,14 @@ const PORTE_R = 16;
 const PORTE_H = PISTE.y + PORTE_DIST * Math.tan(PENTE_CIBLE);
 const PORTE_VALIDE = 10;
 const ALIGN_TENUE = 2;
+// L'EFFET DE SOL. Près du sol, l'aile s'appuie sur un coussin d'air : la
+// traînée induite s'effondre et l'avion gagne pour rien. Ici cela devient
+// vingt pour cent de vitesse en plus sous quarante mètres — la hauteur des
+// portails posés au sol. Rien ne l'écrit à l'écran : on le sent en rasant, et
+// c'est ce qui rend le vol au ras des pâquerettes payant au lieu d'être
+// seulement dangereux.
+const SOL_EFFET_H   = 40;     // mètres sous lesquels le coussin d'air porte
+const SOL_EFFET     = 0.20;   // ce qu'il rend, au contact du sol
 const TOUCHER_AVANT = 300;    // mètres avant le hangar où l'approche assistée pose les roues
 const APPROCHE_GAIN = 1.45;                           // vitesse de l'approche assistée, en part de la croisière                                // secondes d'alignement parfait avant que l'approche s'engage seule                              // secondes pendant lesquelles POSER reste offert
 const PORTES = [
@@ -3893,6 +3908,7 @@ const aretesArche = prismeAretes(CONTOUR_ARCHE, ARCHE.prof / 2);
 
 const arches = [];
 const ARCHE_PRIME = 20;   // pour cent de vie rendus a chaque passage
+const FENTE_PRIME = 100;  // la fente à 45° est le passage le plus dur : elle rend le plus
 const VIE_MAX = 1e9;      // au-dela de cent, c'est de la vie de bonus, sans plafond pour l'instant
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
 for (let i = 0; i < CARTE.arches.length; i++) {
@@ -4043,7 +4059,7 @@ for (let i = 0; i < CARTE.pylones.length; i++) {
 //   C'est le seul bâtiment qui regarde les bouts d'aile, pas seulement le nez.
 // ---------------------------------------------------------------------------
 const SPECIAL = { largeur: 110, prof: 60, trou: 45, hautU: 200, entreeY: 40, hautD: 170, y0D: 60, barre: 6,
-                  murH: 120, murP: 20, fenteL: 3.2, fenteH: 28, fenteY: 66 };
+                  murH: 120, murP: 20, fenteL: 6.6, fenteH: 30, fenteY: 66 };
 const speciaux = [];
 (function construireSpeciaux() {
   const S_ = SPECIAL, L = S_.largeur / 2, P = S_.prof / 2, T = S_.trou / 2;
@@ -4501,6 +4517,7 @@ const state = {
   leurresActifs: [],  // ceux qui brûlent encore, pour les voir tomber
   leurresPleins: false,
   mecanosEnRoute: false,   // ils ont quitté la table pour venir nous attendre
+  vieMax: 100,             // le plafond de la jauge : les portails le repoussent pour la partie
   trous: {},          // les trous à figure pris dans cette partie : les trois donnent l'ailier
   ailier: null,       // l'ailier en vol { mesh, pos, quat }
   triche: null,       // les codes secrets actifs : la partie ne compte plus
@@ -4690,7 +4707,7 @@ function resetGame() {
   state.bouclierT = 0;
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avion().roquettes;
   state.leurres = avion().leurres; state.leurresActifs = []; state.leurresPleins = false;
-  state.trous = {};
+  state.trous = {}; state.vieMax = 100;
   appliqueAvion();
   state.triche = null;
   if (avance.vie50) state.structure = 50;
@@ -4719,6 +4736,19 @@ function resetGame() {
 }
 
 function announce(txt) { state.announce = txt; state.announceT = 2.2; }
+
+// LA BARRE DE VIE S'AGRANDIT. Ce qu'un portail donne au-dessus de cent ne
+// s'ajoute plus seulement à la jauge : il en repousse le PLAFOND, pour toute
+// la partie. On peut donc redescendre à vingt et remonter à cent soixante en
+// se posant, si l'on a su aller chercher les trous. Le potentiel gagné en
+// volant reste acquis même quand la vie, elle, est repartie.
+function gagneVie(n) {
+  state.structure = Math.min(VIE_MAX, state.structure + n);
+  if (state.structure > state.vieMax) {
+    state.vieMax = state.structure;
+    announce(t('plafond') + Math.round(state.vieMax) + ' %');
+  }
+}
 
 // Le passage d'un portail : l'impulsion, la poussée, et la secousse.
 function coupDePied() {
@@ -4862,14 +4892,14 @@ function bilanVague() {
   state.forme = THREE.MathUtils.clamp(state.forme + forme, -1, 1);
 
   if (dansTemps && intact) {
-    state.structure = Math.max(state.structure, 100);
+    state.structure = Math.max(state.structure, state.vieMax);
     state.bouclier = BOUCLIER_COUPS;
     marque(750);
     announce(t('sansFaute'));
     SFX.vagueNette(); SFX.bouclierOn();
     objCompte('sansFaute');
   } else if (dansTemps) {
-    state.structure = Math.max(state.structure, 100);
+    state.structure = Math.max(state.structure, state.vieMax);
     marque(400);
     announce(t('dansTemps'));
     SFX.vagueNette();
@@ -4879,7 +4909,7 @@ function bilanVague() {
     announce(t('egratignure'));
     SFX.bouclierOn();
   } else {
-    state.structure = Math.min(100, state.structure + 12);
+    state.structure = Math.min(state.vieMax, state.structure + 12);
     announce(t('degagee'));
   }
 }
@@ -6369,8 +6399,10 @@ function simulate(dt) {
   // divisé par trois par rapport à la v0.65
   // un portail pousse bien plus fort qu'une poursuite : c'est un coup de fouet
   const gainEff = state.boostPortail > 0 ? Math.max(gainBoost, BOOST_PORTAIL_GAIN) : gainBoost;
+  const hSol = state.pos.y - SOL_Y;
+  const coussin = 1 + SOL_EFFET * THREE.MathUtils.clamp(1 - hSol / SOL_EFFET_H, 0, 1);
   const croisiere = CRUISE * avion().vit * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
-                  * (state.assist ? APPROCHE_GAIN : 1);
+                  * coussin * (state.assist ? APPROCHE_GAIN : 1);
   const pesanteur = state.forward.y < 0 ? 2.6 : 1;
   // ELLES S'AJOUTENT. La poussée fixe une vitesse visée, la pesanteur en donne
   // une autre : tant que le plafond était à 205, le piqué d'un avion déjà
@@ -6539,7 +6571,7 @@ function simulate(dt) {
     // il faut redécoller.
     const debout = mecanos.filter(m => !m.mort && !m.tire).length;
     const avant = state.structure;
-    state.structure = Math.min(100, state.structure + REPARE_PAR_S * (debout / 3) * dt);
+    state.structure = Math.min(state.vieMax, state.structure + REPARE_PAR_S * (debout / 3) * dt);
     // ET ELLE SE PAIE. Cinq points de score par point de structure rendu :
     // aller se poser reste toujours possible, mais ce n'est plus gratuit.
     state.score = Math.max(0, state.score - (state.structure - avant) * REPARE_COUT);
@@ -7250,9 +7282,9 @@ function scrape(dt) {
         if (!tousDedans) { repousse(bo.x, bo.z); return; }
         if (coteAvant && coteAvant !== t.cote && !(t.priseT[0] > 0)) {
           t.priseT[0] = PASSAGE_REPOS;
-          stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME));
+          stat('passages'); gagneVie(defiEst('sansBonus') ? 0 : FENTE_PRIME);
           coupDePied(); coopReanime(); marque(600);
-          announce(t_('fente') + TOUR_PRIME); SFX.vagueNette(); noteTrou('incline');
+          announce(t_('fente') + FENTE_PRIME); SFX.vagueNette(); noteTrou('incline');
         }
       }
       if (t.priseT[0] > 0) t.priseT[0] -= dt;
@@ -7264,7 +7296,7 @@ function scrape(dt) {
       if (heurte(pa.x, pa.z, pa.hx, pa.hz + 4, pa.y0 - 2, pa.y1 + 2)) t.entreeT = 6;
       if (t.entreeT > 0 && heurte(pb.x, pb.z, pb.hx, pb.hz, pb.y0, pb.y1)) {
         t.entreeT = 0;
-        stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME * 2));
+        stat('passages'); gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME * 2);
         coupDePied(); state.boostPortail = 2.5; coopReanime(); marque(800);
         announce(t_('puits') + TOUR_PRIME * 2); SFX.vagueNette(); noteTrou('u');
       }
@@ -7275,7 +7307,7 @@ function scrape(dt) {
         if (!(t.priseT[k] > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
           t.priseT[k] = PASSAGE_REPOS;
           const combo = t.priseT[1 - k] > 0;
-          stat('passages'); state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME * (combo ? 2 : 1)));
+          stat('passages'); gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME * (combo ? 2 : 1));
           coupDePied(); coopReanime(); marque(combo ? 900 : 400);
           announce(combo ? t_('combo') + TOUR_PRIME * 2 : t_('tour') + TOUR_PRIME); SFX.vagueNette(); noteTrou('double');
         }
@@ -7297,7 +7329,7 @@ function scrape(dt) {
     if (q && !(t.priseT > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
       t.priseT = PASSAGE_REPOS;
       stat('passages');
-      state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : TOUR_PRIME));
+      gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME);
       coupDePied();
       coopReanime();
       marque(400);
@@ -7313,7 +7345,7 @@ function scrape(dt) {
       a.priseT = PASSAGE_REPOS;
       objCompte('arches');
       stat('passages');
-      state.structure = Math.min(VIE_MAX, state.structure + (defiEst('sansBonus') ? 0 : ARCHE_PRIME));
+      gagneVie(defiEst('sansBonus') ? 0 : ARCHE_PRIME);
       coupDePied();
       coopReanime();
       marque(150);
@@ -8689,9 +8721,11 @@ function refreshBars() {
   const reste = state.vagueLimite - state.vagueT;
   chronoLbl.textContent = (state.vagueLimite > 0 && reste > 0) ? reste.toFixed(0) + 's' : '';
   const st = Math.max(0, Math.ceil(state.structure));
-  gaugeFill.style.width = Math.min(100, st) + '%';
-  gaugeFill.classList.toggle('bonus', st > 100);
-  structLbl.textContent = st + '%';
+  // la jauge est graduée sur le plafond de la partie, pas sur cent : le
+  // potentiel gagné se voit, et ce qu'il en reste aussi
+  gaugeFill.style.width = Math.min(100, st / Math.max(100, state.vieMax) * 100) + '%';
+  gaugeFill.classList.toggle('bonus', state.vieMax > 100);
+  structLbl.textContent = st + (state.vieMax > 100 ? ' / ' + Math.round(state.vieMax) : '') + '%';
   // le bouclier se compte : un carré par coup encaissable, ou ses secondes
   const bl = document.getElementById('bouclierLbl');
   bl.textContent = (state.bouclierT > 0 ? 'SHIELD ' + Math.ceil(state.bouclierT) + 's'
@@ -8758,7 +8792,7 @@ const T = {
     dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
     ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
-    ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
+    plafond: 'CELLULE RENFORCÉE  ·  PLAFOND ', ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
     alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', leurre: 'LEURRE LÂCHÉ  ·  RESTE ', leurresPleins: 'LEURRES RECHARGÉS', locked: 'LOCKED  ·  BOUGE !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
     rempart: 'Tu es le dernier rempart contre l’invasion.<br>Tiens dix vagues et tu entreras dans la légende.',
     legende: 'LÉGENDE', legendeTexte: 'Dix vagues tenues. Ton nom est dans la légende.', partage: 'PARTAGER LE SCORE', copie: 'COPIÉ',
@@ -8796,7 +8830,7 @@ const T = {
     dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
     ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
-    ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
+    plafond: 'AIRFRAME REINFORCED  ·  CEILING ', ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
     alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', leurre: 'FLARE OUT  ·  LEFT ', leurresPleins: 'FLARES RELOADED', locked: 'LOCKED  ·  MOVE!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
     rempart: 'You are the last line against the invasion.<br>Hold 10 waves to enter the legend.',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
