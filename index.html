@@ -1851,8 +1851,41 @@ let actx = null, master = null, bruitBuf = null, moteur = null, moteurG = null;
 // fichier fait près de deux mégaoctets, et le décoder d'un bloc bloquerait
 // l'image sur un téléphone. L'élément, lui, lit au fil de l'eau.
 // ---------------------------------------------------------------------------
-const MUSIQUE_URL = './sons/refuge.m4a';
+// ---------------------------------------------------------------------------
+// LE GRAMOPHONE. Le jeu jouait encore l'enregistrement d'origine — propre,
+// parfait, deux mégaoctets — alors que tout le travail de la platine portait
+// sur l'autre : la même guitare passée au disque. Un enregistrement parfait
+// dit « voici une musique » ; un disque usé dit « quelqu'un a mis un disque ».
+// Ce n'est pas le même geste, et c'est le second qu'on vient chercher ici.
+//
+// Trois choses tournent ensemble, et une seule est un fichier :
+//
+//   LE SILLON est du bruit blanc filtré, en boucle. Une boucle de bruit est
+//   légitime : il n'y a aucun repère dedans, on peut la répéter sans fin sans
+//   que personne l'entende.
+//
+//   LES CRAQUEMENTS sont synthétisés un par un. C'était eux, et non le bruit,
+//   qui trahissaient la boucle : un craquement a une place, donc une suite de
+//   craquements fait un motif, et l'oreille l'attrape en deux ou trois
+//   passages. Leurs instants suivent une loi exponentielle — la loi des
+//   événements sans mémoire — qui produit des grappes et des trous, jamais une
+//   cadence.
+//
+//   LE PLEURAGE est une ligne à retard modulée : un son qui arrive tantôt plus
+//   tôt tantôt plus tard, donc une hauteur qui monte et descend, comme un
+//   plateau dont la vitesse flotte.
+//
+// Le disque tourne d'abord seul — l'amorce — puis la guitare entre.
+const MUSIQUE_URL = './sons/refuge-guitare.m4a';
+const DISQUE_AMORCE   = 11.8;   // secondes de sillon avant que la guitare entre
+const DISQUE_CRAQ_AV  = 0.25;   // le niveau des craquements pendant l'amorce
+const DISQUE_CRAQ_PD  = 0.16;   // et pendant la musique : ils se font oublier
+const DISQUE_DENSITE  = 11;     // craquements par seconde, en moyenne
+const DISQUE_PLEURAGE = 0.58;   // combien le plateau flotte
+const DISQUE_GUITARE  = 1.10;   // le niveau de la guitare elle-même
 let musiqueEl = null, musiqueG = null, musiqueEtat = 'rien', musiqueSrc = null;
+let disqueG = null, disqueCraq = null, disqueBruit = null, disqueRetard = null;
+let disqueProchain = 0, disqueMinuteur = null;
 
 // ELLE SE PRÉPARE PENDANT LE GESTE. Sur iPhone, un élément média ne peut être
 // mis en route que depuis une interaction : débloquer le contexte audio ne
@@ -1874,12 +1907,91 @@ function preparerMusique() {
     musiqueSrc = actx.createMediaElementSource(musiqueEl);
     musiqueG = actx.createGain();
     musiqueG.gain.value = 0.0001;
-    musiqueSrc.connect(musiqueG).connect(actx.destination);
+    // LA GUITARE PASSE PAR LE PLATEAU. Un retard de douze millisecondes que
+    // l'oscillateur fait respirer : c'est tout le pleurage, et c'est ce qui
+    // fait la différence entre un fichier et un disque.
+    disqueRetard = actx.createDelay(0.05);
+    disqueRetard.delayTime.value = 0.012;
+    const lfo = actx.createOscillator();
+    lfo.type = 'sine'; lfo.frequency.value = 0.9;
+    const lfoG = actx.createGain();
+    lfoG.gain.value = 0.0035 * DISQUE_PLEURAGE;
+    lfo.connect(lfoG).connect(disqueRetard.delayTime);
+    lfo.start();
+    musiqueSrc.connect(disqueRetard).connect(musiqueG).connect(actx.destination);
+    batisDisque();
     // le déverrouillage : on lance et on coupe, à volume nul
     const p = musiqueEl.play();
     if (p && p.then) p.then(() => { musiqueEl.pause(); musiqueEl.currentTime = 0; }, () => {});
     else { musiqueEl.pause(); musiqueEl.currentTime = 0; }
   } catch (e) { musiqueEl = null; musiqueG = null; musiqueSrc = null; }
+}
+
+// LE SILLON ET LES CRAQUEMENTS. Deux secondes de bruit blanc servent aux deux
+// et ne sont jamais entendues telles quelles : bouclées et filtrées elles font
+// le souffle, découpées en éclats de deux millisecondes elles font les clics.
+function batisDisque() {
+  if (disqueG || !actx) return;
+  disqueG = actx.createGain();
+  disqueG.gain.value = 0.0001;
+  disqueG.connect(actx.destination);
+
+  disqueBruit = actx.createBuffer(1, Math.round(actx.sampleRate * 2), actx.sampleRate);
+  const d = disqueBruit.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+
+  const src = actx.createBufferSource();
+  src.buffer = disqueBruit; src.loop = true;
+  const bas = actx.createBiquadFilter();
+  bas.type = 'lowpass'; bas.frequency.value = 2400; bas.Q.value = 0.7;
+  const haut = actx.createBiquadFilter();
+  haut.type = 'highpass'; haut.frequency.value = 240;
+  const g = actx.createGain(); g.gain.value = 0.16;
+  src.connect(bas).connect(haut).connect(g).connect(disqueG);
+  src.start();
+
+  disqueCraq = actx.createGain();
+  disqueCraq.gain.value = 1;
+  disqueCraq.connect(disqueG);
+}
+
+// UN CRAQUEMENT. Un éclat de bruit très court, filtré, éteint en quelques
+// millisecondes. Durée, hauteur et amplitude tirées à chaque fois : deux
+// craquements ne se ressemblent jamais. Un sur seize est un choc.
+function craquement(t) {
+  const gros = Math.random() < 0.06;
+  const amp = gros ? 0.55 + Math.random() * 0.45
+                   : Math.pow(Math.random(), 2.4) * 0.5 + 0.02;
+  const duree = gros ? 0.010 + Math.random() * 0.028
+                     : 0.0015 + Math.random() * 0.010;
+  const s = actx.createBufferSource();
+  s.buffer = disqueBruit;
+  s.playbackRate.value = 0.5 + Math.random() * 1.4;
+  const f = actx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.value = gros ? 500 + Math.random() * 900 : 1100 + Math.random() * 3200;
+  f.Q.value = 0.6 + Math.random() * 2.2;
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(amp, t + 0.0006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+  s.connect(f).connect(g).connect(disqueCraq);
+  s.start(t, Math.random() * 1.9, duree + 0.02);
+  s.stop(t + duree + 0.03);
+}
+
+// L'ORDONNANCEUR regarde un quart de seconde devant lui et pose les
+// craquements à venir. L'écart jusqu'au suivant vaut −ln(1−hasard) ÷ densité :
+// c'est la loi exponentielle, celle des événements qui n'ont pas de mémoire.
+function programmeDisque() {
+  if (!actx || musiqueEtat !== 'joue') return;
+  const horizon = actx.currentTime + 0.25;
+  let garde = 0;
+  while (disqueProchain < horizon && garde++ < 200) {
+    if (disqueProchain > actx.currentTime) craquement(disqueProchain);
+    disqueProchain += -Math.log(1 - Math.random()) / Math.max(0.5, DISQUE_DENSITE);
+  }
+  if (disqueProchain < actx.currentTime) disqueProchain = actx.currentTime + 0.01;
 }
 
 function joueMusiqueRefuge() {
@@ -1888,12 +2000,30 @@ function joueMusiqueRefuge() {
   if (!musiqueEl) return;
   musiqueEtat = 'joue';
   const t = actx.currentTime;
+  // ON POSE L'AIGUILLE D'ABORD. Le disque tourne seul pendant l'amorce : du
+  // sillon, des craquements un peu plus forts, et rien d'autre. C'est ce
+  // silence habité qui fait qu'on entend quelqu'un mettre un disque, et non
+  // un jeu lancer une musique.
+  if (disqueG) {
+    disqueG.gain.cancelScheduledValues(t);
+    disqueG.gain.setValueAtTime(0.0001, t);
+    disqueG.gain.exponentialRampToValueAtTime(1, t + 0.8);
+  }
+  if (disqueCraq) {
+    disqueCraq.gain.cancelScheduledValues(t);
+    disqueCraq.gain.setValueAtTime(DISQUE_CRAQ_AV, t);
+    // ils se retirent derrière la guitare dès qu'elle entre
+    disqueCraq.gain.setTargetAtTime(DISQUE_CRAQ_PD, t + DISQUE_AMORCE, 1.5);
+  }
+  disqueProchain = t + 0.05;
+  if (disqueMinuteur) clearInterval(disqueMinuteur);
+  disqueMinuteur = setInterval(programmeDisque, 120);
   if (musiqueG) {
     musiqueG.gain.cancelScheduledValues(t);
     musiqueG.gain.setValueAtTime(0.0001, t);
-    musiqueG.gain.exponentialRampToValueAtTime(MUSIQUE_GAIN, t + MUSIQUE_FONDU);
+    musiqueG.gain.exponentialRampToValueAtTime(MUSIQUE_GAIN * DISQUE_GUITARE, t + MUSIQUE_FONDU);
   } else {
-    musiqueEl.volume = MUSIQUE_GAIN;   // repli : pas de graphe, le volume suffit
+    musiqueEl.volume = Math.min(1, MUSIQUE_GAIN * DISQUE_GUITARE);
   }
   // le reste du jeu s'éloigne
   master.gain.cancelScheduledValues(t);
@@ -1901,12 +2031,17 @@ function joueMusiqueRefuge() {
   master.gain.linearRampToValueAtTime(MUSIQUE_TAMISE * 0.55, t + MUSIQUE_FONDU);
   musiqueEl.currentTime = 0;
   musiqueEl.preload = 'auto';
-  const p = musiqueEl.play();
-  if (p && p.catch) p.catch(() => { musiqueEtat = 'rien'; finMusique(); });
+  // LA GUITARE ENTRE APRÈS L'AMORCE, pas en même temps que l'aiguille.
+  setTimeout(() => {
+    if (musiqueEtat !== 'joue' || !musiqueEl) return;
+    const p = musiqueEl.play();
+    if (p && p.catch) p.catch(() => { musiqueEtat = 'rien'; finMusique(); });
+  }, DISQUE_AMORCE * 1000);
 }
 function finMusique() {
   if (musiqueEtat !== 'joue') return;
   musiqueEtat = 'fini';
+  arreteDisque(2.5);
   if (musiqueG && actx) {
     const tf = actx.currentTime;
     musiqueG.gain.cancelScheduledValues(tf);
@@ -1919,7 +2054,20 @@ function finMusique() {
   master.gain.setValueAtTime(master.gain.value, t);
   master.gain.linearRampToValueAtTime(muet ? 0 : 0.55, t + MUSIQUE_RETOUR);
 }
+// LE DISQUE CONTINUE UN INSTANT APRÈS LA DERNIÈRE NOTE. Une aiguille ne se
+// lève pas au moment exact où la musique s'arrête : elle tourne encore dans le
+// sillon de sortie. Deux secondes et demie de craquements seuls, et c'est fini.
+function arreteDisque(fondu) {
+  if (disqueMinuteur) { clearInterval(disqueMinuteur); disqueMinuteur = null; }
+  if (!disqueG || !actx) return;
+  const t = actx.currentTime;
+  disqueG.gain.cancelScheduledValues(t);
+  disqueG.gain.setValueAtTime(disqueG.gain.value, t);
+  disqueG.gain.linearRampToValueAtTime(0.0001, t + (fondu || 0.3));
+}
+
 function couperMusique() {
+  arreteDisque(0.25);
   // On GARDE l'élément : il porte son autorisation de lecture, obtenue dans un
   // geste, et la recréer la perdrait. On le remet seulement au début.
   if (musiqueEl) { try { musiqueEl.pause(); musiqueEl.currentTime = 0; } catch (e) {} }
@@ -3004,64 +3152,40 @@ const KINDS = [
     cone: Math.cos(16 * Math.PI / 180), portee: 1250, rafale: 6
   },
   {
-    // LE FAUCHEUR. Ce n'est pas un avion, et ça ne doit pas en avoir l'air : il
-    // reprenait la maquette du gardien agrandie, donc on croyait voir un
-    // gardien, alors que c'est la seule chose du jeu qui ne vient pas du même
-    // monde que nous. Un disque épais : un plateau, une tranche, une bombe
-    // au-dessus et un cône dessous. Dix-huit côtés — assez pour que le contour
-    // soit rond, assez peu pour qu'on voie que c'est construit.
+    // LE FAUCHEUR EST UN CERCLE PLAT. Il a été successivement un gardien
+    // agrandi — donc un avion, donc quelque chose de connu — puis un disque
+    // épais avec une bombe au-dessus et un cône dessous, ce qui est encore un
+    // engin : ça a un dessus, un dessous, un sens de marche.
+    //
+    // Un cercle parfaitement plat n'a rien de tout cela. Il n'a pas d'avant,
+    // pas de cockpit, pas d'aile ; vu de face c'est un anneau, vu de profil
+    // c'est un trait qui disparaît. On ne sait pas où il regarde, et c'est
+    // précisément ce qui fait peur : les autres adversaires sont des machines
+    // que des gens pilotent, celui-là ne l'est pas.
+    //
+    // La maquette est CALCULÉE et non tabulée : trente-deux côtés, deux faces
+    // opposées pour qu'il se voie des deux bords, et douze centimètres entre
+    // elles — assez pour qu'il occulte ce qui est derrière, trop peu pour
+    // qu'on voie jamais une tranche. À vingt degrés de seuil, EdgesGeometry
+    // ne garde que le pourtour : un cercle, et rien d'autre.
     nom: 'FAUCHEUR', tactique: 'anticipee', etage: [120, 2200],
     roquettes: true, figures: false, secret: true,
-    verts: [
-      0.0, 2.5, 0.0, 0.0, -1.7999999999999998, 0.0, 5.0, 0.95, 0.0,
-      4.698, 0.95, 1.71, 3.83, 0.95, 3.214, 2.5, 0.95, 4.33,
-      0.868, 0.95, 4.924, -0.868, 0.95, 4.924, -2.5, 0.95, 4.33,
-      -3.83, 0.95, 3.214, -4.698, 0.95, 1.71, -5.0, 0.95, 0.0,
-      -4.698, 0.95, -1.71, -3.83, 0.95, -3.214, -2.5, 0.95, -4.33,
-      -0.868, 0.95, -4.924, 0.868, 0.95, -4.924, 2.5, 0.95, -4.33,
-      3.83, 0.95, -3.214, 4.698, 0.95, -1.71, 5.0, -0.95, 0.0,
-      4.698, -0.95, 1.71, 3.83, -0.95, 3.214, 2.5, -0.95, 4.33,
-      0.868, -0.95, 4.924, -0.868, -0.95, 4.924, -2.5, -0.95, 4.33,
-      -3.83, -0.95, 3.214, -4.698, -0.95, 1.71, -5.0, -0.95, 0.0,
-      -4.698, -0.95, -1.71, -3.83, -0.95, -3.214, -2.5, -0.95, -4.33,
-      -0.868, -0.95, -4.924, 0.868, -0.95, -4.924, 2.5, -0.95, -4.33,
-      3.83, -0.95, -3.214, 4.698, -0.95, -1.71, 2.3, 1.911, 0.0,
-      2.161, 1.911, 0.787, 1.762, 1.911, 1.478, 1.15, 1.911, 1.992,
-      0.399, 1.911, 2.265, -0.399, 1.911, 2.265, -1.15, 1.911, 1.992,
-      -1.762, 1.911, 1.478, -2.161, 1.911, 0.787, -2.3, 1.911, 0.0,
-      -2.161, 1.911, -0.787, -1.762, 1.911, -1.478, -1.15, 1.911, -1.992,
-      -0.399, 1.911, -2.265, 0.399, 1.911, -2.265, 1.15, 1.911, -1.992,
-      1.762, 1.911, -1.478, 2.161, 1.911, -0.787
-    ],
-    tris: [
-      2, 20, 21, 2, 21, 3, 2, 3, 39, 2, 39, 38,
-      38, 39, 0, 21, 20, 1, 3, 21, 22, 3, 22, 4,
-      3, 4, 40, 3, 40, 39, 39, 40, 0, 22, 21, 1,
-      4, 22, 23, 4, 23, 5, 4, 5, 41, 4, 41, 40,
-      40, 41, 0, 23, 22, 1, 5, 23, 24, 5, 24, 6,
-      5, 6, 42, 5, 42, 41, 41, 42, 0, 24, 23, 1,
-      6, 24, 25, 6, 25, 7, 6, 7, 43, 6, 43, 42,
-      42, 43, 0, 25, 24, 1, 7, 25, 26, 7, 26, 8,
-      7, 8, 44, 7, 44, 43, 43, 44, 0, 26, 25, 1,
-      8, 26, 27, 8, 27, 9, 8, 9, 45, 8, 45, 44,
-      44, 45, 0, 27, 26, 1, 9, 27, 28, 9, 28, 10,
-      9, 10, 46, 9, 46, 45, 45, 46, 0, 28, 27, 1,
-      10, 28, 29, 10, 29, 11, 10, 11, 47, 10, 47, 46,
-      46, 47, 0, 29, 28, 1, 11, 29, 30, 11, 30, 12,
-      11, 12, 48, 11, 48, 47, 47, 48, 0, 30, 29, 1,
-      12, 30, 31, 12, 31, 13, 12, 13, 49, 12, 49, 48,
-      48, 49, 0, 31, 30, 1, 13, 31, 32, 13, 32, 14,
-      13, 14, 50, 13, 50, 49, 49, 50, 0, 32, 31, 1,
-      14, 32, 33, 14, 33, 15, 14, 15, 51, 14, 51, 50,
-      50, 51, 0, 33, 32, 1, 15, 33, 34, 15, 34, 16,
-      15, 16, 52, 15, 52, 51, 51, 52, 0, 34, 33, 1,
-      16, 34, 35, 16, 35, 17, 16, 17, 53, 16, 53, 52,
-      52, 53, 0, 35, 34, 1, 17, 35, 36, 17, 36, 18,
-      17, 18, 54, 17, 54, 53, 53, 54, 0, 36, 35, 1,
-      18, 36, 37, 18, 37, 19, 18, 19, 55, 18, 55, 54,
-      54, 55, 0, 37, 36, 1, 19, 37, 20, 19, 20, 2,
-      19, 2, 38, 19, 38, 55, 55, 38, 0, 20, 37, 1
-    ],
+    ...(function disquePlat(n, r, e) {
+      const verts = [0, e, 0, 0, -e, 0];      // les deux centres
+      for (const y of [e, -e])
+        for (let i = 0; i < n; i++) {
+          const a = i / n * Math.PI * 2;
+          verts.push(Math.cos(a) * r, y, Math.sin(a) * r);
+        }
+      const tris = [];
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        tris.push(0, 2 + i, 2 + j);                       // la face du dessus
+        tris.push(1, 2 + n + j, 2 + n + i);               // celle du dessous
+        tris.push(2 + i, 2 + n + i, 2 + n + j, 2 + i, 2 + n + j, 2 + j);  // la tranche
+      }
+      return { verts, tris };
+    })(32, 5, 0.06),
     envergure: 16,
     vitesse: [120, 140], virage: 0.42, vie: 4000, recharge: [0.55, 1.1],
     cone: Math.cos(15 * Math.PI / 180), portee: 1500, rafale: 4
@@ -6060,7 +6184,48 @@ function rabaisseBoites(b) {
 // pourquoi — on a entendu le moment où elle a changé de règle.
 const FAUCHEUR_BLINDAGE = 8;   // deux fois quatre
 const FAUCHEUR_VITESSE  = 3;
-const FAUCHEUR_VIRAGE   = 2;
+// TROIS ET NON DEUX. Calé sur notre vitesse il lui faut pouvoir tenir un
+// virage plus serré que le nôtre, sinon se caler ne sert à rien : on tourne,
+// il sort. À 0,42 × 3 son rayon tombe à cent trente mètres.
+const FAUCHEUR_VIRAGE   = 3;
+// ET IL DEVIENT DANGEREUX, PAS SEULEMENT DUR. Blindé, rapide et maniable, il
+// restait un adversaire qu'on pouvait subir en ligne droite : long, jamais
+// effrayant. La seconde moitié doit se jouer autrement que la première, sinon
+// ce n'est qu'une barre de vie plus lente.
+//
+// Alors il tire. Sa visée se cale deux fois plus vite, son cône s'ouvre de
+// quinze à vingt-deux degrés, sa cadence triple, ses rafales doublent et ses
+// roquettes partent trois fois plus souvent. À bout portant, un appareil qui
+// vole droit ne tient pas quatre secondes.
+//
+// LA SORTIE EXISTE, ET C'EST LA SEULE. Remuer casse sa visée : le jeu mesure
+// déjà combien le manche bouge, et retire jusqu'à 2,8 par seconde à son
+// alignement. Il en gagne 2,2. Autrement dit il faut bouger presque à fond,
+// tout le temps, pour qu'il ne tire jamais — et dès qu'on se repose une
+// seconde, il se cale. On ne le combat plus : on lui échappe en permanence,
+// ce qui est la seule chose qu'on puisse faire devant une faucheuse.
+const FAUCHEUR_VISEE   = 2.2;   // vitesse à laquelle son alignement se construit
+const FAUCHEUR_CONE    = 0.035; // ce qu'il gagne d'ouverture : 15° deviennent 22°
+const FAUCHEUR_CADENCE = 0.35;  // le délai entre deux rafales
+const FAUCHEUR_RAFALE  = 2;     // la longueur des rafales
+const FAUCHEUR_ROQ     = 0.35;  // le délai entre deux roquettes
+// IL NE DOIT PAS NOUS DÉPASSER. Mesuré : à 690 m/s il traversait la scène, la
+// distance oscillait entre 235 et 1 272 mètres, et en vingt-deux secondes sans
+// bouger le manche on prenait 63 points. Une vitesse pareille ne fait pas peur,
+// elle fait un courant d'air : son rayon de virage vaut alors huit cents
+// mètres, donc il ne peut physiquement pas nous suivre — il passe.
+//
+// Un prédateur ne fonce pas tout le temps. Loin, il vient à pleine vitesse ;
+// à moins de deux cents mètres il se cale douze pour cent au-dessus de la
+// nôtre et il RESTE LÀ, dans le dos, à tirer. C'est ce qui est effrayant : non
+// pas qu'il aille vite, mais qu'on ne puisse pas le décrocher.
+const FAUCHEUR_COLLE = 180;    // en deçà, il se cale sur notre vitesse
+const FAUCHEUR_LOIN  = 900;    // au-delà, il vient à pleine vitesse
+function vitesseFaucheur(e, dist) {
+  if (!e.phase2) return e.speed;
+  const k = THREE.MathUtils.clamp((dist - FAUCHEUR_COLLE) / (FAUCHEUR_LOIN - FAUCHEUR_COLLE), 0, 1);
+  return Math.max(state.speed * 1.12 + 25, e.speed * k);
+}
 // Tout ce qui blesse un adversaire passe par ici : c'est le seul endroit où
 // le blindage peut s'appliquer sans en oublier une source.
 function blesse(e, degats) {
@@ -6071,6 +6236,11 @@ function blesse(e, degats) {
     e.vireX = FAUCHEUR_VIRAGE;
     e.vitX = FAUCHEUR_VITESSE;
     e.speed *= FAUCHEUR_VITESSE;
+    e.viseeX = FAUCHEUR_VISEE;
+    e.coneBonus = FAUCHEUR_CONE;
+    e.cadence = FAUCHEUR_CADENCE;
+    e.rafaleX = FAUCHEUR_RAFALE;
+    e.roqX = FAUCHEUR_ROQ;
     announce(t('faucheur2'), t('faucheur2Sous'));
     SFX.alerte();
     SFX.cloche();
@@ -7217,7 +7387,13 @@ function spawnWave() {
             : i > 0 ? Math.random() * Math.PI * 2
             : capNez + (state.wave === 1 ? 0
                        : (Math.random() < 0.5 ? -1 : 1) * (0.20 + Math.random() * 0.16));
-    const d = boss ? 900 : 520 + Math.random() * 420;
+    // SEPT CENTS MÈTRES AU PLUS PRÈS, ET NON CINQ CENT VINGT. À 520 m et
+    // 126 m/s, un appareil qui apparaît est sur nous en quatre secondes — et
+    // à cette distance, de nuit, en fil de fer, il n'est pas encore lisible
+    // quand il arrive. On ne le voit donc pas venir : on le découvre à côté
+    // de soi. Sept cents mètres font cinq secondes et demie, et à cette
+    // distance la maquette se lit déjà.
+    const d = boss ? 1000 : 700 + Math.random() * 420;
     // LE PREMIER DE LA PREMIÈRE VAGUE EST PILE EN FACE, À HAUTEUR DE NEZ.
     // Il attendait devant une arche, donc parfois de biais et parfois hors
     // champ : la leçon d'ouverture ratait une partie sur deux. Il est
@@ -7628,7 +7804,7 @@ function updateEnemies(dt) {
       e.quat.rotateTowards(_q, vir * 1.2 * dt);
     }
     e.forward.set(0, 0, -1).applyQuaternion(e.quat);
-    e.pos.addScaledVector(e.forward, e.speed * (e.rattrape ? 1.6 : 1) * dt);
+    e.pos.addScaledVector(e.forward, vitesseFaucheur(e, dist) * (e.rattrape ? 1.6 : 1) * dt);
     if (e.pos.y < 60) e.pos.y = 60;
     // SON PLAFOND EST UN VRAI PLAFOND. Il peut viser aussi haut qu'il veut,
     // son aile ne l'y portera pas : au-dessus de son étage il ne monte plus.
@@ -7693,8 +7869,8 @@ function updateEnemies(dt) {
     // retombe au lieu de monter, et c'est le répit qu'on cherchait
     if (state.remuant > 0.45) e.visee = Math.max(0, e.visee - dt * (state.remuant - 0.3) * 4);
     const aligne = !zoneSure && !(state.triche && state.triche.fantome) && dist < K.portee * (1 - 0.45 * gene)
-                && e.forward.dot(_v) > K.cone + (1 - K.cone) * gene * 1.6;
-    e.visee = aligne ? e.visee + dt : 0;
+                && e.forward.dot(_v) > K.cone - (e.coneBonus || 0) + (1 - K.cone) * gene * 1.6;
+    e.visee = aligne ? e.visee + dt * (e.viseeX || 1) : 0;
     // LOCKED. Dès qu'il tient son alignement assez pour tirer, l'écran le dit,
     // pas plus d'une fois toutes les trois secondes.
     // PLUS DE MOT « LOCKED ». Le trait pointillé qui part de lui vers nous dit
@@ -7705,7 +7881,7 @@ function updateEnemies(dt) {
     if (e.roqCd > 0) e.roqCd -= dt;
     if (K.roquettes && aligne && e.visee >= VISEE_ENNEMI && e.roqCd <= 0
         && dist > ROQ_E_PORTEE[0] && dist < ROQ_E_PORTEE[1]) {
-      e.roqCd = ROQ_E_RECHARGE;
+      e.roqCd = ROQ_E_RECHARGE * (e.roqX || 1);
       state.roqEnnemies.push({ pos: e.pos.clone(), dir: _v.clone().negate(), t: 0, fum: 0, perdue: false,
                                de: e.faucheur ? 'FAUCHEUR' : K.nom });
       state.alerte = 2.2;
@@ -7718,7 +7894,7 @@ function updateEnemies(dt) {
       if (e.burstT <= 0) { tirer(); e.burst--; e.burstT = BURST_GAP; }
     } else if (e.reload <= 0 && e.visee >= VISEE_ENNEMI) {
       e.reload = (K.recharge[0] + Math.random() * (K.recharge[1] - K.recharge[0])) * (e.cadence || 1);
-      e.burst = K.rafale;
+      e.burst = Math.round(K.rafale * (e.rafaleX || 1));
       e.burstT = 0;
     }
 
@@ -9700,6 +9876,17 @@ function simulate(dt) {
   } else {
     if (state.vagueLimite > 0) { bilanVague(); if (state.wave < CHAPITRE) announce(t('repit')); }
     if (state.wave >= CHAPITRE && !coop.actif) { legende(); return; }
+    // AU-DELÀ DE LA CRÊTE, PERSONNE NE VIENT. Le compteur de vague tournait
+    // partout, refuge compris : parti chercher le terrain à trente-deux
+    // kilomètres, on voyait une vague entière apparaître autour de soi en
+    // pleine plaine vide, à cinq cents mètres — c'est-à-dire, de nuit et en
+    // fil de fer, surgir à côté de soi.
+    //
+    // Le dehors n'est pas un endroit où l'on se bat. C'est déjà vrai pour le
+    // faucheur, qui ne s'y lâche pas ; ça l'est maintenant pour tout le monde.
+    // Les trois minutes de traversée sont vides, et c'est ce qui fait qu'on
+    // les tient.
+    if (Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R3) return;
     state.waveTimer -= dt;
     if (state.waveTimer <= 0) {
       state.waveTimer = 5.0;      // deux secondes de répit de plus : le temps de jouer avec l'avion
@@ -11449,7 +11636,7 @@ const T = {
     chaine: 'ENCHAÎNÉ',
     chaineSous: 'ils ont perdu la main  ·  coup de pied',
     faucheur2: 'LE FAUCHEUR SE DÉCOUVRE',
-    faucheur2Sous: 'blindage ×8, vitesse ×3, virage deux fois plus serré',
+    faucheur2Sous: 'blindage ×8, vitesse ×3, virage ×2, cadence ×3  ·  NE T’ARRÊTE PLUS DE BOUGER',
     dore: 'SOLEIL TRAVERSÉ  ·  INVINCIBLE 10 s', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
     prepare: 'préparation du code...', pret: 'code prêt. Envoie-le, puis colle la réponse.',
@@ -11510,7 +11697,7 @@ const T = {
     chaine: 'CHAINED',
     chaineSous: 'they lost their aim  ·  kick',
     faucheur2: 'THE REAPER SHOWS ITSELF',
-    faucheur2Sous: 'armour x8, speed x3, twice as tight a turn',
+    faucheur2Sous: 'armour x8, speed x3, turn x2, fire rate x3  ·  NEVER STOP MOVING',
     dore: 'THROUGH THE SUN  ·  INVINCIBLE 10 s', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
     prepare: 'preparing the code...', pret: 'code ready. Send it, then paste the answer.',
@@ -12059,6 +12246,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.07', fr: 'Le faucheur est un cercle plat : plus d’avant, plus de dessus, plus rien de connu.', en: 'The reaper is a flat circle: no front, no top, nothing familiar left.' },
+  { v: '1.07', fr: 'À mi-vie il se cale dans notre dos et n’en sort plus : sans bouger sans arrêt, il tue.', en: 'At half life it settles onto our tail and stays: stop moving and it kills.' },
+  { v: '1.07', fr: 'La musique du refuge sort enfin du gramophone : sillon, craquements et pleurage.', en: 'The refuge music finally comes out of the gramophone: groove, crackle and wow.' },
+  { v: '1.07', fr: 'Au-delà de la crête, plus aucune vague : la traversée est vide, et c’est voulu.', en: 'Past the ridge, no more waves: the crossing is empty, and that is the point.' },
+  { v: '1.07', fr: 'Un adversaire n’apparaît plus à cinq cents mètres, mais à sept cents : on le voit venir.', en: 'An enemy no longer appears at five hundred metres but at seven hundred: you see it coming.' },
   { v: '1.06', fr: 'Le refuge est trois fois plus loin : trois minutes de vol après la crête, dans le vide.', en: 'The refuge is three times further: three minutes of flight past the ridge, over nothing.' },
   { v: '1.06', fr: 'On roule jusqu’au bout et l’on s’arrête devant la cabane, nez vers la porte.', en: 'You roll to the end and stop in front of the hut, nose to the door.' },
   { v: '1.06', fr: 'Le pilote descend sur l’aile et reste là : il n’y a rien à réparer.', en: 'The pilot steps down onto the wing and stays there: there is nothing to repair.' },
