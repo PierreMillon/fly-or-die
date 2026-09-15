@@ -982,3 +982,11 @@ C'était moche et c'était faux.
   refuge ou pendant les douze premiers mètres du décollage.
 - Le libellé de la v0.96 disait « rien ne s'y oppose », ce qui pouvait se lire
   comme « personne ne tire ». Corrigé : « le manche accepte 85° de cabré ».
+
+## v0.98 — le niveau sonore
+
+Les deux sons du monde, la porte franchie et la vague qui s'ouvre, sonnaient
+quatre à cinq fois plus fort que l'appareil qu'on pilote et couvraient donc la
+seule chose qu'on entend en permanence. Leur partiel le plus fort vaut
+maintenant exactement le gain du moteur, 0,056, sous le nom `SON_NIVEAU`.
+Tout ce qui doit sonner comme l'avion et non par-dessus s'y alignera.

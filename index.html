@@ -735,7 +735,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v0.97</button>
+  <button id="versionBtn">v0.98</button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -1727,6 +1727,9 @@ let reverbe = null, loinG = null, moteurLP = null, sousG = null;
 let timbre = 'clair';
 try { timbre = localStorage.getItem('fod_timbre') || 'clair'; } catch (e) {}
 
+// LE NIVEAU DE RÉFÉRENCE : celui du moteur. Tout ce qui doit sonner « comme
+// l'avion » et non « par-dessus l'avion » s'y aligne.
+const SON_NIVEAU = 0.056;
 const TIMBRES = {
   clair:   { base: 70,  ecart: 1.7, coupe: 420,  sous: 0,    gain: 0.050 },
   profond: { base: 47,  ecart: 3.1, coupe: 640,  sous: 0.52, gain: 0.062 }
@@ -2048,7 +2051,13 @@ const SFX = {
   seuil:        () => {
     if (!actx || muet) return;
     const t = actx.currentTime;
-    for (const v of [[110, 0.14], [165, 0.09], [220, 0.06]]) {
+    // AU NIVEAU DU MOTEUR. Les deux sons du monde — la porte franchie et la
+    // vague qui s'ouvre — sonnaient quatre fois plus fort que l'appareil qu'on
+    // pilote, et couvraient donc la seule chose qu'on entend en permanence.
+    // Leur partiel le plus fort vaut maintenant exactement SON_NIVEAU, qui est
+    // le gain du moteur.
+    const k = SON_NIVEAU / 0.14;
+    for (const v of [[110, 0.14 * k], [165, 0.09 * k], [220, 0.06 * k]]) {
       const o = actx.createOscillator(), g = actx.createGain();
       o.type = 'sine';
       o.frequency.setValueAtTime(v[0] * 0.82, t);
@@ -2066,8 +2075,9 @@ const SFX = {
   cloche:       () => {
     if (!actx || muet) return;
     const t = actx.currentTime;
-    const voix = [[73.4, 0.26, 'sine'], [110, 0.12, 'sine'],
-                  [146.8, 0.07, 'sine'], [220, 0.035, 'triangle']];
+    const k = SON_NIVEAU / 0.26;
+    const voix = [[73.4, 0.26 * k, 'sine'], [110, 0.12 * k, 'sine'],
+                  [146.8, 0.07 * k, 'sine'], [220, 0.035 * k, 'triangle']];
     voix.forEach((v, i) => {
       const o = actx.createOscillator(), g = actx.createGain();
       o.type = v[2];
@@ -10820,6 +10830,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '0.98', fr: 'La cloche et le seuil sonnent au niveau du moteur, plus par-dessus.', en: 'The bell and the threshold ring at engine level, no longer over it.' },
   { v: '0.97', fr: 'Le soleil devient plein, la cellule ne vacille plus en montée, et les montagnes doublent de hauteur.', en: 'The sun turns solid, the airframe no longer wallows in a climb, and the mountains double in height.' },
   { v: '0.96', fr: 'Le manche accepte quatre-vingt-cinq degrés de cabré, et un portail ouvre la fenêtre de Vénus.', en: 'The stick accepts eighty-five degrees of nose-up, and a gate opens the window on Venus.' },
   { v: '0.95', fr: 'Le faucheur devient un disque épais, le portail sonne LE SEUIL et chaque vague ouvre sur une cloche.', en: 'The reaper becomes a thick disc, gates ring THE THRESHOLD and every wave opens on a bell.' },
