@@ -3493,6 +3493,7 @@ function tonneauSoleil() {
   objCompte('tonneaux');          // appelée à chaque départ de tonneau : on compte ici
   if (state.etoileT > 0 || eblouissement() <= 0.5) return;
   state.etoileT = ETOILE_REPOS;
+  trouve('soleil');
   marque(ETOILE_PRIME);
   announce(t('etoile') + ETOILE_PRIME);
   SFX.vagueNette();
@@ -3614,6 +3615,7 @@ function secretsCiel(dt) {
         marque(OURSE_PRIME);
         stat('ourses');
         state.ourseFaite = true;
+        trouve('ourse');
         // LE VISEUR D'ABORD. debloqueViseur() annonce lui aussi, et il passait
         // en dernier : on lisait VISEUR DEBLOQUE a la place du nom de la
         // constellation et de ce qu'elle donne. C'est la constellation qui
@@ -3643,6 +3645,7 @@ function secretsCiel(dt) {
         marque(ORION_PRIME);
         stat('orions');
         state.orionFaite = true;
+        trouve('orion');
         state.chasse = ORION_CHASSE;
         debloqueViseur('orion');
         announce(t('orion') + ORION_PRIME, t('orionSous'));
@@ -3709,6 +3712,7 @@ function secretsCiel(dt) {
     state.bergerT = vise ? state.bergerT + dt : Math.max(0, state.bergerT - dt * 2);
     if (state.bergerT >= BERGER_TENUE) {
       state.bergerPris = true;
+      trouve('berger');
       state.bergerT = 0;
       state.aube = AUBE_DUREE;
       state.eclipse = 0;
@@ -7901,6 +7905,7 @@ function coupDePied() {
   // LE CRAN. Dans la fenêtre du précédent, on monte ; sinon on repart de un.
   state.chaine = state.chaineT > 0 ? Math.min(CHAINE_MAX, state.chaine + 1) : 1;
   state.chaineT = CHAINE_FENETRE;
+  if (state.chaine >= 3) trouve('chaine');     // il a compris qu'ils s'enchaînent
   const cran = 1 + CHAINE_GAIN * (state.chaine - 1);
   // UN PORTAIL OUVRE AUSSI LA FENÊTRE DE VÉNUS. Sortir d'un portail à pleine
   // poussée et trouver l'ouest dans la foulée est un geste au moins aussi beau
@@ -8013,6 +8018,7 @@ function entreAuRefuge() {
   state.roqEnnemies.length = 0;
   state.waveTimer = 1e9;                  // personne ne vient nous chercher ici
   stat('refuges');
+  trouve('refuge');
   debloqueViseur('ancien');
   announce(t('refuge'));
   SFX.cloche();
@@ -8608,6 +8614,7 @@ const FUITE_DIST = 3500, FUITE_ALERTE = 40, FUITE_DUREE = 60;
 const RADAR_BAS = 80;        // sous cette hauteur, on passe sous les radars
 function lacherFaucheur() {
   state.faucheur = true;
+  trouve('faucheur');
   const k = KINDS.find(x => x.nom === 'FAUCHEUR');
   const mesh = solidWire(k.geom, k.edges, matEnemy);
   mesh.scale.setScalar(k.echelle);
@@ -10384,10 +10391,44 @@ function simulate(dt) {
     // trajet devait être calme. Au-delà de la chaîne, on n'a plus rien à voir
     // avec le combat — on est sorti de la carte, pas en train de s'y dérober.
     // Le compteur ne monte donc plus, et il redescend deux fois plus vite.
-    const dehors = Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R3;
+    // ET L'EXEMPTION COMMENCE À LA CHAÎNE, PAS APRÈS. Elle démarrait au bout
+    // du relief : la traversée des montagnes elle-même comptait encore comme
+    // une fuite, et à monter un peu — ce qu'on fait forcément pour passer une
+    // crête de neuf cents mètres — le couloir de fuite se réduit de moitié et
+    // le compteur tourne pendant tout le trajet aller. On partait chercher le
+    // refuge et on se faisait lâcher le faucheur dessus avant d'avoir vu la
+    // plaine. Franchir la chaîne, c'est déjà être sorti.
+    const dehors = Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R2;
     state.fuiteT = (loin && !dehors) ? state.fuiteT + dt : Math.max(0, state.fuiteT - dt * 2);
     if (state.fuiteT > FUITE_ALERTE && state.fuiteT - dt <= FUITE_ALERTE) { announce(t('fuite')); SFX.alerte(); }
     if (state.fuiteT > FUITE_DUREE) lacherFaucheur();
+  }
+  // IL NE PASSE PAS LA CRÊTE, ET ÇA SE DÉCIDE DEHORS DU TEST QUI LE LÂCHE.
+  // Le bloc vivait dans `if (!state.faucheur)` — donc il ne tournait jamais
+  // une fois le faucheur en l'air, c'est-à-dire exactement quand il aurait
+  // servi. Mesuré : lâché à 6 000 m, il était encore là à 7 442.
+  //
+  // C'est la chose que la ville envoie ; le dehors n'est pas à elle. Au-delà
+  // de la chaîne il rompt, fait demi-tour et rentre — et c'est le moment où
+  // l'on comprend qu'on est vraiment sorti. La chenillée, elle, passe : elle
+  // est lente, on la voit venir, et c'est le prix d'une astuce qu'on a choisie.
+  if (state.running && state.faucheur
+      && Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R2) {
+    for (let i = state.enemies.length - 1; i >= 0; i--) {
+      const e = state.enemies[i];
+      if (!e.faucheur) continue;
+      e.rompt = (e.rompt || 0) + dt;
+      if (e.rompt > 3) {
+        if (e.mesh.parent) e.mesh.parent.remove(e.mesh);
+        state.enemies.splice(i, 1);
+        state.faucheur = false;
+        state.fuiteT = 0;
+        announce(t('faucheurRompt'), t('faucheurRomptSous'));
+      } else {
+        e.pos.addScaledVector(state.forward, -260 * dt);   // il s'en va
+        e.pos.y += 90 * dt;
+      }
+    }
   }
   if (state.secousse > 0) state.secousse = Math.max(0, state.secousse - dt);
 
@@ -10432,6 +10473,13 @@ function simulate(dt) {
   const bouge = Math.hypot(dx - (state.dxAvant || 0), dy - (state.dyAvant || 0)) / Math.max(1e-3, dt);
   state.dxAvant = dx; state.dyAvant = dy;
   state.dyManche = dy;        // le tangage demandé, relu plus bas par l'arrondi
+  // IL A TROUVÉ LE PIQUÉ QUI GARDE LA VITESSE. Quatre secondes à voler en
+  // palier, sans rien toucher, nettement au-dessus de la croisière : ça
+  // n'arrive pas par hasard, ça arrive parce qu'on a compris.
+  const vite = state.speed > CRUISE * 1.35 && Math.abs(state.forward.y) < 0.10
+            && Math.abs(dx) < 0.12 && Math.abs(dy) < 0.12 && state.boost <= 0.01;
+  state.piqueT = vite ? (state.piqueT || 0) + dt : 0;
+  if (state.piqueT > 4) trouve('pique');
   state.remuant = THREE.MathUtils.damp(state.remuant || 0, Math.min(1, bouge / 2.4), 3.4, dt);
   const yawRate   = -dx * gain * MAX_YAW * avion().lacet;
   const pitchRate = -dy * gain * MAX_PITCH * avion().tangage;
@@ -12998,6 +13046,18 @@ const structLbl = null;
 // Tout reste sur l'appareil. Rien n'est envoyé nulle part, il n'y a pas de
 // serveur et il n'y en aura pas : c'est un carnet, pas un mouchard.
 // ---------------------------------------------------------------------------
+// CE QU'ON A DÉJÀ TROUVÉ, ET QUI NE S'OUBLIE PAS. Le carnet compte des parties
+// et des secondes ; les statistiques d'une partie meurent avec elle. Il
+// manquait la seule chose dont les indices ont besoin : la liste de ce qu'on a
+// vu une fois dans sa vie. Elle tient dans dix booléens.
+let decouvertes = {};
+try { decouvertes = JSON.parse(localStorage.getItem('fod_trouve') || '{}') || {}; } catch (e) {}
+function trouve(cle) {
+  if (decouvertes[cle]) return;
+  decouvertes[cle] = true;
+  try { localStorage.setItem('fod_trouve', JSON.stringify(decouvertes)); } catch (e) {}
+}
+
 const CARNET_VIDE = {
   parties: 0,          // parties commencées
   secondes: 0,         // temps de vol cumulé
@@ -13292,6 +13352,8 @@ const T = {
     act_poste: 'POSER L’AIGUILLE',
     disqueCasse: 'LE DISQUE EST CASSÉ',
     disqueCasseSous: 'il ne se jouait qu’une fois  ·  elle l’avait écrit',
+    faucheurRompt: 'LE FAUCHEUR ROMPT',
+    faucheurRomptSous: 'il ne passe pas la chaîne  ·  ici, il n’y a plus de guerre',
     enJeep: 'AU VOLANT  ·  EN HAUT ON ACCÉLÈRE, EN BAS ON FREINE',
     deJeep: 'À PIED',
     act_descendre: 'DESCENDRE',
@@ -13386,6 +13448,8 @@ const T = {
     act_poste: 'SET THE NEEDLE DOWN',
     disqueCasse: 'THE RECORD IS BROKEN',
     disqueCasseSous: 'it only played once  ·  she had written as much',
+    faucheurRompt: 'THE REAPER BREAKS OFF',
+    faucheurRomptSous: 'it does not cross the range  ·  out here there is no war',
     enJeep: 'AT THE WHEEL  ·  UP TO ACCELERATE, DOWN TO BRAKE',
     deJeep: 'ON FOOT',
     act_descendre: 'GET OUT',
@@ -14003,6 +14067,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.18', fr: 'On ne lit plus une pique en mourant, mais un indice sur ce qu’on n’a pas encore trouvé.', en: 'You no longer read a jab when you die, but a hint about what you have not found yet.' },
+  { v: '1.18', fr: 'Chaque indice s’éteint quand la chose est trouvée, et à la fin il n’en reste qu’un.', en: 'Each hint goes out once the thing is found, and at the end only one remains.' },
+  { v: '1.18', fr: 'Le faucheur ne passe pas la chaîne : au-delà, il rompt et rentre.', en: 'The reaper does not cross the range: past it, it breaks off and goes home.' },
+  { v: '1.18', fr: 'Franchir les montagnes ne compte plus comme une fuite, même en montant.', en: 'Crossing the mountains no longer counts as fleeing, even while climbing.' },
   { v: '1.17', fr: 'Le disque tourne pour de bon, à soixante-dix-huit tours par minute.', en: 'The record really turns, at seventy-eight revolutions per minute.' },
   { v: '1.17', fr: 'Des notes montent doucement du pavillon pendant qu’il joue.', en: 'Notes drift gently up out of the horn while it plays.' },
   { v: '1.17', fr: 'À la fin, il se fend en trois sous les yeux, et alors seulement on le dit.', en: 'At the end it splits in three before your eyes, and only then is it said.' },
@@ -14294,11 +14362,75 @@ const FINS = {
   ]
 };
 
+// ---------------------------------------------------------------------------
+// CE QU'ON LIT EN MOURANT.
+//
+// C'étaient des piques : des phrases drôles, tirées au hasard, qui commentaient
+// le score. Drôle une fois, sans effet la deuxième, et sans rapport avec ce
+// qu'on vient de vivre.
+//
+// Ce sont maintenant des INDICES, et ils s'éteignent. Chacun désigne quelque
+// chose que le jeu contient et qu'on n'a pas encore trouvé — une constellation,
+// un terrain, une manière de voler — sans jamais dire comment s'y prendre. Dès
+// que la chose est trouvée, l'indice ne revient plus : il n'y a rien de pire
+// qu'un jeu qui continue de vous souffler ce que vous savez déjà.
+//
+// L'effet est double, et c'est tout l'intérêt. Tant qu'on découvre, on lit des
+// phrases qui donnent envie d'aller voir. Et à mesure qu'on trouve, le puits
+// se vide — la mort devient de plus en plus silencieuse, jusqu'à la dernière
+// phrase, qui n'apprend rien à personne et qui est la seule qui reste.
+//
+// Elle ne se traduit pas non plus.
+// ---------------------------------------------------------------------------
+const INDICES = [
+  { cle: 'ourse',
+    su: () => decouvertes.ourse,
+    fr: 'Sept étoiles, au nord, dans le bon ordre ou non. Les gens s’en servaient pour rentrer.',
+    en: 'Seven stars, to the north, in any order. People used them to find their way home.' },
+  { cle: 'berger',
+    su: () => decouvertes.berger,
+    fr: 'Il y a une étoile qui se lève plein ouest, et elle ne montre pas le nord. Elle montre autre chose.',
+    en: 'There is a star that rises due west, and it does not point north. It points at something else.' },
+  { cle: 'refuge',
+    su: () => decouvertes.refuge,
+    fr: 'Derrière la chaîne, la plaine continue. Trois minutes, et quelqu’un y a vécu.',
+    en: 'Past the range, the plain goes on. Three minutes, and someone lived out there.' },
+  { cle: 'orion',
+    su: () => decouvertes.orion,
+    fr: 'Plein sud, un chasseur et sa ceinture. Il ne montre rien : il donne.',
+    en: 'Due south, a hunter and his belt. It shows nothing: it gives.' },
+  { cle: 'soleil',
+    su: () => decouvertes.soleil,
+    fr: 'Un tonneau, le nez dans le soleil. Ce qui tombe du ciel ensuite ne tombe qu’une fois par demi-minute.',
+    en: 'A roll, nose into the sun. What falls from the sky next only falls twice a minute.' },
+  { cle: 'pique',
+    su: () => decouvertes.pique,
+    fr: 'Pique un peu, relâche sans rien toucher, et garde la vitesse. Recommence autant que tu veux.',
+    en: 'Dive a little, let go without touching a thing, and keep the speed. As often as you like.' },
+  { cle: 'chaine',
+    su: () => decouvertes.chaine,
+    fr: 'Deux portails à la suite ne donnent pas deux fois la même chose. Ils donnent plus.',
+    en: 'Two gates in a row do not give the same thing twice. They give more.' },
+  { cle: 'faucheur',
+    su: () => decouvertes.faucheur,
+    fr: 'Si tu t’éloignes trop longtemps du combat, quelque chose se détache. Ce n’est pas un avion.',
+    en: 'Stay away from the fight too long and something is released. It is not an aircraft.' },
+  { cle: 'jeep',
+    su: () => jeepRamenee,
+    fr: 'Il y a une chose, très loin, qui peut revenir avec toi. Une seule.',
+    en: 'There is one thing, very far away, that can come back with you. Only one.' },
+  { cle: 'lettre',
+    su: () => { try { return localStorage.getItem('fod_lettre_lue') === '1'; } catch (e) { return false; } },
+    fr: 'Quelqu’un a laissé un mot sur une porte, très loin d’ici, et personne n’est venu le lire.',
+    en: 'Someone left a note on a door, a long way from here, and nobody came to read it.' },
+];
+// LA DERNIÈRE. Quand il n'y a plus rien à trouver, il ne reste que ça.
+const INDICE_FIN = 'Everything reminds me of her';
+
 function pique() {
-  const lot = state.score >= 900 || state.wave >= 5 ? FINS.bon
-            : state.score === 0 ? FINS.zero
-            : FINS.moyen;
-  const l = lot[Math.floor(Math.random() * lot.length)];
+  const reste = INDICES.filter(i => { try { return !i.su(); } catch (e) { return true; } });
+  if (!reste.length) return INDICE_FIN;
+  const l = reste[Math.floor(Math.random() * reste.length)];
   return langue === 'en' ? l.en : l.fr;
 }
 if (record.score > 0) {
