@@ -666,6 +666,8 @@
     border: 1px solid var(--ph-dim);
     padding: 26px 22px 18px;
     max-height: 100%; overflow-y: auto;
+    touch-action: pan-y;               /* elle défile au doigt */
+    -webkit-overflow-scrolling: touch;
   }
   #lettre .ecrit {
     margin: 0 0 18px; color: var(--ph-text);
@@ -7286,6 +7288,16 @@ const state = {
   screenY: 0
 };
 
+// TOUT CE QUI SE LIT, ÉCRIT UNE FOIS. Trois listes d'exceptions séparées
+// disaient quels panneaux ont le droit de défiler sous le doigt et lesquels
+// laissent passer le geste au manche. Le commentaire d'à côté prévenait déjà :
+// « une liste d'exceptions est une dette : on l'oublie ». Elle a été oubliée —
+// #lettre n'y était pas, donc glisser sur la lettre pilotait l'avion au lieu
+// de faire défiler le texte, et le moindre frémissement du doigt pendant
+// l'appui annulait le clic sur REPLIER. On restait enfermé dans la lettre.
+// Une seule liste, à un seul endroit, et la dette est payée.
+const PANNEAUX_LISIBLES =
+  '#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu, #infos, #lettre';
 const aim = { x: 0, y: 0, active: false };
 
 // pointeur grossier = doigt : le pilotage et la consigne d'accueil en dépendent
@@ -7377,6 +7389,21 @@ actionBtn.addEventListener('click', e => { e.stopPropagation(); faitAction(); })
 document.getElementById('lettreFerme').addEventListener('click', e => {
   e.stopPropagation(); fermeLettre();
 });
+// ON SORT TOUJOURS D'UN PANNEAU, ET DE DEUX FAÇONS. Règle générale, valable
+// pour tout ce qu'on ouvrira désormais : un bouton de fermeture, toujours, et
+// un appui À CÔTÉ du cadre — sur l'herbe, sur le ciel, sur ce qu'on voit
+// derrière — qui ferme aussi. Sans la seconde, il suffit qu'un bouton rate
+// son clic pour que le joueur soit enfermé et doive tuer l'application pour en
+// sortir. C'est arrivé avec la lettre, et ça ne doit plus arriver.
+function fermeAuClicDehors(panneau, cadre, ferme) {
+  if (!panneau) return;
+  panneau.addEventListener('click', e => {
+    if (e.target.closest && e.target.closest(cadre)) return;   // on a touché le papier
+    e.stopPropagation();
+    ferme();
+  });
+}
+fermeAuClicDehors(lettrePan, '.feuille', fermeLettre);
 const poserBtn = document.getElementById('poserBtn');
 poserBtn.addEventListener('click', e => {
   e.stopPropagation();
@@ -7771,6 +7798,9 @@ function quitteRefuge() {
 // différente. On ne l'annonce pas — on le découvre en poussant.
 // ---------------------------------------------------------------------------
 const PIED_VIT    = 2.4;    // mètres par seconde : un pas de promenade
+const PIED_COURSE = 5.6;    // et à fond, il court
+const PIED_LACET  = 2.3;    // rad/s : ce que le doigt à droite ou à gauche fait tourner
+const PIED_DEMI   = 7.0;    // rad/s : le demi-tour est franc, il ne traîne pas
 const PIED_TOURNE = 6.0;    // rad/s : il se tourne vite, il ne dérape pas
 const PIED_RECUL  = 7.4;    // la caméra le suit d'aussi loin
 const PIED_HAUT   = 2.9;    // et d'aussi haut
@@ -7824,22 +7854,53 @@ function updateAPied(dt) {
   const ref = Math.min(w, h) * 0.42;
   const dx = THREE.MathUtils.clamp((aim.x - w / 2) / ref, -1, 1);
   const dy = THREE.MathUtils.clamp((aim.y - h / 2) / ref, -1, 1);
-  const r = Math.hypot(dx, dy);
-  const pousse = aim.active ? THREE.MathUtils.clamp((r - 0.10) / 0.55, 0, 1) : 0;
 
-  if (pousse > 0.01) {
-    // la caméra regarde le marcheur : son cap est celui qui va d'elle vers lui
-    const capCam = Math.atan2(M.x - M.camX, M.z - M.camZ);
-    // devant = le cap de la caméra ; droite = un quart de tour
-    const ax = -dy * Math.sin(capCam) + dx * Math.cos(capCam);
-    const az = -dy * Math.cos(capCam) - dx * Math.sin(capCam);
-    const voulu = Math.atan2(ax, az);
-    M.cap = dampAngle(M.cap, voulu, PIED_TOURNE, dt);
-    M.v = THREE.MathUtils.damp(M.v, PIED_VIT * pousse, 5, dt);
+  // UN JOYSTICK, PAS UN CURSEUR.
+  //
+  // Le doigt donnait une DIRECTION dans le repère de la caméra : pousser en
+  // haut à gauche envoyait le bonhomme au nord-ouest, où qu'il regarde. C'est
+  // la convention des jeux vus de dessus, et elle est mauvaise ici : la caméra
+  // est derrière ses épaules, donc « en haut à gauche » ne veut rien dire pour
+  // quelqu'un qu'on suit. On tourne la tête, tout change de sens.
+  //
+  // Alors c'est un manche : en haut il AVANCE, à droite il TOURNE à droite, à
+  // gauche il tourne à gauche, et la caméra suit. Vers le bas, il ne recule
+  // pas — personne ne marche à reculons — il fait demi-tour, franchement, et
+  // repart. Trois verbes, et la même signification quel que soit son cap.
+  const avance = -dy, tourne = dx;
+
+  // LE DEMI-TOUR est un geste, pas un état : on le demande une fois et il se
+  // joue jusqu'au bout, même si le doigt bouge entre-temps.
+  // Et il ne s'enchaîne pas : tant que le doigt reste en bas, on ne repart pas
+  // pour un tour. Mesuré : maintenu, il tournait sans fin. Il faut relever le
+  // doigt — ou repartir en avant — pour en redemander un.
+  if (avance > -0.30) M.demiArme = true;
+  if (avance < -0.45 && M.demi === undefined && M.demiArme) {
+    M.demi = M.cap + Math.PI;
+    M.demiArme = false;
+  }
+  if (M.demi !== undefined) {
+    M.cap = dampAngle(M.cap, M.demi, PIED_DEMI, dt);
+    let e = M.demi - M.cap;
+    while (e > Math.PI) e -= Math.PI * 2;
+    while (e < -Math.PI) e += Math.PI * 2;
+    if (Math.abs(e) < 0.05) { M.cap = M.demi; M.demi = undefined; }
+    M.v = THREE.MathUtils.damp(M.v, 0, 8, dt);
+  } else {
+    // ON TOURNE MÊME À L'ARRÊT. Un homme pivote sur place ; ce n'est pas une
+    // voiture. Mais il tourne un peu plus vite en marchant, parce qu'un pas
+    // aide à pivoter.
+    if (Math.abs(tourne) > 0.10)
+      M.cap -= tourne * PIED_LACET * (0.65 + 0.35 * Math.min(1, M.v / PIED_VIT)) * dt;
+    // IL MARCHE, PUIS IL COURT. Le premier tiers de la course du doigt donne
+    // le pas de promenade ; au-delà il allonge, jusqu'à la course. C'est la
+    // même main qui fait les deux, sans bouton ni double appui.
+    const p = aim.active ? THREE.MathUtils.clamp((avance - 0.10) / 0.72, 0, 1) : 0;
+    const voulue = p <= 0.55 ? PIED_VIT * (p / 0.55)
+                             : PIED_VIT + (PIED_COURSE - PIED_VIT) * ((p - 0.55) / 0.45);
+    M.v = THREE.MathUtils.damp(M.v, p > 0.01 ? voulue : 0, p > 0.01 ? 4 : 7, dt);
     M.x += Math.sin(M.cap) * M.v * dt;
     M.z += Math.cos(M.cap) * M.v * dt;
-  } else {
-    M.v = THREE.MathUtils.damp(M.v, 0, 7, dt);
   }
 
   // ON NE S'ÉLOIGNE PAS. Trois cent vingt mètres, c'est le terrain et ses
@@ -7860,10 +7921,15 @@ function updateAPied(dt) {
     piloteG.visible = true;
     piloteG.position.set(M.x, PISTE.y, M.z);
     piloteG.rotation.y = M.cap + Math.PI;     // sa face regarde son -z
-    const cadence = M.t * 5.4;
-    piloteG.rotation.z = Math.sin(cadence) * 0.055 * (M.v / PIED_VIT);
-    piloteG.position.y = PISTE.y + Math.abs(Math.sin(cadence)) * 0.055 * (M.v / PIED_VIT);
-    majEcharpe(THREE.MathUtils.clamp(M.v / PIED_VIT, 0, 1), M.t);
+    // la cadence du pas suit la vitesse : on voit qu'il court avant de le
+    // mesurer, et l'écharpe s'allonge d'autant
+    const k = M.v / PIED_COURSE;
+    M.pas = (M.pas || 0) + dt * (4.4 + 5.2 * k);
+    piloteG.rotation.z = Math.sin(M.pas) * 0.06 * Math.min(1, M.v / PIED_VIT);
+    piloteG.position.y = PISTE.y + Math.abs(Math.sin(M.pas)) * 0.07 * Math.min(1, M.v / PIED_VIT);
+    // il se penche en avant quand il court
+    piloteG.rotation.x = -0.16 * Math.max(0, (M.v - PIED_VIT) / (PIED_COURSE - PIED_VIT));
+    majEcharpe(THREE.MathUtils.clamp(M.v / PIED_COURSE, 0, 1), M.t);
   }
 
   // LA CAMÉRA LE SUIT, DE TRÈS LOIN DERRIÈRE SES ÉPAULES. Elle ne se recale
@@ -9821,7 +9887,13 @@ function step(now) {
     // tourne encore une ou deux fois sur son inertie, retombe, repart, et
     // s'éteint. C'est ce que `moteurVie` raconte, et c'est la même chose à
     // l'envers quand on redécolle.
-    const coupe = !!(state.refuge && state.refuge.t > REFUGE_ARRET);
+    // POSÉ, C'EST POSÉ. Le moteur ne se coupait qu'au refuge ; sur la piste
+    // principale il tenait sa note de ralenti, à plein volume, sans jamais
+    // varier — un son fixe qu'on finit par entendre comme un sifflement. Un
+    // appareil arrêté a le moteur arrêté, où qu'il soit.
+    const coupe = !!(state.refuge && state.refuge.t > REFUGE_ARRET)
+               || !!(state.pose && state.pose.t > 1.0)
+               || !!state.pied || !!state.jeep;
     state.moteurVie = THREE.MathUtils.damp(state.moteurVie === undefined ? 1 : state.moteurVie,
                                            coupe ? 0 : 1, coupe ? 1.5 : 2.6, dt);
     if (coupe !== state.moteurCoupe) {
@@ -9851,6 +9923,23 @@ function step(now) {
     moteur[0].frequency.value = f;
     moteur[1].frequency.value = f + T.ecart * 0.012 * f;
     moteur[2].frequency.value = f * 0.5;
+  }
+  // LES TRAITS DE VITESSE, ÉTEINTS LÀ ET NULLE PART AILLEURS.
+  //
+  // J'avais ajouté les bonnes conditions dans majTrainee — et elles ne
+  // servaient à rien, parce qu'à l'arrêt majTrainee N'EST PAS APPELÉE : la
+  // simulation rend la main bien avant. Le dernier ruban restait donc affiché,
+  // en éventail devant l'appareil immobile, exactement comme si le temps
+  // s'était arrêté sur cette image. Signalé sur la grande piste, puis sur la
+  // petite : le même défaut, deux fois, parce que j'avais corrigé un endroit
+  // que le code ne traverse plus.
+  //
+  // La boucle d'image, elle, tourne toujours. C'est donc ici que ça se décide,
+  // une fois, pour tous les cas — posé, roulage, refuge, à pied, en Jeep.
+  if (traineeLayer && (state.pose || state.roulage || state.refuge ||
+                       state.pied || state.jeep || state.auSol || !state.running)) {
+    traineeLayer.visible = false;
+    traineePts[0].length = 0; traineePts[1].length = 0;
   }
   renderer.render(scene, camera);
   drawHud(dt);
@@ -13531,6 +13620,12 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.14', fr: 'On était enfermé dans la lettre : elle ne défilait pas et son bouton ratait son clic.', en: 'You were locked inside the letter: it would not scroll and its button missed its click.' },
+  { v: '1.14', fr: 'Un appui à côté du cadre ferme désormais n’importe quel panneau.', en: 'Tapping beside the frame now closes any panel.' },
+  { v: '1.14', fr: 'À pied, un vrai manche : en haut on avance, à droite on tourne, en bas on fait demi-tour.', en: 'On foot, a real stick: up to walk, sideways to turn, down for an about-face.' },
+  { v: '1.14', fr: 'Il marche ou il court selon la course du doigt, et il se penche en avant quand il court.', en: 'He walks or runs depending on how far the finger goes, and leans forward when running.' },
+  { v: '1.14', fr: 'Les traits de vitesse ne restent plus figés devant un avion arrêté, nulle part.', en: 'Speed streaks no longer hang frozen in front of a stopped aircraft, anywhere.' },
+  { v: '1.14', fr: 'Posé, le moteur se coupe : plus de note de ralenti qui tient indéfiniment.', en: 'Parked, the engine cuts out: no more idle note holding forever.' },
   { v: '1.13', fr: 'Le sillon du disque était quatre fois trop fort : on entendait de la pluie, pas un disque.', en: 'The record’s surface noise was four times too loud: you heard rain, not a record.' },
   { v: '1.13', fr: 'La lettre est en français, et seulement en français.', en: 'The letter is in French, and only in French.' },
   { v: '1.13', fr: 'Une constellation se trace par l’étoile qu’on veut : l’ordre n’est plus imposé.', en: 'A constellation can be traced from whichever star you like: the order is no longer imposed.' },
@@ -14103,7 +14198,7 @@ window.addEventListener('pointerdown', e => {
   // e.target n'est pas toujours un Element (événement synthétique visé sur
   // window, par exemple) : closest() n'existerait pas et la boucle casserait
   const el = e.target instanceof Element ? e.target : null;
-  if (el && el.closest('#overlay, #changelog, #aide, #viseurs, #coop, button')) return;
+  if (el && el.closest(PANNEAUX_LISIBLES + ', button')) return;
 
   // On s'approprie le pointeur : le doigt garde la main jusqu'à ce qu'il se
   // lève, même s'il passe au-dessus d'un élément qui disparaît ou change
@@ -14163,7 +14258,7 @@ window.addEventListener('pointermove', e => {
     // ... mais elle ne pilote pas quand elle survole l'interface. Passer sur
     // REDÉCOLLER, posé en bas de l'écran, commandait un piqué à fond.
     const el = e.target instanceof Element ? e.target : null;
-    if (el && el.closest('#overlay, #changelog, #aide, #viseurs, #coop, button')) return;
+    if (el && el.closest(PANNEAUX_LISIBLES + ', button')) return;
     touchMode = false; aim.active = true; setAimDirect(e); return;
   }
   noteTrace(e);
@@ -14238,7 +14333,7 @@ window.addEventListener('touchmove', e => {
   // bien le défilement, et cette ligne le reprenait aussitôt : le panneau
   // s'arrêtait à la ligne de flottaison, exactement le défaut corrigé en v0.37
   // pour les trois autres. Une liste d'exceptions est une dette : on l'oublie.
-  if (el && el.closest('#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu, #infos')) return;
+  if (el && el.closest(PANNEAUX_LISIBLES)) return;
   e.preventDefault();
 }, { passive: false });
 
