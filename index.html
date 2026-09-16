@@ -697,15 +697,17 @@
     font-size: 15px; line-height: 1.85; text-transform: none;
     letter-spacing: 0.02em; white-space: pre-line;
   }
-  #lettre .signe {
-    margin: 0 0 4px; color: var(--ph-text);
-    font-size: 15px; text-align: right; text-transform: none;
+  /* LA MÊME ÉCRITURE, JUSQU'AU NOM. La formule était à quinze pixels et le nom
+     à dix-sept, dans une autre couleur : trois écritures dans une lettre écrite
+     à la main par une seule personne. Tout est maintenant du même corps, de la
+     même couleur et de la même graisse que le texte — seul l'alignement change,
+     parce qu'une signature se met à droite. */
+  #lettre .signe, #lettre .nom {
+    margin: 0; color: var(--ph-text);
+    font-size: 15px; line-height: 1.85; text-align: right; text-transform: none;
+    letter-spacing: 0.02em;
   }
-  #lettre .nom {
-    margin: 0 0 24px; color: var(--ph-line);
-    font-size: 17px; text-align: right; text-transform: none;
-    letter-spacing: 0.04em;
-  }
+  #lettre .nom { margin-bottom: 24px; }
   #lettre button {
     display: block; margin: 0 auto;
     background: transparent; border: 1px solid var(--ph-dim); border-radius: 4px;
@@ -2593,6 +2595,75 @@ const SFX = {
       }, (t - t0) * 1000);
     }
   },
+  // LE MOTEUR DE LA JEEP. Rien à voir avec un avion : une machine lente, qui
+  // cogne. Deux dents de scie désaccordées d'un quart de ton, un filtre passe-
+  // bas très bas — c'est le capot qui étouffe tout — et du bruit de roulement
+  // par-dessus. La hauteur suit la vitesse, mais par PALIERS : une boîte à
+  // quatre rapports, donc le régime retombe à chaque passage.
+  jeepOn: () => {
+    if (!actx || muet || SFX._jeep) return;
+    const t = actx.currentTime;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.10, t + 0.6);
+    const lp = actx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.8;
+    g.connect(lp).connect(master);
+    const voix = [];
+    for (const [f0, ty, v] of [[46, 'sawtooth', 0.55], [46 * 1.015, 'sawtooth', 0.45],
+                               [23, 'triangle', 0.7]]) {
+      const o = actx.createOscillator(), og = actx.createGain();
+      o.type = ty; o.frequency.setValueAtTime(f0, t);
+      og.gain.setValueAtTime(v, t);
+      o.connect(og).connect(g);
+      o.start(t);
+      voix.push(o);
+    }
+    // le roulement : du bruit filtré, qui monte avec la vitesse
+    let roul = null;
+    if (bruitBuf) {
+      const n = actx.createBufferSource();
+      n.buffer = bruitBuf; n.loop = true;
+      const bp = actx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 260; bp.Q.value = 0.6;
+      const ng = actx.createGain(); ng.gain.value = 0.10;
+      n.connect(bp).connect(ng).connect(g);
+      n.start(t);
+      roul = { n, ng, bp };
+    }
+    SFX._jeep = { g, voix, roul, base: 46 };
+  },
+  // v va de 0 à 1 : la part de la vitesse maximale
+  jeepVitesse: (v) => {
+    const J = SFX._jeep;
+    if (!J || !actx) return;
+    // quatre rapports : le régime monte dans chacun puis retombe
+    const r = Math.min(3, Math.floor(v * 4));
+    const dans = THREE.MathUtils.clamp(v * 4 - r, 0, 1);
+    const f = J.base * (1 + 0.55 * dans) * (1 + 0.16 * r);
+    const t = actx.currentTime;
+    J.voix[0].frequency.setTargetAtTime(f, t, 0.08);
+    J.voix[1].frequency.setTargetAtTime(f * 1.015, t, 0.08);
+    J.voix[2].frequency.setTargetAtTime(f * 0.5, t, 0.08);
+    if (J.roul) {
+      J.roul.ng.gain.setTargetAtTime(0.05 + 0.16 * v, t, 0.15);
+      J.roul.bp.frequency.setTargetAtTime(200 + 420 * v, t, 0.15);
+    }
+  },
+  jeepOff: () => {
+    const J = SFX._jeep;
+    if (!J || !actx) return;
+    SFX._jeep = null;
+    const t = actx.currentTime;
+    try {
+      J.g.gain.cancelScheduledValues(t);
+      J.g.gain.setValueAtTime(J.g.gain.value, t);
+      J.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    } catch (e) {}
+    setTimeout(() => {
+      try { J.voix.forEach(o => o.stop()); if (J.roul) J.roul.n.stop(); } catch (e) {}
+    }, 700);
+  },
   refugeOn:     () => {
     if (!actx || muet || SFX._refuge) return;
     const t = actx.currentTime;
@@ -4076,9 +4147,36 @@ function batisRelief(cx, cz) {
   // ce qui est dessous.
   const nappe = new THREE.Mesh(
     new THREE.PlaneGeometry(GRID_SPAN * 1.4, GRID_SPAN * 1.4).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: COL_FOND, fog: false, depthWrite: true })
+    // LA NAPPE ÉTAIT LE COUPABLE, ET DEPUIS LE DÉBUT.
+    //
+    // Elle est peinte COL_FOND — 0x04070a, la couleur EXACTE du ciel — et le
+    // commentaire d'origine en faisait une vertu : « la nappe du sol en prend
+    // la couleur ». C'était l'idée qui ne va pas. Un sol peint de la couleur
+    // du ciel EST un trou dans le sol, quoi qu'on mette en dessous.
+    //
+    // Et elle est À MOINS SOIXANTE CENTIMÈTRES, alors que le relief est à
+    // hauteurSol − 4. Partout où le terrain est plat — toute la ville, toute
+    // la plaine du dehors, tous les fonds de vallée — la nappe est DEVANT le
+    // relief : elle gagne le test de profondeur, et elle repeint le ciel par
+    // dessus la montagne qu'on venait de rendre opaque.
+    //
+    // J'ai corrigé cinq fois le relief pour un défaut qui n'était pas dans le
+    // relief. Elle prend la même couleur que lui : c'est le même sol.
+    new THREE.MeshBasicMaterial({ color: COL_RELIEF, fog: false, depthWrite: true })
   );
-  nappe.position.y = -0.6;
+  // ET ELLE PASSE SOUS LE RELIEF. À moins soixante centimètres elle était
+  // AU-DESSUS de lui — le relief est à hauteurSol − 4 — donc partout où le
+  // terrain est plat, et dans tous les fonds de vallée, c'est elle qui gagnait
+  // le test de profondeur. Vue à angle rasant, c'est-à-dire dans la quasi
+  // totalité du temps de vol, elle couvrait presque tout l'écran.
+  //
+  // Mesuré sur une capture du joueur : 92,9 % du sol proche valait exactement
+  // 0x04070a, la couleur du ciel. Pas « un vert très sombre » : LA couleur du
+  // fond, au bit près. Le sol était le ciel.
+  //
+  // Son rôle est d'arrêter ce qui passe SOUS le relief, pas de le remplacer.
+  // Douze mètres plus bas, elle ne prend plus jamais sa place.
+  nappe.position.y = -12;
   nappe.frustumCulled = false;
   nappe.renderOrder = -0.5;        // après les étoiles, avant tout le reste
   nappe.name = 'nappe';
@@ -8147,6 +8245,7 @@ function updateRefugePose(dt) {
 
 function quitteRefuge() {
   if (piloteG) piloteG.visible = false;
+  if (state.jeep) SFX.jeepOff();
   state.pied = null; state.jeep = null; state.action = null; majActionBtn();
   poseJeepAuDepart();
   state.refuge = null;
@@ -8399,7 +8498,7 @@ function majActionBtn() {
 
 function faitAction() {
   const c = state.action;
-  if (c === 'avion') { state.jeep = null; remonteEnAvion(); return; }
+  if (c === 'avion') { if (state.jeep) SFX.jeepOff(); state.jeep = null; remonteEnAvion(); return; }
   if (c === 'mot')   { ouvreLettre(); return; }
   if (c === 'jeep')  { monteEnJeep(); return; }
   if (c === 'poste') {
@@ -8448,12 +8547,14 @@ function monteEnJeep() {
   majActionBtn();
   announce(t('enJeep'));
   SFX.cale();
+  SFX.jeepOn();
 }
 
 function descendDeJeep() {
   const J = state.jeep;
   if (!J) return;
   state.jeep = null;
+  SFX.jeepOff();
   // il descend du côté gauche, comme on descend d'une voiture
   state.pied = {
     x: J.x - Math.cos(J.cap) * 2.0, z: J.z + Math.sin(J.cap) * 2.0,
@@ -8539,6 +8640,7 @@ function updateJeep(dt) {
   J.camY = THREE.MathUtils.damp(J.camY, yc + JEEP_CAM_H, 3.2, dt);
   camera.position.set(J.camX, J.camY, J.camZ);
   camera.lookAt(J.x, yc + 1.2, J.z);
+  SFX.jeepVitesse(THREE.MathUtils.clamp(Math.abs(J.v) / JEEP_VMAX, 0, 1));
   playerMesh.position.copy(state.pos);
 
   // ELLE EST RENTRÉE. Ramenée à moins de neuf cents mètres de la piste
@@ -12918,22 +13020,62 @@ function drawHud() {
   }
 
   // annonce de vague
+  // ---------------------------------------------------------------------
+  // AUCUN TEXTE NE DÉPASSE. JAMAIS.
+  //
+  // La ligne principale se réduisait déjà jusqu'à tenir ; le sous-titre, non.
+  // Il était écrit à treize pixels, quelle que soit sa longueur et quelle que
+  // soit la largeur du téléphone — et « il ne se jouait qu'une fois · elle
+  // l'avait écrit » sortait par les deux côtés, illisible. Un message qu'on ne
+  // peut pas lire ne sert à rien, et celui-là arrivait au pire moment.
+  //
+  // Règle générale, pour tout ce qu'on écrira désormais : on rétrécit d'abord
+  // — mais jamais sous le seuil de lisibilité — puis on COUPE EN DEUX LIGNES,
+  // au séparateur s'il y en a un, sinon au mot. Un texte trop long devient
+  // deux lignes, pas un texte tronqué.
+  // ---------------------------------------------------------------------
+  function ecritQuiTient(c, txt, large, t0, tMin, gras, y) {
+    const police = (t) => gras + ' ' + t + 'px "IBM Plex Mono", ui-monospace, monospace';
+    let taille = t0;
+    c.font = police(taille);
+    while (taille > tMin && c.measureText(txt).width > large) {
+      taille -= 1; c.font = police(taille);
+    }
+    if (c.measureText(txt).width <= large) {
+      c.fillText(txt, large / 2 + 13, y);
+      return { taille, lignes: 1 };
+    }
+    // ça ne tient toujours pas : on coupe, au point médian si le texte en a
+    // un, sinon au mot le plus proche du milieu
+    let coupe = -1;
+    const sep = txt.indexOf('  ·  ');
+    if (sep > 0) coupe = sep;
+    else {
+      const mots = txt.split(' ');
+      let best = 1e9, acc = 0;
+      for (let i = 0; i < mots.length - 1; i++) {
+        acc += mots[i].length + 1;
+        const d = Math.abs(acc - txt.length / 2);
+        if (d < best) { best = d; coupe = acc - 1; }
+      }
+    }
+    if (coupe < 0) { c.fillText(txt, large / 2 + 13, y); return { taille, lignes: 1 }; }
+    const a1 = txt.slice(0, coupe).trim(), a2 = txt.slice(coupe).replace(/^[\s·]+/, '');
+    c.fillText(a1, large / 2 + 13, y);
+    c.fillText(a2, large / 2 + 13, y + taille * 1.15);
+    return { taille: taille * 2.15, lignes: 2 };
+  }
+
   if (state.announceT > 0) {
     hctx.globalAlpha = Math.min(1, state.announceT / 0.6);
     hctx.fillStyle = '#46ffa0';
     // le texte se réduit jusqu'à tenir : une vague mêlant trois types donnait
     // une ligne plus large que l'écran, tronquée des deux côtés
-    let taille = 22;
-    hctx.font = '500 ' + taille + 'px "IBM Plex Mono", ui-monospace, monospace';
-    while (taille > 10 && hctx.measureText(state.announce).width > w - 26) {
-      taille -= 1;
-      hctx.font = '500 ' + taille + 'px "IBM Plex Mono", ui-monospace, monospace';
-    }
-    hctx.fillText(state.announce, w / 2, h * 0.26);
+    const t1 = ecritQuiTient(hctx, state.announce, w - 26, 22, 12, '500', h * 0.26);
     if (state.announceSous) {
       hctx.fillStyle = 'rgba(190,255,220,0.82)';
-      hctx.font = '400 13px "IBM Plex Mono", ui-monospace, monospace';
-      hctx.fillText(state.announceSous, w / 2, h * 0.26 + taille * 0.95 + 6);
+      ecritQuiTient(hctx, state.announceSous, w - 26, 13, 9, '400',
+                    h * 0.26 + t1.taille * 0.95 + 6);
     }
     hctx.globalAlpha = 1;
     hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
@@ -14102,6 +14244,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.20', fr: 'La nappe du sol était peinte de la couleur du ciel, et posée au-dessus du relief.', en: 'The ground sheet was painted the colour of the sky, and sat above the terrain.' },
+  { v: '1.20', fr: 'Aucun message ne dépasse plus de l’écran : il rétrécit, puis il se coupe en deux.', en: 'No message runs off the screen any more: it shrinks, then it breaks in two.' },
+  { v: '1.20', fr: 'La lettre est écrite d’une seule écriture, signature comprise.', en: 'The letter is written in one hand, signature included.' },
+  { v: '1.20', fr: 'La Jeep a un moteur : quatre rapports, et le régime retombe à chaque passage.', en: 'The Jeep has an engine: four gears, and the revs drop at every change.' },
   { v: '1.19', fr: 'Plus de cercle ni de bouton POSER : un tube en entonnoir montre la trajectoire.', en: 'No more circle and no more LAND button: a funnel-shaped tube shows the path.' },
   { v: '1.19', fr: 'Il attrape en douceur, il tient, et il lâche dès qu’on force au manche.', en: 'It catches gently, it holds, and it lets go the moment you force the stick.' },
   { v: '1.19', fr: 'L’approche n’accélère plus : un tube guide, il ne pousse pas.', en: 'The approach no longer speeds up: a tube guides, it does not push.' },
