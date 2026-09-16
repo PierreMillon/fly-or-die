@@ -2096,17 +2096,26 @@ function joueMusiqueRefuge() {
   // sillon, des craquements un peu plus forts, et rien d'autre. C'est ce
   // silence habité qui fait qu'on entend quelqu'un mettre un disque, et non
   // un jeu lancer une musique.
+  // LES DEUX RÉGLAGES PORTENT SUR TOUT LE DISQUE, pas sur les seuls clics.
+  //
+  // Erreur de portage, et elle s'entendait : dans la platine, les deux
+  // curseurs commandaient `gS`, le bus du disque entier — souffle compris — et
+  // `gCraq` restait à 1. Dans le jeu je les avais mis sur les craquements
+  // seuls, en laissant le souffle à sa pleine valeur de 0,16 au lieu de
+  // 0,16 × 0,25 = 0,04. Quatre fois trop fort, et continu : ça ne fait plus un
+  // sillon, ça fait de la pluie.
+  //
+  // On remet exactement la platine : le bus du disque suit craqAv puis craqPd,
+  // les craquements restent à un, et le rapport entre le souffle et les clics
+  // est celui qui avait été réglé à l'oreille.
   if (disqueG) {
     disqueG.gain.cancelScheduledValues(t);
     disqueG.gain.setValueAtTime(0.0001, t);
-    disqueG.gain.exponentialRampToValueAtTime(1, t + 0.8);
+    disqueG.gain.exponentialRampToValueAtTime(Math.max(0.0002, DISQUE_CRAQ_AV), t + 0.5);
+    // il se retire derrière la guitare dès qu'elle entre
+    disqueG.gain.setTargetAtTime(Math.max(0.0002, DISQUE_CRAQ_PD), t + DISQUE_AMORCE, 1.0);
   }
-  if (disqueCraq) {
-    disqueCraq.gain.cancelScheduledValues(t);
-    disqueCraq.gain.setValueAtTime(DISQUE_CRAQ_AV, t);
-    // ils se retirent derrière la guitare dès qu'elle entre
-    disqueCraq.gain.setTargetAtTime(DISQUE_CRAQ_PD, t + DISQUE_AMORCE, 1.5);
-  }
+  if (disqueCraq) disqueCraq.gain.setValueAtTime(1, t);
   disqueProchain = t + 0.05;
   if (disqueMinuteur) clearInterval(disqueMinuteur);
   disqueMinuteur = setInterval(programmeDisque, 120);
@@ -3378,6 +3387,9 @@ const ECLIPSE_SEUIL = 10, ECLIPSE_DUREE = 20;
 // redescendre couvert — et c'est ce qu'on voulait depuis le debut.
 const DORE_TENUE = 2.5, DORE_DUREE = 10;
 const ETOILE_PRIME = 500, ETOILE_REPOS = 30;
+// Un peu plus vite et beaucoup plus longue : à 4 200 m, sept cents mètres de
+// traînée font neuf degrés et demi, soit un bon quart de la hauteur de l'écran.
+const ETOILE_DUREE = 1.7, ETOILE_TRAINE = 700;
 let etoile = null;
 function declencheEclipse() {
   state.eclipse = ECLIPSE_DUREE;
@@ -3453,17 +3465,47 @@ function secretsCiel(dt) {
     return;
   }
 
+  // ---- PEU IMPORTE PAR QUELLE ÉTOILE ON COMMENCE.
+  //
+  // Les figures se traçaient dans un ordre imposé : l'étoile 0, puis la 1,
+  // puis la 2. On ne pouvait donc pas tracer une constellation en la
+  // regardant — il fallait deviner par quel bout le jeu avait décidé de la
+  // commencer, et un joueur qui visait la bonne étoile au mauvais moment
+  // n'avait aucun retour. Ce n'est pas comme ça qu'on regarde le ciel.
+  //
+  // On garde donc quelles étoiles sont allumées, pas combien. On vise celle
+  // qu'on veut ; un segment se dessine dès que ses DEUX bouts sont pris ; la
+  // figure est faite quand elles le sont toutes. Le trait apparaît alors par
+  // morceaux, dans l'ordre où l'œil l'a fait, ce qui est exactement ce qu'on
+  // veut voir.
+  //
+  // Renvoie l'index de l'étoile la plus proche du nez parmi celles qui
+  // restent, ou −1.
+  const viseEtoile = (dirs, vus, cone) => {
+    let k = -1, best = cone;
+    for (let i = 0; i < dirs.length; i++) {
+      if (vus[i]) continue;
+      const d = state.forward.dot(dirs[i]);
+      if (d > best) { best = d; k = i; }
+    }
+    return k;
+  };
+  const compte = (v) => v.reduce((n, x) => n + (x ? 1 : 0), 0);
+
   // ---- la Grande Ourse
   if (state.ourseN < OURSE_DIRS.length) {
-    const vise = state.forward.dot(OURSE_DIRS[state.ourseN]) > OURSE_CONE;
-    state.ourseT = vise ? state.ourseT + dt : Math.max(0, state.ourseT - dt * 2);
-    if (state.ourseT >= OURSE_TENUE) {
+    if (!state.ourseV || state.ourseV.length !== OURSE_DIRS.length)
+      state.ourseV = OURSE_DIRS.map(() => false);
+    const k = viseEtoile(OURSE_DIRS, state.ourseV, OURSE_CONE);
+    state.ourseT = k >= 0 ? state.ourseT + dt : Math.max(0, state.ourseT - dt * 2);
+    if (state.ourseT >= OURSE_TENUE && k >= 0) {
       state.ourseT = 0;
-      state.ourseN++;
+      state.ourseV[k] = true;
+      state.ourseN = compte(state.ourseV);
       majTraitOurse();
       SFX.cale();
       if (state.ourseN < OURSE_DIRS.length) {
-        announce(OURSE_NOMS[state.ourseN - 1] + '  ·  ' + state.ourseN + ' / 7');
+        announce(OURSE_NOMS[k] + '  ·  ' + state.ourseN + ' / 7');
       } else {
         // ELLE SERT À SE REPÉRER, ET C'EST SA RÉCOMPENSE. Dans le vrai ciel,
         // le chariot donne le nord : ici il donne le refuge. Une fois tracée,
@@ -3486,15 +3528,18 @@ function secretsCiel(dt) {
 
   // ---- Orion, plein sud
   if (state.orionN < ORION_DIRS.length) {
-    const vise = state.forward.dot(ORION_DIRS[state.orionN]) > OURSE_CONE;
-    state.orionT = vise ? state.orionT + dt : Math.max(0, state.orionT - dt * 2);
-    if (state.orionT >= OURSE_TENUE) {
+    if (!state.orionV || state.orionV.length !== ORION_DIRS.length)
+      state.orionV = ORION_DIRS.map(() => false);
+    const k = viseEtoile(ORION_DIRS, state.orionV, OURSE_CONE);
+    state.orionT = k >= 0 ? state.orionT + dt : Math.max(0, state.orionT - dt * 2);
+    if (state.orionT >= OURSE_TENUE && k >= 0) {
       state.orionT = 0;
-      state.orionN++;
+      state.orionV[k] = true;
+      state.orionN = compte(state.orionV);
       majTraitOrion();
       SFX.cale();
       if (state.orionN < ORION_DIRS.length) {
-        announce(ORION_NOMS[state.orionN - 1] + '  ·  ' + state.orionN + ' / 7');
+        announce(ORION_NOMS[k] + '  ·  ' + state.orionN + ' / 7');
       } else {
         marque(ORION_PRIME);
         stat('orions');
@@ -3529,23 +3574,27 @@ function secretsCiel(dt) {
     const fini = state.suiteFaite[F.cle];
     if (fini && !F.refaire) continue;
     if (!F.ouvre()) { state.suite[F.cle] = 0; continue; }
-    // une figure qu'on refait se reprend sur sa première étoile
-    const n = fini ? 0 : (state.suite[F.cle + 'N'] || 0);
-    const vise = state.forward.dot(F.dirs[n]) > F.cone;
+    // une figure qu'on refait se reprend à zéro, mais n'efface pas son trait
+    let vus = state.suite[F.cle + 'V'];
+    if (!vus || vus.length !== F.dirs.length) vus = state.suite[F.cle + 'V'] = F.dirs.map(() => false);
+    if (fini && vus.every(Boolean)) vus = state.suite[F.cle + 'V'] = F.dirs.map(() => false);
+    const k = viseEtoile(F.dirs, vus, F.cone);
     const t0 = state.suite[F.cle] || 0;
-    const t1 = vise ? t0 + dt : Math.max(0, t0 - dt * 2);
+    const t1 = k >= 0 ? t0 + dt : Math.max(0, t0 - dt * 2);
     state.suite[F.cle] = t1;
-    if (t1 < F.tenue) continue;
+    if (t1 < F.tenue || k < 0) continue;
     state.suite[F.cle] = 0;
-    const suivant = n + 1;
-    if (!fini && suivant < F.dirs.length) {
-      state.suite[F.cle + 'N'] = suivant;
-      majTraitSuite(F);
+    vus[k] = true;
+    const n = compte(vus);
+    if (!fini) majTraitSuite(F);
+    if (!fini && n < F.dirs.length) {
       SFX.cale();
-      announce(F.noms[n] + '  ·  ' + suivant + ' / ' + F.dirs.length);
+      announce(F.noms[k] + '  ·  ' + n + ' / ' + F.dirs.length);
       continue;
     }
-    if (!fini) { state.suite[F.cle + 'N'] = F.dirs.length; majTraitSuite(F); state.suiteFaite[F.cle] = true; }
+    if (!fini && n < F.dirs.length) continue;
+    if (fini && n < F.dirs.length) continue;
+    if (!fini) state.suiteFaite[F.cle] = true;
     const prime = fini ? Math.round(F.prime / 4) : F.prime;
     marque(prime);
     stat('constellations');
@@ -3582,8 +3631,16 @@ const ORION_SEGS = [[0,1],[1,6],[6,5],[5,0],[2,3],[3,4]];
 // une seule figure sur sept est tracée à un instant donné, inutile de garder
 // sept objets dans la scène depuis le début.
 const traitsSuite = {};
+function effaceTraitsDuCiel() {
+  if (ourseTrait) ourseTrait.material.opacity = 0;
+  if (orionTrait) orionTrait.material.opacity = 0;
+  for (const cle in traitsSuite) {
+    const tr = traitsSuite[cle];
+    if (tr) tr.material.opacity = 0;
+  }
+}
 function majTraitSuite(F) {
-  const n = state.suite[F.cle + 'N'] || 0;
+  const vus = state.suite[F.cle + 'V'] || [];
   let tr = traitsSuite[F.cle];
   if (!tr) {
     tr = traitsSuite[F.cle] = new THREE.LineSegments(segGeom([0,0,0, 0,0,0]),
@@ -3594,7 +3651,7 @@ function majTraitSuite(F) {
   const R = 4500, pts = [];
   const segs = F.liens || F.dirs.map((_, i) => [i - 1, i]).slice(1);
   for (const [i, j] of segs) {
-    if (i >= n || j >= n) continue;
+    if (!vus[i] || !vus[j]) continue;
     const a = F.dirs[i], b = F.dirs[j];
     pts.push(a.x * R, a.y * R, a.z * R, b.x * R, b.y * R, b.z * R);
   }
@@ -3604,10 +3661,10 @@ function majTraitSuite(F) {
 }
 function majTraitOrion() {
   if (!orionTrait) return;
-  if (state.orionN < 2) { orionTrait.material.opacity = 0; return; }
+  const v = state.orionV || [];
   const R = 4500, pts = [];
   for (const [i, j] of ORION_SEGS) {
-    if (i >= state.orionN || j >= state.orionN) continue;
+    if (!v[i] || !v[j]) continue;
     const a = ORION_DIRS[i], b = ORION_DIRS[j];
     pts.push(a.x * R, a.y * R, a.z * R, b.x * R, b.y * R, b.z * R);
   }
@@ -3617,15 +3674,19 @@ function majTraitOrion() {
 }
 function majTraitOurse() {
   if (!ourseTrait) return;
-  if (state.ourseN < 2) { ourseTrait.material.opacity = 0; return; }
+  // UN SEGMENT SE DESSINE QUAND SES DEUX BOUTS SONT PRIS, et pas avant. La
+  // figure peut donc apparaître en morceaux séparés, qui se rejoignent quand
+  // l'étoile qui manquait entre eux s'allume enfin.
+  const v = state.ourseV || [];
   const R = 4500, pts = [];
-  for (let i = 1; i < state.ourseN; i++) {
+  for (let i = 1; i < OURSE_DIRS.length; i++) {
+    if (!v[i - 1] || !v[i]) continue;
     const a = OURSE_DIRS[i - 1], b = OURSE_DIRS[i];
     pts.push(a.x * R, a.y * R, a.z * R, b.x * R, b.y * R, b.z * R);
   }
   ourseTrait.geometry.dispose();
-  ourseTrait.geometry = segGeom(pts);
-  ourseTrait.material.opacity = 0.55;
+  ourseTrait.geometry = segGeom(pts.length ? pts : [0,0,0, 0,0,0]);
+  ourseTrait.material.opacity = pts.length ? 0.55 : 0;
 }
 const SOL_CONE = Math.cos(24 * Math.PI / 180);   // au-delà, on est ébloui
 const SOL_CONE_E = Math.cos(20 * Math.PI / 180); // et l'adversaire aussi
@@ -3983,9 +4044,18 @@ let etoiles = [];
 let soleilMesh = null, couronneMesh = null, soleilPlein = null;
 let ourseMesh = null, ourseTrait = null, bergerMesh = null, bergerHalo = null;
 let orionMesh = null, orionTrait = null, croixMesh = null;
-// l'étoile filante : un seul trait, redessiné chaque image tant qu'elle file
+// L'ÉTOILE FILANTE. Un seul trait de 320 mètres, en couleur de texte, à 4 200 m
+// de la caméra : quatre degrés et demi d'un fil d'un pixel, dans un ciel qui en
+// est déjà plein. On ne la voyait pas — et une récompense qu'on ne voit pas
+// n'est pas une récompense, c'est juste des points qui apparaissent.
+//
+// Elle est maintenant un objet : une tête qui brille avec quatre rais courts,
+// et une traînée en trois brins légèrement écartés qui s'affinent derrière. Ce
+// n'est pas plus voyant — c'est plus LISIBLE, ce qui n'est pas la même chose :
+// trois fils fins se lisent comme une vitesse, un fil épais se lit comme un
+// trait au marqueur.
 const etoileMesh = new THREE.LineSegments(segGeom([0, 0, 0, 0, 0, 0]),
-  new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0, fog: false }));
+  new THREE.LineBasicMaterial({ color: COL_LINE, transparent: true, opacity: 0, fog: false }));
 etoileMesh.frustumCulled = false;
 etoileMesh.renderOrder = -1;
 etoileMesh.visible = false;
@@ -7392,7 +7462,14 @@ function resetGame() {
   state.pied = null; state.jeep = null; state.action = null;
   poseJeepAuDepart();
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avance.roquettesReelles ? 4 : avion().roquettes;
+  // LES TRAITS RESTENT JUSQU'À LA MORT, ET PAS AU-DELÀ. Une figure tracée
+  // reste au ciel toute la partie — c'est le seul acquis qu'on garde sous les
+  // yeux, et il dit ce qu'on a fait de sa nuit. Une partie neuve part d'un
+  // ciel neuf : sans cet effacement, on rejouait sous les constellations de la
+  // partie d'avant, qui ne voulaient plus rien dire.
+  effaceTraitsDuCiel();
   state.ourseN = 0; state.ourseT = 0; state.bergerT = 0; state.bergerPris = false;
+  state.ourseV = null; state.orionV = null;
   state.ourseFaite = false;
   state.orionN = 0; state.orionT = 0; state.orionFaite = false; state.chasse = 0;
   state.suite = {}; state.suiteFaite = {};
@@ -8017,6 +8094,11 @@ function updateJeep(dt) {
 // ---------------------------------------------------------------------------
 function ouvreLettre() {
   if (!lettrePan) return;
+  // ELLE EST EN FRANÇAIS, ET SEULEMENT EN FRANÇAIS. Tout le reste du jeu
+  // existe en deux langues ; cette page-là est une lettre adressée à
+  // quelqu'un, et une lettre ne se traduit pas. Un joueur anglophone la
+  // trouvera en français, comme on trouve en français un mot laissé sur une
+  // porte dans une maison française.
   document.getElementById('lettreTxt').textContent = t('lettreTxte');
   // LA SIGNATURE NE SE TRADUIT PAS. Tout le reste du jeu existe en deux
   // langues ; ces deux lignes-là s'adressent à quelqu'un, et un mot pour
@@ -11275,18 +11357,46 @@ function updateDecor() {
   }
   if (etoile) {
     etoile.t += 1 / 60;
-    const k = etoile.t / 2.2;
+    const k = etoile.t / ETOILE_DUREE;
     if (k >= 1) { etoile = null; etoileMesh.visible = false; }
     else {
       _v.copy(etoile.dir).addScaledVector(etoile.perp, k * 0.9).normalize();
       _v.y -= k * k * 0.35;
       _v.normalize();
-      const a = etoileMesh.geometry.attributes.position.array;
-      const px = camera.position.x + _v.x * 4200, py = camera.position.y + _v.y * 4200, pz = camera.position.z + _v.z * 4200;
-      a[0] = px; a[1] = py; a[2] = pz;
-      a[3] = px - etoile.perp.x * 320 - etoile.dir.x * 60; a[4] = py + 110; a[5] = pz - etoile.perp.z * 320 - etoile.dir.z * 60;
-      etoileMesh.geometry.attributes.position.needsUpdate = true;
-      etoileMesh.material.opacity = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85;
+      const R = 4200;
+      const px = camera.position.x + _v.x * R,
+            py = camera.position.y + _v.y * R,
+            pz = camera.position.z + _v.z * R;
+      // le sens de la traînée : derrière elle, et un peu vers le haut
+      const qx = -etoile.perp.x, qz = -etoile.perp.z, qy = 0.34;
+      const n = Math.hypot(qx, qy, qz) || 1;
+      const ux = qx / n, uy = qy / n, uz = qz / n;
+      // un écart perpendiculaire, pour écarter les trois brins
+      const ex = -uz, ez = ux, en = Math.hypot(ex, ez) || 1;
+      const fx = ex / en, fz = ez / en;
+      const p = [];
+      // LA TÊTE : quatre rais courts, comme une étoile de carte marine
+      const r = 36;
+      p.push(px - r, py, pz, px + r, py, pz);
+      p.push(px, py - r, pz, px, py + r, pz);
+      p.push(px - r * 0.6, py - r * 0.6, pz, px + r * 0.6, py + r * 0.6, pz);
+      p.push(px + r * 0.6, py - r * 0.6, pz, px - r * 0.6, py + r * 0.6, pz);
+      // LA TRAÎNÉE : trois brins qui s'écartent et s'arrêtent à des longueurs
+      // différentes, avec une coupure au milieu du plus long. Une traînée
+      // continue est un bâton ; une traînée qui se défait est une vitesse.
+      const L = ETOILE_TRAINE;
+      for (const [brin, lg, dec] of [[0, 1.0, 0], [1, 0.62, 26], [-1, 0.48, -22]]) {
+        const segs = brin === 0 ? [[0.03, 0.55], [0.66, 1.0]] : [[0.05, 1.0]];
+        for (const [a0, a1] of segs) {
+          const d0 = L * lg * a0, d1 = L * lg * a1;
+          p.push(px + ux * d0 + fx * dec * a0, py + uy * d0, pz + uz * d0 + fz * dec * a0,
+                 px + ux * d1 + fx * dec * a1, py + uy * d1, pz + uz * d1 + fz * dec * a1);
+        }
+      }
+      etoileMesh.geometry.dispose();
+      etoileMesh.geometry = segGeom(p);
+      // elle s'allume d'un coup et s'éteint en s'étirant
+      etoileMesh.material.opacity = k < 0.10 ? k / 0.10 : Math.pow(1 - (k - 0.10) / 0.90, 0.7);
       etoileMesh.visible = true;
     }
   }
@@ -12829,22 +12939,22 @@ const T = {
     act_jeep: 'DRIVE',
     act_ancien: 'THE OLD AIRCRAFT',
     act_casse: 'THE BROKEN AIRCRAFT',
-    lettreFerme: 'FOLD IT BACK',
+    lettreFerme: 'REPLIER',
     lettreSig: 'Joyeux anniversaire mon ange,',
     lettreNom: 'Émilie',
     lettreTxte:
-      'I am leaving, and I am not leaving an address. Do not look for me:\n' +
-      'you are someone who looks, and you would look very well, and that\n' +
-      'would be the worst thing for us both.\n\n' +
-      'You always watched the sky as though something were missing from it.\n' +
-      'I thought it was me. It was not me, and it took me a long time to\n' +
-      'understand that this was all right — that you could do nothing about\n' +
-      'it, and neither could I.\n\n' +
-      'So it is better this way. I mean it, and not only to console myself\n' +
-      'by writing it down.\n\n' +
-      'The wireless still works. So does the record, once. Be careful\n' +
-      'setting it down, the needle is old.\n\n' +
-      'One day, among the stars.',
+      'Je pars, et je ne laisse pas d’adresse. Ne me cherche pas : tu es\n' +
+      'quelqu’un qui cherche, et tu chercherais très bien, et ce serait la\n' +
+      'pire des choses pour nous deux.\n\n' +
+      'Tu as toujours regardé le ciel comme si quelque chose y manquait. Je\n' +
+      'croyais que c’était moi. Ce n’était pas moi, et j’ai mis longtemps à\n' +
+      'comprendre que ce n’était pas grave — que tu n’y pouvais rien, et que\n' +
+      'moi non plus.\n\n' +
+      'Alors c’est mieux ainsi. Je le pense vraiment, et pas seulement pour\n' +
+      'me consoler en l’écrivant.\n\n' +
+      'Le poste marche encore. Le disque aussi, une fois. Fais attention en\n' +
+      'le posant, l’aiguille est vieille.\n\n' +
+      'Un jour, dans les étoiles.',
     alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', leurre: 'FLARE OUT  ·  LEFT ', leurresPleins: 'FLARES RELOADED', locked: 'LOCKED  ·  MOVE!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
     rempart: 'Will you survive 10 waves?',
     legende: 'LEGEND', legendeTexte: 'Ten waves held. Your name is in the legend.', partage: 'SHARE THE SCORE', copie: 'COPIED',
@@ -13421,6 +13531,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.13', fr: 'Le sillon du disque était quatre fois trop fort : on entendait de la pluie, pas un disque.', en: 'The record’s surface noise was four times too loud: you heard rain, not a record.' },
+  { v: '1.13', fr: 'La lettre est en français, et seulement en français.', en: 'The letter is in French, and only in French.' },
+  { v: '1.13', fr: 'Une constellation se trace par l’étoile qu’on veut : l’ordre n’est plus imposé.', en: 'A constellation can be traced from whichever star you like: the order is no longer imposed.' },
+  { v: '1.13', fr: 'Un segment n’apparaît que lorsque ses deux étoiles sont prises, et le trait reste jusqu’à la mort.', en: 'A segment only appears once both its stars are taken, and the line stays until you die.' },
+  { v: '1.13', fr: 'L’étoile filante a une tête et trois brins : on la voit passer.', en: 'The shooting star has a head and three strands: you see it go by.' },
   { v: '1.12', fr: 'La lettre est signée, et sa signature ne se traduit pas.', en: 'The letter is signed, and its signature is not translated.' },
   { v: '1.11', fr: 'On monte dans la Jeep et on conduit : elle grimpe le relief et se penche dessus.', en: 'You get into the Jeep and drive: it climbs the terrain and leans on it.' },
   { v: '1.11', fr: 'Ramenée à la piste principale, elle y reste garée dans toutes les parties suivantes.', en: 'Driven back to the main runway, it stays parked there in every game after.' },
