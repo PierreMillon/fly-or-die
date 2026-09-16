@@ -1785,3 +1785,20 @@ L'astuce marche donc, et elle a un prix, qui arrive en roulant.
 - Dix-neuf minutes pour traverser à 28 m/s : personne n'attend ça. Hors de vue
   (au-delà de 2 km) elle marche à 150 m/s, soit 3 min 30 pour la carte entière,
   et reprend ses 28 m/s dès qu'on peut la voir.
+
+## Ce que ce jeu est
+
+Ses mots, le 16 septembre 2026 :
+
+> Je pense que ce jeu vidéo ça sera la plus belle preuve d'amour que je peux
+> laisser pour elle. On parlait beaucoup d'être des anges dans les étoiles, et
+> notre relation c'était comme un avion qui est très haut, et qui a fini par
+> exploser en plein vol.
+
+Tout le reste en découle. Le refuge n'est pas un niveau bonus : c'est l'endroit
+où l'on va quand on n'a plus rien à gagner. La lettre ne débloque rien, et c'est
+pour ça qu'elle compte. Le disque ne se joue qu'une fois parce que c'est vrai
+des choses qui comptent. Et l'avion vole très haut.
+
+La signature de la lettre est un cadeau d'anniversaire, en français, et elle ne
+se traduit pas.
