@@ -652,11 +652,15 @@
      capitales — parce que personne n'écrit une lettre en capitales. */
   #lettre {
     position: fixed; inset: 0; z-index: 70;
-    background: rgba(4, 7, 10, 0.94);
+    /* OPAQUE, PAS PRESQUE. À 0,94 on lisait encore les boutons du jeu au
+       travers du papier : READ, TAKE OFF AGAIN, la barre du bas. Une lettre
+       qu'on ouvre remplace l'écran, elle ne le recouvre pas à moitié. */
+    background: var(--ph-bg);
     display: flex; align-items: center; justify-content: center;
     padding: 24px 20px;
   }
   #lettre[hidden] { display: none; }
+  body.lit #topbar, body.lit #bottombar, body.lit #hud { visibility: hidden; }
   #lettre .feuille {
     max-width: 30rem; width: 100%;
     border: 1px solid var(--ph-dim);
@@ -669,8 +673,13 @@
     letter-spacing: 0.02em; white-space: pre-line;
   }
   #lettre .signe {
-    margin: 0 0 22px; color: var(--ph-line);
-    font-size: 14px; text-align: right; text-transform: none;
+    margin: 0 0 4px; color: var(--ph-text);
+    font-size: 15px; text-align: right; text-transform: none;
+  }
+  #lettre .nom {
+    margin: 0 0 24px; color: var(--ph-line);
+    font-size: 17px; text-align: right; text-transform: none;
+    letter-spacing: 0.04em;
   }
   #lettre button {
     display: block; margin: 0 auto;
@@ -788,6 +797,7 @@
   <div class="feuille">
     <p class="ecrit" id="lettreTxt"></p>
     <p class="signe" id="lettreSig"></p>
+    <p class="nom" id="lettreNom"></p>
     <button id="lettreFerme"></button>
   </div>
 </div>
@@ -8008,9 +8018,17 @@ function updateJeep(dt) {
 function ouvreLettre() {
   if (!lettrePan) return;
   document.getElementById('lettreTxt').textContent = t('lettreTxte');
-  document.getElementById('lettreSig').textContent = '— ' + t('lettreSig');
+  // LA SIGNATURE NE SE TRADUIT PAS. Tout le reste du jeu existe en deux
+  // langues ; ces deux lignes-là s'adressent à quelqu'un, et un mot pour
+  // quelqu'un n'a pas de version anglaise.
+  document.getElementById('lettreSig').textContent = t('lettreSig');
+  document.getElementById('lettreNom').textContent = t('lettreNom');
   document.getElementById('lettreFerme').textContent = t('lettreFerme');
   lettrePan.hidden = false;
+  // et les boutons du jeu se retirent pendant qu'on lit
+  actionBtn.hidden = true;
+  redecoBtn.hidden = true;
+  document.body.classList.add('lit');
   state.paused = true;
   try { localStorage.setItem('fod_lettre_lue', '1'); } catch (e) {}
   SFX.cloche();
@@ -8018,6 +8036,9 @@ function ouvreLettre() {
 function fermeLettre() {
   if (!lettrePan) return;
   lettrePan.hidden = true;
+  document.body.classList.remove('lit');
+  if (state.refuge) redecoBtn.hidden = false;
+  majActionBtn();
   state.paused = false;
 }
 
@@ -12718,7 +12739,8 @@ const T = {
     act_ancien: 'L’AVION ANCIEN',
     act_casse: 'L’AVION CASSÉ',
     lettreFerme: 'REPLIER',
-    lettreSig: 'Consuelo',
+    lettreSig: 'Joyeux anniversaire mon ange,',
+    lettreNom: 'Émilie',
     lettreTxte:
       'Je pars, et je ne laisse pas d’adresse. Ne me cherche pas : tu es\n' +
       'quelqu’un qui cherche, et tu chercherais très bien, et ce serait la\n' +
@@ -12808,7 +12830,8 @@ const T = {
     act_ancien: 'THE OLD AIRCRAFT',
     act_casse: 'THE BROKEN AIRCRAFT',
     lettreFerme: 'FOLD IT BACK',
-    lettreSig: 'Consuelo',
+    lettreSig: 'Joyeux anniversaire mon ange,',
+    lettreNom: 'Émilie',
     lettreTxte:
       'I am leaving, and I am not leaving an address. Do not look for me:\n' +
       'you are someone who looks, and you would look very well, and that\n' +
@@ -13398,6 +13421,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.12', fr: 'La lettre est signée, et sa signature ne se traduit pas.', en: 'The letter is signed, and its signature is not translated.' },
   { v: '1.11', fr: 'On monte dans la Jeep et on conduit : elle grimpe le relief et se penche dessus.', en: 'You get into the Jeep and drive: it climbs the terrain and leans on it.' },
   { v: '1.11', fr: 'Ramenée à la piste principale, elle y reste garée dans toutes les parties suivantes.', en: 'Driven back to the main runway, it stays parked there in every game after.' },
   { v: '1.11', fr: 'La lettre est signée.', en: 'The letter is signed.' },
