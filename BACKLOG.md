@@ -1802,3 +1802,75 @@ des choses qui comptent. Et l'avion vole très haut.
 
 La signature de la lettre est un cadeau d'anniversaire, en français, et elle ne
 se traduit pas.
+
+## Rouler au sol, la butée du hangar, et le choix au nez (v1.22)
+
+Trois demandes du 16 septembre, dans l'ordre où il les a dites.
+
+### Le mur invisible devant la porte
+
+Le hangar n'avait **aucune collision** : il n'est pas dans `BATIMENTS`, et rien
+ne l'arrêtait. En roulant on entrait dedans, on traversait le fond, et c'est la
+plaine derrière qui finissait par prélever de la structure — une perte bête,
+pour un mur qu'on ne voyait pas parce qu'il n'existait pas.
+
+Une butée franche, six mètres devant la baie, dans le bloc de roulage : on
+s'arrête, on entend un coup mat, et **ça ne coûte rien**.
+
+- Butée à x = 52 m ; mesuré : arrêt à **x = 52,00**, pile.
+- Structure avant 100, **minimum mesuré 100**, finale 125 (les mécaniciens
+  réparent au-delà pendant l'arrêt). Zéro point perdu.
+
+### Le roulage
+
+Posé, l'appareil était cloué : `state.speed = 0` et rien d'autre. Le manche le
+fait maintenant rouler — en haut on avance, en bas on recule, à droite et à
+gauche on braque, **et on ne braque qu'en roulant**, comme un vrai avion sur sa
+roulette de nez.
+
+- Vitesse maximale visée 15 m/s ; mesurée **14,9 m/s** (54 km/h).
+- Il ne s'éloigne pas : le terrain est tenu dans un rayon de 900 m.
+
+### Le retour dans l'axe
+
+`redecoller()` reposait l'appareil sur l'axe d'autorité : `state.pos.set(0, ...)`.
+Tant qu'on ne pouvait pas bouger, personne ne le voyait. Depuis qu'on roule
+jusqu'à la baie, c'était un **bond de cinquante-deux mètres** à l'image. Le saut
+est supprimé ; la course du décollage referme l'écart toute seule.
+
+- Départ à x = 52 m, mesuré : **x = 5 m** au tiers de la course, **0,11 m** en l'air.
+- Le refuge n'est pas touché : son axe à lui est incliné de trois degrés et se
+  trouve à trente-deux kilomètres. Mesuré : le décollage du refuge se déplace de
+  22 m *le long de sa bande*, et pas d'un mètre vers l'axe principal.
+
+### Le choix au nez
+
+Nez pointé sur un appareil garé, un cercle se remplit autour de lui, et on
+change d'avion. Onze degrés d'ouverture, quatre-vingts mètres de portée, une
+seconde quatre de tenue.
+
+- Pionnier pris en **1,68 s** (1,4 s de tenue plus la détection).
+- Intercepteur et Ancien, verrouillés : le cercle s'affiche, **le remplissage
+  reste à 0**, et le nom dit « PAS ENCORE À TOI ». Une promesse, pas un refus
+  muet.
+- Les quatre garés sont à 17 m de la butée, donc tous à portée sans manœuvrer.
+
+## La carte du refuge (v1.22)
+
+Sa demande depuis v1.08 : une carte sur le mur du hangar, qui donne une
+direction ou la forme d'une constellation, et qui amène à la suite du jeu.
+
+Elle est punaisée au fond du **petit hangar du refuge** — il faut entrer sous le
+toit, comme il faut entrer dans la maison pour le poste. Deux registres, comme
+sur une carte de navigation : le ciel en haut, quatre étoiles en croix ; le sol
+en bas, l'aérodrome, la chaîne, le refuge, et une flèche qui continue vers
+l'ouest là où plus rien n'est dessiné.
+
+C'est exactement la condition de la **Croix du Sud** : `ouvre: () => hypot > TERRAIN_R3`.
+Elle ne se lève qu'au-delà de la chaîne, sur la plaine vide, et rien dans le jeu
+ne l'indiquait. C'était la dernière chose trouvable dont personne ne pouvait
+soupçonner l'existence.
+
+Elle rejoint aussi le puits d'indices : tant qu'on ne l'a pas vue, une des
+phrases qui s'affichent à la mort parle d'elle ; une fois vue, elle se tait.
+

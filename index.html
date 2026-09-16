@@ -715,6 +715,40 @@
     letter-spacing: 0.22em; padding: 10px 26px;
   }
 
+  /* LA CARTE DU MUR. Même papier que la lettre — c'est la même maison, la même
+     main — mais elle porte un dessin plutôt qu'un texte, et elle se traduit :
+     ce n'est pas un mot pour quelqu'un, c'est une indication pour qui vient. */
+  #carteMur {
+    position: fixed; inset: 0; z-index: 70;
+    background: var(--ph-bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px 20px;
+  }
+  #carteMur[hidden] { display: none; }
+  #carteMur .papier {
+    max-width: 30rem; width: 100%;
+    border: 1px solid var(--ph-dim);
+    padding: 22px 20px 16px;
+    max-height: 100%; overflow-y: auto;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  #carteMur .titre {
+    margin: 0 0 16px; color: var(--ph-text);
+    font-size: 12px; letter-spacing: 0.22em; text-align: center;
+  }
+  #carteMur svg { display: block; width: 100%; height: auto; color: var(--ph-text); }
+  #carteMur .note {
+    margin: 16px 0 20px; color: var(--ph-text);
+    font-size: 14px; line-height: 1.8; text-transform: none; letter-spacing: 0.02em;
+  }
+  #carteMur button {
+    display: block; margin: 0 auto;
+    background: transparent; border: 1px solid var(--ph-dim); border-radius: 4px;
+    color: var(--ph-text); font-family: inherit; font-size: 12px;
+    letter-spacing: 0.22em; padding: 10px 26px;
+  }
+
   /* POSER : même place que REDÉCOLLER, un cran plus haut. Il n'apparaît que
      quand la piste est devant et lisible, et il bat quand on est sur le plan —
      c'est le seul moment où appuyer sert à quelque chose. */
@@ -826,6 +860,45 @@
     <p class="signe" id="lettreSig"></p>
     <p class="nom" id="lettreNom"></p>
     <button id="lettreFerme"></button>
+  </div>
+</div>
+<div id="carteMur" hidden>
+  <div class="papier">
+    <p class="titre" id="carteTitre"></p>
+    <!-- DEUX REGISTRES, COMME SUR UNE VRAIE CARTE DE NAVIGATION : le ciel en
+         haut, le sol en bas, et la même chose racontée deux fois. En haut les
+         quatre étoiles en croix ; en bas l'aérodrome, la chaîne, le refuge, et
+         la flèche qui continue vers l'ouest là où plus rien n'est dessiné. -->
+    <svg viewBox="0 0 300 208" role="img" aria-hidden="true">
+      <g stroke="currentColor" fill="none" stroke-width="1.1" opacity="0.85">
+        <line x1="150" y1="20" x2="150" y2="86"/>
+        <line x1="122" y1="56" x2="180" y2="46"/>
+      </g>
+      <g fill="currentColor">
+        <circle cx="150" cy="20" r="3.4"/>
+        <circle cx="150" cy="86" r="2.6"/>
+        <circle cx="122" cy="56" r="2.4"/>
+        <circle cx="180" cy="46" r="2.2"/>
+      </g>
+      <line x1="10" y1="112" x2="290" y2="112" stroke="currentColor"
+            stroke-width="1" stroke-dasharray="3 6" opacity="0.4"/>
+      <!-- l'aérodrome, à l'est : la piste et son hangar -->
+      <g stroke="currentColor" fill="none" stroke-width="1.1" opacity="0.9">
+        <line x1="258" y1="140" x2="258" y2="176"/>
+        <rect x="264" y="152" width="14" height="12"/>
+        <!-- la chaîne -->
+        <polyline points="216,166 206,146 196,166 186,140 176,166 166,150 156,166"/>
+        <polyline points="150,166 140,148 130,166 120,142 110,166"/>
+        <!-- le refuge : la bande en terre et la petite maison -->
+        <line x1="58" y1="150" x2="88" y2="156"/>
+        <rect x="62" y="162" width="11" height="9"/>
+        <!-- et la route qui continue, vers l'ouest, vers rien de dessiné -->
+        <line x1="54" y1="158" x2="16" y2="158" stroke-dasharray="4 5"/>
+        <polyline points="26,152 14,158 26,164"/>
+      </g>
+    </svg>
+    <p class="note" id="carteNote"></p>
+    <button id="carteFerme"></button>
   </div>
 </div>
 <button id="installPastille" hidden data-en="INSTALL · NO NETWORK NEEDED">INSTALLER · SANS RÉSEAU</button>
@@ -2551,6 +2624,10 @@ const SFX = {
                           souffle(0.55, 900, 90, 0.9, 0.34 * v, sortie);
                           ton(190, 48, 0.45, 'sawtooth', 0.16 * v, sortie); },
   eraflure:     () => souffle(0.3, 1400, 300, 1.4, 0.22),
+  // LE BUTOIR. Une roue qui vient contre une cale : un coup mat, grave, court,
+  // et rien qui grince. Ce n'est pas un choc — il ne coûte rien — c'est le
+  // bruit qui dit « on ne va pas plus loin ».
+  butoir:       () => { ton(124, 58, 0.16, 'sine', 0.17); souffle(0.18, 700, 140, 1.1, 0.13); },
   frolement:    () => souffle(0.34, 2600, 280, 0.9, 0.2),
   // DÉPART DE ROQUETTE. Trois moments dans l'ordre où on les entend : le
   // claquement de la mise à feu, le coup de basse du départ, puis le sifflement
@@ -5747,7 +5824,7 @@ const MECANO_PORTEE = 9;
 const AERO = { x: 78, z: (PISTE.z0 + PISTE.z1) / 2, largeur: 40, prof: 60, haut: 15, baie: 40 };
 const matHangar = lineMat(COL_LINE, 0.8);
 const matPale = lineMat(COL_LINE, 0.35);
-const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0.6, ventCible: 0.6 };
+const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0.6, ventCible: 0.6, choix: [] };
 (function poserAerodrome() {
   const A = AERO;
   const g = new THREE.Group();
@@ -5788,6 +5865,13 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   for (const k of KINDS) if (!k.sol && !k.secret && k !== KINDS[2]) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
   // quatre devant, le reste derriere : tout le monde est visible depuis la
   // piste des que les vantaux sont effaces
+  // ON RETIENT OÙ SONT LES NÔTRES. Pointer le nez sur un appareil garé pour
+  // en changer suppose de savoir lequel est où : les trois premiers du rang
+  // sont le biplan, l'intercepteur et le pionnier, dans cet ordre, et l'ancien
+  // vient s'ajouter quand on l'a trouvé.
+  const CHOIX = ['bimoteur', 'intercepteur', 'pionnier'];
+  rang.push({ lignes: ANCIEN_SHAPE, mat: matPlayer, ech: 12 / 7.2 * 0.75 });
+  CHOIX.push('ancien');
   rang.forEach((r, i) => {
     const m = r.lignes ? new THREE.LineSegments(segGeom(r.lignes), r.mat) : solidWire(r.geo, r.edges, r.mat);
     m.frustumCulled = false;
@@ -5796,6 +5880,9 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
     m.position.set(-A.largeur / 2 + 11 + col * 17, 1.2, -A.prof / 2 + 9 + k * 14 + col * 7);
     m.rotation.y = -Math.PI / 2;      // le nez vers la porte
     g.add(m);
+    if (i < CHOIX.length)
+      hangar.choix.push({ id: CHOIX[i], mesh: m,
+                          p: new THREE.Vector3(A.x + m.position.x, 2.2, A.z + m.position.z) });
   });
   // la table et les tabourets, devant la porte, côté sud
   const table = paroi(1.6, 0.08, 1.0, 0, 0.78, 0); table.position.set(-A.largeur / 2 - 29, 0, A.prof / 2 - 18);
@@ -6725,6 +6812,33 @@ try { disqueCasse = localStorage.getItem('fod_disque') === 'casse'; } catch (e) 
         p.push(x, y, -dz - deb, x, y, dz + deb);
       }
     s.add(traits(p, matBois));
+
+    // LA CARTE, CLOUÉE AU MUR DU FOND. C'est la seule chose de ce refuge qui
+    // regarde devant : la lettre parle de ce qui a eu lieu, le disque aussi,
+    // l'avion cassé est un mystère qu'on ne résout pas. Elle, elle dit où aller
+    // ensuite. Elle est petite, elle est au fond, et il faut entrer sous le
+    // toit pour la voir — ce qui est exactement ce qu'on veut faire faire.
+    {
+      const q = [], X = dx - 0.06;
+      // (u, v) sur le mur : u le long de z, v en hauteur
+      const T = (u0, v0, u1, v1) => q.push(X, v0, u0, X, v1, u1);
+      const R = (u0, v0, u1, v1) => { T(u0, v0, u1, v0); T(u1, v0, u1, v1); T(u1, v1, u0, v1); T(u0, v1, u0, v0); };
+      R(-1.15, 1.45, 1.15, 2.85);                 // le cadre
+      // les quatre étoiles en croix, en haut de la feuille
+      T(0, 2.28, 0, 2.70); T(-0.24, 2.52, 0.26, 2.56);
+      for (const [u, v] of [[0, 2.70], [0, 2.28], [-0.24, 2.52], [0.26, 2.56]]) {
+        T(u - 0.05, v, u + 0.05, v); T(u, v - 0.05, u, v + 0.05);
+      }
+      T(-1.0, 2.13, 1.0, 2.13);                   // la ligne de partage
+      // le sol : la chaîne, le refuge, et la flèche qui continue
+      T(-0.95, 1.72, -0.72, 1.92); T(-0.72, 1.92, -0.50, 1.72);
+      T(-0.50, 1.72, -0.28, 1.96); T(-0.28, 1.96, -0.06, 1.72);
+      T(0.22, 1.80, 0.52, 1.84);                  // la bande du refuge
+      R(0.30, 1.62, 0.48, 1.74);                  // la maison
+      T(0.62, 1.70, 0.96, 1.70);                  // la route vers l'ouest
+      T(0.96, 1.70, 0.86, 1.76); T(0.96, 1.70, 0.86, 1.64);
+      s.add(traits(q, lineMat(COL_TEXT, 0.8)));
+    }
   }
 
   // --- L'AVION CASSÉ. Assez entier pour donner envie de monter dedans, assez
@@ -7893,7 +8007,7 @@ const state = {
 // l'appui annulait le clic sur REPLIER. On restait enfermé dans la lettre.
 // Une seule liste, à un seul endroit, et la dette est payée.
 const PANNEAUX_LISIBLES =
-  '#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu, #infos, #lettre';
+  '#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu, #infos, #lettre, #carteMur';
 const aim = { x: 0, y: 0, active: false };
 
 // pointeur grossier = doigt : le pilotage et la consigne d'accueil en dépendent
@@ -7967,7 +8081,11 @@ function redecoller() {
   redecoBtn.hidden = true;
   chasserMecanos();
   // on repart dans le sens où l'on s'est posé
-  state.pos.set(0, SOL_Y, state.pos.z);
+  // ET ON NE SAUTE PLUS DANS L'AXE. L'appareil y était reposé d'autorité :
+  // maintenant qu'on peut rouler jusque sous la baie du hangar, c'était un bond
+  // de cinquante-deux mètres, visible et injustifiable. La course du décollage
+  // referme l'écart toute seule, en quelques secondes, comme un alignement.
+  state.pos.y = SOL_Y;
   state.pitch = 0; state.roll = 0;
   state.camYaw = state.yaw; state.camPitch = 0; state.camRoll = 0; state.camSpin = 0;
   state.takeoff = { t: 0 };
@@ -8000,6 +8118,10 @@ function fermeAuClicDehors(panneau, cadre, ferme) {
   });
 }
 fermeAuClicDehors(lettrePan, '.feuille', fermeLettre);
+document.getElementById('carteFerme').addEventListener('click', e => {
+  e.stopPropagation(); fermeCarteMur();
+});
+fermeAuClicDehors(document.getElementById('carteMur'), '.papier', fermeCarteMur);
 // LE BOUTON POSER N'EXISTE PLUS. Il demandait d'appuyer pour dire ce que la
 // trajectoire disait déjà — et il fallait ensuite tirer franchement pour
 // annuler ce qu'un appui avait engagé. Le tube remplace les deux : on y entre,
@@ -8417,6 +8539,9 @@ function pointsDuRefuge() {
     { cle: 'jeep',   x: P.jeep.x,   z: P.jeep.z,   d: 4.0 },
     { cle: 'ancien', x: P.avionAncien.x, z: P.avionAncien.z, d: 5.5 },
     { cle: 'casse',  x: P.avionCasse.x,  z: P.avionCasse.z,  d: 5.5 },
+    // la carte est SOUS LE TOIT, contre le mur du fond : il faut entrer dans
+    // le hangar, comme il faut entrer dans la maison pour le poste
+    { cle: 'carte',  x: P.hangar.x + P.hangar.w / 2 - 2.2, z: P.hangar.z, d: 2.8 },
   ];
 }
 
@@ -8615,6 +8740,7 @@ function faitAction() {
     return;
   }
   if (c === 'descendre') { descendDeJeep(); return; }
+  if (c === 'carte') { ouvreCarteMur(); return; }
   if (c === 'ancien' || c === 'casse') { announce(t('pasEncore')); return; }
 }
 
@@ -8815,6 +8941,36 @@ function ouvreLettre() {
 function fermeLettre() {
   if (!lettrePan) return;
   lettrePan.hidden = true;
+  document.body.classList.remove('lit');
+  if (state.refuge) redecoBtn.hidden = false;
+  majActionBtn();
+  state.paused = false;
+}
+
+// LA CARTE DU MUR. Elle ne donne pas une position, elle donne une DIRECTION et
+// une forme : continuer vers l'ouest, au-delà du refuge, jusque là où plus rien
+// n'est dessiné au sol — et là, quatre étoiles en croix. C'est exactement la
+// condition de la Croix du Sud, qui ne se lève qu'au-delà de la chaîne. Rien
+// dans le jeu ne l'indiquait ; c'était la dernière chose trouvable dont
+// personne ne pouvait soupçonner l'existence.
+function ouvreCarteMur() {
+  const pan = document.getElementById('carteMur');
+  if (!pan) return;
+  document.getElementById('carteTitre').textContent = t('carteTitre');
+  document.getElementById('carteNote').textContent = t('carteNote');
+  document.getElementById('carteFerme').textContent = t('carteFerme');
+  pan.hidden = false;
+  actionBtn.hidden = true;
+  redecoBtn.hidden = true;
+  document.body.classList.add('lit');
+  state.paused = true;
+  trouve('carte');
+  SFX.cloche();
+}
+function fermeCarteMur() {
+  const pan = document.getElementById('carteMur');
+  if (!pan) return;
+  pan.hidden = true;
   document.body.classList.remove('lit');
   if (state.refuge) redecoBtn.hidden = false;
   majActionBtn();
@@ -11096,13 +11252,47 @@ function simulate(dt) {
   if (state.pose) {
     state.pose.t += dt;
     // Le modèle d'énergie tourne plus haut dans la fonction et ramènerait la
-    // vitesse vers la croisière : on la maintient à zéro, l'avion est arrêté.
+    // vitesse vers la croisière : on la maintient à zéro. Le roulage porte SA
+    // vitesse, comme le freinage après le toucher — c'est la même leçon, apprise
+    // au prix d'un avion qui dépassait le hangar de huit cents mètres.
     state.speed = 0;
     state.pitch = 0; state.roll = 0;
+    const P = state.pose;
+    if (P.v === undefined) P.v = 0;
+    // en haut on avance, en bas on recule, à droite et à gauche on braque. Rien
+    // d'autre : ni tangage, ni roulis, ni tir. C'est un avion au sol.
+    const gaz = aim.active ? -dy : 0, barre = aim.active ? dx : 0;
+    const voulue = gaz >  0.12 ?  TAXI_VMAX  * Math.min(1, (gaz - 0.12) / 0.62)
+                 : gaz < -0.12 ? -TAXI_RECUL * Math.min(1, (-gaz - 0.12) / 0.62) : 0;
+    P.v = THREE.MathUtils.damp(P.v, voulue, voulue === 0 ? TAXI_FREIN : TAXI_POUSSE, dt);
+    if (Math.abs(P.v) < 0.06) P.v = 0;
+    // LA ROULETTE DE NEZ NE TOURNE QU'EN ROULANT. Un avion ne pivote pas sur
+    // place : il faut avancer pour virer, et c'est ce qui rend le roulage
+    // reconnaissable. Le braquage s'inverse en marche arrière, comme au volant.
+    if (Math.abs(barre) > 0.08 && P.v !== 0)
+      state.yaw -= barre * TAXI_LACET * Math.min(1, Math.abs(P.v) / 4) * Math.sign(P.v) * dt;
     euler.set(0, state.yaw, 0);
     state.quat.setFromEuler(euler);
     state.forward.set(0, 0, -1).applyQuaternion(state.quat);
     playerMesh.quaternion.copy(state.quat);
+    state.pos.addScaledVector(state.forward, P.v * dt);
+    state.pos.y = SOL_Y;
+    // la butée du hangar : on s'arrête net, on l'entend une fois, et la
+    // structure ne bouge pas d'un point
+    if (buteHangar()) {
+      if (P.v > 0) { P.v = 0; if (!P.cogne) { SFX.butoir(); announce(t('butee')); P.cogne = true; } }
+    } else P.cogne = false;
+    // et l'on ne s'éloigne pas du terrain : le bord est mou, on ralentit
+    {
+      const dr = Math.hypot(state.pos.x, state.pos.z - AERO.z);
+      if (dr > TAXI_RAYON) {
+        const k = TAXI_RAYON / dr;
+        state.pos.x *= k;
+        state.pos.z = AERO.z + (state.pos.z - AERO.z) * k;
+        P.v = 0;
+      }
+    }
+    majChoixHangar(dt);
     // ILS PEUVENT ÊTRE TUÉS. Se poser sous le feu n'était qu'une décision
     // comptable : on encaissait et l'on repartait plein. Maintenant les balles
     // qui passent atteignent aussi les hommes, et chacun emporte un tiers de
@@ -11242,6 +11432,13 @@ function simulate(dt) {
     const av = state.speed * Math.cos(state.pitch) * dt;
     state.pos.x -= sy * av;
     state.pos.z -= cy * av;
+    // ET IL REVIENT DANS L'AXE DE LA PISTE. On peut désormais rouler jusque
+    // sous la baie du hangar, à cinquante-deux mètres du bitume ; redécoller de
+    // là partait tout droit, à côté de la piste. L'écart latéral se referme
+    // pendant la course, comme le fait un pilote qui s'aligne. Ici seulement :
+    // la bande du refuge a son propre axe, et il est à trente-deux kilomètres.
+    if (Math.abs(state.pos.x) < 400 && (T.yaw === 0 || T.yaw === Math.PI))
+      state.pos.x = THREE.MathUtils.damp(state.pos.x, 0, 1.6, dt);
 
     euler.set(state.pitch, T.yaw, 0);
     state.quat.setFromEuler(euler);
@@ -11909,6 +12106,86 @@ function updateAilier(dt) {
     if (e.hp <= 0) abattre(e);
   }
 }
+// ---------------------------------------------------------------------------
+// ROULER, S'ARRÊTER DEVANT LA BAIE, ET CHOISIR SON APPAREIL AU NEZ.
+//
+// Posé, l'avion était cloué au bitume : on voyait le hangar ouvert, la flotte
+// alignée dedans, et rien ne permettait d'en approcher. Le manche le fait
+// maintenant rouler au pas. C'est lent — quinze mètres par seconde, la vitesse
+// d'un avion qui roule pour de vrai — et ça ne sert qu'à ça : aller sous la
+// baie regarder les autres.
+// ---------------------------------------------------------------------------
+const TAXI_VMAX  = 15;      // m/s en marche avant, soit 54 km/h
+const TAXI_RECUL = 5;       // m/s en marche arrière : on recule doucement
+const TAXI_POUSSE = 1.3;    // la vitesse met un peu moins d'une seconde à venir
+const TAXI_FREIN  = 2.4;    // et un peu moins d'une demie à tomber
+const TAXI_LACET  = 0.62;   // rad/s à pleine barre : un demi-tour en dix secondes
+const TAXI_RAYON  = 900;    // on ne s'éloigne pas du terrain : il n'y a rien au-delà
+
+// LE MUR INVISIBLE DEVANT LA PORTE. Le hangar n'a jamais eu de collision : on
+// entrait dedans en roulant, on traversait le fond, et c'est le sol de la
+// plaine, derrière, qui finissait par prélever de la structure — une perte
+// bête, pour un mur qu'on ne voyait pas et qui n'existait pas.
+//
+// Il y a désormais une butée franche six mètres devant la baie. On s'y arrête,
+// on l'entend, et ça ne coûte pas un point : un avion qui roule au pas contre
+// une cale ne se casse pas. On n'entre pas dans un hangar en avion — on y
+// entre à pied, et c'est ce que le jeu veut faire faire.
+const HANGAR_BUTEE = 6;
+function buteHangar() {
+  const A = AERO;
+  const mur = A.x - A.largeur / 2 - HANGAR_BUTEE;
+  if (state.pos.x < mur) return false;
+  if (Math.abs(state.pos.z - A.z) > A.prof / 2 + 6) return false;
+  if (state.pos.y > A.haut) return false;
+  state.pos.x = mur;
+  return true;
+}
+
+// LE CHOIX AU NEZ. Pas de menu, pas de bouton : on met le nez en face d'un
+// appareil garé, on attend, un cercle se remplit autour de lui, et on l'a. Le
+// geste est celui d'un pilote qui désigne — et c'est le seul endroit du jeu où
+// l'on choisit son avion en le regardant plutôt qu'en lisant une liste.
+const CHOIX_PORTEE = 80;                    // mètres : toute la profondeur du hangar
+const CHOIX_ANGLE  = 11 * Math.PI / 180;    // le nez doit vraiment être dessus
+const CHOIX_TENUE  = 1.4;                   // secondes de nez tenu
+const CHOIX = { cible: null, t: 0, verrou: false, dit: false };
+const _chv = new THREE.Vector3();
+function majChoixHangar(dt) {
+  if (!state.pose || !hangar.choix.length) { CHOIX.cible = null; CHOIX.t = 0; CHOIX.dit = false; return; }
+  let vu = null, mieux = CHOIX_ANGLE;
+  for (const c of hangar.choix) {
+    if (c.id === avionChoisi) continue;      // on ne se choisit pas soi-même
+    _chv.subVectors(c.p, state.pos);
+    const d = _chv.length();
+    if (d > CHOIX_PORTEE || d < 3) continue;
+    _chv.multiplyScalar(1 / d);
+    const a = Math.acos(THREE.MathUtils.clamp(_chv.dot(state.forward), -1, 1));
+    if (a < mieux) { mieux = a; vu = c; }
+  }
+  if (!vu) { CHOIX.cible = null; CHOIX.t = 0; CHOIX.dit = false; return; }
+  if (CHOIX.cible !== vu) { CHOIX.cible = vu; CHOIX.t = 0; CHOIX.dit = false; }
+  const a = AVIONS.find(x => x.id === vu.id);
+  // UN APPAREIL VERROUILLÉ SE VOIT QUAND MÊME. Le cercle s'affiche, il ne se
+  // remplit pas, et le nom dit ce qu'il faut faire pour l'ouvrir : c'est une
+  // promesse, pas un refus muet.
+  CHOIX.verrou = !(a && avionOuvert(a));
+  if (CHOIX.verrou) { CHOIX.t = 0; return; }
+  CHOIX.t += dt;
+  if (CHOIX.t >= CHOIX_TENUE) {
+    CHOIX.t = 0;
+    avionChoisi = a.id;
+    appliqueAvion();
+    try { localStorage.setItem('fod_avion', avionChoisi); } catch (e) {}
+    state.roquettesN = a.roquettes;
+    state.leurres = a.leurres;
+    SFX.bouclierOn();
+    announce(t('avionPris') + (langue === 'en' ? a.en : a.nom));
+    majMenu();
+    CHOIX.cible = null;
+  }
+}
+
 function scrape(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
 
@@ -12560,6 +12837,44 @@ function drawHud() {
   const pSelf = project(state.pos);
   state.screenX = pSelf.x;
   state.screenY = pSelf.y;
+
+  // LE CURSEUR DU HANGAR. Un cercle autour de l'appareil désigné, un arc qui
+  // se referme pendant qu'on tient le nez dessus, et son nom dessous. Rempli,
+  // il est à nous. Verrouillé, l'arc ne part pas et le nom dit à quoi il tient.
+  if (state.pose && CHOIX.cible) {
+    const q = project(CHOIX.cible.p);
+    if (q.front) {
+      const a = AVIONS.find(x => x.id === CHOIX.cible.id);
+      const k = THREE.MathUtils.clamp(CHOIX.t / CHOIX_TENUE, 0, 1);
+      const R = Math.max(18, Math.min(w, h) * 0.055);
+      hctx.save();
+      hctx.lineWidth = 1.4;
+      hctx.strokeStyle = CHOIX.verrou ? 'rgba(190,255,220,0.30)' : 'rgba(143,252,196,0.55)';
+      hctx.beginPath(); hctx.arc(q.x, q.y, R, 0, Math.PI * 2); hctx.stroke();
+      if (k > 0.001) {
+        hctx.lineWidth = 3;
+        hctx.strokeStyle = 'rgba(70,255,160,0.95)';
+        hctx.beginPath();
+        hctx.arc(q.x, q.y, R, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2);
+        hctx.stroke();
+      }
+      // le nom, sous le cercle, et JAMAIS PLUS LARGE QUE LA FENÊTRE : il se
+      // réduit jusqu'à tenir, puis il se recentre pour ne déborder d'aucun bord
+      hctx.textAlign = 'center';
+      hctx.textBaseline = 'middle';
+      hctx.fillStyle = CHOIX.verrou ? 'rgba(190,255,220,0.62)' : 'rgba(143,252,196,0.92)';
+      const nom = a ? (langue === 'en' ? a.en : a.nom) : '';
+      const mot = CHOIX.verrou ? nom + '  ·  ' + t('avionFerme') : nom;
+      let tp = 12;
+      hctx.font = tp + 'px "IBM Plex Mono", ui-monospace, monospace';
+      while (tp > 8 && hctx.measureText(mot).width > w - 24) {
+        tp -= 1; hctx.font = tp + 'px "IBM Plex Mono", ui-monospace, monospace';
+      }
+      const demi = hctx.measureText(mot).width / 2;
+      hctx.fillText(mot, THREE.MathUtils.clamp(q.x, demi + 12, w - demi - 12), q.y + R + 14);
+      hctx.restore();
+    }
+  }
 
   // LE TÉMOIN DU PAPI, au collimateur. Les huit feux sont au sol, à un
   // kilomètre, et on ne peut pas les compter en manœuvrant. On en remet donc
@@ -13660,6 +13975,10 @@ const T = {
     pasEncore: 'PAS ENCORE',
     act_avion: 'REMONTER',
     act_mot: 'LIRE',
+    act_carte: 'REGARDER LA CARTE',
+    carteFerme: 'REPLIER',
+    carteTitre: 'CE QUI RESTE À TROUVER',
+    carteNote: 'De l’autre côté de la chaîne, la plaine ne s’arrête pas au refuge. Elle continue vers l’ouest, et plus loin encore il n’y a plus rien de dessiné au sol. C’est là, et seulement là, que quatre étoiles se lèvent en croix.',
     act_jeep: 'CONDUIRE',
     act_ancien: 'L’AVION ANCIEN',
     act_casse: 'L’AVION CASSÉ',
@@ -13720,6 +14039,9 @@ const T = {
     poser: 'POSER', manette: 'MANETTE RECONNUE',
     manque1: 'Il te manquait ', manque2: ' points.',
     porte: 'PORTE FRANCHIE  ·  POSER',
+    butee: 'ON N’ENTRE PAS EN AVION  ·  DESCENDS',
+    avionPris: 'APPAREIL PRIS  ·  ',
+    avionFerme: 'PAS ENCORE À TOI',
     redecoller: 'ENCORE', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
     pasDeVideo: "Bêta : la vidéo n'est pas encore branchée, la reprise est offerte quand même. Ce clic est compté pour savoir ce que ça rapporterait.",
     scoreMot: 'SCORE ', nouveauRecord: 'NOUVEAU RECORD', recordMot: 'RECORD '
@@ -13757,6 +14079,10 @@ const T = {
     pasEncore: 'NOT YET',
     act_avion: 'GET BACK IN',
     act_mot: 'READ',
+    act_carte: 'LOOK AT THE MAP',
+    carteFerme: 'FOLD IT BACK',
+    carteTitre: 'WHAT IS STILL OUT THERE',
+    carteNote: 'Past the range, the plain does not stop at the refuge. It goes on west, and further still nothing is drawn on the ground any more. That is where — and only there — four stars rise in a cross.',
     act_jeep: 'DRIVE',
     act_ancien: 'THE OLD AIRCRAFT',
     act_casse: 'THE BROKEN AIRCRAFT',
@@ -13817,6 +14143,9 @@ const T = {
     poser: 'LAND', manette: 'GAMEPAD DETECTED',
     manque1: 'You were ', manque2: ' points short.',
     porte: 'GATE CLEARED  ·  LAND',
+    butee: 'NO TAXIING INSIDE  ·  STEP DOWN',
+    avionPris: 'AIRCRAFT TAKEN  ·  ',
+    avionFerme: 'NOT YOURS YET',
     redecoller: 'AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
     pasDeVideo: 'Beta: the video is not wired yet, the continue is free anyway. This tap is counted to know what it would earn.',
     scoreMot: 'SCORE ', nouveauRecord: 'NEW RECORD', recordMot: 'RECORD '
@@ -14363,6 +14692,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.22', fr: 'Posé sur la piste, le manche fait rouler l’avion : on va enfin sous la baie du hangar.', en: 'Parked on the runway, the stick taxis the aircraft: you can finally reach the hangar bay.' },
+  { v: '1.22', fr: 'Une butée l’arrête six mètres devant la porte, sans coûter un seul point de structure.', en: 'A stop holds it six metres short of the door, at no cost to the airframe.' },
+  { v: '1.22', fr: 'Nez tenu une seconde et demie sur un appareil garé : un cercle se remplit, et on change d’avion.', en: 'Nose held a second and a half on a parked aircraft: a ring fills, and you swap into it.' },
+  { v: '1.22', fr: 'Une carte est punaisée au fond du hangar du refuge, et elle dit où aller ensuite.', en: 'A map is pinned at the back of the refuge hangar, and it says where to go next.' },
+  { v: '1.22', fr: 'Au redécollage l’appareil ne saute plus dans l’axe : il s’y aligne en roulant.', en: 'On take-off the aircraft no longer jumps onto the centreline: it rolls onto it.' },
   { v: '1.21', fr: 'L’avion ancien se pilote : on l’ouvre en ayant posé les roues au refuge, une fois.', en: 'The old aircraft can be flown: it opens once you have put the wheels down at the refuge.' },
   { v: '1.21', fr: 'Il n’a presque pas de moteur, et c’est le seul avec lequel on entend le ciel.', en: 'It has almost no engine, and it is the only one you can hear the sky from.' },
   { v: '1.21', fr: 'Double appui maintenu : il trouve un courant, et plus rien ne va aussi vite.', en: 'Double tap and hold: it finds a current, and nothing else goes that fast.' },
@@ -14725,6 +15059,10 @@ const INDICES = [
     su: () => jeepRamenee,
     fr: 'Il y a une chose, très loin, qui peut revenir avec toi. Une seule.',
     en: 'There is one thing, very far away, that can come back with you. Only one.' },
+  { cle: 'carte',
+    su: () => decouvertes.carte,
+    fr: 'Sous un toit, au bout du monde, quelqu’un a punaisé une carte. Elle ne montre pas d’où l’on vient.',
+    en: 'Under a roof, at the end of the world, someone pinned up a map. It does not show where you came from.' },
   { cle: 'lettre',
     su: () => { try { return localStorage.getItem('fod_lettre_lue') === '1'; } catch (e) { return false; } },
     fr: 'Quelqu’un a laissé un mot sur une porte, très loin d’ici, et personne n’est venu le lire.',
