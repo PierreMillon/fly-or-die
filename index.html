@@ -2296,7 +2296,13 @@ const MUSIQUE_FONDU  = 5;     // secondes pour qu'elle monte et que le jeu s'él
 const MUSIQUE_RETOUR = 6;     // secondes pour que le jeu revienne, à la fin
 const TIMBRES = {
   clair:   { base: 70,  ecart: 1.7, coupe: 420,  sous: 0,    gain: 0.050 },
-  profond: { base: 47,  ecart: 3.1, coupe: 640,  sous: 0.52, gain: 0.062 }
+  profond: { base: 47,  ecart: 3.1, coupe: 640,  sous: 0.52, gain: 0.062 },
+  // LE PLANEUR. L'ancien n'a presque pas de moteur : un souffle, deux
+  // explosions par seconde, et le reste c'est l'air sur les haubans. Un
+  // cinquième du gain du biplan, coupé très bas : on l'entend comme on entend
+  // un ventilateur dans la pièce d'à côté, et c'est le seul appareil du jeu
+  // avec lequel on entend le ciel.
+  planeur: { base: 34,  ecart: 2.2, coupe: 260,  sous: 0.30, gain: 0.011 }
 };
 
 function appliqueTimbre() {
@@ -3913,6 +3919,7 @@ const AVIONS = [
   { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 20, leurres: 0, acces: 'libre' },
   { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 14, leurres: 6, acces: 'legende' },
   { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 8,  leurres: 0, acces: 'libre' },
+  { id: 'ancien',       nom: 'L’ANCIEN',     en: 'THE OLD ONE', vit: 0.62, lacet: 1.5, tangage: 1.35, roquettes: 0,  leurres: 0, acces: 'refuge', courant: true, timbre: 'planeur' },
 ];
 let avionChoisi = 'bimoteur';
 try { avionChoisi = localStorage.getItem('fod_avion') || 'bimoteur'; } catch (e) {}
@@ -3921,7 +3928,11 @@ const avion = () => AVIONS.find(a => a.id === avionChoisi) || AVIONS[0];
 // des légendes directement dans le stockage, et legende() le tient à jour
 let legendesN = 0;
 try { legendesN = (JSON.parse(localStorage.getItem('fod_carnet') || '{}').legendes || 0); } catch (e) {}
-const avionOuvert = a => a.acces === 'libre' || legendesN > 0;
+// L'ANCIEN NE S'ACHÈTE PAS ET NE SE GAGNE PAS EN COMBAT : il s'ouvre quand on
+// a posé les roues au refuge, une fois. C'est le seul appareil du jeu dont la
+// clé est un endroit.
+const avionOuvert = a => a.acces === 'libre'
+                      || (a.acces === 'refuge' ? !!decouvertes.refuge : legendesN > 0);
 // la flèche du premier vol, telle qu'elle était dessinée en v0.1
 const PIONNIER_SHAPE = [
    0,  0, -3.4,   -3.5, 0.6, 1.9,    0,  0, -3.4,    3.5, 0.6, 1.9,
@@ -3932,19 +3943,87 @@ const PIONNIER_SHAPE = [
    0,  0, -3.4,    0,   0.55, -0.7,  0,  0.55, -0.7, 0,   0,   1.1,
   -0.8, 0, -0.3,   0,   0.55, -0.7,  0.8, 0, -0.3,   0,   0.55, -0.7
 ];
+// ---------------------------------------------------------------------------
+// L'ANCIEN. Celui des tout débuts : deux plans, des mâts, des haubans partout,
+// une grande hélice lente, un patin de queue. Il ne porte rien, ne tire rien,
+// et il est le plus lent du jeu — sauf quand il trouve un courant, et alors
+// plus rien ne le rattrape.
+//
+// C'est le même appareil que celui du hangar du refuge, à l'échelle du joueur :
+// on le voit garé pendant trois versions avant de pouvoir monter dedans, et
+// c'est exactement pour ça qu'on a envie de monter dedans.
+// ---------------------------------------------------------------------------
+const ANCIEN_SHAPE = (function () {
+  const p = [], W = 3.6, yb = -0.25, yh = 1.25;
+  const aile = (y, demi, z0, z1) => {
+    p.push(-demi, y, z0, demi, y, z0, -demi, y, z1, demi, y, z1,
+           -demi, y, z0, -demi, y, z1, demi, y, z0, demi, y, z1);
+    for (let k = -3; k <= 3; k++) p.push(k / 3 * demi, y, z0, k / 3 * demi, y, z1);
+  };
+  aile(yb, W, -0.9, 0.5);
+  aile(yh, W * 0.92, -1.1, 0.3);
+  for (const sx of [-1, 1]) for (const fx of [0.36, 0.80]) {
+    const x0 = sx * W * fx, x1 = sx * W * 0.92 * fx;
+    p.push(x0, yb, -0.7, x1, yh, -0.9);
+    p.push(x0, yb, 0.3, x1, yh, 0.1);
+    p.push(x0, yb, -0.7, x1, yh, 0.1);          // les croisillons, qui le datent
+    p.push(x0, yb, 0.3, x1, yh, -0.9);
+  }
+  // le fuselage : une poutre triangulée qui s'affine vers l'arrière
+  for (let k = 0; k <= 5; k++) {
+    const u = k / 5, z = -2.6 + u * 6.0, c = 1 - u * 0.78;
+    p.push(-0.30 * c, -0.10 + 0.22 * u, z, 0.30 * c, -0.10 + 0.22 * u, z);
+    p.push(-0.30 * c, -0.10 + 0.22 * u, z, 0, 0.45 - 0.18 * u, z);
+    p.push( 0.30 * c, -0.10 + 0.22 * u, z, 0, 0.45 - 0.18 * u, z);
+  }
+  for (const [ax, ay] of [[-0.30, -0.10], [0.30, -0.10], [0, 0.45]])
+    p.push(ax, ay, -2.6, ax * 0.22, 0.27, 3.4);
+  // l'hélice : deux longues pales qu'on peut compter à l'arrêt
+  for (const sg of [-1, 1]) {
+    p.push(0, 0.18, -2.6, sg * 0.10, 0.18 + sg * 1.5, -2.66);
+    p.push(sg * 0.10, 0.18 + sg * 1.5, -2.66, -sg * 0.10, 0.18 + sg * 1.4, -2.54);
+    p.push(-sg * 0.10, 0.18 + sg * 1.4, -2.54, 0, 0.18, -2.6);
+  }
+  // le train : deux roues à rayons et un patin de queue
+  for (const sx of [-1, 1]) {
+    const cx = sx * 0.85, cz = -1.2, r = 0.42;
+    for (let k = 0; k < 12; k++) {
+      const a0 = k / 12 * Math.PI * 2, a1 = (k + 1) / 12 * Math.PI * 2;
+      p.push(cx, -0.95 + Math.sin(a0) * r, cz + Math.cos(a0) * r,
+             cx, -0.95 + Math.sin(a1) * r, cz + Math.cos(a1) * r);
+    }
+    for (let k = 0; k < 6; k++) {
+      const a0 = k / 6 * Math.PI * 2;
+      p.push(cx, -0.95, cz, cx, -0.95 + Math.sin(a0) * r, cz + Math.cos(a0) * r);
+    }
+    p.push(cx, -0.95, cz, sx * 0.28, -0.12, cz + 0.2);
+    p.push(cx, -0.95, cz, 0, -0.12, cz - 0.5);
+  }
+  p.push(0, 0.20, 3.0, 0.02, -0.55, 3.4);
+  // la dérive et le stabilisateur, entoilés et légers
+  p.push(0, 0.27, 3.4, 0, 1.30, 2.7, 0, 1.30, 2.7, 0, 0.27, 2.2);
+  p.push(-1.35, 0.25, 2.8, 1.35, 0.25, 2.8,
+         -1.35, 0.25, 2.8, 0, 0.27, 3.4, 1.35, 0.25, 2.8, 0, 0.27, 3.4);
+  return p;
+})();
+
 const meshInter = solidWire(KINDS[2].geom, KINDS[2].edges, matPlayer);
 meshInter.scale.setScalar(KINDS[2].echelle * ENVERGURE_JOUEUR / KINDS[2].envergure / PLANE_SCALE);
 const meshPionnier = new THREE.LineSegments(segGeom(PIONNIER_SHAPE), matPlayer);
 meshPionnier.scale.setScalar(12 / 7 / PLANE_SCALE * 0.85);
-meshPionnier.frustumCulled = meshInter.frustumCulled = false;
-playerMesh.add(meshInter, meshPionnier);
+const meshAncien = new THREE.LineSegments(segGeom(ANCIEN_SHAPE), matPlayer);
+meshAncien.scale.setScalar(12 / 7.2 / PLANE_SCALE * 0.9);
+meshPionnier.frustumCulled = meshInter.frustumCulled = meshAncien.frustumCulled = false;
+playerMesh.add(meshInter, meshPionnier, meshAncien);
 function appliqueAvion() {
   if (!avionOuvert(avion())) avionChoisi = 'bimoteur';
   const id = avion().id;
   playerMesh.children[0].visible = playerMesh.children[1].visible = id === 'bimoteur';
   meshInter.visible = id === 'intercepteur';
   meshPionnier.visible = id === 'pionnier';
-  if (typeof propMesh !== 'undefined') propMesh.visible = id !== 'intercepteur';
+  meshAncien.visible = id === 'ancien';
+  // l'ancien a son hélice dans sa maquette : celle du jeu ferait double
+  if (typeof propMesh !== 'undefined') propMesh.visible = id !== 'intercepteur' && id !== 'ancien';
 }
 function appliqueTeinte() {
   const t = TEINTES.find(x => x.id === teinteChoisie) || TEINTES[0];
@@ -6247,6 +6326,32 @@ const REFUGE_ARRET = 3.4;        // secondes de roulage avant l'immobilité
 const REFUGE_SORTIE = 1.4;       // secondes après l'arrêt avant qu'il descende
 const REFUGE_CENTRE = 11;        // mètres devant le nez : le milieu de la scène
 // ---------------------------------------------------------------------------
+// LE COURANT. Il ne se déclenche pas, il se tient : le doigt reste posé, et
+// l'air porte. Dès qu'on lève le doigt, il retombe — en douceur, parce que
+// sortir d'un courant n'est pas un freinage, c'est une fin de portance.
+// ---------------------------------------------------------------------------
+// QUATRE VIRGULE HUIT, ET C'EST UN CALCUL. L'ancien croise à CRUISE × 0,62,
+// soit 48 m/s de consigne — c'est le plus lent du jeu, et ce doit l'être. Pour
+// qu'il devienne le plus RAPIDE dans un courant, il faut dépasser ce qu'un
+// biplan atteint en enchaînant les portails, autour de 230 m/s.
+//   78 × 0,62 × 4,8 = 232
+// Mesuré à 3,4 : il plafonnait à 161, c'est-à-dire à peine plus qu'une
+// croisière ordinaire. Un pouvoir qui ne se voit pas n'est pas un pouvoir.
+const COURANT_GAIN = 4.8;
+const COURANT_MONTEE = 1.8;   // secondes pour s'y couper entièrement
+const COURANT_CHUTE = 2.6;    // et pour en sortir
+function ouvreCourant() {
+  if (state.courant) return;
+  state.courant = true;
+  announce(t('courant'));
+  SFX.cale();
+}
+function fermeCourant() {
+  if (!state.courant) return;
+  state.courant = false;
+}
+
+// ---------------------------------------------------------------------------
 // LE PLAN DU REFUGE. Ces douze lignes ne sont pas des réglages : c'est un
 // terrain, dessiné de dessus dans une page faite pour ça, et reporté ici au
 // demi-mètre. Chaque pièce porte sa position — x en travers, z le long de la
@@ -7719,6 +7824,8 @@ const state = {
   gunT: 0,
   roquettes: [],
   roqEnnemies: [],    // les leurs
+  courant: false,     // l'ancien est couché dans un courant d'air
+  courantK: 0,        // de zéro à un : ce que le courant donne en ce moment
   pied: null,         // quand on marche : le bonhomme a pris la main
   jeep: null,         // quand on conduit : la Jeep a pris la main
   action: null,       // ce que le bouton du bas propose ici, s'il propose
@@ -8244,6 +8351,7 @@ function updateRefugePose(dt) {
 }
 
 function quitteRefuge() {
+  fermeCourant();
   if (piloteG) piloteG.visible = false;
   if (state.jeep) SFX.jeepOff();
   state.pied = null; state.jeep = null; state.action = null; majActionBtn();
@@ -10400,7 +10508,10 @@ function step(now) {
   else if (!state.running) auRalenti(dt);
   if (moteurG && moteur) {
     // le moteur tourne aussi au sol, plus bas et plus doux
-    const TG = (TIMBRES[timbre] || TIMBRES.clair).gain;
+    // l'appareil peut imposer son timbre : l'ancien est un planeur, quel que
+    // soit le réglage du menu
+    const tim = avion().timbre || timbre;
+    const TG = (TIMBRES[tim] || TIMBRES.clair).gain;
     // LE MOTEUR S'ÉTEINT AU REFUGE. Il n'y était pas coupé du tout : la boucle
     // rendait la main avant la simulation, la vitesse tombait à zéro, et les
     // trois oscillateurs restaient sur la fréquence du ralenti — un son fixe,
@@ -10431,7 +10542,7 @@ function step(now) {
     // au sol, le régime tient lieu de vitesse : le moteur s'entend monter
     // avant que l'appareil ne s'ébranle
     const vSon = Math.max(state.speed, state.regime * 62);
-    const T = TIMBRES[timbre] || TIMBRES.clair;
+    const T = TIMBRES[tim] || TIMBRES.clair;
     let f = (T.base * 0.51) + THREE.MathUtils.clamp(vSon, 0, SPEED_MAX) / SPEED_MAX * T.base * 0.63;
     // le nez bas monte dans l'aigu, le nez haut retombe
     if (state.running && !state.auSol) f *= 1 + 0.16 * Math.max(0, -state.forward.y) - 0.07 * Math.max(0, state.forward.y);
@@ -10747,8 +10858,14 @@ function simulate(dt) {
   const gainEff = state.boostPortail > 0 ? Math.max(gainBoost, BOOST_PORTAIL_GAIN) : gainBoost;
   const hSol = state.pos.y - SOL_Y;
   const coussin = 1 + SOL_EFFET * THREE.MathUtils.clamp(1 - hSol / SOL_EFFET_H, 0, 1);
+  // LE COURANT MONTE ET DESCEND, il ne claque pas. Un vent porteur met deux
+  // secondes à vous prendre et deux à vous rendre : c'est ce qui le distingue
+  // d'un bouton de turbo.
+  state.courantK = THREE.MathUtils.damp(state.courantK || 0, state.courant ? 1 : 0,
+                                        state.courant ? 1 / COURANT_MONTEE * 2.2 : 1 / COURANT_CHUTE * 2.2, dt);
+  const air = 1 + (COURANT_GAIN - 1) * state.courantK;
   const croisiere = CRUISE * avion().vit * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
-                  * coussin * (state.assist ? APPROCHE_GAIN : 1);
+                  * coussin * (state.assist ? APPROCHE_GAIN : 1) * air;
   const pesanteur = state.forward.y < 0 ? 2.6 : 1;
   // ELLES S'AJOUTENT. La poussée fixe une vitesse visée, la pesanteur en donne
   // une autre : tant que le plafond était à 205, le piqué d'un avion déjà
@@ -13531,6 +13648,7 @@ const T = {
     disqueCasseSous: 'il ne se jouait qu’une fois  ·  elle l’avait écrit',
     faucheurRompt: 'LE FAUCHEUR ROMPT',
     faucheurRomptSous: 'il ne passe pas la chaîne  ·  ici, il n’y a plus de guerre',
+    courant: 'DANS LE COURANT',
     enJeep: 'AU VOLANT  ·  EN HAUT ON ACCÉLÈRE, EN BAS ON FREINE',
     deJeep: 'À PIED',
     act_descendre: 'DESCENDRE',
@@ -13627,6 +13745,7 @@ const T = {
     disqueCasseSous: 'it only played once  ·  she had written as much',
     faucheurRompt: 'THE REAPER BREAKS OFF',
     faucheurRomptSous: 'it does not cross the range  ·  out here there is no war',
+    courant: 'IN THE CURRENT',
     enJeep: 'AT THE WHEEL  ·  UP TO ACCELERATE, DOWN TO BRAKE',
     deJeep: 'ON FOOT',
     act_descendre: 'GET OUT',
@@ -14244,6 +14363,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.21', fr: 'L’avion ancien se pilote : on l’ouvre en ayant posé les roues au refuge, une fois.', en: 'The old aircraft can be flown: it opens once you have put the wheels down at the refuge.' },
+  { v: '1.21', fr: 'Il n’a presque pas de moteur, et c’est le seul avec lequel on entend le ciel.', en: 'It has almost no engine, and it is the only one you can hear the sky from.' },
+  { v: '1.21', fr: 'Double appui maintenu : il trouve un courant, et plus rien ne va aussi vite.', en: 'Double tap and hold: it finds a current, and nothing else goes that fast.' },
   { v: '1.20', fr: 'La nappe du sol était peinte de la couleur du ciel, et posée au-dessus du relief.', en: 'The ground sheet was painted the colour of the sky, and sat above the terrain.' },
   { v: '1.20', fr: 'Aucun message ne dépasse plus de l’écran : il rétrécit, puis il se coupe en deux.', en: 'No message runs off the screen any more: it shrinks, then it breaks in two.' },
   { v: '1.20', fr: 'La lettre est écrite d’une seule écriture, signature comprise.', en: 'The letter is written in one hand, signature included.' },
@@ -14933,6 +15055,15 @@ window.addEventListener('pointerdown', e => {
       state.fig = { t: 0, side: -side, type: dy > 0 ? 'split' : 'imm',
                     base: state.quat.clone(), yaw0: state.yaw };
       SFX.renversement();
+    } else if (avion().courant) {
+      // LES COURANTS D'AIR. L'ancien ne fait pas de tonneau — un planeur
+      // haubané ne se retourne pas — mais il sait lire l'air. Au double appui
+      // MAINTENU, il trouve un courant et s'y couche : tant que le doigt reste
+      // posé, plus rien dans le jeu ne va aussi vite. Relâcher le lâche.
+      //
+      // C'est le seul pouvoir du jeu qui ne s'active pas, qui se TIENT : on ne
+      // l'a pas, on l'occupe.
+      ouvreCourant();
     } else {
       state.spinT = SPIN_TIME;
       state.spinSide = side;
@@ -15022,6 +15153,9 @@ function releasePointer(e) {
   trace.length = 0;
   joy.on = false;
   aim.active = false;
+  // ON LÂCHE LE COURANT EN LÂCHANT LE DOIGT. C'est toute la mécanique : il ne
+  // se coupe pas, il cesse d'être tenu.
+  fermeCourant();
 }
 window.addEventListener('pointerup', releasePointer, { passive: true });
 window.addEventListener('pointercancel', releasePointer, { passive: true });
