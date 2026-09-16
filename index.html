@@ -826,7 +826,6 @@
     <button id="lettreFerme"></button>
   </div>
 </div>
-<button id="poserBtn" hidden data-en="LAND">POSER</button>
 <button id="installPastille" hidden data-en="INSTALL · NO NETWORK NEEDED">INSTALLER · SANS RÉSEAU</button>
 <button id="majPastille" hidden data-en="ONE CLICK FREE UPDATE">MISE À JOUR GRATUITE EN UN CLIC</button>
 
@@ -5199,91 +5198,145 @@ let papiMesh = null, papiCouleurs = null;
 })();
 
 // ---------------------------------------------------------------------------
-// LES DEUX PORTES. Un cercle en l'air devant chaque seuil, pose sur le plan
-// des trois degres : le franchir dans le bon sens — vers la piste — est ce qui
-// ouvre le droit de se poser. C'est plus franc qu'un couloir invisible : on
-// voit la porte de loin, on voit qu'on la passe, et le bouton apparait a ce
-// moment precis et a aucun autre.
-//
-// Elle est a 1 100 m du point vise, donc a 58 m de haut sur la pente, et fait
-// 32 m de diametre : presque trois envergures.
-// ---------------------------------------------------------------------------
-const PORTE_DIST = 750;                              // du point vise (le PAPI)
-// Seize metres de rayon et non trente-six : le centre est sur le plan, mais
-// avec trente-six on pouvait passer par le haut du cercle a 94 m, soit 4,9
-// degres — quatre blancs, « trop haut ». A seize, le haut du cercle fait 3,8
-// degres et le bas 2,2 : au pire un peu haut ou un peu bas, jamais hors du
-// plan. Passer la porte veut dire etre a la bonne hauteur, ou ca ne veut rien.
-const PORTE_R = 16;
-const PORTE_H = PISTE.y + PORTE_DIST * Math.tan(PENTE_CIBLE);
-const PORTE_VALIDE = 10;
-const ALIGN_TENUE = 2;
 // L'EFFET DE SOL. Près du sol, l'aile s'appuie sur un coussin d'air : la
-// traînée induite s'effondre et l'avion gagne pour rien. Ici cela devient
-// vingt pour cent de vitesse en plus sous quarante mètres — la hauteur des
-// portails posés au sol. Rien ne l'écrit à l'écran : on le sent en rasant, et
-// c'est ce qui rend le vol au ras des pâquerettes payant au lieu d'être
-// seulement dangereux.
-// LE COUSSIN. Épaisseur de la bande où le sol reprend la main, poussée à
-// pleine profondeur, et l'assiette vers laquelle le nez se relève tout seul.
-const SOL_COUSSIN   = 14;     // mètres
+// traînée induite s'effondre et l'avion gagne pour rien. Rien ne l'écrit à
+// l'écran : on le sent en rasant, et c'est ce qui rend le vol au ras des
+// pâquerettes payant au lieu d'être seulement dangereux.
+const SOL_COUSSIN   = 14;     // mètres : l'épaisseur de la bande où le sol reprend la main
 const SOL_POUSSEE   = 34;     // mètres par seconde, au plus bas du coussin
 const SOL_ASSIETTE  = 0.05;   // radians : trois degrés de nez haut, pas plus
 const SOL_EFFET_H   = 40;     // mètres sous lesquels le coussin d'air porte
 const SOL_EFFET     = 0.20;   // ce qu'il rend, au contact du sol
-const TOUCHER_AVANT = 300;    // mètres avant le hangar où l'approche assistée pose les roues
-const APPROCHE_GAIN = 1.45;                           // vitesse de l'approche assistée, en part de la croisière                                // secondes d'alignement parfait avant que l'approche s'engage seule                              // secondes pendant lesquelles POSER reste offert
-const PORTES = [
-  { z: PAPI_Z + PORTE_DIST, sens: -1 },   // on la passe en volant vers le nord (z decroissant)
-  { z: PAPI_Z - PORTE_DIST, sens:  1 },   // et celle-ci vers le sud
-];
-let portesMat = null;
-(function poserPortes() {
-  const r = [];
-  for (const P of PORTES) {
-    const n = 64;
-    for (let i = 0; i < n; i++) {
-      const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
-      r.push(Math.cos(a0) * PORTE_R, PORTE_H + Math.sin(a0) * PORTE_R, P.z,
-             Math.cos(a1) * PORTE_R, PORTE_H + Math.sin(a1) * PORTE_R, P.z);
+const TOUCHER_AVANT = 300;    // mètres avant le hangar : le point que vise le tube
+// LE TUBE GUIDE, IL NE POUSSE PAS. L'approche assistée accélérait d'un tiers
+// pour « aller vite » ; accélérer pendant une approche est le contraire de ce
+// qu'on veut, et c'est elle qui faisait flotter l'appareil au-dessus du bitume.
+const APPROCHE_GAIN = 1.0;
+const ALIGN_TENUE   = 2;      // gardée pour la jauge du collimateur
+
+// ---------------------------------------------------------------------------
+// LE TUBE.
+//
+// Il y avait un cercle en l'air, un bouton POSER, et deux secondes
+// d'alignement parfait à tenir. Trois mécanismes pour une seule chose — se
+// poser — et aucun des trois ne ressemble à ce qu'on fait vraiment en
+// approche. On ne franchit pas une porte : on rentre dans un couloir, et le
+// couloir vous tient.
+//
+// C'est donc un tube. Il part à sept cent cinquante mètres du point visé, sur
+// la pente de trois degrés, et il se resserre en entonnoir : vingt-six mètres
+// de rayon à l'entrée, neuf à la sortie. On le voit de loin, on voit qu'on
+// entre dedans, et on voit qu'on y est.
+//
+// Et dedans, ÇA TIENT. Un magnétisme, très doux, qui ramène le nez vers l'axe
+// et l'assiette vers la pente — d'autant plus fort qu'on est près du centre,
+// et d'autant plus faible qu'on pousse sur le manche. On peut en sortir à tout
+// moment : il suffit de forcer. C'est la différence entre une aide et une
+// laisse.
+// ---------------------------------------------------------------------------
+const TUBE_DIST = 750;        // longueur du couloir, depuis le point visé
+// QUARANTE MÈTRES À L'ENTRÉE, ET NON VINGT-SIX. Mesuré : arrivé en palier à
+// cinquante-huit mètres — la hauteur normale d'un retour de vague — on passait
+// juste à côté de la bouche et le tube ne prenait jamais. Une entrée
+// d'entonnoir doit être large : c'est la SORTIE qui doit être précise. À
+// quarante, la bouche va du sol à quatre-vingts mètres ; à neuf, au bout, elle
+// tient l'appareil dans la largeur de la piste.
+const TUBE_R0 = 40;           // rayon à l'entrée
+const TUBE_R1 = 9;            // rayon à la sortie, au-dessus du toucher
+const TUBE_ANNEAUX = 9;
+// DEUX, ET NON 1,15. Mesuré : entré par le haut de la bouche, la prise valait
+// 0,28, donc un rappel de 0,32 rad/s — trop faible pour ramener vers le centre
+// avant la fin du couloir, et comme la prise croît avec la proximité, on
+// restait faible parce qu'on restait loin. Un serpent qui se mord la queue.
+const TUBE_PRISE = 2.0;       // rad/s de rappel quand on est pile au centre
+const TUBE_LACHE = 0.55;      // au-delà de cette poussée au manche, il lâche
+
+// le rayon du tube à une distance donnée du point visé
+function tubeRayon(d) {
+  const u = THREE.MathUtils.clamp(d / TUBE_DIST, 0, 1);
+  return TUBE_R1 + (TUBE_R0 - TUBE_R1) * u;
+}
+// la hauteur de l'axe du tube à cette distance
+function tubeHaut(d) { return PISTE.y + d * Math.tan(PENTE_CIBLE); }
+
+let tubeMesh = null;
+(function poserTube() {
+  const g = new THREE.Group();
+  for (const sens of [-1, 1]) {
+    const pts = [];
+    const zc = PAPI_Z - sens * TOUCHER_AVANT;      // le point visé de ce côté
+    const prec = [];
+    for (let a = 0; a <= TUBE_ANNEAUX; a++) {
+      const d = TUBE_DIST * a / TUBE_ANNEAUX;
+      const r = tubeRayon(d), y = tubeHaut(d);
+      const z = zc - sens * d;
+      const n = 28, cur = [];
+      for (let i = 0; i < n; i++) {
+        const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
+        pts.push(Math.cos(a0) * r, y + Math.sin(a0) * r, z,
+                 Math.cos(a1) * r, y + Math.sin(a1) * r, z);
+      }
+      // quatre longerons : sans eux ce sont des anneaux, pas un tube
+      for (let k = 0; k < 4; k++) {
+        const ak = k / 4 * Math.PI * 2;
+        cur.push([Math.cos(ak) * r, y + Math.sin(ak) * r, z]);
+      }
+      if (prec.length) for (let k = 0; k < 4; k++)
+        pts.push(prec[k][0], prec[k][1], prec[k][2], cur[k][0], cur[k][1], cur[k][2]);
+      prec.length = 0; prec.push(...cur);
     }
-    // juste un cercle : les reperes et le mat brouillaient plus qu'ils ne
-    // situaient
+    const li = new THREE.LineSegments(segGeom(pts), lineMat(COL_LINE, 0.30));
+    li.frustumCulled = false;
+    li.visible = false;
+    li.userData.sens = sens;
+    g.add(li);
   }
-  portesMat = lineMat(COL_LINE, 0.55);
-  const li = new THREE.LineSegments(segGeom(r), portesMat);
-  li.frustumCulled = false;
-  scene.add(li);
+  scene.add(g);
+  tubeMesh = g;
 })();
 
-// LE FRANCHISSEMENT. On regarde si, entre deux images, l'avion a traverse le
-// plan de la porte, dans le bon sens, et a l'interieur du cercle. Le test se
-// fait sur le segment parcouru et non sur la position : a cent metres par
-// seconde on saute quatre metres par image, et un test « suis-je dans le
-// disque » pouvait manquer la porte.
-const _zAvant = { v: null };
-function majPortes() {
-  const z = state.pos.z;
-  if (_zAvant.v !== null && state.running) {
-    for (const P of PORTES) {
-      const a = _zAvant.v - P.z, b = z - P.z;
-      if (a * b > 0) continue;                             // pas traverse
-      const versPiste = (P.sens < 0 && b < a) || (P.sens > 0 && b > a);
-      if (!versPiste) continue;
-      const u = Math.abs(a) / Math.max(1e-6, Math.abs(a - b));
-      // hauteur et laterale au moment du passage, interpolees sur le segment
-      const y = state.pos.y - (state.pos.y - _yAvant.v) * (1 - u);
-      const x = state.pos.x - (state.pos.x - _xAvant.v) * (1 - u);
-      if (Math.hypot(x, y - PORTE_H) <= PORTE_R) {
-        state.porteT = PORTE_VALIDE;
-        announce(t('porte'));
-        SFX.cale();
-      }
-    }
-  }
-  _zAvant.v = z; _yAvant.v = state.pos.y; _xAvant.v = state.pos.x;
+// OÙ L'ON EST DANS LE TUBE. Renvoie la distance au point visé, l'écart à
+// l'axe, et la prise — de zéro dehors à un au centre.
+const TUBE = { dedans: false, tient: false, d: 0, ecart: 0, prise: 0, sens: -1, cx: 0, cy: 0 };
+function majTube() {
+  const sens = state.forward.z < 0 ? -1 : 1;
+  const zc = PAPI_Z - sens * TOUCHER_AVANT;
+  const d = (state.pos.z - zc) * -sens;          // positif : on est en amont
+  TUBE.sens = sens;
+  TUBE.d = d;
+  TUBE.dedans = false;
+  TUBE.prise = 0;
+  if (d < -40 || d > TUBE_DIST || defiEst('sansPiste') || avance.sansAtterrir
+      || state.pose || state.roulage || state.refuge) { TUBE.tient = false; return; }
+  const r = tubeRayon(Math.max(0, d));
+  TUBE.cx = 0;
+  TUBE.cy = tubeHaut(Math.max(0, d));
+  const ex = state.pos.x - TUBE.cx, ey = state.pos.y - TUBE.cy;
+  TUBE.ecart = Math.hypot(ex, ey);
+  // le cap doit aller vers la piste, sinon on ne fait que traverser le couloir
+  const capOk = Math.abs(state.forward.z) > Math.cos(28 * Math.PI / 180);
+  if (!capOk) return;
+  TUBE.dedans = TUBE.ecart < r;
+  // LA PRISE : pleine au centre, nulle au bord. Le carré adoucit l'entrée —
+  // on n'est pas happé en franchissant la paroi, ça vient progressivement.
+  // LA PRISE NE DOIT PAS SE MESURER À LA PAROI.
+  //
+  // Elle valait « un moins l'écart sur le rayon » : plus l'entonnoir se
+  // resserre, plus le même écart compte, donc la prise S'EFFONDRE au moment
+  // précis où elle devrait tenir. Mesuré : entrée à 0,38, puis 0,20 à
+  // mi-chemin, puis 0,05 à trois cents mètres du but — l'appareil descendait
+  // de 57 à 24 mètres, s'y arrêtait, et survolait le terrain.
+  //
+  // Un aimant ne fonctionne pas comme ça : il attrape, il tient, et on en sort
+  // en tirant. La prise est donc pleine dès qu'on est franchement dedans — un
+  // tiers du rayon suffit — et elle ne retombe qu'au bord. Et une fois prise,
+  // elle garde jusqu'à quarante pour cent au-delà de la paroi : sans cette
+  // hystérésis, le moindre écart la fait clignoter.
+  const marge = TUBE.tient ? r * 1.4 : r;
+  const k = THREE.MathUtils.clamp((marge - TUBE.ecart) / (r * 0.35), 0, 1);
+  TUBE.prise = k;
+  TUBE.tient = k > 0.02;
 }
-const _yAvant = { v: 0 }, _xAvant = { v: 0 };
 
 // L'ÉTAT DU PLAN DE DESCENTE, relu à chaque image. Tout l'atterrissage tient
 // dans ces quelques nombres : l'angle sous lequel le PAPI voit l'appareil, son
@@ -5322,7 +5375,9 @@ function majPlan() {
   // couloir des deux blancs reste ce qu'il est — une aide a lire au
   // collimateur — mais il ne decide plus : on voyait le bouton apparaitre sans
   // savoir pourquoi, et disparaitre de meme. La porte, on la voit passer.
-  PLAN.pret = state.porteT > 0 && devant && !state.pose && !state.roulage
+  // « prêt » ne veut plus dire « une porte a été franchie » mais « le couloir
+  // est là, et il est pour nous » : c'est ce que le collimateur doit dire.
+  PLAN.pret = devant && !state.pose && !state.roulage
             && state.pos.y > PISTE.y + 5 && !defiEst('sansPiste') && !avance.sansAtterrir;
 }
 
@@ -7740,12 +7795,11 @@ function fermeAuClicDehors(panneau, cadre, ferme) {
   });
 }
 fermeAuClicDehors(lettrePan, '.feuille', fermeLettre);
-const poserBtn = document.getElementById('poserBtn');
-poserBtn.addEventListener('click', e => {
-  e.stopPropagation();
-  // Deuxième appui : on rend la main. Le bouton n'enferme personne.
-  state.assist = !state.assist;
-});
+// LE BOUTON POSER N'EXISTE PLUS. Il demandait d'appuyer pour dire ce que la
+// trajectoire disait déjà — et il fallait ensuite tirer franchement pour
+// annuler ce qu'un appui avait engagé. Le tube remplace les deux : on y entre,
+// il tient ; on force, il lâche. Rien à presser, rien à annuler.
+const poserBtn = null;
 redecoBtn.addEventListener('click', e => {
   e.stopPropagation();
   if (state.refuge) quitteRefuge(); else redecoller();
@@ -7786,7 +7840,6 @@ function toucherPiste() {
 
 function resetGame() {
   _camDecal.val = 0;
-  _zAvant.v = null;     // sinon la premiere image compare avec la partie d'avant
   state.dureeVol = 0;
   state.reprises = 0;
   expliqueBtn.hidden = true;
@@ -7812,7 +7865,6 @@ function resetGame() {
   state.scrapeT = 0;
   state.roulage = null;
   state.assist = false;
-  state.porteT = 0;
   state.pose = null;
   redecoBtn.hidden = true;
   for (const a of arches) a.prise = false;
@@ -10534,64 +10586,52 @@ function simulate(dt) {
   // coupe. Ce qui déclenche l'atterrissage, ce sont les roues sur le bitume,
   // rien d'autre.
   // ---------------------------------------------------------------------
-  majPortes();
-  if (state.porteT > 0) state.porteT -= dt;
   majPlan();
   majPapi();
+  majTube();
+  // le tube ne se montre que du bon côté, et seulement quand on vient vraiment
+  if (tubeMesh) for (const li of tubeMesh.children)
+    li.visible = PLAN.lisible && li.userData.sens === TUBE.sens && TUBE.d > -20;
 
-  // le manche reprend toujours le dessus, et sortir du plan coupe aussi
-  // il faut TIRER FRANCHEMENT pour annuler : un frôlement du manche ne
-  // coupe plus l'approche
-  if (state.assist && (Math.abs(dx) > 0.6 || Math.abs(dy) > 0.6
-      || !PLAN.devant || state.pos.y <= SOL_Y + 1)) {
-    state.assist = false;
-    state.alignT = 0;
-  }
-  // LA BARRE. Pile dans l'axe et sur le plan, sans rien faire, deux secondes :
-  // l'approche s'engage seule, comme si le bouton avait été pressé.
+  // LE MAGNÉTISME. Plus de bouton, plus de barre à tenir : c'est la géométrie
+  // qui décide. Entrer dans le tube suffit à être pris, en sortir suffit à le
+  // quitter, et forcer au manche le fait lâcher sans qu'on ait rien à annuler.
   {
-    const capVoulu = PLAN.sens < 0 ? 0 : Math.PI;
-    let dCap = (state.yaw - capVoulu) % (Math.PI * 2);
-    if (dCap > Math.PI) dCap -= Math.PI * 2; if (dCap < -Math.PI) dCap += Math.PI * 2;
-    const aligne = PLAN.pret && !state.assist && Math.abs(PLAN.ecart) < 0.007
-                && Math.abs(state.pos.x) < PISTE.demiL && Math.abs(dCap) < 0.06;
-    state.alignT = aligne ? (state.alignT || 0) + dt : 0;
-    if (state.alignT >= ALIGN_TENUE) { state.assist = true; state.alignT = 0; SFX.arme(); }
-    // ILS SORTENT DÈS QUE L'APPROCHE EST ENGAGÉE : le temps qu'on descende,
-    // ils ont traversé le terrain, et ils sont déjà là quand les roues
-    // s'arrêtent. On ne les voit plus apparaître, on les voit venir.
+    const pousse = Math.max(Math.abs(dx), Math.abs(dy));
+    const mou = THREE.MathUtils.clamp(1 - pousse / TUBE_LACHE, 0, 1);
+    const tenu = TUBE.prise * mou;
+    const avantPris = state.assist;
+    state.assist = tenu > 0.05 && state.pos.y > SOL_Y + 1;
+    if (state.assist && !avantPris) SFX.arme();         // on sent qu'il prend
+    if (tenu > 0.01) {
+      // L'AXE. On vise un point du centre du tube quatre cents mètres devant :
+      // l'appareil rejoint la ligne au lieu de la couper.
+      const devant = TUBE.sens < 0 ? -400 : 400;
+      const voulu = Math.atan2(state.pos.x, -devant);
+      const avantYaw = state.yaw;
+      state.yaw = dampAngle(state.yaw, voulu, TUBE_PRISE * tenu, dt);
+      let dyaw = state.yaw - avantYaw;
+      if (dyaw > Math.PI) dyaw -= Math.PI * 2; else if (dyaw < -Math.PI) dyaw += Math.PI * 2;
+      state.roll = THREE.MathUtils.damp(state.roll,
+        THREE.MathUtils.clamp(dyaw / Math.max(dt, 1e-4) * ROLL_FACTOR, -0.9, 0.9), 6, dt);
+      // LA PENTE SUIT L'AXE, PAS UN POINT. On visait le fond du couloir avec
+      // une arc-tangente : ça donne la pente qui mène au but depuis là où l'on
+      // est, ce qui est juste — mais ça n'a aucune mémoire de l'erreur, donc
+      // l'appareil traîne en permanence vingt mètres au-dessus sans jamais
+      // rattraper. On lit maintenant l'ÉCART à l'axe, et on corrige la pente
+      // nominale en proportion : trop haut, ça pique un peu plus ; trop bas,
+      // ça redresse ; sur l'axe, ça tient les trois degrés. C'est ce que fait
+      // n'importe quel pilote qui suit un plan.
+      const err = state.pos.y - tubeHaut(Math.max(0, TUBE.d));
+      const corr = THREE.MathUtils.clamp(err / 260, -0.035, 0.055);
+      const vise = -(PENTE_CIBLE + corr);
+      state.pitch = THREE.MathUtils.damp(state.pitch, vise, TUBE_PRISE * tenu, dt);
+    }
+    // ILS SORTENT DÈS QUE LE TUBE NOUS TIENT : le temps qu'on descende, ils
+    // ont traversé le terrain, et ils sont déjà là quand les roues s'arrêtent.
     if (state.assist && !state.mecanosEnRoute) { state.mecanosEnRoute = true; mecanosVersArret(); }
     if (!state.assist && !state.roulage && !state.pose) state.mecanosEnRoute = false;
   }
-  if (state.assist) {
-    // On ne téléporte rien, on tire doucement sur le manche à ta place. La
-    // consigne est la pente de trois degrés et l'axe de la piste, avec la même
-    // autorité qu'un doigt posé — donc elle rate si l'approche était perdue
-    // d'avance, ce qui est le seul comportement honnête.
-    // ON VISE LE POINT DE TOUCHER, PAS LE MILIEU. Le plan de descente mène aux
-    // feux, qui sont au milieu de la piste — et le hangar aussi. On touchait
-    // donc à sa hauteur, on roulait, et on s'arrêtait bien après. L'approche
-    // assistée vise maintenant un point situé trois cents mètres AVANT le
-    // hangar : la pente est celle qui y mène exactement, et les trois cents
-    // mètres qui restent sont le freinage. On s'arrête pile devant la porte.
-    const zToucher = AERO.z - PLAN.sens * TOUCHER_AVANT;
-    const dzT = Math.max(40, Math.abs(state.pos.z - zToucher));
-    const hT = Math.max(0, state.pos.y - PISTE.y);
-    const voulue = -THREE.MathUtils.clamp(Math.atan2(hT, dzT), PENTE_CIBLE * 0.5, 0.20);
-    state.pitch = THREE.MathUtils.damp(state.pitch, voulue, 1.8, dt);
-    // On vise un point de l'axe cinq cents mètres devant : l'appareil rejoint
-    // la ligne au lieu de la croiser. forward vaut (−sin lacet, 0, −cos lacet),
-    // d'où l'arc-tangente.
-    const devant = PLAN.sens < 0 ? -500 : 500;
-    const voulu = Math.atan2(state.pos.x, -devant);
-    const avant = state.yaw;
-    state.yaw = dampAngle(state.yaw, voulu, 1.8, dt);
-    let d = state.yaw - avant;
-    if (d > Math.PI) d -= Math.PI * 2; else if (d < -Math.PI) d += Math.PI * 2;
-    state.roll = THREE.MathUtils.damp(state.roll,
-      THREE.MathUtils.clamp(d / Math.max(dt, 1e-4) * ROLL_FACTOR, -0.9, 0.9), 6, dt);
-  }
-
   // la poursuite ne change pas la poussée, elle change la vitesse visée :
   // l'avion y monte donc par le même chemin que d'habitude, sans à-coup
   // TANT QU'ON EST LOIN, ÇA CONTINUE D'ACCÉLÉRER : le gain monte avec le temps
@@ -13297,12 +13337,7 @@ function refreshBars() {
   // quatre carres du collimateur qui disent pourquoi, eux sont toujours la.
   // le bouton disparaît dès que l'approche est engagée : pour l'annuler, on
   // tire sur le manche, pas sur un bouton
-  const montrer = PLAN.pret && !state.assist && state.running
-                && !state.pose && !state.roulage && !state.takeoff && !state.fig;
-  poserBtn.hidden = !montrer;
-  poserBtn.classList.toggle('pret', montrer);
-  poserBtn.classList.remove('actif');
-  poserBtn.style.setProperty('--charge', Math.min(1, (state.alignT || 0) / ALIGN_TENUE).toFixed(3));
+  // plus rien à afficher ici : c'est le tube, dans le monde, qui dit tout
 }
 
 const changelog = document.getElementById('changelog');
@@ -14067,6 +14102,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.19', fr: 'Plus de cercle ni de bouton POSER : un tube en entonnoir montre la trajectoire.', en: 'No more circle and no more LAND button: a funnel-shaped tube shows the path.' },
+  { v: '1.19', fr: 'Il attrape en douceur, il tient, et il lâche dès qu’on force au manche.', en: 'It catches gently, it holds, and it lets go the moment you force the stick.' },
+  { v: '1.19', fr: 'L’approche n’accélère plus : un tube guide, il ne pousse pas.', en: 'The approach no longer speeds up: a tube guides, it does not push.' },
   { v: '1.18', fr: 'On ne lit plus une pique en mourant, mais un indice sur ce qu’on n’a pas encore trouvé.', en: 'You no longer read a jab when you die, but a hint about what you have not found yet.' },
   { v: '1.18', fr: 'Chaque indice s’éteint quand la chose est trouvée, et à la fin il n’en reste qu’un.', en: 'Each hint goes out once the thing is found, and at the end only one remains.' },
   { v: '1.18', fr: 'Le faucheur ne passe pas la chaîne : au-delà, il rompt et rentre.', en: 'The reaper does not cross the range: past it, it breaks off and goes home.' },
@@ -14625,7 +14663,6 @@ function gameOver(victoire) {
   state.auSol = false;   // l'épave ne ronronne pas
   state.roulage = null;
   state.assist = false;
-  state.porteT = 0;
   state.pose = null;
   redecoBtn.hidden = true;
   SFX.fin();
@@ -15065,7 +15102,7 @@ function litManette() {
   // moments où l'on décide de toucher le bitume ou de le quitter.
   if (neuf(0)) {
     if (state.pose) redecoller();
-    else if (!poserBtn.hidden) state.assist = !state.assist;
+
     else if (!overlay.hidden) startBtn.click();
   }
   boutonsAvant = b;
