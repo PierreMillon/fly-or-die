@@ -2231,7 +2231,9 @@ function finMusique() {
   if (!disqueCasse) {
     disqueCasse = true;
     try { localStorage.setItem('fod_disque', 'casse'); } catch (e) {}
-    setTimeout(() => { announce(t('disqueCasse'), t('disqueCasseSous')); }, 2600);
+    // il se fend sous les yeux, puis on le dit
+    setTimeout(() => { casseDisqueVu(); SFX.eraflure(); }, 2400);
+    setTimeout(() => { announce(t('disqueCasse'), t('disqueCasseSous')); }, 3000);
   }
   if (musiqueG && actx) {
     const tf = actx.currentTime;
@@ -6131,6 +6133,12 @@ function surLaBande(p) {
   return _rb;
 }
 let refugeG = null, piloteG = null, panneauG = null, jeepG = null;
+// LE DISQUE ET LE PAVILLON. On retient où ils sont, dans le repère du terrain,
+// pour y poser deux objets qui bougent : le plateau qui tourne, et les notes
+// qui s'en échappent.
+const posteLocal = new THREE.Vector3(), pavillonLocal = new THREE.Vector3();
+let disqueMesh = null, notesG = null;
+const notes = [];
 let jeepRamenee = false;
 try { jeepRamenee = localStorage.getItem('fod_jeep') === '1'; } catch (e) {}
 // LE DISQUE SE CASSE QUAND IL EST FINI. Pas « il ne se rejoue pas cette
@@ -6359,12 +6367,11 @@ try { disqueCasse = localStorage.getItem('fod_disque') === 'casse'; } catch (e) 
       // LE GRAMOPHONE : le plateau, le disque, le bras, et le pavillon qui
       // s'ouvre. C'est le pavillon qui fait qu'on le reconnaît de loin.
       const gx = tx + 0.42, gy = ty + 0.06;
-      for (let k = 0; k < 14; k++) {
-        const a0 = k / 14 * Math.PI * 2, a1 = (k + 1) / 14 * Math.PI * 2, r0 = 0.22;
-        q.push(gx + Math.cos(a0) * r0, gy, tz + Math.sin(a0) * r0,
-               gx + Math.cos(a1) * r0, gy, tz + Math.sin(a1) * r0);
-      }
-      q.push(gx, gy, tz, gx, gy + 0.05, tz);
+      q.push(gx, gy, tz, gx, gy + 0.05, tz);                 // l'axe du plateau
+      // LE DISQUE LUI-MÊME VIT AILLEURS : il tourne, et il casse. On garde
+      // seulement sa position, pour aller l'y poser.
+      posteLocal.set(gx, gy, tz);
+      pavillonLocal.set(gx, gy + 0.62, tz + 0.10);
       q.push(gx + 0.20, gy + 0.03, tz + 0.16, gx - 0.04, gy + 0.02, tz - 0.02);   // le bras
       for (let k = 0; k < 10; k++) {                      // le pavillon
         const a0 = k / 10 * Math.PI * 2, a1 = (k + 1) / 10 * Math.PI * 2;
@@ -6684,6 +6691,139 @@ try { disqueCasse = localStorage.getItem('fod_disque') === 'casse'; } catch (e) 
   scene.add(g);
   refugeG = g;
 })();
+
+// ---------------------------------------------------------------------------
+// LE DISQUE QUI TOURNE, ET QUI CASSE.
+//
+// Un disque qu'on entend mais qu'on ne voit pas tourner n'est pas un disque :
+// c'est un fichier. Et un disque qui « ne se rejoue plus » sans qu'on ait vu
+// quoi que ce soit se passer n'est pas cassé : c'est une règle. Il fallait que
+// les deux se voient.
+//
+// Il tourne donc, à soixante-dix-huit tours par minute — la vitesse des
+// gommes-laques de l'époque, 8,17 radians par seconde — et son sillon tourne
+// avec lui, ce qui est la seule façon de voir qu'un cercle tourne. À la fin
+// du morceau il se fend : trois éclats qui s'écartent, basculent, et
+// s'arrêtent. Puis plus rien ne bouge sur le plateau.
+// ---------------------------------------------------------------------------
+const DISQUE_R = 0.22;
+const DISQUE_TOURS = 78 * Math.PI * 2 / 60;   // 78 tours/minute, en radians/s
+function batisDisqueVu() {
+  if (disqueMesh || !refugeG) return;
+  const p = [];
+  const n = 18;
+  for (let k = 0; k < n; k++) {
+    const a0 = k / n * Math.PI * 2, a1 = (k + 1) / n * Math.PI * 2;
+    for (const r of [DISQUE_R, DISQUE_R * 0.42])
+      p.push(Math.cos(a0) * r, 0, Math.sin(a0) * r,
+             Math.cos(a1) * r, 0, Math.sin(a1) * r);
+  }
+  // quatre rayons : sans eux, un cercle qui tourne ne tourne pas
+  for (let k = 0; k < 4; k++) {
+    const a0 = k / 4 * Math.PI * 2;
+    p.push(Math.cos(a0) * DISQUE_R * 0.42, 0, Math.sin(a0) * DISQUE_R * 0.42,
+           Math.cos(a0) * DISQUE_R, 0, Math.sin(a0) * DISQUE_R);
+  }
+  disqueMesh = new THREE.Group();
+  disqueMesh.add(new THREE.LineSegments(segGeom(p), lineMat(COL_TEXT, 0.8)));
+  disqueMesh.position.copy(posteLocal);
+  refugeG.add(disqueMesh);
+
+  notesG = new THREE.Group();
+  refugeG.add(notesG);
+}
+
+// LES ÉCLATS. Le disque se fend en trois, les morceaux s'écartent d'un doigt
+// et basculent. Ce n'est pas une explosion : c'est une gomme-laque qui cède.
+function casseDisqueVu() {
+  if (!disqueMesh) return;
+  for (let i = disqueMesh.children.length - 1; i >= 0; i--) {
+    const o = disqueMesh.children[i];
+    disqueMesh.remove(o); o.geometry.dispose();
+  }
+  for (let m = 0; m < 3; m++) {
+    const a0 = m / 3 * Math.PI * 2 + 0.3, a1 = (m + 1) / 3 * Math.PI * 2 + 0.3;
+    const p = [];
+    const n = 6;
+    for (let k = 0; k < n; k++) {
+      const b0 = a0 + (a1 - a0) * k / n, b1 = a0 + (a1 - a0) * (k + 1) / n;
+      p.push(Math.cos(b0) * DISQUE_R, 0, Math.sin(b0) * DISQUE_R,
+             Math.cos(b1) * DISQUE_R, 0, Math.sin(b1) * DISQUE_R);
+    }
+    p.push(0, 0, 0, Math.cos(a0) * DISQUE_R, 0, Math.sin(a0) * DISQUE_R);
+    p.push(0, 0, 0, Math.cos(a1) * DISQUE_R, 0, Math.sin(a1) * DISQUE_R);
+    const g = new THREE.Group();
+    g.add(new THREE.LineSegments(segGeom(p), lineMat(COL_TEXT, 0.55)));
+    const am = (a0 + a1) / 2;
+    g.position.set(Math.cos(am) * 0.07, 0.004 * m, Math.sin(am) * 0.07);
+    g.rotation.set((m - 1) * 0.12, 0, (m % 2 ? 1 : -1) * 0.09);
+    disqueMesh.add(g);
+  }
+}
+
+// UNE NOTE. Une tête ovale penchée, une hampe, un crochet : une croche, telle
+// qu'on la dessine à la main. Elle sort du pavillon, monte en tournant un peu,
+// s'écarte, et s'efface. Rien n'en dépend, et c'est pour ça qu'on la met.
+const NOTE_PAS = 0.62;        // secondes entre deux notes, en moyenne
+const NOTE_VIE = 3.4;
+function semeNote() {
+  if (!notesG) return;
+  const p = [];
+  const r = 0.035, h = 0.13;
+  for (let k = 0; k < 8; k++) {                       // la tête
+    const a0 = k / 8 * Math.PI * 2, a1 = (k + 1) / 8 * Math.PI * 2;
+    p.push(Math.cos(a0) * r * 1.35, Math.sin(a0) * r, 0,
+           Math.cos(a1) * r * 1.35, Math.sin(a1) * r, 0);
+  }
+  p.push(r * 1.3, 0, 0, r * 1.3, h, 0);               // la hampe
+  const croche = Math.random() < 0.55;
+  if (croche) {
+    p.push(r * 1.3, h, 0, r * 1.3 + 0.05, h - 0.035, 0);
+    p.push(r * 1.3 + 0.05, h - 0.035, 0, r * 1.3 + 0.03, h - 0.075, 0);
+  }
+  const g = new THREE.LineSegments(segGeom(p), lineMat(COL_TEXT, 0.85));
+  g.position.copy(pavillonLocal);
+  g.position.x += (Math.random() - 0.5) * 0.18;
+  g.position.z += (Math.random() - 0.5) * 0.18;
+  notesG.add(g);
+  notes.push({ o: g, t: 0,
+               vx: (Math.random() - 0.5) * 0.10,
+               vy: 0.22 + Math.random() * 0.14,
+               vz: -0.06 - Math.random() * 0.10,
+               tour: (Math.random() - 0.5) * 1.2 });
+}
+
+let noteT = 0;
+function updatePoste(dt) {
+  if (!disqueMesh) return;
+  // IL TOURNE TANT QU'IL JOUE, ET SEULEMENT ALORS.
+  if (musiqueEtat === 'joue' && !disqueCasse) {
+    disqueMesh.rotation.y += DISQUE_TOURS * dt;
+    noteT -= dt;
+    while (noteT <= 0) { semeNote(); noteT += NOTE_PAS * (0.6 + Math.random() * 0.8); }
+  }
+  for (let i = notes.length - 1; i >= 0; i--) {
+    const N = notes[i];
+    N.t += dt;
+    if (N.t > NOTE_VIE) {
+      notesG.remove(N.o); N.o.geometry.dispose(); notes.splice(i, 1);
+      continue;
+    }
+    const u = N.t / NOTE_VIE;
+    N.o.position.x += N.vx * dt;
+    N.o.position.y += N.vy * (1 - u * 0.5) * dt;
+    N.o.position.z += N.vz * dt;
+    N.o.rotation.y += N.tour * dt;
+    N.o.rotation.z = Math.sin(N.t * 1.6) * 0.18;
+    N.o.children ? 0 : 0;
+    N.o.material.opacity = 0.85 * Math.min(1, u * 6) * (1 - u * u);
+  }
+}
+
+// Le plateau se monte APRÈS que ses constantes existent : appelé depuis le
+// montage du refuge, il courait avant sa propre déclaration.
+batisDisqueVu();
+if (disqueCasse) casseDisqueVu();
 
 // LE NOM DU TERRAIN, DANS LA LANGUE DU JOUEUR. Le panneau est la seule fois où
 // le jeu nomme quelque chose sans qu'on le lui demande, et il faut être venu
@@ -8137,15 +8277,29 @@ function updateAPied(dt) {
   const M0 = REFUGE_PLAN.maison;
   const dedansMaison = Math.abs(M.x - (REFUGE.x + M0.x)) < M0.w / 2 + 1.2
                     && Math.abs(M.z - (REFUGE.z + M0.z)) < M0.l / 2 + 1.2;
-  const recul = dedansMaison ? 3.2 : PIED_RECUL;
-  const haut = dedansMaison ? 1.9 : PIED_HAUT;
-  const vx = M.x - Math.sin(M.cap) * recul;
-  const vz = M.z - Math.cos(M.cap) * recul;
+  // ET ELLE PASSE PAR-DESSUS SON ÉPAULE. Pile derrière lui, dans une pièce de
+  // trois mètres, il bouche exactement ce qu'on est venu voir : la table, le
+  // poste, le disque. Décalée de quatre-vingts centimètres sur la droite et
+  // visant un point devant lui plutôt que lui, elle cadre la pièce et le garde
+  // au bord — ce que fait n'importe quel plan d'épaule.
+  // ELLE NE SE RAPPROCHE PAS, ELLE MONTE ET SE DÉCALE. Trois mètres derrière
+  // quelqu'un, c'est un gros plan : à cette distance un homme d'un mètre
+  // quatre-vingts occupe trente-quatre degrés, soit la moitié de la hauteur de
+  // l'image, et il ne reste rien pour la pièce. Elle garde donc son recul —
+  // les murs sont en fil de fer, elle peut se tenir dehors et voir dedans —
+  // mais elle monte d'un mètre et passe par-dessus l'épaule droite.
+  const recul = dedansMaison ? 6.4 : PIED_RECUL;
+  const haut = dedansMaison ? 3.3 : PIED_HAUT;
+  const cote = dedansMaison ? 1.2 : 0;
+  const vx = M.x - Math.sin(M.cap) * recul + Math.cos(M.cap) * cote;
+  const vz = M.z - Math.cos(M.cap) * recul - Math.sin(M.cap) * cote;
   M.camX = THREE.MathUtils.damp(M.camX, vx, PIED_SOUPLE, dt);
   M.camZ = THREE.MathUtils.damp(M.camZ, vz, PIED_SOUPLE, dt);
   M.camY = THREE.MathUtils.damp(M.camY, PISTE.y + haut, PIED_SOUPLE * 1.6, dt);
   camera.position.set(M.camX, M.camY, M.camZ);
-  camera.lookAt(M.x, PISTE.y + PIED_VISE, M.z);
+  // dedans, elle regarde devant lui ; dehors, elle le regarde lui
+  const av = dedansMaison ? 2.2 : 0;
+  camera.lookAt(M.x + Math.sin(M.cap) * av, PISTE.y + PIED_VISE, M.z + Math.cos(M.cap) * av);
   playerMesh.position.copy(state.pos);
   propMesh.rotation.z += 0.05 * dt;
 
@@ -10165,6 +10319,7 @@ function simulate(dt) {
     updateEnemies(dt);
     updateBullets(dt);
     updateJeep(dt);
+    updatePoste(dt);
     updateDecor(dt);
     majSoleil(dt);
     refreshBars();
@@ -10184,6 +10339,7 @@ function simulate(dt) {
     updateEnemies(dt);
     updateBullets(dt);
     updateAPied(dt);
+    updatePoste(dt);
     updateDecor(dt);
     majSoleil(dt);
     refreshBars();
@@ -10191,6 +10347,7 @@ function simulate(dt) {
   }
   if (state.refuge) {
     updateRefuge(dt);
+    updatePoste(dt);
     updateDecor(dt);
     updateAerodrome(dt);
     majSoleil(dt);
@@ -13846,6 +14003,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.17', fr: 'Le disque tourne pour de bon, à soixante-dix-huit tours par minute.', en: 'The record really turns, at seventy-eight revolutions per minute.' },
+  { v: '1.17', fr: 'Des notes montent doucement du pavillon pendant qu’il joue.', en: 'Notes drift gently up out of the horn while it plays.' },
+  { v: '1.17', fr: 'À la fin, il se fend en trois sous les yeux, et alors seulement on le dit.', en: 'At the end it splits in three before your eyes, and only then is it said.' },
   { v: '1.16', fr: 'Le menu tient en six tiroirs : jouer, pilotage, apparence, son, le monde, le jeu.', en: 'The menu fits in six drawers: play, controls, look, sound, the world, the game.' },
   { v: '1.16', fr: 'Un seul tiroir s’ouvre à la fois, et nouvelle partie reste toujours en haut.', en: 'Only one drawer opens at a time, and new game always stays on top.' },
   { v: '1.15', fr: 'La musique ne part plus au franchissement : il faut entrer et poser l’aiguille.', en: 'The music no longer starts at the crossing: you have to go in and set the needle down.' },
