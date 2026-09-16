@@ -349,6 +349,29 @@
     text-align: left;
   }
   #menu .ligne[hidden] { display: none; }
+  /* LES TIROIRS. Un titre qui se lit comme un titre — plus large, plus
+     espacé, sans cadre — et son contenu légèrement rentré, pour qu'on voie
+     d'un coup d'œil ce qui appartient à quoi. Le chevron dit l'état, et il
+     est le seul ornement. */
+  #menu .groupe { margin: 0 0 6px; }
+  #menu .groupe > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 11px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--ph-dim);
+    color: var(--ph-line);
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+  #menu .groupe > summary::-webkit-details-marker { display: none; }
+  #menu .groupe > summary::before { content: "+  "; color: var(--ph-dim); }
+  #menu .groupe[open] > summary::before { content: "\2212  "; }
+  #menu .groupe[open] > summary { color: var(--ph-text); border-bottom-color: var(--ph-line); }
+  #menu .groupe > :not(summary) { margin-left: 10px; }
+  #menu .groupe > .ligne { width: calc(100% - 10px); }
+  #menu .groupe > :nth-child(2) { margin-top: 8px; }
   #menu .aide { color: var(--ph-dim); font-size: 10px; letter-spacing: 0.12em; margin: 10px 0 6px; }
   #menu .aide:first-child { margin-top: 0; }
   /* les panneaux tombent sous la bande du haut, qui porte maintenant la vie */
@@ -834,39 +857,99 @@
 </div>
 
 <div id="menu" hidden>
+  <!-- ---------------------------------------------------------------------
+       LE MENU, EN SIX TIROIRS.
+       
+       Vingt-quatre lignes à la suite : pour trouver la couleur de l'avion il
+       fallait lire NOUVELLE PARTIE, VISEURS, AXE Y, CLAVIER, COOP, DÉFI, SON,
+       AIDE, LANGUE, TIMBRE, INSTALLER, CARTE, VERSION, MISE À JOUR, MODE
+       AVANCÉ, CODE SECRET, PROCHAINE CARTE, SANS PUBLICITÉ — dix-huit choses
+       qui ne sont pas ce qu'on cherche.
+       
+       Ce qui se passe vraiment là n'est pas un problème de « nombre de choix »
+       mais de RECHERCHE VISUELLE : l'œil balaie une liste sans structure,
+       élément par élément, et rien ne lui dit où arrêter. Pirolli et Card ont
+       nommé ça la piste informationnelle — on suit un parfum, et une liste
+       plate n'en a pas. C'est la vraie raison, et je préfère la citer plutôt
+       que la loi de Hick, qu'on invoque toujours ici : elle mesure un temps de
+       RÉACTION entre options équiprobables, ce qu'un menu de réglages n'est
+       pas — on sait ce qu'on cherche, on ne réagit pas à un signal.
+       
+       Ce qu'on applique, alors :
+       
+       · DES GROUPES DE TROIS À QUATRE. La mémoire de travail tient environ
+         quatre choses à la fois (Cowan, 2001 — et non les sept de Miller, qui
+         portaient sur autre chose et qu'on cite de travers depuis soixante
+         ans). Un tiroir ouvert doit se lire d'un coup d'œil.
+       
+       · LA DIVULGATION PROGRESSIVE. Un seul tiroir ouvert à la fois : le menu
+         ne fait jamais plus d'un écran, et ce qu'on ne cherche pas reste
+         replié.
+       
+       · RECONNAÎTRE PLUTÔT QUE SE SOUVENIR, et parler la langue du joueur
+         (Nielsen, heuristiques 2 et 6) : les titres disent JOUER, PILOTAGE,
+         APPARENCE, SON — ce que la personne veut faire, pas comment le
+         programme est bâti.
+       
+       · CE QU'ON VEUT TOUT LE TEMPS RESTE DEHORS. NOUVELLE PARTIE et le
+         numéro de version ne sont dans aucun tiroir : l'une est la seule
+         chose qu'on veut pouvoir faire à tout instant, l'autre est ce qu'on
+         vient vérifier après une mise à jour.
+       --------------------------------------------------------------------- -->
   <p class="aide" id="menuEclats"></p>
-  <!-- NOUVELLE PARTIE. Il fallait mourir, ou fermer l'application, pour
-       recommencer : la seule chose qu'on veut vraiment pouvoir faire à tout
-       moment n'existait nulle part. Elle est la première ligne du menu. -->
   <button class="ligne" id="mNeuve" data-en="NEW GAME">NOUVELLE PARTIE</button>
-  <button class="ligne" id="mViseurs" data-en="SIGHTS">VISEURS</button>
-  <button class="ligne" id="mAxeY"></button>
-  <button class="ligne" id="mClavier"></button>
-  <button class="ligne" id="mCoop" data-en="CO-OP · UP TO TEN">COOP · JUSQU'À DIX</button>
-  <button class="ligne" id="mDefi" hidden></button>
-  <button class="ligne" id="mSon"></button>
-  <button class="ligne" id="mAide" data-en="HELP AND FLIGHT LOG">AIDE ET CARNET</button>
-  <button class="ligne" id="mLangue"></button>
-  <button class="ligne" id="mTimbre"></button>
-  <button class="ligne" id="mInstall" hidden data-en="INSTALL THE GAME">INSTALLER LE JEU</button>
-  <button class="ligne" id="mCarte"></button>
-  <p class="aide" id="menuAilier"></p>
-  <button class="ligne" id="mVersion"></button>
-  <button class="ligne" id="mMaj" data-en="UPDATE NOW">METTRE À JOUR MAINTENANT</button>
+
+  <details class="groupe">
+    <summary data-en="PLAY">JOUER</summary>
+    <button class="ligne" id="mDefi" hidden></button>
+    <button class="ligne" id="mCoop" data-en="CO-OP · UP TO TEN">COOP · JUSQU'À DIX</button>
+    <button class="ligne" id="mAvance" data-en="ADVANCED MODE · TROPHIES">MODE AVANCÉ · TROPHÉES</button>
+    <p class="aide" id="menuAilier"></p>
+  </details>
+
+  <details class="groupe">
+    <summary data-en="CONTROLS">PILOTAGE</summary>
+    <button class="ligne" id="mAxeY"></button>
+    <button class="ligne" id="mClavier"></button>
+    <button class="ligne" id="mViseurs" data-en="SIGHTS">VISEURS</button>
+  </details>
+
+  <details class="groupe">
+    <summary data-en="LOOK">APPARENCE</summary>
+    <p class="aide" id="menuAvionTitre" data-en="AIRCRAFT">AVION</p>
+    <div class="puces" id="menuAvions"></div>
+    <p class="aide" id="menuTeinteTitre" data-en="AIRCRAFT COLOUR">COULEUR DE L'AVION</p>
+    <div class="puces" id="menuTeintes"></div>
+    <p class="aide" id="menuTraineeTitre" data-en="TRAIL">TRAÎNÉE</p>
+    <div class="puces" id="menuTrainees"></div>
+  </details>
+
+  <details class="groupe">
+    <summary data-en="SOUND">SON</summary>
+    <button class="ligne" id="mSon"></button>
+    <button class="ligne" id="mTimbre"></button>
+  </details>
+
+  <details class="groupe">
+    <summary data-en="THE WORLD">LE MONDE</summary>
+    <button class="ligne" id="mCarte"></button>
+    <button class="ligne" id="mBeta" data-en="NEXT MAP · BETA LIST">PROCHAINE CARTE · LISTE BÊTA</button>
+    <button class="ligne" id="mCode" data-en="SECRET CODE">CODE SECRET</button>
+  </details>
+
+  <details class="groupe">
+    <summary data-en="THE GAME">LE JEU</summary>
+    <button class="ligne" id="mAide" data-en="HELP AND FLIGHT LOG">AIDE ET CARNET</button>
+    <button class="ligne" id="mLangue"></button>
+    <button class="ligne" id="mInstall" hidden data-en="INSTALL THE GAME">INSTALLER LE JEU</button>
+    <button class="ligne" id="mSansPub" data-en="NO ADS · SOON">SANS PUBLICITÉ · BIENTÔT</button>
+  </details>
+
   <!-- LA MISE À JOUR EST COLLÉE AU NUMÉRO DE VERSION. C'est le même sujet :
        on lit le numéro, on appuie juste dessous, on revient sur la même page
-       et le numéro a changé. Elle était tout en bas de la liste, à dix lignes
-       de la seule information qui permet de savoir si elle a servi. -->
-  <button class="ligne" id="mAvance" data-en="ADVANCED MODE · TROPHIES">MODE AVANCÉ · TROPHÉES</button>
-  <button class="ligne" id="mCode" data-en="SECRET CODE">CODE SECRET</button>
-  <button class="ligne" id="mBeta" data-en="NEXT MAP · BETA LIST">PROCHAINE CARTE · LISTE BÊTA</button>
-  <button class="ligne" id="mSansPub" data-en="NO ADS · SOON">SANS PUBLICITÉ · BIENTÔT</button>
-  <p class="aide" id="menuAvionTitre" data-en="AIRCRAFT">AVION</p>
-  <div class="puces" id="menuAvions"></div>
-  <p class="aide" id="menuTeinteTitre" data-en="AIRCRAFT COLOUR">COULEUR DE L'AVION</p>
-  <div class="puces" id="menuTeintes"></div>
-  <p class="aide" id="menuTraineeTitre" data-en="TRAIL">TRAÎNÉE</p>
-  <div class="puces" id="menuTrainees"></div>
+       et le numéro a changé. Aucun tiroir ne doit se mettre entre les deux. -->
+  <button class="ligne" id="mVersion"></button>
+  <button class="ligne" id="mMaj" data-en="UPDATE NOW">METTRE À JOUR MAINTENANT</button>
 </div>
 
 <div id="bottombar">
@@ -13558,6 +13641,17 @@ function panneauSansPub() {
     : 'The game is in beta: there are no ads yet, so nothing to remove. When there are, a single cheap purchase will remove them for good. Your interest is noted here, on your device only.') + '</p>');
 }
 const panMenu = document.getElementById('menu');
+// UN SEUL TIROIR OUVERT À LA FOIS. C'est ce qui garde le menu sous la barre
+// d'un écran : ouvrir APPARENCE referme PILOTAGE, et l'on n'a jamais à faire
+// défiler pour retrouver le titre qu'on vient de lire.
+for (const g of document.querySelectorAll('#menu .groupe')) {
+  g.addEventListener('toggle', () => {
+    if (!g.open) return;
+    for (const autre of document.querySelectorAll('#menu .groupe')) {
+      if (autre !== g) autre.open = false;
+    }
+  });
+}
 const menuBtn = document.getElementById('menuBtn');
 const vagueBtn = document.getElementById('vagueBtn');
 vagueBtn.addEventListener('click', e => {
@@ -13752,6 +13846,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.16', fr: 'Le menu tient en six tiroirs : jouer, pilotage, apparence, son, le monde, le jeu.', en: 'The menu fits in six drawers: play, controls, look, sound, the world, the game.' },
+  { v: '1.16', fr: 'Un seul tiroir s’ouvre à la fois, et nouvelle partie reste toujours en haut.', en: 'Only one drawer opens at a time, and new game always stays on top.' },
   { v: '1.15', fr: 'La musique ne part plus au franchissement : il faut entrer et poser l’aiguille.', en: 'The music no longer starts at the crossing: you have to go in and set the needle down.' },
   { v: '1.15', fr: 'Dans la maison : un poste de TSF, un gramophone à pavillon, une guitare et une partition.', en: 'Inside the house: a wireless set, a horn gramophone, a guitar and a sheet of music.' },
   { v: '1.15', fr: 'Le disque se casse quand il est fini, et il reste cassé d’une partie à l’autre.', en: 'The record breaks when it ends, and stays broken from one game to the next.' },
