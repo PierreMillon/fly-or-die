@@ -5953,7 +5953,9 @@ function surLaBande(p) {
   _rb.v =  dz * sn + dx * c;      // en travers
   return _rb;
 }
-let refugeG = null, piloteG = null, panneauG = null;
+let refugeG = null, piloteG = null, panneauG = null, jeepG = null;
+let jeepRamenee = false;
+try { jeepRamenee = localStorage.getItem('fod_jeep') === '1'; } catch (e) {}
 
 (function poserRefuge() {
   const g = new THREE.Group();
@@ -6346,7 +6348,18 @@ let refugeG = null, piloteG = null, panneauG = null;
   // peut la ramener. C'est le seul objet du refuge qui puisse en repartir avec
   // nous — et donc le seul qui transforme un aller-retour en acquisition.
   {
-    const J = P.jeep, s = piece(J), p = [];
+    // ELLE VIT HORS DU GROUPE DU REFUGE. Tout le reste du terrain est posé
+    // une fois pour toutes dans le repère du refuge ; elle, on peut la
+    // conduire, donc elle a besoin d'exister à l'échelle du monde. C'est la
+    // seule pièce du refuge qui puisse en partir — et donc la seule qui
+    // compte vraiment, puisqu'on peut la ramener.
+    const J = P.jeep, p = [];
+    const s = new THREE.Group();
+    s.position.set(REFUGE.x + J.x, 0, REFUGE.z + J.z);
+    s.rotation.y = -J.a * Math.PI / 180;
+    s.frustumCulled = false;
+    scene.add(s);
+    jeepG = s;
     const dz = 2.2, dx = 0.95, y0 = 0.5, y1 = 1.15;
     const coins = [[-dx, -dz], [dx, -dz], [dx, dz], [-dx, dz]];
     for (let i = 0; i < 4; i++) {
@@ -7136,6 +7149,7 @@ const state = {
   roquettes: [],
   roqEnnemies: [],    // les leurs
   pied: null,         // quand on marche : le bonhomme a pris la main
+  jeep: null,         // quand on conduit : la Jeep a pris la main
   action: null,       // ce que le bouton du bas propose ici, s'il propose
   alerte: 0,          // secondes d'alerte roquette à l'écran
   lockedT: 0,         // repos entre deux avertissements LOCKED
@@ -7365,6 +7379,8 @@ function resetGame() {
   state.etoileT = 0;
   state.forme = 0; state.objN = 0; state.defi = false;
   state.stats = statsVides();
+  state.pied = null; state.jeep = null; state.action = null;
+  poseJeepAuDepart();
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avance.roquettesReelles ? 4 : avion().roquettes;
   state.ourseN = 0; state.ourseT = 0; state.bergerT = 0; state.bergerPris = false;
   state.ourseFaite = false;
@@ -7627,7 +7643,8 @@ function updateRefugePose(dt) {
 
 function quitteRefuge() {
   if (piloteG) piloteG.visible = false;
-  state.pied = null; state.action = null; majActionBtn();
+  state.pied = null; state.jeep = null; state.action = null; majActionBtn();
+  poseJeepAuDepart();
   state.refuge = null;
   state.waveTimer = 2.5;
   state.regime = 1;
@@ -7807,16 +7824,179 @@ function updateAPied(dt) {
 function majActionBtn() {
   if (!actionBtn) return;
   const c = state.action;
-  actionBtn.hidden = !c || !state.pied;
+  actionBtn.hidden = !c || !(state.pied || state.jeep);
   if (c) actionBtn.textContent = t('act_' + c);
 }
 
 function faitAction() {
   const c = state.action;
-  if (c === 'avion') { remonteEnAvion(); return; }
+  if (c === 'avion') { state.jeep = null; remonteEnAvion(); return; }
   if (c === 'mot')   { ouvreLettre(); return; }
-  if (c === 'jeep')  { announce(t('pasEncore')); return; }
+  if (c === 'jeep')  { monteEnJeep(); return; }
+  if (c === 'descendre') { descendDeJeep(); return; }
   if (c === 'ancien' || c === 'casse') { announce(t('pasEncore')); return; }
+}
+
+
+// ---------------------------------------------------------------------------
+// LA JEEP.
+//
+// C'est le seul objet du refuge qui puisse en repartir avec nous, et c'est ce
+// qui la distingue de tout le reste : la lettre, le disque, le panneau, on les
+// laisse sur place. Elle, on peut la ramener — trente-deux kilomètres, par la
+// route, à travers la chaîne, à vingt mètres par seconde. Quarante minutes si
+// on va tout droit, plus si l'on cherche un col. Personne n'y est obligé, rien
+// ne l'indique, et c'est bien l'idée : ce qui compte, dans ce jeu, c'est ce
+// qu'on rapporte d'un endroit où l'on n'était pas obligé d'aller.
+//
+// Elle se conduit comme une voiture et non comme un bonhomme : le doigt en
+// haut accélère, en bas freine puis recule, à gauche et à droite braque — et
+// on ne braque que si l'on roule, comme dans n'importe quel véhicule à roues.
+// ---------------------------------------------------------------------------
+const JEEP_VMAX   = 20;     // m/s : soixante-douze à l'heure, sur un chemin
+const JEEP_RECUL  = 6;      // en marche arrière
+const JEEP_POUSSE = 9;      // m/s² : elle n'a pas de nerf
+const JEEP_FREIN  = 16;
+const JEEP_ROUE   = 0.9;    // rad/s de braquage à pleine vitesse
+const JEEP_TRAINE = 1.6;    // ce que le chemin lui prend quand on lâche
+const JEEP_CAM    = 9.5;
+const JEEP_CAM_H  = 3.6;
+const JEEP_RENTRE = 900;    // mètres : à cette distance de la piste, elle est rentrée
+
+function monteEnJeep() {
+  if (!jeepG || state.jeep) return;
+  state.jeep = { x: jeepG.position.x, z: jeepG.position.z,
+                 cap: jeepG.rotation.y, v: 0, t: 0,
+                 camX: camera.position.x, camZ: camera.position.z, camY: camera.position.y };
+  state.pied = null;
+  if (piloteG) piloteG.visible = false;
+  state.action = null;
+  majActionBtn();
+  announce(t('enJeep'));
+  SFX.cale();
+}
+
+function descendDeJeep() {
+  const J = state.jeep;
+  if (!J) return;
+  state.jeep = null;
+  // il descend du côté gauche, comme on descend d'une voiture
+  state.pied = {
+    x: J.x - Math.cos(J.cap) * 2.0, z: J.z + Math.sin(J.cap) * 2.0,
+    cap: J.cap, v: 0, t: 0,
+    camX: J.camX, camZ: J.camZ, camY: J.camY
+  };
+  state.action = null;
+  majActionBtn();
+  announce(t('deJeep'));
+}
+
+// ET ELLE RESTE. Ramenée une fois, elle est garée au bord de la piste
+// principale dans toutes les parties suivantes — pas dans un menu, pas dans une
+// liste de trophées : sur le terrain, là où on l'a laissée. C'est la seule
+// chose du jeu qui se transporte d'une partie à l'autre autrement que comme un
+// chiffre.
+function poseJeepAuDepart() {
+  if (!jeepG) return;
+  if (jeepRamenee) {
+    jeepG.position.set(AERO.x - AERO.largeur / 2 - 9, 0, AERO.z + 26);
+    jeepG.rotation.set(0, Math.PI / 2, 0);
+  } else {
+    const J = REFUGE_PLAN.jeep;
+    jeepG.position.set(REFUGE.x + J.x, 0, REFUGE.z + J.z);
+    jeepG.rotation.set(0, -J.a * Math.PI / 180, 0);
+  }
+}
+
+function updateJeep(dt) {
+  const J = state.jeep;
+  J.t += dt;
+
+  const w = window.innerWidth, h = window.innerHeight;
+  const ref = Math.min(w, h) * 0.42;
+  const dx = aim.active ? THREE.MathUtils.clamp((aim.x - w / 2) / ref, -1, 1) : 0;
+  const dy = aim.active ? THREE.MathUtils.clamp((aim.y - h / 2) / ref, -1, 1) : 0;
+
+  // LE DOIGT EN HAUT ACCÉLÈRE, EN BAS FREINE PUIS RECULE. C'est la seule
+  // convention qu'un pouce reconnaisse sur une voiture, et elle est l'inverse
+  // de celle de l'avion — où tirer vers soi fait monter. Ce n'est pas une
+  // incohérence : une voiture n'a pas de profondeur, et le jeu ne demande
+  // jamais les deux dans la même seconde.
+  const gaz = -dy;
+  if (gaz > 0.05) J.v += JEEP_POUSSE * gaz * dt;
+  else if (gaz < -0.05) {
+    J.v += (J.v > 0.2 ? -JEEP_FREIN : JEEP_POUSSE * 0.7) * -gaz * dt * (J.v > 0.2 ? 1 : -1);
+    if (J.v < -JEEP_RECUL) J.v = -JEEP_RECUL;
+  } else {
+    J.v -= Math.sign(J.v) * Math.min(Math.abs(J.v), JEEP_TRAINE * dt);
+  }
+  if (J.v > JEEP_VMAX) J.v = JEEP_VMAX;
+
+  // ON NE BRAQUE QUE SI L'ON ROULE. Une voiture à l'arrêt ne tourne pas sur
+  // elle-même, et c'est ce détail qui fait qu'on sent des roues sous soi
+  // plutôt qu'un curseur.
+  const prise = THREE.MathUtils.clamp(Math.abs(J.v) / 6, 0, 1);
+  J.cap -= dx * JEEP_ROUE * prise * dt * Math.sign(J.v || 1);
+
+  J.x += Math.sin(J.cap) * J.v * dt;
+  J.z += Math.cos(J.cap) * J.v * dt;
+
+  // LE CHEMIN MONTE ET DESCEND, et la Jeep se penche dessus : on lit la pente
+  // sous les roues, deux mètres devant et deux mètres derrière.
+  const yc = hauteurSol(J.x, J.z);
+  const yAv = hauteurSol(J.x + Math.sin(J.cap) * 2.2, J.z + Math.cos(J.cap) * 2.2);
+  const yAr = hauteurSol(J.x - Math.sin(J.cap) * 2.2, J.z - Math.cos(J.cap) * 2.2);
+  const yG  = hauteurSol(J.x - Math.cos(J.cap) * 1.1, J.z + Math.sin(J.cap) * 1.1);
+  const yD  = hauteurSol(J.x + Math.cos(J.cap) * 1.1, J.z - Math.sin(J.cap) * 1.1);
+  jeepG.position.set(J.x, yc, J.z);
+  jeepG.rotation.set(Math.atan2(yAv - yAr, 4.4), J.cap, Math.atan2(yD - yG, 2.2), 'YXZ');
+
+  // LA PENTE COÛTE. Monter la chaîne prend du temps, et c'est ce qui rend la
+  // traversée par la route longue — donc réelle.
+  const pente = (yAv - yAr) / 4.4;
+  if (pente > 0.02) J.v = Math.max(0, J.v - pente * 26 * dt);
+  else if (pente < -0.02) J.v = Math.min(JEEP_VMAX * 1.25, J.v - pente * 14 * dt);
+
+  // la caméra suit, très souple, comme à pied
+  const vx = J.x - Math.sin(J.cap) * JEEP_CAM;
+  const vz = J.z - Math.cos(J.cap) * JEEP_CAM;
+  J.camX = THREE.MathUtils.damp(J.camX, vx, 2.6, dt);
+  J.camZ = THREE.MathUtils.damp(J.camZ, vz, 2.6, dt);
+  J.camY = THREE.MathUtils.damp(J.camY, yc + JEEP_CAM_H, 3.2, dt);
+  camera.position.set(J.camX, J.camY, J.camZ);
+  camera.lookAt(J.x, yc + 1.2, J.z);
+  playerMesh.position.copy(state.pos);
+
+  // ELLE EST RENTRÉE. Ramenée à moins de neuf cents mètres de la piste
+  // principale, elle est à nous pour de bon : elle apparaîtra au hangar dans
+  // toutes les parties suivantes. C'est le seul objet du jeu qu'on rapporte.
+  if (!jeepRamenee && Math.hypot(J.x, J.z - PAPI_Z) < JEEP_RENTRE) {
+    jeepRamenee = true;
+    try { localStorage.setItem('fod_jeep', '1'); } catch (e) {}
+    marque(3000);
+    announce(t('jeepRentree'), t('jeepRentreeSous'));
+    SFX.cloche();
+    debloqueViseur('ancien');
+  }
+
+  // et la chenillée nous rattrape aussi en voiture : elle va plus vite
+  for (const e of state.enemies) {
+    if (!e.kind.sol) continue;
+    if (Math.hypot(J.x - e.pos.x, J.z - e.pos.z) < 7) {
+      state.dernierTireur = e.kind.nom;
+      state.jeep = null; state.action = null; majActionBtn();
+      state.structure = 0;
+      announce(t('ecrase'));
+      SFX.detruit(_pd.set(J.x, yc, J.z));
+      gameOver(false);
+      return;
+    }
+  }
+
+  // ce qui se propose depuis le volant : descendre, et remonter en avion
+  const dAvion = Math.hypot(J.x - state.pos.x, J.z - state.pos.z);
+  const choix = dAvion < 12 ? 'avion' : 'descendre';
+  if (choix !== state.action) { state.action = choix; majActionBtn(); }
 }
 
 // ---------------------------------------------------------------------------
@@ -9580,6 +9760,15 @@ function simulate(dt) {
   if (state.running) state.dureeVol += dt;
   // AU REFUGE, LE MONDE S'ARRÊTE. Pas de vague, pas de tir, pas de poussée :
   // la caméra tourne, et c'est tout ce qui bouge.
+  if (state.jeep) {
+    updateEnemies(dt);
+    updateBullets(dt);
+    updateJeep(dt);
+    updateDecor(dt);
+    majSoleil(dt);
+    refreshBars();
+    return;
+  }
   if (state.pied) {
     // LE MONDE NE S'ARRÊTE PAS PARCE QU'ON EST DESCENDU. Au refuge il n'y a
     // pas de vague — c'est le seul endroit du jeu qui en est exempt — mais ce
@@ -12514,6 +12703,11 @@ const T = {
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
     ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
     plafond: 'CELLULE RENFORCÉE  ·  PLAFOND ', affaisse: 'PORTAIL AFFAISSÉ  ·  IL PASSE AU RAS DU SOL', ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
+    enJeep: 'AU VOLANT  ·  EN HAUT ON ACCÉLÈRE, EN BAS ON FREINE',
+    deJeep: 'À PIED',
+    act_descendre: 'DESCENDRE',
+    jeepRentree: 'LA JEEP EST RENTRÉE',
+    jeepRentreeSous: 'trente-deux kilomètres par la route  ·  elle est à toi',
     ecrase: 'LA CHENILLÉE T’A RATTRAPÉ  ·  À PIED, ON NE LA SÈME PAS',
     aPied: 'ON MARCHE  ·  LE MANCHE DÉPLACE L’HOMME',
     rembarque: 'À BORD',
@@ -12524,7 +12718,7 @@ const T = {
     act_ancien: 'L’AVION ANCIEN',
     act_casse: 'L’AVION CASSÉ',
     lettreFerme: 'REPLIER',
-    lettreSig: 'Elle',
+    lettreSig: 'Consuelo',
     lettreTxte:
       'Je pars, et je ne laisse pas d’adresse. Ne me cherche pas : tu es\n' +
       'quelqu’un qui cherche, et tu chercherais très bien, et ce serait la\n' +
@@ -12599,6 +12793,11 @@ const T = {
     objReussi: 'TODAY’S GOAL DONE  ·  +',
     ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
     plafond: 'AIRFRAME REINFORCED  ·  CEILING ', affaisse: 'GATE CAVED IN  ·  IT PASSES AT GROUND LEVEL NOW', ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
+    enJeep: 'AT THE WHEEL  ·  UP TO ACCELERATE, DOWN TO BRAKE',
+    deJeep: 'ON FOOT',
+    act_descendre: 'GET OUT',
+    jeepRentree: 'THE JEEP MADE IT BACK',
+    jeepRentreeSous: 'thirty-two kilometres by road  ·  it is yours',
     ecrase: 'THE TRACKED GUN CAUGHT YOU  ·  ON FOOT, YOU CANNOT SHAKE IT',
     aPied: 'ON FOOT  ·  THE STICK MOVES THE MAN',
     rembarque: 'ABOARD',
@@ -12609,7 +12808,7 @@ const T = {
     act_ancien: 'THE OLD AIRCRAFT',
     act_casse: 'THE BROKEN AIRCRAFT',
     lettreFerme: 'FOLD IT BACK',
-    lettreSig: 'Her',
+    lettreSig: 'Consuelo',
     lettreTxte:
       'I am leaving, and I am not leaving an address. Do not look for me:\n' +
       'you are someone who looks, and you would look very well, and that\n' +
@@ -13199,6 +13398,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.11', fr: 'On monte dans la Jeep et on conduit : elle grimpe le relief et se penche dessus.', en: 'You get into the Jeep and drive: it climbs the terrain and leans on it.' },
+  { v: '1.11', fr: 'Ramenée à la piste principale, elle y reste garée dans toutes les parties suivantes.', en: 'Driven back to the main runway, it stays parked there in every game after.' },
+  { v: '1.11', fr: 'La lettre est signée.', en: 'The letter is signed.' },
   { v: '1.10', fr: 'La chenillée traverse la carte entière pour venir nous chercher, même à trente-deux kilomètres.', en: 'The tracked gun crosses the whole map to come and find us, even thirty-two kilometres away.' },
   { v: '1.10', fr: 'Elle butait sur sa propre piste et y reculait indéfiniment : elle la contourne.', en: 'It used to snag on its own runway and back into it forever: now it goes around.' },
   { v: '1.10', fr: 'Elle suit le relief au lieu de rouler sous la montagne.', en: 'It follows the terrain instead of driving under the mountain.' },
