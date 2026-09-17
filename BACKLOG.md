@@ -2021,3 +2021,54 @@ Retirée. Le seul endroit du jeu où l'on ne fait rien n'a pas de musique
 d'ambiance — le silence EST ce qu'on vient y chercher, et la seule musique du
 refuge sort du poste quand on pose l'aiguille.
 
+## On se pose face au vent (v1.26)
+
+Sa demande : un seul système d'atterrissage, le même pour toutes les pistes, où
+le vent décide du sens et se lit à la manche à air.
+
+Le sens se lisait sur NOTRE cap : on arrivait par où l'on voulait et le tube se
+retournait pour nous suivre. Commode, et vide de sens — un terrain n'a pas deux
+pistes, il en a une, et le vent décide de quel bout on l'aborde.
+
+- La manche pointe où le vent va ; on atterrit contre elle.
+- Le plan de descente prend le même sens, sinon deux instruments se
+  contredisent.
+- Le collimateur affiche le vent en degrés et la piste en service, 36 ou 18 :
+  une manche à air de quatre mètres ne se distingue pas à deux kilomètres.
+- Aligné vent arrière, une phrase le dit, une fois.
+- Et l'on décolle face au vent aussi.
+
+### Le vent ne tourne plus de quatre-vingt-dix degrés toutes les quatre secondes
+
+Il était retiré au hasard sur tout le tour d'horizon plusieurs fois par minute :
+décoratif tant que la manche ne servait à rien, intenable dès qu'elle décide du
+sens. Il a maintenant une direction d'ensemble par partie, et il ne fait
+qu'osciller de vingt-cinq degrés autour. Le seuil se lit sur la BASE et non sur
+le frémissement : sur un vent de travers pur, l'oscillation ferait basculer la
+piste d'un bout à l'autre pendant qu'on est en finale.
+
+## L'entonnoir n'en était pas un (v1.26)
+
+En mesurant le tube sur vingt-cinq arrivées, le vrai défaut est apparu — et il
+explique pourquoi les approches ne ressemblaient à rien :
+
+**Arrivé à 95 m, l'altitude ordinaire d'un retour de vague, on passe 69 m
+au-dessus de l'axe du couloir, dont le rayon vaut 29 m à cet endroit.** Le tube
+ne prenait donc jamais. On survolait le terrain sans savoir pourquoi.
+
+Un entonnoir se juge à sa bouche : elle faisait 40 m de rayon à 750 m. Elle part
+maintenant de **1 800 m avec 190 m de rayon**, et se resserre toujours à 9 m au
+toucher. Large à l'entrée, étroit à la sortie — c'est la définition, et je ne
+l'avais pas respectée.
+
+Mesuré, arrivées dans l'axe, prise du tube :
+
+| distance | 40 m | 95 m | 150 m | 240 m |
+| --- | --- | --- | --- | --- |
+| 1 700 m | 1,00 | 1,00 | 1,00 | 0,39 |
+| 1 200 m | 1,00 | 1,00 | 0,81 | — |
+| 800 m | 1,00 | 0,43 | — | — |
+
+Plus bas et plus près, il faut être sur la pente : c'est l'entonnoir qui se
+ferme, et c'est voulu.
+

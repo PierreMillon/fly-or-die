@@ -5710,16 +5710,33 @@ const ALIGN_TENUE   = 2;      // gardée pour la jauge du collimateur
 // moment : il suffit de forcer. C'est la différence entre une aide et une
 // laisse.
 // ---------------------------------------------------------------------------
-const TUBE_DIST = 750;        // longueur du couloir, depuis le point visé
+// DIX-HUIT CENTS MÈTRES, ET NON SEPT CENT CINQUANTE.
+//
+// Mesuré : arrivé à quatre-vingt-quinze mètres — l'altitude ordinaire d'un
+// retour de vague — l'appareil passe SOIXANTE-NEUF MÈTRES au-dessus de l'axe
+// du couloir, dont le rayon vaut vingt-neuf à cet endroit. Il ne prend donc
+// jamais, et rien ne dit pourquoi : on survole le terrain et on recommence.
+//
+// Un entonnoir se juge à sa bouche. Elle part maintenant de dix-huit cents
+// mètres, où l'axe est à quatre-vingt-quatorze mètres de haut, avec cent
+// cinquante de rayon : tout ce qui arrive entre le sol et deux cent quarante
+// mètres entre dedans. Et elle se resserre toujours à neuf mètres au toucher,
+// donc la sortie reste aussi précise qu'avant. Large à l'entrée, étroit à la
+// sortie : c'est la définition d'un entonnoir, et je ne l'avais pas respectée.
+const TUBE_DIST = 1800;       // longueur du couloir, depuis le point visé
 // QUARANTE MÈTRES À L'ENTRÉE, ET NON VINGT-SIX. Mesuré : arrivé en palier à
 // cinquante-huit mètres — la hauteur normale d'un retour de vague — on passait
 // juste à côté de la bouche et le tube ne prenait jamais. Une entrée
 // d'entonnoir doit être large : c'est la SORTIE qui doit être précise. À
 // quarante, la bouche va du sol à quatre-vingts mètres ; à neuf, au bout, elle
 // tient l'appareil dans la largeur de la piste.
-const TUBE_R0 = 40;           // rayon à l'entrée
+// CENT QUATRE-VINGT-DIX. Mesuré sur vingt-cinq arrivées : à cent cinquante de
+// rayon, la bouche va du sol à deux cent trente mètres et laisse passer celui
+// qui rentre à deux cent quarante — l'altitude d'un retour de vague un peu
+// haut. Trente de plus, et il n'y a plus d'arrivée raisonnable qui la manque.
+const TUBE_R0 = 190;          // rayon à l'entrée
 const TUBE_R1 = 9;            // rayon à la sortie, au-dessus du toucher
-const TUBE_ANNEAUX = 9;
+const TUBE_ANNEAUX = 12;      // plus long, donc un peu plus d'anneaux
 // DEUX, ET NON 1,15. Mesuré : entré par le haut de la bouche, la prise valait
 // 0,28, donc un rappel de 0,32 rad/s — trop faible pour ramener vers le centre
 // avant la fin du couloir, et comme la prise croît avec la proximité, on
@@ -5786,8 +5803,33 @@ let tubeMesh = null;
 // OÙ L'ON EST DANS LE TUBE. Renvoie la distance au point visé, l'écart à
 // l'axe, et la prise — de zéro dehors à un au centre.
 const TUBE = { dedans: false, tient: false, d: 0, ecart: 0, prise: 0, sens: -1, cx: 0, cy: 0 };
+// ON SE POSE FACE AU VENT, ET LA MANCHE À AIR LE DIT.
+//
+// Le sens d'atterrissage se lisait sur NOTRE cap : on arrivait par où l'on
+// voulait, et le tube se retournait pour nous suivre. C'est commode et ça ne
+// veut rien dire — un terrain n'a pas deux pistes, il en a une et le vent
+// décide de quel bout on l'aborde. C'est la première chose qu'un pilote
+// regarde en arrivant, et la seule raison d'être d'une manche à air.
+//
+// La manche pointe où le vent VA. On atterrit à l'opposé : le cap
+// d'atterrissage est celui qui vient contre elle. Il ne reste alors qu'un seuil
+// possible, le tube n'apparaît que de ce côté, et l'approche devient une
+// lecture du terrain au lieu d'un choix arbitraire.
+function sensAuVent() {
+  // le cône pointe vers (sin a, 0, cos a) : c'est là que le vent souffle.
+  // On lui fait face, donc on vole vers (−sin a, 0, −cos a), et le sens de la
+  // piste est le signe de cette composante en z.
+  //
+  // ET ON LIT LA DIRECTION D'ENSEMBLE, PAS LE FRÉMISSEMENT. Sur un vent de
+  // travers pur — perpendiculaire à la piste — la composante utile vaut zéro,
+  // et les vingt-cinq degrés d'oscillation la font changer de signe : le seuil
+  // en service basculerait d'un bout à l'autre pendant qu'on est en finale.
+  // La base ne bouge pas de la partie, donc le terrain non plus.
+  return Math.cos(VENT.base) > 0 ? -1 : 1;
+}
+
 function majTube() {
-  const sens = state.forward.z < 0 ? -1 : 1;
+  const sens = sensAuVent();
   const zc = PAPI_Z - sens * TOUCHER_AVANT;
   const d = (state.pos.z - zc) * -sens;          // positif : on est en amont
   TUBE.sens = sens;
@@ -5801,9 +5843,25 @@ function majTube() {
   TUBE.cy = tubeHaut(Math.max(0, d));
   const ex = state.pos.x - TUBE.cx, ey = state.pos.y - TUBE.cy;
   TUBE.ecart = Math.hypot(ex, ey);
-  // le cap doit aller vers la piste, sinon on ne fait que traverser le couloir
-  const capOk = Math.abs(state.forward.z) > Math.cos(28 * Math.PI / 180);
-  if (!capOk) return;
+  // LE CAP DOIT ÊTRE CELUI DE LA PISTE, et dans LE BON SENS. Il suffisait
+  // autrefois d'être aligné sur l'axe, peu importe le bout : on pouvait donc se
+  // poser vent arrière sans que rien ne le dise. Désormais le tube ne prend que
+  // si l'on vient face au vent.
+  const versLaPiste = sens < 0 ? -state.forward.z : state.forward.z;
+  if (versLaPiste < Math.cos(28 * Math.PI / 180)) {
+    // ET ON LE DIT. Aligné sur l'axe mais par le mauvais bout, le tube ne
+    // prenait pas et rien n'expliquait pourquoi : on refaisait le tour en se
+    // demandant ce qui n'allait pas. Une phrase, une fois, et la manche à air
+    // cesse d'être une décoration.
+    if (versLaPiste < -Math.cos(28 * Math.PI / 180) && d > 100 && d < TUBE_DIST
+        && Math.abs(state.pos.x) < 400 && !TUBE.ditDos) {
+      TUBE.ditDos = true;
+      announce(t('ventDos'), t('ventDosSous'));
+      SFX.alerte();
+    }
+    return;
+  }
+  TUBE.ditDos = false;
   TUBE.dedans = TUBE.ecart < r;
   // LA PRISE : pleine au centre, nulle au bord. Le carré adoucit l'entrée —
   // on n'est pas happé en franchissant la paroi, ça vient progressivement.
@@ -5834,7 +5892,11 @@ const PLAN = { angle: 0, ecart: 0, blancs: 0, dist: 0, axe: 0,
                sens: -1, devant: false, lisible: false, pret: false,
                distAvant: undefined };
 function majPlan() {
-  const sens = state.forward.z < 0 ? -1 : 1;      // -1 : cap nord, on vise 18
+  // LE MÊME SENS QUE LE TUBE, ET POUR LA MÊME RAISON. Le plan de descente se
+  // calculait sur notre cap : arrivé vent arrière, les feux racontaient une
+  // belle approche et le tube, lui, ne prenait pas. Deux instruments qui se
+  // contredisent valent moins qu'aucun des deux.
+  const sens = sensAuVent();
   const dh = Math.abs(state.pos.z - PAPI_Z);
   const devant = sens < 0 ? state.pos.z > PAPI_Z : state.pos.z < PAPI_Z;
   PLAN.sens = sens;
@@ -5850,7 +5912,7 @@ function majPlan() {
   // maintenant, et toutes les quatre : le nez dans l'axe a vingt degres pres,
   // moins de deux kilometres six, pas plus de cinq cents metres de decalage
   // lateral, et SURTOUT une distance qui DIMINUE. S'eloigner l'eteint.
-  const capOk = Math.abs(state.forward.z) > Math.cos(20 * Math.PI / 180);
+  const capOk = (sens < 0 ? -state.forward.z : state.forward.z) > Math.cos(20 * Math.PI / 180);
   const rapproche = PLAN.distAvant === undefined || dh <= PLAN.distAvant + 0.01;
   PLAN.distAvant = dh;
   // « lisible » veut dire : les feux racontent quelque chose. On approche du
@@ -6169,7 +6231,7 @@ function updateAerodrome(dt) {
   hangar.porteG.position.z = -hangar.ouverture * AERO.baie / 2;
   hangar.porteD.position.z =  hangar.ouverture * AERO.baie / 2;
   // le vent tourne lentement, et la manche frissonne
-  if (Math.random() < 0.004) VENT.cible = Math.random() * Math.PI * 2;
+  if (Math.random() < 0.004) VENT.cible = VENT.base + (Math.random() - 0.5) * 0.9;
   VENT.a = dampAngle(VENT.a, VENT.cible, 0.3, dt);
   hangar.vent = VENT.a;
   poseManche(hangar.manche);
@@ -8589,6 +8651,11 @@ function resetGame() {
   state.leurres = avion().leurres; state.leurresActifs = []; state.leurresPleins = false;
   state.chaine = 0; state.chaineT = 0;
   state.trous = {}; state.vieMax = 100;
+  // LA MÉTÉO DU JOUR. Un vent par partie : on le lit en décollant, on s'en
+  // souvient en revenant, et c'est ce qui fait qu'un terrain a un caractère
+  // ce jour-là plutôt qu'une règle abstraite.
+  VENT.base = Math.random() * Math.PI * 2;
+  VENT.a = VENT.cible = VENT.base;
   appliqueAvion();
   state.triche = null;
   if (avance.vie50) state.structure = 50;
@@ -9424,8 +9491,18 @@ const FUITE_DIST = 3500, FUITE_ALERTE = 40, FUITE_DUREE = 60;
 // air qui racontaient deux histoires différentes à trente-deux kilomètres
 // l'une de l'autre. Un vent, lu par toutes les manches du monde — c'est ce qui
 // permettra de dire, bientôt, dans quel sens on se pose.
-const VENT = { a: Math.random() * Math.PI * 2, cible: 0, force: 0.6 };
-VENT.cible = VENT.a;
+// IL NE TOURNE PAS DE QUATRE-VINGT-DIX DEGRÉS TOUTES LES QUATRE SECONDES.
+//
+// Le vent était retiré au hasard sur tout le tour d'horizon, plusieurs fois par
+// minute : décoratif tant que la manche à air ne servait à rien, intenable dès
+// qu'il décide du sens d'atterrissage. On s'alignerait en finale et la piste
+// changerait de bout sous le nez.
+//
+// Il a donc une DIRECTION D'ENSEMBLE, tirée au début de la partie, et il ne
+// fait qu'osciller autour — vingt-cinq degrés de part et d'autre. La manche
+// frémit, le sens ne bouge pas, et l'on peut apprendre le terrain du jour.
+const VENT = { base: Math.random() * Math.PI * 2, a: 0, cible: 0, force: 0.6 };
+VENT.a = VENT.cible = VENT.base;
 const RADAR_BAS = 80;        // sous cette hauteur, on passe sous les radars
 // ---------------------------------------------------------------------------
 // LA NAPPE DU FAUCHEUR.
@@ -11841,7 +11918,10 @@ function simulate(dt) {
     // une réparation faite en s'étant posé cap au sud, l'appareil basculait de
     // cent quatre-vingts degrés en une seule image au moment de repartir.
     // et il est PILE dans l'axe de la piste : nord ou sud, rien entre
-    if (T.yaw === undefined) T.yaw = Math.cos(state.yaw) >= 0 ? 0 : Math.PI;
+    // ET ON DÉCOLLE FACE AU VENT AUSSI. Il partait dans le sens où l'on s'était
+    // posé, ce qui revenait à décoller vent arrière une fois sur deux. Un
+    // terrain a un sens ce jour-là, pour les deux moitiés du vol.
+    if (T.yaw === undefined) T.yaw = sensAuVent() < 0 ? 0 : Math.PI;
     state.yaw = T.yaw;
     state.roll = 0;
     const cy = Math.cos(T.yaw), sy = Math.sin(T.yaw);
@@ -13433,6 +13513,17 @@ function drawHud() {
                    : PLAN.blancs === 0 ? 'rgba(255,82,66,0.9)'
                    : 'rgba(190,255,220,0.62)';
     hctx.fillText(t(mot), w / 2, ty + ch + 15);
+    // LE VENT ET LA PISTE EN SERVICE, sous les feux. Il faut pouvoir le lire
+    // d'en haut : la manche à air est un objet de quatre mètres posé au bord
+    // du terrain, on ne la distingue pas à deux kilomètres. Elle reste ce qui
+    // le dit VRAIMENT — on la voit en finale, et c'est beau —, mais le
+    // collimateur en donne le chiffre, comme n'importe quel appareil de bord.
+    hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.fillStyle = 'rgba(190,255,220,0.55)';
+    const capV = ((-VENT.a * 180 / Math.PI) % 360 + 360) % 360;
+    hctx.fillText(t('ventMot') + String(Math.round(capV)).padStart(3, '0')
+                  + '  ·  ' + t('pisteMot') + (PLAN.sens < 0 ? '36' : '18'),
+                  w / 2, ty + ch + 30);
     hctx.restore();
   }
 
@@ -14577,6 +14668,9 @@ const T = {
     faucheurTombe: 'LE FAUCHEUR EST TOMBÉ  ·  +',
     faucheurTombeSous: 'Personne n’était censé y arriver.',
     ancienSous: 'Il est lent, il est silencieux, et il lit l’air.',
+    ventMot: 'VENT ', pisteMot: 'PISTE ',
+    ventDos: 'VENT ARRIÈRE  ·  L’AUTRE BOUT',
+    ventDosSous: 'Regarde la manche : on se pose contre elle.',
     surSonEcran: 'TU ES SUR SON ÉCRAN',
     surSonEcranSous: 'Descends. Sous sa nappe, il ne te voit plus.',
     redecoller: 'ENCORE', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
@@ -14689,6 +14783,9 @@ const T = {
     faucheurTombe: 'THE REAPER IS DOWN  ·  +',
     faucheurTombeSous: 'Nobody was supposed to manage that.',
     ancienSous: 'Slow, silent, and it reads the air.',
+    ventMot: 'WIND ', pisteMot: 'RWY ',
+    ventDos: 'DOWNWIND  ·  USE THE OTHER END',
+    ventDosSous: 'Look at the sock: you land against it.',
     surSonEcran: 'YOU ARE ON ITS SCREEN',
     surSonEcranSous: 'Go down. Under its sheet it loses you.',
     redecoller: 'AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
@@ -15243,6 +15340,12 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.26', fr: 'On se pose face au vent : la manche à air décide du seuil, et le tube n’ouvre que de ce côté.', en: 'You land into the wind: the sock picks the threshold, and the tube only opens on that side.' },
+  { v: '1.26', fr: 'Le vent et la piste en service s’affichent au collimateur, sous les feux.', en: 'Wind and runway in use are shown on the sight, under the lights.' },
+  { v: '1.26', fr: 'Aligné vent arrière, on est prévenu au lieu de tourner sans comprendre.', en: 'Lined up downwind, you are told instead of circling without knowing why.' },
+  { v: '1.26', fr: 'Un vent par partie, qui oscille sans jamais retourner le terrain sous le nez.', en: 'One wind per game, drifting but never flipping the field under your nose.' },
+  { v: '1.26', fr: 'L’entonnoir d’approche part de 1 800 m avec 190 de rayon : plus aucune arrivée ne le manque.', en: 'The approach funnel starts 1,800 m out with a 190 m radius: no sensible arrival misses it.' },
+  { v: '1.26', fr: 'Et on décolle face au vent aussi : le terrain a un sens, pour les deux moitiés du vol.', en: 'And you take off into the wind too: the field has a direction, for both halves of the flight.' },
   { v: '1.25', fr: 'Le dernier pour cent du faucheur vaut toute sa barre : la jauge se fige, et il encaisse.', en: 'The reaper’s last percent is worth its whole bar: the gauge freezes, and it takes it.' },
   { v: '1.25', fr: 'Qui l’abat quand même gagne 25 000 points, la vie pleine et cent de plafond.', en: 'Bringing it down anyway pays 25,000 points, full life and a hundred more ceiling.' },
   { v: '1.25', fr: 'L’air revient à pied et en Jeep : il est semé autour de ce qu’on pilote, à leur échelle.', en: 'The air is back on foot and in the Jeep: it is sown around what you drive, at its own scale.' },
