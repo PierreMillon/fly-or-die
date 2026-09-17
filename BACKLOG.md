@@ -2241,3 +2241,62 @@ qu'à cinq mètres.
 - Plus de dégradé vert en altitude : tout est de la couleur du fond.
 - Vérifié en vol normal : plaine quadrillée, crêtes avec un corps, ce qui est
   derrière une crête est coupé net.
+
+
+## À FAIRE
+
+- [x] Le tonneau barriqué déporte de deux à trois longueurs d'avion, du côté où le doigt part
+- [ ] Les avions encore en fil de fer pur reçoivent leurs faces pleines noires
+- [x] La Jeep : le bonhomme visible dedans, volant à gauche
+- [x] La Jeep : son plus grave et plus granuleux
+- [x] La Jeep : bug de descente — on se retrouve à un mètre du sol
+- [x] La lettre perd un mot par visite, de plus en plus vite vers la fin
+- [ ] S'allonger dans l'herbe au double appui : tête au ciel, joystick qui balaie, étoiles filantes
+- [ ] La guitare près du gramophone : en jouer à genoux, ou lire ce qu'Émilie y a gravé
+- [x] Les mécanos râlent en français au-dessus de leur tête, en mots très courts
+- [x] Un mécano lance-roquettes dès qu'un char entre dans le rayon du terrain
+- [ ] Un bruit de vent très léger au refuge
+
+
+## v1.31 — le tonneau, la pluie sur l'encre, et la Jeep
+
+### Le tonneau barriqué (mesuré)
+| | avant | après |
+|---|---|---|
+| déport net | 37,6 m | **100,9 m** |
+| pointe latérale | 65,3 m | 100,9 m (= le net : plus d'aller-retour) |
+| avance pendant la figure | 170 m | 168 m |
+
+`TONNEAU_LAT 62 → 14` et `TONNEAU_DECAL 30 → 100`. L'amplitude qui revenait est
+tombée à une envergure ; le déport prend toute la place et **reste**.
+
+### La lettre
+112 mots. `effaces(n) = n + max(0, n−25)² / 6`.
+
+| visite | 1 | 10 | 25 | 30 | 35 | 40 | 45 |
+|---|---|---|---|---|---|---|---|
+| mots effacés | 1 | 10 | 25 | 34 | 51 | 77 | 111 |
+
+Illisible à la 46ᵉ visite. L'ordre des gouttes est tiré une fois pour toutes :
+le mot effacé la dixième fois l'est encore la vingtième. La signature reste.
+
+### La défense du terrain (mesuré)
+Char de 150 pv posé à 421 m du hangar : **détruit en 9,8 s**, deux roquettes en
+vol au plus fort. `DEFENSE_RAYON = 700 m`, `DEFENSE_CADENCE = 3,2 s`.
+
+### Les mots des mécaniciens
+26 phrases très courtes, en français dans les deux langues. Aucune ne parle du
+vol, du posé ni du joueur : ils râlent pour eux. Un mot toutes les six secondes
+par homme, 2,4 s à l'écran, invisible au-delà de 110 m. Mesuré : présents sur
+105 images d'un essai de 9,8 s.
+
+### La Jeep
+- Le conducteur reste visible, assis au siège gauche (`JEEP_SIEGE 0,45`,
+  `JEEP_ASSISE 0,62`), et un volant est dessiné devant lui.
+- Descente à `JEEP_SORTIE = 3,2 m` au lieu de 2,0 — la demi-largeur vaut 0,95 et
+  les roues dépassent à 1,09, donc on descendait SUR la caisse. Mesuré : 3,20 m.
+- `solSousPied(x,z) = hauteurSol + PISTE.y` : l'homme marchait à une hauteur
+  clouée, donc en l'air dès qu'il quittait le bitume.
+- Le bloc du refuge replaçait l'homme à l'aile à chaque image, même en Jeep.
+- Son : base 46 → 32 Hz, passe-bas 420 → 300, deuxième cylindre en carré
+  désaccordé de 3,5 %, bruit de roulement 0,10 → 0,18 à 150 Hz.

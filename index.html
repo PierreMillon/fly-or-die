@@ -1577,11 +1577,23 @@ const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas 
 //
 // Les cinq premiers nombres viennent de la table à tracer, réglés au curseur.
 // ---------------------------------------------------------------------------
-const TONNEAU_LAT   = 62;     // amplitude latérale de la barrique, en mètres
+// LE DÉPORT SE FAIT, IL NE SE RATTRAPE PAS.
+//
+// Mesuré sur l'ancienne figure : pointe à 65 m, retour à 37 m nets, pendant
+// que l'appareil avançait de 170 m. L'oeil voit donc une embardée qui revient,
+// pas un pas de côté — et le net, noyé dans l'aller-retour, ne se remarque
+// pas. « Je fais mon tour et je retourne sur la même ligne » : c'est
+// exactement ça.
+//
+// L'amplitude qui revient tombe à une envergure, et le déport NET prend toute
+// la place. Le chemin devient une translation latérale tenue du début à la fin
+// de la figure, enroulée autour de son propre axe : on fonce sur un mur, on
+// barrique, et on passe à côté pour de bon.
+const TONNEAU_LAT   = 14;     // ce qui part et revient : une envergure, pour la forme
 const TONNEAU_VERT  = 37;     // la moitié de la hauteur prise au sommet
 const TONNEAU_TOURS = 1;      // tours d'enroulement le long de la barrique
 const TONNEAU_CABRE = 45;     // degrés de nez levé au plus fort
-const TONNEAU_DECAL = 30;     // le décalage NET à la sortie : deux ailes et demie
+const TONNEAU_DECAL = 100;    // le décalage NET à la sortie : huit envergures, et il reste
 const SPIN_TIME     = 1.70;   // durée du tonneau au double tap
 const SPIN_DODGE    = 110;    // ancien écart latéral : gardé pour l'esquive des roquettes
 // CINQ DEGRÉS, PAS VINGT-QUATRE. Réglé au curseur sur la planche : l'image ne
@@ -2749,11 +2761,16 @@ const SFX = {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(0.10, t + 0.6);
     const lp = actx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.8;
+    // PLUS GRAVE ET PLUS GRANULEUX. Le filtre descend de 420 à 300 : ce qui
+    // passe est du grondement, pas du moteur de tondeuse.
+    lp.type = 'lowpass'; lp.frequency.value = 300; lp.Q.value = 0.8;
     g.connect(lp).connect(master);
     const voix = [];
-    for (const [f0, ty, v] of [[46, 'sawtooth', 0.55], [46 * 1.015, 'sawtooth', 0.45],
-                               [23, 'triangle', 0.7]]) {
+    // Une octave plus bas, et le deuxième cylindre passe en carré, désaccordé
+    // de trois pour cent et demi au lieu d'un et demi : les deux battent
+    // ensemble, et c'est ce battement qu'on entend comme du grain.
+    for (const [f0, ty, v] of [[32, 'sawtooth', 0.55], [32 * 1.035, 'square', 0.40],
+                               [16, 'triangle', 0.80]]) {
       const o = actx.createOscillator(), og = actx.createGain();
       o.type = ty; o.frequency.setValueAtTime(f0, t);
       og.gain.setValueAtTime(v, t);
@@ -2767,13 +2784,13 @@ const SFX = {
       const n = actx.createBufferSource();
       n.buffer = bruitBuf; n.loop = true;
       const bp = actx.createBiquadFilter();
-      bp.type = 'bandpass'; bp.frequency.value = 260; bp.Q.value = 0.6;
-      const ng = actx.createGain(); ng.gain.value = 0.10;
+      bp.type = 'bandpass'; bp.frequency.value = 150; bp.Q.value = 0.35;
+      const ng = actx.createGain(); ng.gain.value = 0.18;
       n.connect(bp).connect(ng).connect(g);
       n.start(t);
       roul = { n, ng, bp };
     }
-    SFX._jeep = { g, voix, roul, base: 46 };
+    SFX._jeep = { g, voix, roul, base: 32 };
   },
   // v va de 0 à 1 : la part de la vitesse maximale
   jeepVitesse: (v) => {
@@ -2788,8 +2805,8 @@ const SFX = {
     J.voix[1].frequency.setTargetAtTime(f * 1.015, t, 0.08);
     J.voix[2].frequency.setTargetAtTime(f * 0.5, t, 0.08);
     if (J.roul) {
-      J.roul.ng.gain.setTargetAtTime(0.05 + 0.16 * v, t, 0.15);
-      J.roul.bp.frequency.setTargetAtTime(200 + 420 * v, t, 0.15);
+      J.roul.ng.gain.setTargetAtTime(0.09 + 0.22 * v, t, 0.15);
+      J.roul.bp.frequency.setTargetAtTime(110 + 300 * v, t, 0.15);
     }
   },
   jeepOff: () => {
@@ -6629,9 +6646,90 @@ mecanosTable();
 
 const _mec = new THREE.Vector3();
 
+// ---------------------------------------------------------------------------
+// CE QU'ILS PENSENT.
+//
+// Trois hommes s'affairaient en silence autour de l'appareil. Ils font le seul
+// travail utile du terrain, et on ne savait rien d'eux. Un mot leur passe
+// maintenant au-dessus de la tête, de temps en temps — pas une bulle, pas un
+// dialogue : un mot, qui s'efface.
+//
+// Ils parlent français, tous, y compris dans la version anglaise : ce sont des
+// mécaniciens de l'Aéropostale, et Saint-Exupéry n'a pas écrit en anglais.
+//
+// Et surtout : on ne sait jamais de quoi ils parlent. Aucune de ces phrases ne
+// commente le vol, le posé, la structure ou le joueur — ce serait un reproche
+// déguisé, et on n'en veut pas. Ils râlent pour eux, entre eux, à propos de
+// quelque chose qui ne nous regarde pas.
+// ---------------------------------------------------------------------------
+const MECANO_MOTS = [
+  'AH MERDE', 'OH PUTAIN', 'QUAND EST-CE QU’ON MANGE ?', 'NON MAIS OH',
+  'C’EST PAS POSSIBLE', 'OH LÀ LÀ', 'BON', 'ENCORE', 'PFF', 'J’AI FAIM',
+  'PASSE-MOI LA CLÉ', 'ELLE EST OÙ ?', 'TIENS ÇA', 'ATTENDS', 'DOUCEMENT',
+  'VOILÀ', 'ÇA TIENDRA', 'JE VOIS RIEN', 'IL FAIT FROID', 'DEUX MINUTES',
+  'C’EST TOI QUI L’AS PRIS', 'ÇA VA PAS, ÇA', 'HÉ', 'BOUGE DE LÀ',
+  'ON A TOUT LE TEMPS', 'MOI JE DIS RIEN'
+];
+const MECANO_MOT_DUREE = 2.4;    // secondes à l'écran
+const MECANO_MOT_CHANCE = 0.16;  // par seconde et par homme : un mot toutes les six secondes
+function majMotMecano(m, dt) {
+  if (m.motT > 0) { m.motT -= dt; if (m.motT <= 0) m.mot = null; return; }
+  if (m.mort) { m.mot = null; return; }
+  if (Math.random() < MECANO_MOT_CHANCE * dt) {
+    m.mot = MECANO_MOTS[Math.floor(Math.random() * MECANO_MOTS.length)];
+    m.motT = MECANO_MOT_DUREE;
+  }
+}
+// ---------------------------------------------------------------------------
+// LE LANCE-ROQUETTES DU TERRAIN.
+//
+// Un char s'arrêtait au bord de la piste et arrosait l'appareil pendant toute
+// la réparation. On pouvait redécoller, mais redécoller sous le feu pour aller
+// tuer un char à deux cents mètres de son propre hangar, c'est un terrain qui
+// ne se défend pas — et des mécaniciens qui regardent.
+//
+// Il y en a donc un qui pose la clé, épaule le tube, et tire. Une bulle autour
+// du terrain : le char y entre, il part. Ce n'est pas une tourelle — un homme
+// ne tire qu'une roquette toutes les trois secondes, et il peut être tué comme
+// les autres.
+//
+// Il ne provoque rien au-delà : hors de la bulle, les chars vivent leur vie.
+// ---------------------------------------------------------------------------
+const DEFENSE_RAYON = 700;      // mètres autour du terrain
+const DEFENSE_CADENCE = 3.2;    // secondes entre deux roquettes
+function charDansLaBulle() {
+  let best = null, dBest = DEFENSE_RAYON;
+  for (const e of state.enemies) {
+    if (!e.kind.sol || e.hp <= 0) continue;
+    const d = Math.hypot(e.pos.x, e.pos.z - AERO.z);
+    if (d < dBest) { dBest = d; best = e; }
+  }
+  return best;
+}
+const _mroq = new THREE.Vector3();
+function mecanoRoquette(m, dt, cible) {
+  if (m.roqT === undefined) m.roqT = Math.random() * DEFENSE_CADENCE;
+  if (!cible || m.mort || m.fuite > 0 || m.tire) { m.caisse.visible = false; return false; }
+  m.caisse.visible = true;
+  m.roqT -= dt;
+  if (m.roqT > 0) return true;
+  m.roqT = DEFENSE_CADENCE;
+  const p = new THREE.Vector3(m.p.x, m.p.y + MECANO_H * 0.9, m.p.z);
+  const dir = _mroq.subVectors(cible.pos, p).normalize().clone();
+  state.roquettes.push({ pos: p, dir, cible, t: 0, fum: 0, gauche: false,
+                         d0: p.distanceTo(cible.pos) });
+  semerFumee(p.clone().addScaledVector(dir, -5), dir);
+  SFX.roquette();
+  return true;
+}
 function updateMecanos(dt) {
+  const char = charDansLaBulle();
+  let tireur = true;      // un seul homme au tube : le premier valide
   for (const m of mecanos) {
-    if (!m.g.visible || m.mort) continue;
+    if (!m.g.visible || m.mort) { m.mot = null; m.motT = 0; m.caisse.visible = false; continue; }
+    majMotMecano(m, dt);
+    if (tireur && mecanoRoquette(m, dt, char)) tireur = false;
+    else if (m !== mecanos[0] || !char) m.caisse.visible = false;
     mecanoTire(m, dt);
     if (m.tire) continue;            // il tire : il ne s'affaire pas au moteur
     if (m.fuite > 0) {
@@ -7651,6 +7749,18 @@ try { disqueCasse = localStorage.getItem('fod_disque') === 'casse'; } catch (e) 
     // deux sièges, la roue de secours derrière
     for (const sx of [-0.45, 0.45])
       p.push(sx, y1, -0.4, sx, y1 + 0.55, -0.15, sx, y1, -0.4, sx, y1, 0.15);
+    // LE VOLANT, À GAUCHE. Une Jeep sans volant, c'est une caisse à roues :
+    // c'est la seule pièce qui dit dans quel sens on est assis, et de quel
+    // côté est le conducteur.
+    {
+      const vx = -0.45, vy = y1 + 0.46, vz = -0.86, rv = 0.26;
+      for (let k = 0; k < 12; k++) {
+        const a0 = k / 12 * Math.PI * 2, a1 = (k + 1) / 12 * Math.PI * 2;
+        p.push(vx + Math.cos(a0) * rv, vy + Math.sin(a0) * rv * 0.62, vz + Math.sin(a0) * rv * 0.5,
+               vx + Math.cos(a1) * rv, vy + Math.sin(a1) * rv * 0.62, vz + Math.sin(a1) * rv * 0.5);
+      }
+      p.push(vx, vy, vz, vx, y1 + 0.02, vz + 0.42);          // la colonne
+    }
     for (let k = 0; k < 12; k++) {
       const a0 = k / 12 * Math.PI * 2, a1 = (k + 1) / 12 * Math.PI * 2;
       p.push(Math.cos(a0) * 0.38, y1 + 0.45 + Math.sin(a0) * 0.38, dz + 0.12,
@@ -9100,7 +9210,10 @@ function updateRefugePose(dt) {
   // reste là — face à la cabane, immobile. On est arrivé quelque part, on
   // n'a rien à réparer, et rien ne presse. C'est au joueur, ensuite, de
   // décider d'avancer.
-  if (piloteG) {
+  // ET PLUS DÈS QU'IL EST PARTI. Ce bloc replaçait l'homme à côté de l'aile à
+  // chaque image, y compris pendant qu'il marchait ou qu'il conduisait : la
+  // Jeep l'emmenait et il réapparaissait à l'aile dans la même seconde.
+  if (piloteG && !state.pied && !state.jeep) {
     piloteG.visible = R.t > REFUGE_ARRET + REFUGE_SORTIE;
     const c = Math.cos(state.yaw), sn = Math.sin(state.yaw);
     // trois mètres sur la gauche de l'appareil, un demi-pas en arrière
@@ -9238,6 +9351,8 @@ function remonteEnAvion() {
 }
 
 const REDECO_PRES = 26;   // mètres : la distance d'où l'on remonte à bord
+// le sol sous ses pieds : le bitume est plat, le reste du monde ne l'est pas
+const solSousPied = (x, z) => hauteurSol(x, z) + PISTE.y;
 const _pd = new THREE.Vector3();
 function updateAPied(dt) {
   const M = state.pied;
@@ -9316,14 +9431,17 @@ function updateAPied(dt) {
   // glisserait, et un bonhomme qui glisse n'est pas quelqu'un qui marche.
   if (piloteG) {
     piloteG.visible = true;
-    piloteG.position.set(M.x, PISTE.y, M.z);
+    // IL MARCHE SUR LE SOL, PAS À UNE HAUTEUR FIXE. Sa hauteur était clouée à
+    // PISTE.y : au terrain c'est juste, partout ailleurs c'est faux. Descendu
+    // de la Jeep sur un chemin en pente, il marchait en l'air.
+    piloteG.position.set(M.x, solSousPied(M.x, M.z), M.z);
     piloteG.rotation.y = M.cap + Math.PI;     // sa face regarde son -z
     // la cadence du pas suit la vitesse : on voit qu'il court avant de le
     // mesurer, et l'écharpe s'allonge d'autant
     const k = M.v / PIED_COURSE;
     M.pas = (M.pas || 0) + dt * (4.4 + 5.2 * k);
     piloteG.rotation.z = Math.sin(M.pas) * 0.06 * Math.min(1, M.v / PIED_VIT);
-    piloteG.position.y = PISTE.y + Math.abs(Math.sin(M.pas)) * 0.07 * Math.min(1, M.v / PIED_VIT);
+    piloteG.position.y = solSousPied(M.x, M.z) + Math.abs(Math.sin(M.pas)) * 0.07 * Math.min(1, M.v / PIED_VIT);
     // IL COURT DROIT. Je l'inclinais de neuf degrés vers l'avant en croyant
     // dessiner une course ; de dos, en contre-plongée, ça ne se lit pas comme
     // quelqu'un qui court mais comme quelqu'un qui tombe en avant. Ce qui dit
@@ -9471,6 +9589,9 @@ const JEEP_TRAINE = 1.6;    // ce que le chemin lui prend quand on lâche
 const JEEP_CAM    = 9.5;
 const JEEP_CAM_H  = 3.6;
 const JEEP_RENTRE = 900;    // mètres : à cette distance de la piste, elle est rentrée
+const JEEP_SIEGE  = 0.45;   // le siège gauche, celui du volant
+const JEEP_ASSISE = 0.62;   // il est assis : le buste dépasse, les jambes non
+const JEEP_SORTIE = 3.2;    // mètres : on descend À CÔTÉ de la Jeep, pas dessus
 
 function monteEnJeep() {
   if (!jeepG || state.jeep) return;
@@ -9478,7 +9599,9 @@ function monteEnJeep() {
                  cap: jeepG.rotation.y, v: 0, t: 0,
                  camX: camera.position.x, camZ: camera.position.z, camY: camera.position.y };
   state.pied = null;
-  if (piloteG) piloteG.visible = false;
+  // ON LE VOIT DEDANS. Il disparaissait au moment de monter : la Jeep roulait
+  // toute seule, et l'on conduisait une caisse vide. Il reste assis à gauche,
+  // derrière le volant, et c'est lui qu'on suit.
   state.action = null;
   majActionBtn();
   announce(t('enJeep'));
@@ -9493,7 +9616,10 @@ function descendDeJeep() {
   SFX.jeepOff();
   // il descend du côté gauche, comme on descend d'une voiture
   state.pied = {
-    x: J.x - Math.cos(J.cap) * 2.0, z: J.z + Math.sin(J.cap) * 2.0,
+    // DEUX MÈTRES, C'ÉTAIT LA CAISSE. La demi-largeur vaut 0,95 et les roues
+    // dépassent à 1,09 : on descendait SUR la Jeep, et l'on repartait à pied
+    // juché dessus. Trois mètres deux, et l'on pose le pied dans l'herbe.
+    x: J.x - Math.cos(J.cap) * JEEP_SORTIE, z: J.z + Math.sin(J.cap) * JEEP_SORTIE,
     cap: J.cap, v: 0, t: 0,
     camX: J.camX, camZ: J.camZ, camY: J.camY
   };
@@ -9561,6 +9687,13 @@ function updateJeep(dt) {
   const yD  = hauteurSol(J.x + Math.cos(J.cap) * 1.1, J.z - Math.sin(J.cap) * 1.1);
   jeepG.position.set(J.x, yc, J.z);
   jeepG.rotation.set(Math.atan2(yAv - yAr, 4.4), J.cap, Math.atan2(yD - yG, 2.2), 'YXZ');
+  // le conducteur, au siège gauche, enfoncé jusqu'à la taille dans la caisse
+  if (piloteG) {
+    piloteG.visible = true;
+    piloteG.position.set(J.x - Math.cos(J.cap) * JEEP_SIEGE, yc + JEEP_ASSISE,
+                         J.z + Math.sin(J.cap) * JEEP_SIEGE);
+    piloteG.rotation.set(0, J.cap, 0);
+  }
 
   // LA PENTE COÛTE. Monter la chaîne prend du temps, et c'est ce qui rend la
   // traversée par la route longue — donc réelle.
@@ -9617,6 +9750,40 @@ function updateJeep(dt) {
 // on la lit, ou on ne la lit pas, et rien ne change. C'est pour ça qu'elle
 // compte.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// LA PLUIE SUR L'ENCRE.
+//
+// Le mot est resté sur une porte, dehors, et le papier ne tient pas. À chaque
+// fois qu'on revient le lire, il en manque un peu plus : d'abord un mot par
+// visite, puis de plus en plus vite — les dernières lectures emportent le
+// reste. Rien ne l'annonce et rien ne le compte à l'écran.
+//
+// L'ordre des gouttes est tiré une fois pour toutes : le mot effacé la
+// dixième fois l'est encore la vingtième. Ce n'est pas un texte qui clignote,
+// c'est une feuille qui s'abîme.
+//
+// La signature ne s'efface pas. Tout le reste peut partir ; « Joyeux
+// anniversaire mon ange » et le nom restent au bas de la page, parce que
+// c'est à ça qu'on revient.
+// ---------------------------------------------------------------------------
+const LETTRE_LENT = 25;    // visites pendant lesquelles on ne perd qu'un mot
+const LETTRE_ACC  = 6;     // ce qui fait accélérer la fin
+const lettreEffaces = n => n + Math.floor(Math.pow(Math.max(0, n - LETTRE_LENT), 2) / LETTRE_ACC);
+function lettrePluie(txt, n) {
+  if (n <= 0) return txt;
+  const mots = txt.split(/(\s+)/);          // on garde les blancs ET les retours
+  const idx = [];
+  for (let i = 0; i < mots.length; i++) if (/\S/.test(mots[i])) idx.push(i);
+  let g = 1234567;
+  const alea = () => (g = (g * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(alea() * (i + 1));
+    const t0 = idx[i]; idx[i] = idx[j]; idx[j] = t0;
+  }
+  const k = Math.min(idx.length, lettreEffaces(n));
+  for (let i = 0; i < k; i++) mots[idx[i]] = '[…]';
+  return mots.join('');
+}
 function ouvreLettre() {
   if (!lettrePan) return;
   // ELLE EST EN FRANÇAIS, ET SEULEMENT EN FRANÇAIS. Tout le reste du jeu
@@ -9624,7 +9791,13 @@ function ouvreLettre() {
   // quelqu'un, et une lettre ne se traduit pas. Un joueur anglophone la
   // trouvera en français, comme on trouve en français un mot laissé sur une
   // porte dans une maison française.
-  document.getElementById('lettreTxt').textContent = t('lettreTxte');
+  // la première lecture est intacte ; c'est en revenant que l'on voit la pluie
+  let lettreN = 0;
+  try {
+    lettreN = parseInt(localStorage.getItem('fod_lettre_n'), 10) || 0;
+    localStorage.setItem('fod_lettre_n', String(lettreN + 1));
+  } catch (e) {}
+  document.getElementById('lettreTxt').textContent = lettrePluie(t('lettreTxte'), lettreN);
   // LA SIGNATURE NE SE TRADUIT PAS. Tout le reste du jeu existe en deux
   // langues ; ces deux lignes-là s'adressent à quelqu'un, et un mot pour
   // quelqu'un n'a pas de version anglaise.
@@ -13901,6 +14074,34 @@ function drawHud() {
     hctx.restore();
   }
 
+  // CE QU'ILS PENSENT, AU-DESSUS DE LEUR TÊTE. Pas de cadre, pas de queue de
+  // bulle : le mot flotte là où il est dit, et il s'éteint. Il maigrit avec la
+  // distance comme tout le reste, et disparaît au-delà de cent mètres — de
+  // plus loin on n'entend pas quelqu'un marmonner.
+  {
+    const _mm = new THREE.Vector3();
+    hctx.save();
+    hctx.textAlign = 'center';
+    hctx.textBaseline = 'alphabetic';
+    for (const m of mecanos) {
+      if (!m.mot || m.motT <= 0 || !m.g.visible || m.mort) continue;
+      const d = m.p.distanceTo(camera.position);
+      if (d > 110) continue;
+      _mm.set(m.p.x, m.p.y + MECANO_H + 0.85, m.p.z);
+      const q = project(_mm);
+      if (!q.front) continue;
+      // il apparaît vite et s'efface doucement
+      const u = m.motT / MECANO_MOT_DUREE;
+      const f = Math.min(1, (1 - u) * 6) * Math.min(1, u * 2.4) * (1 - d / 110);
+      if (f <= 0.02) continue;
+      const taille = THREE.MathUtils.clamp(220 / Math.max(6, d), 8, 15);
+      hctx.font = taille.toFixed(1) + 'px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillStyle = 'rgba(190,255,220,' + (0.85 * f).toFixed(3) + ')';
+      hctx.fillText(m.mot, q.x, q.y);
+    }
+    hctx.restore();
+  }
+
   hctx.lineWidth = 1.5;
   hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
   hctx.textAlign = 'center';
@@ -15681,6 +15882,13 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.31', fr: 'Le tonneau barriqué déporte de cent mètres et ne revient pas : c’est une esquive, pas une embardée.', en: 'The barrel roll now shifts you a hundred metres and keeps it: a dodge, not a swerve.' },
+  { v: '1.31', fr: 'La lettre perd un mot à chaque relecture, de plus en plus vite : la pluie a eu l’encre.', en: 'The letter loses a word on every reread, faster and faster: the rain got the ink.' },
+  { v: '1.31', fr: 'Les mécaniciens râlent en français au-dessus de leur tête, et on ne sait jamais de quoi ils parlent.', en: 'The mechanics grumble in French above their heads, and you never know what about.' },
+  { v: '1.31', fr: 'Un char qui entre dans le rayon du terrain se fait tirer dessus à la roquette par un mécanicien.', en: 'A tank entering the field’s radius gets a rocket from one of the mechanics.' },
+  { v: '1.31', fr: 'On voit le conducteur dans la Jeep, assis à gauche derrière un volant.', en: 'You can see the driver in the Jeep, sitting on the left behind a steering wheel.' },
+  { v: '1.31', fr: 'Le moteur de la Jeep descend d’une octave et gagne du grain.', en: 'The Jeep engine drops an octave and gains grain.' },
+  { v: '1.31', fr: 'On descend à côté de la Jeep et non dessus, et l’on marche désormais sur le sol.', en: 'You step down beside the Jeep, not onto it, and you now walk on the ground.' },
   { v: '1.30', fr: 'Le sol est fait de mailles pleines noires bordées de vert : on ne voit plus à travers les montagnes.', en: 'The ground is made of solid black cells edged in green: you no longer see through the mountains.' },
   { v: '1.30', fr: 'Le trait passe devant sa propre surface par un biais de profondeur, et non plus par un décalage en mètres.', en: 'Lines sit in front of their own surface through a depth bias, no longer through an offset in metres.' },
   { v: '1.29', fr: 'On touche sur le peigne, au seuil, et non plus au milieu du bitume.', en: 'You touch down on the piano keys, at the threshold, not halfway down the tarmac.' },
