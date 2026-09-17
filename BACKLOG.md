@@ -2200,3 +2200,44 @@ Fin de séquence à t = 5,13 s, altitude 220 m, vitesse 144 m/s.
 - La guitare : la prendre, en jouer à genoux, et lire ce qu'Émilie y a gravé.
 - Un bruit de vent très léger au refuge.
 - Liste de propositions pour le double appui à pied.
+
+## v1.30 — le remplissage noir, et pourquoi quatre versions ont échoué
+
+### Une erreur de méthode, d'abord
+Toutes les planches comparatives des montagnes étaient **nulles**. La grille se
+rebâtit dès qu'on franchit une case de 160 m (`majGrille`), et un téléport en
+franchit forcément une : la géométrie modifiée au vol était reconstruite à
+l'image suivante, avant la capture. Les onze variantes A–K montraient donc
+toutes exactement la même image. C'est pour ça qu'aucune « n'allait ».
+
+### Ce que le décalage en mètres peut vraiment faire (mesuré)
+Remplissage sous les traits, même lattice, vue en chaîne à 430 m :
+
+| décalage | grille visible |
+|---|---|
+| 0 m | non |
+| −1,2 m | non |
+| −2 m | non |
+| −4 m (v1.28) | non |
+| −40 m | non |
+| −400 m | **oui** |
+
+Et `polygonOffset` à 16, 64, 256 et 1024 unités : aucun changement.
+Donc séparer les deux surfaces dans l'espace est impossible — il faudrait un
+sol qui flotte à quatre cents mètres.
+
+### La solution : un biais dans le tampon, pas dans le monde
+`gl_Position.z *= k` injecté en sortie de `project_vertex` sur les matériaux de
+trait. C'est proportionnel à la distance, donc aussi efficace à cinq kilomètres
+qu'à cinq mètres.
+
+- `TRAIT_DEVANT = 0.998` pour tous les objets : ils se regardent de face.
+- `TRAIT_SOL = 0.96` pour le sol et la piste : à angle rasant la surface file
+  vers l'horizon presque parallèlement au rayon. Mesuré : 0,999 laisse tout en
+  noir, 0,99 marche de trois quarts, 0,96 marche partout.
+
+### Le remplissage
+- `h − 4` → `h` : c'est exactement la surface des traits.
+- Plus de dégradé vert en altitude : tout est de la couleur du fond.
+- Vérifié en vol normal : plaine quadrillée, crêtes avec un corps, ce qui est
+  derrière une crête est coupé net.
