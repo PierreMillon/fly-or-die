@@ -5283,19 +5283,53 @@ traitsLayer.visible = false;
 scene.add(traitsLayer);
 
 const _tp = new THREE.Vector3(), _tr = new THREE.Vector3(), _tu = new THREE.Vector3();
+// L'AIR SE SÈME AUTOUR DE CE QU'ON PILOTE, PAS AUTOUR DE L'AVION.
+//
+// Tout le champ de traits était ancré sur `state.pos` et `state.forward` :
+// l'appareil. À pied et en Jeep, l'appareil est garé quelque part derrière, donc
+// les traits restaient accrochés à lui — immobiles, obliques, en travers de
+// l'image. Je les ai d'abord supprimés dans ces deux cas, ce qu'il n'avait pas
+// demandé et ne voulait pas : ce n'est pas l'air qui était de trop, c'est
+// l'ancre qui était fausse.
+//
+// L'ancre suit maintenant le véhicule, et l'échelle avec : un homme qui court à
+// cinq mètres par seconde et une Jeep qui roule à vingt ne traversent pas l'air
+// comme un avion à cent cinquante. Même effet, trois régimes.
+const _anc = new THREE.Vector3(), _cap = new THREE.Vector3();
+let _echTrait = 1;
+function ancreTraits() {
+  const M = state.pied, J = state.jeep;
+  if (M) {
+    _anc.set(M.x, PISTE.y + 1.5, M.z);
+    _cap.set(Math.sin(M.cap), 0, Math.cos(M.cap));
+    _echTrait = 0.055;                       // le monde d'un homme qui court
+    return M.v || 0;
+  }
+  if (J) {
+    _anc.set(J.x, PISTE.y + 1.2, J.z);
+    _cap.set(Math.sin(J.cap), 0, Math.cos(J.cap));
+    _echTrait = 0.16;                        // celui d'une Jeep sur un chemin
+    return Math.abs(J.v || 0);
+  }
+  _anc.copy(state.pos);
+  _cap.copy(state.forward);
+  _echTrait = 1;
+  return state.speed;
+}
+
 function semerTrait(i, devant) {
   const a = Math.random() * Math.PI * 2;
   // Un trait aligné sur l'axe du regard se projette en un point : c'est
   // exactement ce qui arrivait aux traits semés près du centre. On sème donc
   // en couronne et non en disque — là où la trajectoire fait un angle avec le
   // regard, et où le trait a donc une longueur à l'écran.
-  const r = TRAIT_RAYON * Math.sqrt(0.34 + 0.66 * Math.random());
-  const le = devant ? TRAIT_AVANT * Math.random()
-                    : TRAIT_AVANT - (TRAIT_AVANT + TRAIT_ARRIERE) * Math.random();
-  _tr.crossVectors(state.forward, _up).normalize();
-  _tu.crossVectors(_tr, state.forward).normalize();
-  _tp.copy(state.pos)
-     .addScaledVector(state.forward, le)
+  const r = TRAIT_RAYON * _echTrait * Math.sqrt(0.34 + 0.66 * Math.random());
+  const av = TRAIT_AVANT * _echTrait, ar = TRAIT_ARRIERE * _echTrait;
+  const le = devant ? av * Math.random() : av - (av + ar) * Math.random();
+  _tr.crossVectors(_cap, _up).normalize();
+  _tu.crossVectors(_tr, _cap).normalize();
+  _tp.copy(_anc)
+     .addScaledVector(_cap, le)
      .addScaledVector(_tr, Math.cos(a) * r)
      .addScaledVector(_tu, Math.sin(a) * r);
   traitsPts[i*3] = _tp.x; traitsPts[i*3+1] = _tp.y; traitsPts[i*3+2] = _tp.z;
@@ -5351,17 +5385,23 @@ function updateBoost(dt) {
 }
 
 function updateTraits(dt) {
-  // L'AIR NE SE VOIT QUE QUAND ON LE TRAVERSE.
-  //
-  // Signalé trois fois, corrigé deux fois ailleurs : la traînée des bouts
-  // d'aile avait sa garde, le ruban aussi, mais les TRAITS eux-mêmes n'en
-  // avaient aucune. Posé, à pied dans l'herbe du refuge, en Jeep, on gardait
-  // devant soi une pluie de traits obliques figés — le temps arrêté, et
-  // l'image entière illisible. Ils n'ont rien à faire là : personne ne
-  // traverse l'air en marchant.
-  if (!state.running || state.pose || state.roulage || state.refuge
-      || state.pied || state.jeep || state.auSol) {
+  // L'AIR NE SE VOIT QUE QUAND ON LE TRAVERSE. Ce qui n'avance pas n'en fait
+  // pas : un appareil aux freins, roues bloquées, gardait devant lui une pluie
+  // de traits obliques figés — le temps arrêté, et l'image illisible.
+  if (!state.running || state.pose || state.roulage || state.auSol) {
     traitsLayer.visible = false;
+    return;
+  }
+  const vit = ancreTraits();
+  // À PIED ET EN JEEP, C'EST LEUR VITESSE QUI COMPTE, sur leur propre échelle :
+  // la Jeep à vingt mètres par seconde doit faire autant d'air que l'appareil
+  // en croisière, sinon on ne verrait jamais rien. Le reste du calcul —
+  // l'assiette, la poursuite, la poussée — ne concerne que l'avion.
+  if (state.pied || state.jeep) {
+    const plein = state.pied ? PIED_COURSE : JEEP_VMAX;
+    const k2 = THREE.MathUtils.clamp((vit - plein * 0.30) / (plein * 0.70), 0, 1);
+    if (k2 <= 0.004) { traitsLayer.visible = false; return; }
+    dessineTraits(k2);
     return;
   }
   // Trois sources, dont la plus forte l'emporte : le régime, le nez qui pique
@@ -5381,28 +5421,33 @@ function updateTraits(dt) {
   // tout l'air disparaissait d'une image à l'autre. C'était le saut qui
   // restait, et il n'était pas dans la caméra.
   if (k <= 0.004) { traitsLayer.visible = false; return; }
+  dessineTraits(k);
+}
+
+function dessineTraits(k) {
   const n = Math.round(N_TRAITS * k);
-  const lg = 4 + 68 * k;                       // le trait s'allonge avec le régime
+  const lg = (4 + 68 * k) * _echTrait;         // le trait s'allonge avec le régime
   const pts = [];
   for (let i = 0; i < n; i++) {
     _tp.set(traitsPts[i*3], traitsPts[i*3+1], traitsPts[i*3+2]);
-    _v.subVectors(_tp, state.pos);
-    const le = _v.dot(state.forward);
+    _v.subVectors(_tp, _anc);
+    const le = _v.dot(_cap);
     // Hors du tube, ou jamais semé : on le replace devant. Le rayon se mesure
     // sur la composante PERPENDICULAIRE à la trajectoire, pas sur la distance
     // totale : un point très écarté mais à la bonne abscisse passait sinon le
     // test, et les cent dix-neuf traits restaient sagement à l'origine du
     // monde, loin derrière la caméra, invisibles depuis toujours.
-    _v.addScaledVector(state.forward, -le);
-    if (le > TRAIT_AVANT || le < -TRAIT_ARRIERE
-        || _v.lengthSq() > TRAIT_RAYON * TRAIT_RAYON * 1.25) {
+    _v.addScaledVector(_cap, -le);
+    const R = TRAIT_RAYON * _echTrait;
+    if (le > TRAIT_AVANT * _echTrait || le < -TRAIT_ARRIERE * _echTrait
+        || _v.lengthSq() > R * R * 1.25) {
       semerTrait(i, true);
       _tp.set(traitsPts[i*3], traitsPts[i*3+1], traitsPts[i*3+2]);
     }
     pts.push(_tp.x, _tp.y, _tp.z,
-             _tp.x - state.forward.x * lg,
-             _tp.y - state.forward.y * lg,
-             _tp.z - state.forward.z * lg);
+             _tp.x - _cap.x * lg,
+             _tp.y - _cap.y * lg,
+             _tp.z - _cap.z * lg);
   }
   traitsLayer.geometry.dispose();
   traitsLayer.geometry = segGeom(pts);
@@ -7829,6 +7874,12 @@ const FAUCHEUR_CONE    = 0.035; // ce qu'il gagne d'ouverture : 15° deviennent 
 const FAUCHEUR_CADENCE = 0.35;  // le délai entre deux rafales
 const FAUCHEUR_RAFALE  = 2;     // la longueur des rafales
 const FAUCHEUR_ROQ     = 0.35;  // le délai entre deux roquettes
+// LA RÉSERVE CACHÉE derrière le dernier pour cent. Quatre mille points de
+// structure, puis deux cent cinquante de plus qui ne s'affichent nulle part :
+// à la cadence des canons, c'est une bonne dizaine de secondes supplémentaires
+// collé à lui, pendant lesquelles il tue en vingt-deux. Le marché est net.
+const FAUCHEUR_RESERVE = 250;
+const FAUCHEUR_PRIME   = 25000;
 // IL NE DOIT PAS NOUS DÉPASSER. Mesuré : à 690 m/s il traversait la scène, la
 // distance oscillait entre 235 et 1 272 mètres, et en vingt-deux secondes sans
 // bouger le manche on prenait 63 points. Une vitesse pareille ne fait pas peur,
@@ -7858,13 +7909,28 @@ function vitesseFaucheur(e, dist) {
 // le blindage peut s'appliquer sans en oublier une source.
 function blesse(e, degats) {
   e.hp -= degats / (e.blindage || 1);
-  // IL NE TOMBE PAS. Ce n'est pas un adversaire très résistant : c'est une
-  // chose qu'on ne tue pas. Les balles l'atteignent, la jauge descend, et elle
-  // s'arrête à un. On finit par comprendre qu'il n'y a rien à gagner de ce
-  // côté-là, et c'est la seule fois du jeu où tirer ne sert à rien.
-  if (e.faucheur && e.hp < 1) {
-    e.hp = 1;
-    if (!e.dit) { e.dit = true; announce(t('faucheurDur'), t('faucheurDurSous')); SFX.alerte(); }
+  // LE DERNIER POUR CENT VAUT TOUTE LA BARRE.
+  //
+  // « Impossible de l'abattre » ne veut pas dire « le jeu refuse ». Ça veut
+  // dire que personne n'y arrive — ce qui est une autre chose, et bien plus
+  // intéressante : il reste une porte, elle est démesurée, et celui qui la
+  // pousse a fait quelque chose que presque personne ne fera.
+  //
+  // Sa jauge descend normalement jusqu'à un pour cent. Là elle SE FIGE, et
+  // derrière elle il y a une réserve cachée qu'aucun affichage n'annonce : on
+  // voit seulement qu'on le touche, et qu'il ne descend plus. S'acharner
+  // pendant tout ce temps sans se faire tuer par la chose la plus meurtrière
+  // du jeu, c'est le vrai combat — et il ne se raconte pas dans une jauge.
+  if (e.faucheur) {
+    const plancher = e.hpMax * 0.01;
+    if (e.hp < plancher) {
+      // tout ce qui passe sous le plancher part dans la réserve
+      e.reserve = (e.reserve === undefined ? FAUCHEUR_RESERVE : e.reserve) - (plancher - e.hp);
+      e.hp = plancher;
+      if (!e.dit) { e.dit = true; announce(t('faucheurDur'), t('faucheurDurSous')); SFX.alerte(); }
+      // et quand elle est vide, il tombe pour de bon
+      if (e.reserve <= 0) e.hp = 0;
+    }
   }
   if (e.faucheur && !e.phase2 && e.hp <= e.hpMax * 0.5) {
     e.phase2 = true;
@@ -10278,6 +10344,21 @@ function abattre(e) {
   const i = state.enemies.indexOf(e);
   if (i < 0) return;
   state.enemies.splice(i, 1);
+  // ET SI C'ÉTAIT LUI. Ce n'est pas un adversaire de plus qui tombe : c'est la
+  // chose dont tout le jeu dit qu'elle ne tombe pas. La récompense est à cette
+  // mesure — six fois la plus grosse prime du ciel, la structure rendue pleine,
+  // et le plafond de vie qui monte de cent pour le reste de la partie.
+  if (e.faucheur) {
+    state.faucheur = false;
+    state.fuiteT = 0; state.nappeT = 0;
+    marque(FAUCHEUR_PRIME);
+    state.vieMax += 100;
+    state.structure = state.vieMax;
+    trouve('faucheurTue');
+    announce(t('faucheurTombe') + FAUCHEUR_PRIME, t('faucheurTombeSous'));
+    SFX.cloche();
+    spawnBurst(e.pos, 26);
+  }
 
   // LE SUIVANT HÉRITE. Au milieu d'un groupe, la charge acquise sur celui qui
   // tombe passe au prochain qu'on accroche dans la seconde : on enchaîne au
@@ -14493,6 +14574,8 @@ const T = {
     avionMien: 'C’EST LE TIEN',
     faucheurDur: 'IL NE TOMBE PAS',
     faucheurDurSous: 'Rien de ce que tu as ne l’abat. Passe dessous.',
+    faucheurTombe: 'LE FAUCHEUR EST TOMBÉ  ·  +',
+    faucheurTombeSous: 'Personne n’était censé y arriver.',
     ancienSous: 'Il est lent, il est silencieux, et il lit l’air.',
     surSonEcran: 'TU ES SUR SON ÉCRAN',
     surSonEcranSous: 'Descends. Sous sa nappe, il ne te voit plus.',
@@ -14603,6 +14686,8 @@ const T = {
     avionMien: 'THIS IS YOURS',
     faucheurDur: 'IT DOES NOT GO DOWN',
     faucheurDurSous: 'Nothing you carry will kill it. Go under.',
+    faucheurTombe: 'THE REAPER IS DOWN  ·  +',
+    faucheurTombeSous: 'Nobody was supposed to manage that.',
     ancienSous: 'Slow, silent, and it reads the air.',
     surSonEcran: 'YOU ARE ON ITS SCREEN',
     surSonEcranSous: 'Go down. Under its sheet it loses you.',
@@ -15158,6 +15243,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.25', fr: 'Le dernier pour cent du faucheur vaut toute sa barre : la jauge se fige, et il encaisse.', en: 'The reaper’s last percent is worth its whole bar: the gauge freezes, and it takes it.' },
+  { v: '1.25', fr: 'Qui l’abat quand même gagne 25 000 points, la vie pleine et cent de plafond.', en: 'Bringing it down anyway pays 25,000 points, full life and a hundred more ceiling.' },
+  { v: '1.25', fr: 'L’air revient à pied et en Jeep : il est semé autour de ce qu’on pilote, à leur échelle.', en: 'The air is back on foot and in the Jeep: it is sown around what you drive, at its own scale.' },
   { v: '1.24', fr: 'La plaine est noire, et les montagnes ont un corps : c’est l’altitude qui décide.', en: 'The plain is black and the mountains have a body: altitude decides.' },
   { v: '1.24', fr: 'Le faucheur ne tombe pas, et il ne se lâche plus sur la distance : c’est un radar.', en: 'The reaper does not go down, and distance no longer releases it: it is a radar.' },
   { v: '1.24', fr: 'Dehors, vole bas et tu disparais de son écran. Monte, et il vient.', en: 'Out there, fly low and you vanish from its screen. Climb, and it comes.' },
@@ -15545,10 +15633,10 @@ const INDICES = [
     su: () => jeepRamenee,
     fr: 'Il y a une chose, très loin, qui peut revenir avec toi. Une seule.',
     en: 'There is one thing, very far away, that can come back with you. Only one.' },
-  { cle: 'faucheurAbattu',
-    su: () => decouvertes.faucheurAbattu,
-    fr: 'La chose qui se détache quand tu t’éloignes peut tomber. Et alors elle est à toi.',
-    en: 'The thing that comes loose when you stray can be brought down. And then it is yours.' },
+  { cle: 'faucheurTue',
+    su: () => decouvertes.faucheurTue,
+    fr: 'Sa jauge s’arrête à un pour cent. Elle ne ment pas : il reste quelque chose derrière.',
+    en: 'Its gauge stops at one percent. It is not lying: there is something left behind it.' },
   { cle: 'carte',
     su: () => decouvertes.carte,
     fr: 'Sous un toit, au bout du monde, quelqu’un a punaisé une carte. Elle ne montre pas d’où l’on vient.',
