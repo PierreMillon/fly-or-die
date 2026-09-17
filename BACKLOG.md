@@ -2243,21 +2243,6 @@ qu'à cinq mètres.
   derrière une crête est coupé net.
 
 
-## À FAIRE
-
-- [x] Le tonneau barriqué déporte de deux à trois longueurs d'avion, du côté où le doigt part
-- [ ] Les avions encore en fil de fer pur reçoivent leurs faces pleines noires
-- [x] La Jeep : le bonhomme visible dedans, volant à gauche
-- [x] La Jeep : son plus grave et plus granuleux
-- [x] La Jeep : bug de descente — on se retrouve à un mètre du sol
-- [x] La lettre perd un mot par visite, de plus en plus vite vers la fin
-- [x] S'allonger dans l'herbe au double appui : tête au ciel, joystick qui balaie, étoiles filantes
-- [x] La guitare près du gramophone : en jouer à genoux, ou lire ce qu'Émilie y a gravé
-- [x] Les mécanos râlent en français au-dessus de leur tête, en mots très courts
-- [x] Un mécano lance-roquettes dès qu'un char entre dans le rayon du terrain
-- [x] Un bruit de vent très léger au refuge
-
-
 ## v1.31 — le tonneau, la pluie sur l'encre, et la Jeep
 
 ### Le tonneau barriqué (mesuré)
@@ -2337,3 +2322,30 @@ mi, 32 notes de 0,55 s, en boucle. Un appui, il se relève.
 ### Non-régression
 Atterrissage toujours à 1,4 m du hangar, 416 m de roulage en 9,1 s. Aucune
 erreur en vol normal.
+
+
+## v1.33 — les deux appareils qui n'avaient pas de corps
+
+`meshPionnier` et `meshAncien` étaient des `LineSegments` purs : des arêtes et
+rien dedans. On voyait l'aile opposée à travers l'aile proche et le décor à
+travers le fuselage. Tous les autres passaient déjà par `solidWire`.
+
+`avionEnFil(lignes, peau, mat)` rend un groupe qui se comporte comme le
+`LineSegments` qu'il remplace — même `.visible`, même `.add()` pour l'hélice —
+avec une peau en `solidMat` juste dessous.
+
+- `PIONNIER_PEAU` : cinq triangles — le delta en trois morceaux, la dérive,
+  la quille.
+- `ANCIEN_PEAU` : les deux plans, un fuselage en cinq tronçons qui s'affine,
+  la dérive et le stabilisateur.
+
+Les peaux sont volontairement **un peu plus petites** que le tracé (3,55 au
+lieu de 3,60 de demi-envergure, fuselage à 0,27 au lieu de 0,30) : une peau qui
+déborde mange les traits qui la bordent, et l'on obtient une ombre sans contour.
+
+Vérifié en vol : le quadrillage du sol est coupé net derrière les ailes des deux
+appareils. Non-régression : atterrissage à 1,3 m du hangar, 416 m en 9,1 s.
+
+## À FAIRE
+
+Rien en attente. Les demandes en cours sont toutes traitées et mesurées.

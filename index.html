@@ -4201,6 +4201,71 @@ const SERIE_PLAFOND_MAX = 100;     // et jamais plus de cent points ajoutes
 const LIMITE_BASE    = 9;          // chrono d'une vague : base plus tant par appareil
 const LIMITE_PAR     = 4.5;   // constante de navigation proportionnelle
 
+// ---------------------------------------------------------------------------
+// LES DEUX APPAREILS QUI N'AVAIENT PAS DE CORPS.
+//
+// Tout le reste du jeu est dessiné selon la règle : contour vert, surfaces
+// internes pleines et noires, et l'on ne voit pas au travers. Le pionnier et
+// l'Ancien, eux, étaient des LineSegments purs — des arêtes et rien dedans. On
+// voyait donc l'aile opposée à travers l'aile proche, le décor à travers le
+// fuselage, et l'appareil n'avait aucune masse.
+//
+// On leur pose donc une peau. Elle est volontairement un peu PLUS PETITE que
+// le tracé : une peau qui déborderait mangerait les traits qui la bordent, et
+// l'on se retrouverait avec une ombre sans contour — exactement l'inverse de
+// ce qu'on veut.
+// ---------------------------------------------------------------------------
+function triGeom(t) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(t, 3));
+  g.computeVertexNormals();
+  return g;
+}
+// LE PIONNIER : une aile volante. Le nez, les deux bouts d'aile, le bord de
+// fuite, et la dérive dans le plan de symétrie.
+const PIONNIER_PEAU = [
+   0, 0, -3.35,  -3.42, 0.58, 1.88,  -0.88, 0, 2.95,
+   0, 0, -3.35,  -0.88, 0, 2.95,      0.88, 0, 2.95,
+   0, 0, -3.35,   0.88, 0, 2.95,      3.42, 0.58, 1.88,
+   0, 0, 2.32,    0, 1.66, 2.70,      0, 0, 2.96,
+   0, 0, -3.35,   0, 0.52, -0.70,     0, 0, 1.08
+];
+// L'ANCIEN : deux plans, un fuselage, une dérive, un stabilisateur.
+const ANCIEN_PEAU = (function () {
+  const t = [];
+  const quad = (a, b, c, d) => { t.push(...a, ...b, ...c, ...a, ...c, ...d); };
+  // le plan bas et le plan haut, un poil rentrés de leurs bords
+  quad([-3.55, -0.25, -0.86], [3.55, -0.25, -0.86], [3.55, -0.25, 0.46], [-3.55, -0.25, 0.46]);
+  quad([-3.28, 1.25, -1.06], [3.28, 1.25, -1.06], [3.28, 1.25, 0.26], [-3.28, 1.25, 0.26]);
+  // le fuselage : une poutre qui s'affine vers l'arrière, quatre faces
+  for (let k = 0; k < 5; k++) {
+    const u0 = k / 5, u1 = (k + 1) / 5;
+    const z0 = -2.55 + u0 * 5.9, z1 = -2.55 + u1 * 5.9;
+    const c0 = (1 - u0 * 0.78) * 0.27, c1 = (1 - u1 * 0.78) * 0.27;
+    const b0 = -0.08 + 0.22 * u0, b1 = -0.08 + 0.22 * u1;
+    const h0 = 0.42 - 0.18 * u0, h1 = 0.42 - 0.18 * u1;
+    quad([-c0, b0, z0], [c0, b0, z0], [c1, b1, z1], [-c1, b1, z1]);          // le ventre
+    t.push(-c0, b0, z0, 0, h0, z0, 0, h1, z1,  -c0, b0, z0, 0, h1, z1, -c1, b1, z1);
+    t.push( c0, b0, z0, 0, h0, z0, 0, h1, z1,   c0, b0, z0, 0, h1, z1,  c1, b1, z1);
+  }
+  // la dérive et le stabilisateur
+  t.push(0, 0.28, 3.35, 0, 1.28, 2.72, 0, 0.28, 2.24);
+  t.push(-1.32, 0.25, 2.80, 1.32, 0.25, 2.80, 0, 0.27, 3.35);
+  return t;
+})();
+// Un appareil en fil de fer devient un appareil : le tracé, et sa peau noire
+// juste dessous. Le groupe se comporte comme le LineSegments qu'il remplace.
+function avionEnFil(lignes, peau, mat) {
+  const g = new THREE.Group();
+  const face = new THREE.Mesh(triGeom(peau), solidMat);
+  face.material = solidMat;
+  const line = new THREE.LineSegments(segGeom(lignes), mat);
+  g.add(face, line);
+  g.frustumCulled = face.frustumCulled = line.frustumCulled = false;
+  g.line = line;
+  return g;
+}
+
 const matPlayer  = lineMat(COL_TEXT);
 const matEnemy   = lineMat(COL_LINE);
 const matLocked  = lineMat(COL_LOCK);
@@ -4404,9 +4469,9 @@ const ANCIEN_ENTIER = ANCIEN_SHAPE.concat(ANCIEN_HELICE.map(
 
 const meshInter = solidWire(KINDS[2].geom, KINDS[2].edges, matPlayer);
 meshInter.scale.setScalar(KINDS[2].echelle * ENVERGURE_JOUEUR / KINDS[2].envergure / PLANE_SCALE);
-const meshPionnier = new THREE.LineSegments(segGeom(PIONNIER_SHAPE), matPlayer);
+const meshPionnier = avionEnFil(PIONNIER_SHAPE, PIONNIER_PEAU, matPlayer);
 meshPionnier.scale.setScalar(12 / 7 / PLANE_SCALE * 0.85);
-const meshAncien = new THREE.LineSegments(segGeom(ANCIEN_SHAPE), matPlayer);
+const meshAncien = avionEnFil(ANCIEN_SHAPE, ANCIEN_PEAU, matPlayer);
 meshAncien.scale.setScalar(12 / 7.2 / PLANE_SCALE * 0.9);
 // LE DISQUE, AUX COULEURS DU JOUEUR. C'est exactement la même maquette que
 // celle qui vous poursuivait : même géométrie, même échelle relative, et rien
@@ -6534,7 +6599,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   // sont le biplan, l'intercepteur et le pionnier, dans cet ordre, et l'ancien
   // vient s'ajouter quand on l'a trouvé.
   const CHOIX = ['bimoteur', 'intercepteur', 'pionnier'];
-  rang.push({ lignes: ANCIEN_ENTIER, mat: matPlayer, ech: 12 / 7.2 * 0.75 });
+  rang.push({ lignes: ANCIEN_ENTIER, peau: ANCIEN_PEAU, mat: matPlayer, ech: 12 / 7.2 * 0.75 });
   CHOIX.push('ancien');
   // ET LE DISQUE EST GARÉ AVEC EUX, du premier jour. On le voit dans le rang
   // bien avant de pouvoir y monter — c'est le même ressort que l'Ancien : on
@@ -6545,7 +6610,8 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
               ech: KIND_FAUCHEUR.echelle * 0.9 });
   CHOIX.push('faucheur');
   rang.forEach((r, i) => {
-    const m = r.lignes ? new THREE.LineSegments(segGeom(r.lignes), r.mat) : solidWire(r.geo, r.edges, r.mat);
+    const m = r.lignes ? avionEnFil(r.lignes, r.peau || [], r.mat)
+                       : solidWire(r.geo, r.edges, r.mat);
     m.frustumCulled = false;
     m.scale.setScalar(r.ech);
     const col = Math.floor(i / 5), k = i % 5;
@@ -16219,6 +16285,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.33', fr: 'Le pionnier et l’Ancien ont enfin un corps : contour vert, surfaces pleines noires, comme tout le reste.', en: 'The pioneer and the Old One finally have a body: green outline, solid black surfaces, like everything else.' },
   { v: '1.32', fr: 'À pied, deux appuis couchent l’homme dans l’herbe : le manche balaie tout le ciel, et il n’y a plus rien d’autre.', en: 'On foot, a double tap lays the man down in the grass: the stick sweeps the whole sky, and nothing else remains.' },
   { v: '1.32', fr: 'Allongé, on trace les constellations avec le regard, et des étoiles filantes passent sans que rien ne l’annonce.', en: 'Lying down, you trace constellations with your gaze, and shooting stars cross unannounced.' },
   { v: '1.32', fr: 'Un vent très bas souffle au refuge, et trois notes tenues s’y ajoutent quand on s’allonge.', en: 'A very low wind blows at the refuge, and three held notes join it when you lie down.' },
