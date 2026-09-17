@@ -1808,7 +1808,7 @@ const COL_FOND      = 0x04070a;   // le fond de l'écran : la nappe du sol en pr
 // 0x174630 donne 1,88 contre le ciel — la masse se voit — et 8,22 contre le
 // trait, qui reste très largement dominant. Le dessin ne change pas de nature :
 // il gagne seulement un intérieur.
-const COL_RELIEF    = 0x174630;
+const COL_RELIEF    = 0x174630;   // plus employé : le sol est redevenu noir
 const COL_LINE      = 0x46ffa0;
 const COL_TEXT      = 0x8ffcc4;
 const COL_LOCK      = 0xffffff;
@@ -4010,6 +4010,18 @@ try { legendesN = (JSON.parse(localStorage.getItem('fod_carnet') || '{}').legend
 // clé est un endroit.
 const avionOuvert = a => a.acces === 'libre'
                       || (a.acces === 'refuge' ? !!decouvertes.refuge : legendesN > 0);
+// L'ANCIEN NE FAIT PAS DE FIGURES, PAR AUCUN GESTE.
+//
+// Un biplan haubané de 1910 ne se retourne pas : les câbles ne tiennent pas le
+// vol sur le dos et la cellule n'a pas la résistance. Il avait déjà perdu le
+// tonneau — le double appui sur le côté lui donne le courant — mais les deux
+// renversements passaient encore, par les coins, par le glissé, par le clavier
+// et par la manette. Quatre portes pour une règle : il en fallait une seule.
+//
+// Ce qu'il a à la place ne s'active pas, il se TIENT. C'est le seul pouvoir du
+// jeu qu'on occupe au lieu de le déclencher, et c'est ce qui fait qu'on pilote
+// l'Ancien autrement que les autres plutôt que moins bien.
+const figuresPossibles = () => !avion().courant;
 // la flèche du premier vol, telle qu'elle était dessinée en v0.1
 const PIONNIER_SHAPE = [
    0,  0, -3.4,   -3.5, 0.6, 1.9,    0,  0, -3.4,    3.5, 0.6, 1.9,
@@ -4055,12 +4067,6 @@ const ANCIEN_SHAPE = (function () {
   }
   for (const [ax, ay] of [[-0.30, -0.10], [0.30, -0.10], [0, 0.45]])
     p.push(ax, ay, -2.6, ax * 0.22, 0.27, 3.4);
-  // l'hélice : deux longues pales qu'on peut compter à l'arrêt
-  for (const sg of [-1, 1]) {
-    p.push(0, 0.18, -2.6, sg * 0.10, 0.18 + sg * 1.5, -2.66);
-    p.push(sg * 0.10, 0.18 + sg * 1.5, -2.66, -sg * 0.10, 0.18 + sg * 1.4, -2.54);
-    p.push(-sg * 0.10, 0.18 + sg * 1.4, -2.54, 0, 0.18, -2.6);
-  }
   // le train : deux roues à rayons et un patin de queue
   for (const sx of [-1, 1]) {
     const cx = sx * 0.85, cz = -1.2, r = 0.42;
@@ -4084,6 +4090,26 @@ const ANCIEN_SHAPE = (function () {
   return p;
 })();
 
+// L'HÉLICE VIT À PART, ET C'EST POUR ÇA QU'ELLE TOURNE. Elle était dessinée
+// dans la maquette, donc soudée au fuselage : deux belles pales parfaitement
+// immobiles pendant tout le vol. Un moteur qui tourne se voit à son hélice
+// avant de s'entendre. Elle sort donc du corps, elle est centrée sur son moyeu
+// — c'est ce qui permet de la faire tourner autour de lui — et le corps la
+// retrouve à sa place pour les maquettes garées, qui elles ne tournent pas.
+const ANCIEN_MOYEU = [0, 0.18, -2.6];
+const ANCIEN_HELICE = (function () {
+  const p = [];
+  for (const sg of [-1, 1]) {
+    p.push(0, 0, 0, sg * 0.10, sg * 1.5, -0.06);
+    p.push(sg * 0.10, sg * 1.5, -0.06, -sg * 0.10, sg * 1.4, 0.06);
+    p.push(-sg * 0.10, sg * 1.4, 0.06, 0, 0, 0);
+  }
+  return p;
+})();
+// la version garée : le corps et l'hélice réunis, immobiles
+const ANCIEN_ENTIER = ANCIEN_SHAPE.concat(ANCIEN_HELICE.map(
+  (v, i) => v + ANCIEN_MOYEU[i % 3]));
+
 const meshInter = solidWire(KINDS[2].geom, KINDS[2].edges, matPlayer);
 meshInter.scale.setScalar(KINDS[2].echelle * ENVERGURE_JOUEUR / KINDS[2].envergure / PLANE_SCALE);
 const meshPionnier = new THREE.LineSegments(segGeom(PIONNIER_SHAPE), matPlayer);
@@ -4092,6 +4118,21 @@ const meshAncien = new THREE.LineSegments(segGeom(ANCIEN_SHAPE), matPlayer);
 meshAncien.scale.setScalar(12 / 7.2 / PLANE_SCALE * 0.9);
 meshPionnier.frustumCulled = meshInter.frustumCulled = meshAncien.frustumCulled = false;
 playerMesh.add(meshInter, meshPionnier, meshAncien);
+// elle est FILLE de l'appareil : elle hérite de son échelle et de son assiette,
+// et il ne reste qu'un angle à faire avancer
+const propAncien = new THREE.LineSegments(segGeom(ANCIEN_HELICE), matPlayer);
+propAncien.position.set(ANCIEN_MOYEU[0], ANCIEN_MOYEU[1], ANCIEN_MOYEU[2]);
+propAncien.frustumCulled = false;
+meshAncien.add(propAncien);
+// UNE SEULE COMMANDE POUR LES DEUX HÉLICES. Il y a onze endroits dans le jeu
+// qui font tourner celle du bimoteur — le posé, le roulage, le décollage, le
+// vol, le refuge, la marche à pied. Les répéter un par un, c'est en oublier
+// un : la fonction les tient ensemble, et celle qui n'est pas visible tourne
+// dans le vide sans que ça coûte rien.
+function tourneHelice(a) {
+  propMesh.rotation.z += a;
+  propAncien.rotation.z += a;
+}
 function appliqueAvion() {
   if (!avionOuvert(avion())) avionChoisi = 'bimoteur';
   const id = avion().id;
@@ -4303,22 +4344,20 @@ function batisRelief(cx, cz) {
   // ce qui est dessous.
   const nappe = new THREE.Mesh(
     new THREE.PlaneGeometry(GRID_SPAN * 1.4, GRID_SPAN * 1.4).rotateX(-Math.PI / 2),
-    // LA NAPPE ÉTAIT LE COUPABLE, ET DEPUIS LE DÉBUT.
+    // ELLE EST NOIRE, ET C'EST TOUT SON INTÉRÊT.
     //
-    // Elle est peinte COL_FOND — 0x04070a, la couleur EXACTE du ciel — et le
-    // commentaire d'origine en faisait une vertu : « la nappe du sol en prend
-    // la couleur ». C'était l'idée qui ne va pas. Un sol peint de la couleur
-    // du ciel EST un trou dans le sol, quoi qu'on mette en dessous.
+    // Je l'avais repeinte en vert sombre en v1.20, en croyant que la couleur
+    // était la cause des montagnes transparentes. Elle ne l'était pas : la
+    // cause était sa HAUTEUR — posée à moins soixante centimètres alors que le
+    // relief est à hauteurSol − 4, elle passait devant lui partout où le
+    // terrain est plat et repeignait par-dessus. Douze mètres plus bas, le
+    // problème n'existe plus, et la couleur n'a plus rien à réparer.
     //
-    // Et elle est À MOINS SOIXANTE CENTIMÈTRES, alors que le relief est à
-    // hauteurSol − 4. Partout où le terrain est plat — toute la ville, toute
-    // la plaine du dehors, tous les fonds de vallée — la nappe est DEVANT le
-    // relief : elle gagne le test de profondeur, et elle repeint le ciel par
-    // dessus la montagne qu'on venait de rendre opaque.
-    //
-    // J'ai corrigé cinq fois le relief pour un défaut qui n'était pas dans le
-    // relief. Elle prend la même couleur que lui : c'est le même sol.
-    new THREE.MeshBasicMaterial({ color: COL_RELIEF, fog: false, depthWrite: true })
+    // Repeinte, elle remplissait tout l'écran de vert : le jeu est un dessin au
+    // trait sur du noir, pas un paysage colorié. Elle reprend la couleur du
+    // fond. Son rôle n'a jamais été de se voir — c'est un masque, il arrête ce
+    // qui passe dessous, et un masque qui se voit est raté.
+    new THREE.MeshBasicMaterial({ color: COL_BG, fog: false, depthWrite: true })
   );
   // ET ELLE PASSE SOUS LE RELIEF. À moins soixante centimètres elle était
   // AU-DESSUS de lui — le relief est à hauteurSol − 4 — donc partout où le
@@ -4385,7 +4424,13 @@ function batisRelief(cx, cz) {
     //
     // Un champ de hauteurs n'a pas d'intérieur : il n'y a aucune raison de
     // n'en peindre qu'un côté. Deux faces, et les trous n'existent plus.
-    new THREE.MeshBasicMaterial({ color: COL_RELIEF, fog: false, depthWrite: true,
+    // ET LUI AUSSI EST NOIR. Une montagne pleine et verte, c'est un paysage ;
+    // une montagne pleine et NOIRE, c'est une masse qui cache ce qu'il y a
+    // derrière — et c'est exactement ce qu'on lui demande. L'occultation ne
+    // dépend pas de la couleur : elle vient du tampon de profondeur, que ce
+    // matériau écrit quoi qu'il peigne. On garde donc le corps, et on rend le
+    // dessin au trait.
+    new THREE.MeshBasicMaterial({ color: COL_BG, fog: false, depthWrite: true,
                                   side: THREE.DoubleSide })
   );
   relief.frustumCulled = false;
@@ -5870,7 +5915,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   // sont le biplan, l'intercepteur et le pionnier, dans cet ordre, et l'ancien
   // vient s'ajouter quand on l'a trouvé.
   const CHOIX = ['bimoteur', 'intercepteur', 'pionnier'];
-  rang.push({ lignes: ANCIEN_SHAPE, mat: matPlayer, ech: 12 / 7.2 * 0.75 });
+  rang.push({ lignes: ANCIEN_ENTIER, mat: matPlayer, ech: 12 / 7.2 * 0.75 });
   CHOIX.push('ancien');
   rang.forEach((r, i) => {
     const m = r.lignes ? new THREE.LineSegments(segGeom(r.lignes), r.mat) : solidWire(r.geo, r.edges, r.mat);
@@ -8066,7 +8111,7 @@ function poseAuSol() {
 // tourne tant qu'aucune partie n'est lancée : l'hélice brasse au ralenti et
 // la scène vit un peu, sans que rien ne se joue
 function auRalenti(dt) {
-  propMesh.rotation.z += 3.4 * dt;
+  tourneHelice(3.4 * dt);
   updateMecanos(dt);
   state.screenX = window.innerWidth / 2;
   state.screenY = window.innerHeight * 0.62;
@@ -8469,7 +8514,7 @@ function updateRefugePose(dt) {
                       oz + Math.cos(R.angle) * rayon);
   camera.lookAt(ox, PISTE.y + 3.2, oz);
   playerMesh.position.copy(state.pos);
-  propMesh.rotation.z += 0.25 * dt;       // l'hélice s'arrête presque
+  tourneHelice(0.25 * dt);       // l'hélice s'arrête presque
 }
 
 function quitteRefuge() {
@@ -8691,7 +8736,7 @@ function updateAPied(dt) {
   const av = dedansMaison ? 2.2 : 0;
   camera.lookAt(M.x + Math.sin(M.cap) * av, PISTE.y + PIED_VISE, M.z + Math.cos(M.cap) * av);
   playerMesh.position.copy(state.pos);
-  propMesh.rotation.z += 0.05 * dt;
+  tourneHelice(0.05 * dt);
 
   // CE QUI SE PROPOSE. Le plus proche des points d'intérêt, s'il est à portée,
   // et l'appareil lui-même — sur lequel on peut toujours remonter.
@@ -11115,15 +11160,15 @@ function simulate(dt) {
     state.pitch = THREE.MathUtils.damp(state.pitch, 0, 5, dt);
     state.roll = THREE.MathUtils.damp(state.roll, 0, 7, dt);
 
-    // REMISE DE GAZ : tirer franchement sur le manche tant qu'il reste de la
-    // vitesse. En dessous on est trop lent pour reprendre l'air, et le manche
-    // ne peut plus rien y faire.
-    if (dy < -0.4 && state.speed > SPEED_MIN + 6) {
-      state.roulage = null;
-      state.pitch = 0.13;
-      announce(t('freinsLaches') + '  ·  ' + t('remiseGaz'));
-      SFX.cale();
-    } else {
+    // AU SOL, LE MANCHE NE VOLE PLUS.
+    //
+    // Il restait une remise de gaz : tirer franchement pendant le freinage
+    // reprenait l'air. C'était la dernière chose qui faisait décoller un
+    // appareil dont les roues touchent le bitume — et donc la dernière raison
+    // de voir les ailes bouger au sol. Roues au sol, l'appareil se conduit
+    // comme la Jeep : on avance, on recule, on braque, et on décolle avec le
+    // bouton. Un seul verbe par situation.
+    {
       // La décélération est celle qu'il faut pour tenir dans ROULAGE_M mètres
       // depuis la vitesse de toucher : un posé rapide freine plus fort, mais
       // s'arrête au même endroit.
@@ -11216,7 +11261,7 @@ function simulate(dt) {
     state.forward.set(0, 0, -1).applyQuaternion(state.quat);
     playerMesh.position.copy(state.pos);
     playerMesh.quaternion.copy(state.quat);
-    propMesh.rotation.z += (3 + state.speed * 0.14) * dt;
+    tourneHelice((3 + state.speed * 0.14) * dt);
 
     state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 8, dt);
     state.camYaw = dampAngle(state.camYaw, state.yaw, 8, dt);
@@ -11311,7 +11356,7 @@ function simulate(dt) {
     // ET ELLE SE PAIE. Cinq points de score par point de structure rendu :
     // aller se poser reste toujours possible, mais ce n'est plus gratuit.
     state.score = Math.max(0, state.score - (state.structure - avant) * REPARE_COUT);
-    propMesh.rotation.z += 3.4 * dt;
+    tourneHelice(3.4 * dt);
     playerMesh.position.copy(state.pos);
     // LE DÉCALAGE DE CAMÉRA DOIT TOURNER AVEC LE CAP. Il était ajouté tel quel,
     // en axes du monde : posé cap au sud, l'appareil se retrouvait DEVANT sa
@@ -11381,7 +11426,7 @@ function simulate(dt) {
       state.forward.set(0, 0, -1).applyQuaternion(state.quat);
       playerMesh.position.copy(state.pos);
       playerMesh.quaternion.copy(state.quat);
-      propMesh.rotation.z += (4 + 30 * state.regime) * dt;
+      tourneHelice((4 + 30 * state.regime) * dt);
       state.camPitch = 0;
       poseCam(0);
       // On rejoint la place de départ au ressort plutôt que d'y sauter : après
@@ -11445,7 +11490,7 @@ function simulate(dt) {
     state.forward.set(0, 0, -1).applyQuaternion(state.quat);
     playerMesh.position.copy(state.pos);
     playerMesh.quaternion.copy(state.quat);
-    propMesh.rotation.z += (6 + state.speed * 0.16) * dt;
+    tourneHelice((6 + state.speed * 0.16) * dt);
 
     // MEME RAISONNEMENT POUR L'ASSIETTE QUE POUR LA POSITION, juste en
     // dessous : le decollage est ecrit d'avance, la camera n'a rien a
@@ -11579,7 +11624,7 @@ function simulate(dt) {
 
     playerMesh.position.copy(state.pos);
     playerMesh.quaternion.copy(state.quat);
-    propMesh.rotation.z += 16 * dt;
+    tourneHelice(16 * dt);
 
     // La caméra suit la figure de loin au début — on voit l'avion partir — puis
     // se resserre vers la fin pour être recollée au moment de rendre la main.
@@ -11854,7 +11899,7 @@ function simulate(dt) {
 
   playerMesh.position.copy(state.pos);
   playerMesh.quaternion.copy(state.quatVu || state.quat);
-  propMesh.rotation.z += 16 * dt;
+  tourneHelice(16 * dt);
 
   // LES TROIS HALOS. Chacun lit une seule chose, déjà calculée ailleurs : le
   // bouclier qui reste, l'alignement au soleil, les secondes de surchauffe.
@@ -12147,24 +12192,46 @@ function buteHangar() {
 // geste est celui d'un pilote qui désigne — et c'est le seul endroit du jeu où
 // l'on choisit son avion en le regardant plutôt qu'en lisant une liste.
 const CHOIX_PORTEE = 80;                    // mètres : toute la profondeur du hangar
-const CHOIX_ANGLE  = 11 * Math.PI / 180;    // le nez doit vraiment être dessus
+// LE CÔNE ÉTAIT DEUX FOIS TROP LARGE. À onze degrés il attrapait un appareil
+// bien avant qu'on soit dessus, et comme on ne peut pas pivoter sur place — un
+// avion tourne en roulant — le nez balaie le rang par grands pas. On passait du
+// premier au troisième sans jamais tenir le deuxième.
+//
+// Cinq degrés et demi : il faut être dessus, et alors on y reste. C'est moins
+// de magnétisme, donc plus de contrôle, ce qui est le bon sens quand la
+// commande est grossière.
+const CHOIX_ANGLE  = 5.5 * Math.PI / 180;
+// ET UNE FOIS TENU, ON LE GARDE. Sans mémoire, la cible clignotait entre deux
+// appareils dès que le nez oscillait d'un degré. Le cône s'élargit de moitié
+// pour celui qu'on vise DÉJÀ : entrer est exigeant, sortir demande un vrai
+// geste. C'est la même hystérésis que le tube d'approche, pour la même raison.
+const CHOIX_GARDE  = 1.5;
 const CHOIX_TENUE  = 1.4;                   // secondes de nez tenu
-const CHOIX = { cible: null, t: 0, verrou: false, dit: false };
+const CHOIX = { cible: null, t: 0, verrou: false, dit: false, mien: false };
 const _chv = new THREE.Vector3();
 function majChoixHangar(dt) {
   if (!state.pose || !hangar.choix.length) { CHOIX.cible = null; CHOIX.t = 0; CHOIX.dit = false; return; }
+  // ON NE SAUTE PLUS LE NÔTRE. Il était écarté de la recherche, et comme il est
+  // garé au milieu du rang, le balayage passait du premier au troisième sans
+  // rien afficher entre les deux : ça se lit comme un appareil manqué, pas
+  // comme « celui-là, tu l'as déjà ». Il s'affiche donc, avec son nom, et il ne
+  // se remplit pas — il n'y a rien à prendre.
   let vu = null, mieux = CHOIX_ANGLE;
   for (const c of hangar.choix) {
-    if (c.id === avionChoisi) continue;      // on ne se choisit pas soi-même
     _chv.subVectors(c.p, state.pos);
     const d = _chv.length();
     if (d > CHOIX_PORTEE || d < 3) continue;
     _chv.multiplyScalar(1 / d);
     const a = Math.acos(THREE.MathUtils.clamp(_chv.dot(state.forward), -1, 1));
-    if (a < mieux) { mieux = a; vu = c; }
+    // celui qu'on tient déjà garde un cône plus large : on n'en sort pas par
+    // accident
+    const seuil = (CHOIX.cible === c ? CHOIX_ANGLE * CHOIX_GARDE : CHOIX_ANGLE);
+    if (a < seuil && a < mieux) { mieux = a; vu = c; }
   }
-  if (!vu) { CHOIX.cible = null; CHOIX.t = 0; CHOIX.dit = false; return; }
+  if (!vu) { CHOIX.cible = null; CHOIX.t = 0; CHOIX.dit = false; CHOIX.mien = false; return; }
   if (CHOIX.cible !== vu) { CHOIX.cible = vu; CHOIX.t = 0; CHOIX.dit = false; }
+  CHOIX.mien = vu.id === avionChoisi;
+  if (CHOIX.mien) { CHOIX.t = 0; CHOIX.verrou = false; return; }
   const a = AVIONS.find(x => x.id === vu.id);
   // UN APPAREIL VERROUILLÉ SE VOIT QUAND MÊME. Le cercle s'affiche, il ne se
   // remplit pas, et le nom dit ce qu'il faut faire pour l'ouvrir : c'est une
@@ -12849,7 +12916,8 @@ function drawHud() {
       const R = Math.max(18, Math.min(w, h) * 0.055);
       hctx.save();
       hctx.lineWidth = 1.4;
-      hctx.strokeStyle = CHOIX.verrou ? 'rgba(190,255,220,0.30)' : 'rgba(143,252,196,0.55)';
+      hctx.strokeStyle = (CHOIX.verrou || CHOIX.mien) ? 'rgba(190,255,220,0.30)'
+                                                     : 'rgba(143,252,196,0.55)';
       hctx.beginPath(); hctx.arc(q.x, q.y, R, 0, Math.PI * 2); hctx.stroke();
       if (k > 0.001) {
         hctx.lineWidth = 3;
@@ -12862,9 +12930,12 @@ function drawHud() {
       // réduit jusqu'à tenir, puis il se recentre pour ne déborder d'aucun bord
       hctx.textAlign = 'center';
       hctx.textBaseline = 'middle';
-      hctx.fillStyle = CHOIX.verrou ? 'rgba(190,255,220,0.62)' : 'rgba(143,252,196,0.92)';
+      hctx.fillStyle = (CHOIX.verrou || CHOIX.mien) ? 'rgba(190,255,220,0.62)'
+                                                    : 'rgba(143,252,196,0.92)';
       const nom = a ? (langue === 'en' ? a.en : a.nom) : '';
-      const mot = CHOIX.verrou ? nom + '  ·  ' + t('avionFerme') : nom;
+      const mot = CHOIX.mien   ? nom + '  ·  ' + t('avionMien')
+                : CHOIX.verrou ? nom + '  ·  ' + t('avionFerme')
+                : nom;
       let tp = 12;
       hctx.font = tp + 'px "IBM Plex Mono", ui-monospace, monospace';
       while (tp > 8 && hctx.measureText(mot).width > w - 24) {
@@ -14042,6 +14113,7 @@ const T = {
     butee: 'ON N’ENTRE PAS EN AVION  ·  DESCENDS',
     avionPris: 'APPAREIL PRIS  ·  ',
     avionFerme: 'PAS ENCORE À TOI',
+    avionMien: 'C’EST LE TIEN',
     redecoller: 'ENCORE', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
     pasDeVideo: "Bêta : la vidéo n'est pas encore branchée, la reprise est offerte quand même. Ce clic est compté pour savoir ce que ça rapporterait.",
     scoreMot: 'SCORE ', nouveauRecord: 'NOUVEAU RECORD', recordMot: 'RECORD '
@@ -14146,6 +14218,7 @@ const T = {
     butee: 'NO TAXIING INSIDE  ·  STEP DOWN',
     avionPris: 'AIRCRAFT TAKEN  ·  ',
     avionFerme: 'NOT YOURS YET',
+    avionMien: 'THIS IS YOURS',
     redecoller: 'AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
     pasDeVideo: 'Beta: the video is not wired yet, the continue is free anyway. This tap is counted to know what it would earn.',
     scoreMot: 'SCORE ', nouveauRecord: 'NEW RECORD', recordMot: 'RECORD '
@@ -14692,6 +14765,12 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.23', fr: 'Le sol redevient noir : c’est un dessin au trait, pas un paysage colorié.', en: 'The ground goes back to black: this is a line drawing, not a coloured landscape.' },
+  { v: '1.23', fr: 'Les montagnes cachent toujours ce qu’il y a derrière — ça n’a jamais tenu à leur couleur.', en: 'Ridges still hide what is behind them: that never depended on their colour.' },
+  { v: '1.23', fr: 'L’Ancien ne fait plus aucune figure, par aucun geste : il n’a que l’air, et il le tient.', en: 'The Old One does no aerobatics by any input: it has the air, and it holds it.' },
+  { v: '1.23', fr: 'Son hélice tourne au lieu d’être soudée au fuselage.', en: 'Its propeller turns instead of being welded to the fuselage.' },
+  { v: '1.23', fr: 'Le choix au nez est deux fois plus fin, et ton propre appareil n’est plus sauté.', en: 'Nose selection is twice as fine, and your own aircraft is no longer skipped.' },
+  { v: '1.23', fr: 'Roues au sol, le manche ne vole plus : on conduit, et on repart avec le bouton.', en: 'Wheels down, the stick no longer flies: you drive, and the button takes you back up.' },
   { v: '1.22', fr: 'Posé sur la piste, le manche fait rouler l’avion : on va enfin sous la baie du hangar.', en: 'Parked on the runway, the stick taxis the aircraft: you can finally reach the hangar bay.' },
   { v: '1.22', fr: 'Une butée l’arrête six mètres devant la porte, sans coûter un seul point de structure.', en: 'A stop holds it six metres short of the door, at no cost to the airframe.' },
   { v: '1.22', fr: 'Nez tenu une seconde et demie sur un appareil garé : un cercle se remplit, et on change d’avion.', en: 'Nose held a second and a half on a parked aircraft: a ring fills, and you swap into it.' },
@@ -15386,22 +15465,19 @@ window.addEventListener('pointerdown', e => {
     // LES COINS. En bas : demi-tonneau du côté touché puis demi-looping
     // (Split-S). En haut : demi-looping puis demi-tonneau du côté touché
     // (Immelmann). Sur les côtés, à hauteur de l'avion : un tonneau.
-    if (Math.abs(dy) > 50) {
+    if (avion().courant) {
+      // LES COURANTS D'AIR, QUELLE QUE SOIT LA DIRECTION DU GESTE. Le test
+      // était sous les coins : double appui en haut, l'Ancien partait en
+      // renversement. Il est passé devant — pour lui, tout double appui tenu
+      // cherche de l'air, et rien d'autre.
+      ouvreCourant();
+    } else if (Math.abs(dy) > 50) {
       // Le demi-tonneau de la figure tournait à l'envers du doigt : appuyer à
       // droite partait vers la gauche. Le côté est inversé ici, et là seulement :
       // le tonneau simple, lui, était déjà dans le bon sens.
       state.fig = { t: 0, side: -side, type: dy > 0 ? 'split' : 'imm',
                     base: state.quat.clone(), yaw0: state.yaw };
       SFX.renversement();
-    } else if (avion().courant) {
-      // LES COURANTS D'AIR. L'ancien ne fait pas de tonneau — un planeur
-      // haubané ne se retourne pas — mais il sait lire l'air. Au double appui
-      // MAINTENU, il trouve un courant et s'y couche : tant que le doigt reste
-      // posé, plus rien dans le jeu ne va aussi vite. Relâcher le lâche.
-      //
-      // C'est le seul pouvoir du jeu qui ne s'active pas, qui se TIENT : on ne
-      // l'a pas, on l'occupe.
-      ouvreCourant();
     } else {
       state.spinT = SPIN_TIME;
       state.spinSide = side;
@@ -15460,7 +15536,7 @@ function coupDeManche(e) {
   const dtms = Math.max(1, b.t - a.t);
   const vx = (b.x - a.x) / dtms, vy = (b.y - a.y) / dtms;      // px/ms
   const libre = state.running && state.spinT <= 0 && !state.fig
-             && !state.takeoff && !state.pose && !state.roulage;
+             && !state.takeoff && !state.pose && !state.roulage && figuresPossibles();
   if (!libre) return false;
   const W = window.innerWidth, H = window.innerHeight;
   const sorti = e.type === 'pointercancel';
@@ -15629,6 +15705,13 @@ window.addEventListener('keydown', e => {
   const libre = state.running && state.spinT <= 0 && !state.fig
              && !state.takeoff && !state.pose && !state.roulage;
   if (!libre) return;
+  // ET AU CLAVIER AUSSI L'ANCIEN CHERCHE L'AIR. Sans ça, la seule commande
+  // qu'il possède serait inaccessible à qui joue sans écran tactile : espace
+  // maintenu ouvre le courant, le relâcher le lâche.
+  if (!figuresPossibles()) {
+    if (c === 'Space') ouvreCourant();
+    return;
+  }
   // ESPACE : tonneau du côté où le manche penche, à défaut au hasard.
   // MAJ + HAUT : Immelmann. MAJ + BAS : Split-S. Ce sont les deux figures du
   // glissé au doigt, rendues au clavier.
@@ -15643,7 +15726,11 @@ window.addEventListener('keydown', e => {
     SFX.renversement();
   }
 });
-window.addEventListener('keyup', e => { touches.delete(codeTouche(e)); });
+window.addEventListener('keyup', e => {
+  const c = codeTouche(e);
+  touches.delete(c);
+  if (c === 'Space') fermeCourant();
+});
 window.addEventListener('blur', () => touches.clear());
 
 function litClavier(dt) {
@@ -15705,7 +15792,12 @@ function litManette() {
   const neuf = i => b[i] && !boutonsAvant[i];
   const libre = state.running && state.spinT <= 0 && !state.fig
              && !state.takeoff && !state.pose && !state.roulage;
-  if (libre) {
+  // LA MANETTE : les gâchettes tiennent le courant au lieu de tonneauter. Un
+  // pouvoir qu'on tient se joue avec une gâchette qu'on tient — c'est le même
+  // geste que le doigt posé sur l'écran.
+  if (state.running && !figuresPossibles()) {
+    if (b[4] || b[5] || b[6] || b[7]) ouvreCourant(); else fermeCourant();
+  } else if (libre) {
     if (neuf(4) || neuf(6)) { state.spinT = SPIN_TIME; state.spinSide = -1; SFX.tonneau(); tonneauSoleil(); }
     else if (neuf(5) || neuf(7)) { state.spinT = SPIN_TIME; state.spinSide = 1; SFX.tonneau(); tonneauSoleil(); }
     else if (neuf(3)) {          // triangle / Y : renversement par le haut

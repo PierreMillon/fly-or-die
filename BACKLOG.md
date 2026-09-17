@@ -1874,3 +1874,57 @@ soupçonner l'existence.
 Elle rejoint aussi le puits d'indices : tant qu'on ne l'a pas vue, une des
 phrases qui s'affichent à la mort parle d'elle ; une fois vue, elle se tait.
 
+## Le sol était vert, et c'était ma faute (v1.23)
+
+En v1.20 j'ai repeint la nappe et le relief en vert sombre en croyant que la
+couleur était la cause des montagnes transparentes. **Elle ne l'était pas.** La
+cause était la HAUTEUR de la nappe : posée à −0,6 m alors que le relief est à
+`hauteurSol − 4`, elle passait devant lui partout où le terrain est plat.
+
+Douze mètres plus bas, le problème n'existe plus — et la couleur n'avait donc
+plus rien à réparer. Elle ne faisait que remplir l'écran de vert. Les deux
+surfaces reprennent `COL_BG`.
+
+### Ce qu'on vérifie, et qui n'a rien à voir avec la couleur
+
+L'occultation vient du **tampon de profondeur**, que `depthWrite: true` écrit
+quelle que soit la couleur peinte. Mesuré, face à la chaîne :
+
+- 99,6 % de la moitié basse de l'image vaut exactement `4,7,10` — le fond.
+- Et en masquant le relief, **29 082 pixels changent**, soit 7,3 % de l'écran :
+  c'est très exactement ce que la montagne cachait. Elle a un corps, il est
+  noir, et il cache.
+
+## L'Ancien (v1.23)
+
+Il avait perdu le tonneau en v1.21, mais **les deux renversements passaient
+encore** — par les coins du double appui, par le glissé, par le clavier et par
+la manette. Quatre portes pour une règle. Une seule fonction, `figuresPossibles()`,
+les ferme toutes ; le clavier et la manette gagnent en échange le courant
+maintenu, sans quoi son unique pouvoir serait injouable hors tactile.
+
+Et son hélice était **dessinée dans la maquette**, donc soudée au fuselage :
+deux belles pales parfaitement immobiles en vol. Elle en sort, centrée sur son
+moyeu. Mesuré : 117,8 → 131,2 radians en trente images.
+
+## Le choix au nez était trop grossier (v1.23)
+
+Ses mots : « le magnétisme passe d'un avion à un autre en zappant celui entre
+les deux ». Deux causes, et la seconde n'était pas un réglage :
+
+1. Le cône valait **onze degrés**, alors qu'on ne peut pas pivoter sur place —
+   un avion tourne en roulant. Le nez balaie le rang par grands pas. Cinq
+   degrés et demi, plus une hystérésis de 1,5 sur la cible tenue.
+2. **Son propre appareil était écarté de la recherche.** Garé au milieu du
+   rang, il créait un trou dans le balayage : on passait du premier au
+   troisième sans rien voir. Il s'affiche maintenant, avec « C'EST LE TIEN »,
+   et il ne se remplit pas. Il n'y a rien à prendre, mais il y a quelque chose
+   à voir.
+
+## Au sol, c'est une Jeep (v1.23)
+
+Il restait une remise de gaz au manche pendant le freinage. C'était la dernière
+chose qui faisait décoller un appareil dont les roues touchent — donc la
+dernière raison de voir les ailes bouger au sol. Elle est retirée : roues au
+sol, on avance, on recule, on braque, et on repart avec le bouton.
+
