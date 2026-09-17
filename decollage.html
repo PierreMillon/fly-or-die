@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le décollage — Fly or Die</title>
+<style>
+  :root { --bg:#04070a; --line:#46ffa0; --text:#8ffcc4; --dim:#1d4a36; --pale:#0f2a1d; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:14px; line-height:1.6; }
+  body { padding:18px 14px 44px; max-width:36rem; margin:0 auto; }
+  h1 { font-size:13px; letter-spacing:.24em; font-weight:500; margin:0 0 4px; }
+  .sous { color:var(--dim); font-size:12px; margin:0 0 18px; }
+  .rangee { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  button { flex:1 1 auto; min-width:7rem; background:transparent;
+    border:1px solid var(--dim); border-radius:4px; color:var(--text);
+    font-family:inherit; font-size:12px; letter-spacing:.16em; padding:11px 8px; }
+  button.actif { border-color:var(--line); color:var(--line); }
+  canvas { display:block; width:100%; border:1px solid var(--dim); border-radius:4px;
+    background:var(--bg); touch-action:none; }
+  .titre { font-size:11px; letter-spacing:.2em; color:var(--dim); margin:16px 0 6px; }
+  .reglage { margin:0 0 13px; }
+  .etiquette { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .etiquette span:first-child { font-size:12px; letter-spacing:.08em; }
+  .valeur { color:var(--line); font-variant-numeric:tabular-nums; }
+  .note { color:var(--dim); font-size:11px; line-height:1.45; margin:1px 0 0; }
+  input[type=range] { width:100%; margin:0; -webkit-appearance:none; appearance:none;
+    background:transparent; height:24px; }
+  input[type=range]::-webkit-slider-runnable-track { height:1px; background:var(--dim); }
+  input[type=range]::-moz-range-track { height:1px; background:var(--dim); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:17px; height:17px;
+    margin-top:-8px; border-radius:50%; background:var(--bg); border:1px solid var(--line); }
+  input[type=range]::-moz-range-thumb { width:17px; height:17px; border-radius:50%;
+    background:var(--bg); border:1px solid var(--line); }
+  hr { border:0; border-top:1px solid var(--dim); margin:22px 0 16px; }
+  pre { border:1px solid var(--dim); border-radius:4px; padding:12px; font-size:11px;
+    line-height:1.65; overflow-x:auto; color:var(--line); white-space:pre; margin:0 0 10px; }
+  .etat { color:var(--dim); font-size:11px; min-height:1.4em; margin:8px 0 0; }
+</style>
+</head>
+<body>
+
+<h1>LE DÉCOLLAGE</h1>
+<p class="sous">Les équations exactes du jeu. Tire les points de la courbe du haut
+pour dire, seconde par seconde, à quelle distance la caméra se tient de l'avion.</p>
+
+<div class="rangee">
+  <button id="btnJoue">REJOUER</button>
+  <button id="btnBoucle" class="actif">BOUCLE : OUI</button>
+  <button id="btnDefaut">VALEURS DU JEU</button>
+</div>
+
+<p class="titre">L'ÉCART CAMÉRA — AVION, EN MÈTRES</p>
+<canvas id="courbe" width="720" height="300"></canvas>
+<p class="note">Horizontalement le temps depuis le lâcher des freins, verticalement
+la distance. Le trait vertical est l'instant qu'on regarde en dessous.</p>
+
+<p class="titre">CE QUE ÇA DONNE, VU DE CÔTÉ</p>
+<canvas id="scene" width="720" height="360"></canvas>
+<p class="note">La piste, l'appareil, et la caméra. Le petit cadre en haut à droite
+montre où l'avion tombe dans l'image.</p>
+
+<hr>
+
+<div id="reglages"></div>
+
+<hr>
+
+<pre id="sortie"></pre>
+<div class="rangee">
+  <button id="btnCopier">COPIER POUR CLAUDE</button>
+</div>
+<p class="etat" id="etat"></p>
+
+<script>
+// ---------------------------------------------------------------------------
+// LES ÉQUATIONS SONT CELLES DU JEU, RECOPIÉES.
+//
+// Une page de réglage qui simule autre chose que le produit est pire qu'une
+// absence de page : on y règle une maquette, et le jeu joue sa propre musique.
+// C'est arrivé avec la platine du disque. Ici la rampe en S, la vague de
+// l'assiette, l'avance et le retard de la caméra sont le code de index.html,
+// au caractère près.
+// ---------------------------------------------------------------------------
+const V = {
+  ATTENTE: 0.55, RAMPE: 0.55, ROULAGE: 1.4, MONTEE: 2.4,
+  ASSIETTE: 1.30, ROUE_LEVE: 0.10, PLEIN_GAZ: 1.86, CRUISE: 78,
+  CAM_PITCH_AMORTI: 2.2, CAM_HAUT: 6.8, CAM_RECUL: 16.0
+};
+const DEFAUT = Object.assign({}, V);
+
+// LA COURBE. Six points, l'abscisse figée, l'ordonnée à la main : c'est elle
+// qu'il dessine, et c'est elle que je relirai. Les valeurs de départ sont ce
+// que produit le jeu aujourd'hui — fermeture à 24 m/s, plafond à 130.
+const TMAX = 5.0, DMAX = 70;
+const DEFAUT_PTS = [
+  { t: 0.00, d: 16 }, { t: 0.55, d: 16 }, { t: 1.20, d: 38 },
+  { t: 2.00, d: 46 }, { t: 3.20, d: 30 }, { t: 5.00, d: 17 }
+];
+let PTS = DEFAUT_PTS.map(p => ({ ...p }));
+
+const R = [
+  { cle:'ATTENTE',  min:0,   max:2,   pas:0.05, nom:"ATTENTE AVANT DE S'ÉBRANLER",
+    note:"secondes où rien ne bouge, le régime monte seul. C'est ce qu'il trouve trop long." },
+  { cle:'RAMPE',    min:0.1, max:2,   pas:0.05, nom:'MONTÉE EN VITESSE',
+    note:"la rampe en S : le moteur ne donne pas tout à l'instant du lâcher" },
+  { cle:'ROULAGE',  min:0.2, max:4,   pas:0.05, nom:'COURSE AU SOL AVANT LA ROTATION',
+    note:"secondes de roulage avant que le nez se lève" },
+  { cle:'MONTEE',   min:0.6, max:5,   pas:0.05, nom:'DURÉE DE LA VAGUE',
+    note:"de la rotation au retour à plat : c'est le geste entier" },
+  { cle:'ASSIETTE', min:0.2, max:1.5, pas:0.02, nom:'SOMMET DE LA VAGUE',
+    note:"radians. 1,30 vaut soixante-quatorze degrés de nez haut" },
+  { cle:'CAM_PITCH_AMORTI', min:0.5, max:12, pas:0.1, nom:"RETARD DE LA CAMÉRA SUR L'ASSIETTE",
+    note:"petit = elle traîne derrière le nez, grand = elle y colle" },
+  { cle:'CAM_HAUT', min:0, max:20, pas:0.2, nom:'HAUTEUR DE LA CAMÉRA',
+    note:"au-dessus de l'appareil, dans son repère" },
+  { cle:'CAM_RECUL', min:4, max:40, pas:0.5, nom:'RECUL AU REPOS',
+    note:"la distance qu'elle reprend une fois le vol commencé" }
+];
+
+// ---------------------------------------------------------------------------
+// LA SIMULATION — le bloc `state.takeoff` de index.html
+// ---------------------------------------------------------------------------
+function etatA(t) {
+  // avant l'ébranlement : le régime monte, rien ne bouge
+  if (t < V.ATTENTE) {
+    return { x: 0, y: 0, pitch: 0, v: 0, regime: t / V.ATTENTE, roule: false };
+  }
+  const tv = t - V.ATTENTE;
+  // plein gaz, rampe en S sur la première fraction de seconde
+  const pleine = V.CRUISE * V.PLEIN_GAZ;
+  let v;
+  if (tv < V.RAMPE * 0.66) {
+    const rr = tv / (V.RAMPE * 0.66);
+    v = pleine * rr * rr * (3 - 2 * rr);
+  } else {
+    // l'amortissement qui prend le relais, intégré pas à pas plus bas
+    v = pleine;
+  }
+  // la vague de l'assiette : dérivée nulle au départ, au sommet et à l'arrivée
+  const u = Math.max(0, Math.min(1, (tv - V.ROULAGE) / V.MONTEE));
+  const uu = Math.pow(u, 0.8);
+  const pitch = V.ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
+  return { pitch, v, u, roule: true, tv };
+}
+
+// on intègre la trajectoire une fois pour toutes : c'est ce que fait la boucle
+// d'image, et ça évite de faire mentir la courbe sur la distance parcourue
+function trajectoire() {
+  const dt = 1 / 120, out = [];
+  let x = 0, y = 0, v = 0;
+  for (let t = 0; t <= TMAX + 0.001; t += dt) {
+    const e = etatA(t);
+    if (e.roule) {
+      const pleine = V.CRUISE * V.PLEIN_GAZ;
+      const tv = e.tv;
+      if (tv < V.RAMPE * 0.66) v = e.v;
+      else v = v + (pleine - v) * (1 - Math.exp(-7.2 * dt));
+      if (e.pitch > V.ROUE_LEVE) y += v * Math.sin(e.pitch) * dt;
+      x += v * Math.cos(e.pitch) * dt;
+    }
+    out.push({ t, x, y, pitch: e.pitch, v, regime: e.regime || 1 });
+  }
+  return out;
+}
+let TRAJ = trajectoire();
+
+// l'écart lu sur la courbe, interpolé linéairement entre les points
+function ecartA(t) {
+  const P = PTS;
+  if (t <= P[0].t) return P[0].d;
+  for (let i = 1; i < P.length; i++) {
+    if (t <= P[i].t) {
+      const k = (t - P[i-1].t) / Math.max(1e-6, P[i].t - P[i-1].t);
+      return P[i-1].d + (P[i].d - P[i-1].d) * k;
+    }
+  }
+  return P[P.length - 1].d;
+}
+
+// l'assiette de la caméra, amortie comme dans le jeu
+function camPitchSerie() {
+  const dt = 1 / 120, out = [];
+  let cp = 0;
+  for (const e of TRAJ) {
+    cp = cp + (e.pitch - cp) * (1 - Math.exp(-V.CAM_PITCH_AMORTI * dt));
+    out.push(cp);
+  }
+  return out;
+}
+let CAMP = camPitchSerie();
+
+// ---------------------------------------------------------------------------
+// LES DEUX DESSINS
+// ---------------------------------------------------------------------------
+const cCourbe = document.getElementById('courbe'), gc = cCourbe.getContext('2d');
+const cScene = document.getElementById('scene'), gs = cScene.getContext('2d');
+let tJeu = 0, joue = true, boucle = true;
+
+const X = t => 40 + (cCourbe.width - 62) * (t / TMAX);
+const Y = d => cCourbe.height - 30 - (cCourbe.height - 52) * (d / DMAX);
+const tDe = px => Math.max(0, Math.min(TMAX, (px - 40) / (cCourbe.width - 62) * TMAX));
+const dDe = py => Math.max(0, Math.min(DMAX, (cCourbe.height - 30 - py) / (cCourbe.height - 52) * DMAX));
+
+function dessineCourbe() {
+  const w = cCourbe.width, h = cCourbe.height;
+  gc.clearRect(0, 0, w, h);
+  gc.strokeStyle = '#123'; gc.lineWidth = 1;
+  gc.font = '10px "IBM Plex Mono", monospace'; gc.fillStyle = '#1d4a36';
+  for (let s = 0; s <= TMAX; s++) {
+    gc.beginPath(); gc.moveTo(X(s), 14); gc.lineTo(X(s), h - 30); gc.stroke();
+    gc.fillText(s + ' s', X(s) - 8, h - 14);
+  }
+  for (let d = 0; d <= DMAX; d += 20) {
+    gc.beginPath(); gc.moveTo(38, Y(d)); gc.lineTo(w - 20, Y(d)); gc.stroke();
+    gc.fillText(String(d), 6, Y(d) + 3);
+  }
+  // les repères du déroulé : ébranlement, rotation, fin de la vague
+  const rep = [[V.ATTENTE, 'freins'], [V.ATTENTE + V.ROULAGE, 'rotation'],
+               [V.ATTENTE + V.ROULAGE + V.MONTEE, 'à plat']];
+  gc.setLineDash([2, 4]); gc.strokeStyle = '#1d4a36';
+  for (const [t, nom] of rep) {
+    if (t > TMAX) continue;
+    gc.beginPath(); gc.moveTo(X(t), 14); gc.lineTo(X(t), h - 30); gc.stroke();
+    gc.fillText(nom, X(t) + 3, 24);
+  }
+  gc.setLineDash([]);
+  // la courbe
+  gc.strokeStyle = '#46ffa0'; gc.lineWidth = 2;
+  gc.beginPath();
+  for (let i = 0; i <= 160; i++) {
+    const t = TMAX * i / 160, x = X(t), y = Y(ecartA(t));
+    i ? gc.lineTo(x, y) : gc.moveTo(x, y);
+  }
+  gc.stroke();
+  // les poignées
+  for (const p of PTS) {
+    gc.fillStyle = '#04070a'; gc.strokeStyle = '#46ffa0'; gc.lineWidth = 1.5;
+    gc.beginPath(); gc.arc(X(p.t), Y(p.d), 7, 0, 6.2832); gc.fill(); gc.stroke();
+  }
+  // l'instant courant
+  gc.strokeStyle = 'rgba(143,252,196,0.55)'; gc.lineWidth = 1;
+  gc.beginPath(); gc.moveTo(X(tJeu), 14); gc.lineTo(X(tJeu), h - 30); gc.stroke();
+}
+
+function dessineScene() {
+  const w = cScene.width, h = cScene.height;
+  gs.clearRect(0, 0, w, h);
+  const i = Math.min(TRAJ.length - 1, Math.round(tJeu * 120));
+  const A = TRAJ[i], cp = CAMP[i];
+  const ec = ecartA(tJeu);
+  // la caméra : derrière l'appareil le long de son axe amorti, et au-dessus
+  const cx = A.x - Math.cos(cp) * ec, cy = A.y - Math.sin(cp) * ec + V.CAM_HAUT;
+  // cadrage : on suit l'ensemble
+  const x0 = Math.min(cx, A.x) - 30, x1 = Math.max(cx, A.x) + 60;
+  const ech = (w - 80) / Math.max(120, x1 - x0);
+  const sol = h - 70;
+  const px = v => 40 + (v - x0) * ech;
+  const py = v => sol - v * ech;
+  // le sol et la piste
+  gs.strokeStyle = '#1d4a36'; gs.lineWidth = 1;
+  gs.beginPath(); gs.moveTo(0, sol); gs.lineTo(w, sol); gs.stroke();
+  gs.fillStyle = '#1d4a36'; gs.font = '10px "IBM Plex Mono", monospace';
+  for (let m = Math.floor(x0 / 50) * 50; m < x1; m += 50) {
+    gs.beginPath(); gs.moveTo(px(m), sol); gs.lineTo(px(m), sol + 5); gs.stroke();
+    gs.fillText(m + ' m', px(m) - 10, sol + 17);
+  }
+  // l'appareil : un trait de douze mètres incliné de son assiette
+  const L = 12 * ech;
+  gs.strokeStyle = '#46ffa0'; gs.lineWidth = 2;
+  gs.beginPath();
+  gs.moveTo(px(A.x) - Math.cos(A.pitch) * L / 2, py(A.y) + Math.sin(A.pitch) * L / 2);
+  gs.lineTo(px(A.x) + Math.cos(A.pitch) * L / 2, py(A.y) - Math.sin(A.pitch) * L / 2);
+  gs.stroke();
+  // l'aile, perpendiculaire
+  gs.lineWidth = 1;
+  gs.beginPath();
+  gs.moveTo(px(A.x) + Math.sin(A.pitch) * L * 0.22, py(A.y) + Math.cos(A.pitch) * L * 0.22);
+  gs.lineTo(px(A.x) - Math.sin(A.pitch) * L * 0.22, py(A.y) - Math.cos(A.pitch) * L * 0.22);
+  gs.stroke();
+  // la caméra, et la ligne qui la relie
+  gs.strokeStyle = 'rgba(143,252,196,0.5)';
+  gs.setLineDash([3, 4]);
+  gs.beginPath(); gs.moveTo(px(cx), py(cy)); gs.lineTo(px(A.x), py(A.y)); gs.stroke();
+  gs.setLineDash([]);
+  gs.strokeStyle = '#8ffcc4'; gs.lineWidth = 1.5;
+  gs.strokeRect(px(cx) - 7, py(cy) - 5, 14, 10);
+  gs.beginPath();
+  gs.moveTo(px(cx) + 7, py(cy) - 4); gs.lineTo(px(cx) + 15, py(cy) - 7);
+  gs.lineTo(px(cx) + 15, py(cy) + 7); gs.lineTo(px(cx) + 7, py(cy) + 4);
+  gs.stroke();
+  // les chiffres
+  gs.fillStyle = '#8ffcc4'; gs.font = '11px "IBM Plex Mono", monospace';
+  gs.fillText('t ' + tJeu.toFixed(2) + ' s', 10, 18);
+  gs.fillText('écart ' + Math.round(ec) + ' m', 10, 33);
+  gs.fillText('assiette ' + Math.round(A.pitch * 57.3) + '°', 10, 48);
+  gs.fillText('vitesse ' + Math.round(A.v) + ' m/s', 10, 63);
+  gs.fillText('hauteur ' + Math.round(A.y) + ' m', 10, 78);
+
+  // LE PETIT CADRE : où l'avion tombe dans l'image. C'est la seule chose qui
+  // compte vraiment — on ne regarde pas la caméra, on regarde ce qu'elle cadre.
+  const bw = 120, bh = 84, bx = w - bw - 14, by = 14;
+  gs.strokeStyle = '#1d4a36'; gs.lineWidth = 1; gs.strokeRect(bx, by, bw, bh);
+  // l'angle de l'appareil dans l'axe de visée de la caméra
+  const vx = A.x - cx, vy = A.y - cy;
+  const axe = cp - 0.215;                       // CAM_DECLIN du jeu
+  const ang = Math.atan2(vy, vx) - axe;
+  const fov = 62 * Math.PI / 180;
+  const sx = bx + bw / 2, sy = by + bh / 2 - (ang / (fov / 2)) * (bh / 2);
+  gs.strokeStyle = '#1d4a36';
+  gs.beginPath(); gs.moveTo(bx, by + bh / 2); gs.lineTo(bx + bw, by + bh / 2); gs.stroke();
+  gs.fillStyle = Math.abs(sy - (by + bh / 2)) > bh / 2 ? '#ff5242' : '#46ffa0';
+  gs.beginPath(); gs.arc(sx, Math.max(by + 3, Math.min(by + bh - 3, sy)), 4, 0, 6.2832); gs.fill();
+  gs.fillStyle = '#1d4a36'; gs.font = '9px "IBM Plex Mono", monospace';
+  gs.fillText("dans l'image", bx + 2, by + bh + 11);
+}
+
+// ---------------------------------------------------------------------------
+// LE DOIGT SUR LA COURBE
+// ---------------------------------------------------------------------------
+let prise = -1;
+function pos(e) {
+  const r = cCourbe.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: (t.clientX - r.left) * cCourbe.width / r.width,
+           y: (t.clientY - r.top) * cCourbe.height / r.height };
+}
+function attrape(e) {
+  const p = pos(e); prise = -1;
+  let best = 22 * 22;
+  PTS.forEach((q, i) => {
+    const dx = X(q.t) - p.x, dy = Y(q.d) - p.y, d2 = dx * dx + dy * dy;
+    if (d2 < best) { best = d2; prise = i; }
+  });
+  if (prise >= 0) { e.preventDefault(); bouge(e); }
+}
+function bouge(e) {
+  if (prise < 0) return;
+  e.preventDefault();
+  const p = pos(e);
+  PTS[prise].d = Math.round(dDe(p.y));
+  // le premier et le dernier gardent leur abscisse ; les autres glissent un peu
+  if (prise > 0 && prise < PTS.length - 1) {
+    const min = PTS[prise - 1].t + 0.15, max = PTS[prise + 1].t - 0.15;
+    PTS[prise].t = Math.max(min, Math.min(max, tDe(p.x)));
+  }
+  montre();
+}
+function lache() { prise = -1; }
+cCourbe.addEventListener('pointerdown', attrape);
+cCourbe.addEventListener('pointermove', bouge);
+window.addEventListener('pointerup', lache);
+cCourbe.addEventListener('touchstart', attrape, { passive:false });
+cCourbe.addEventListener('touchmove', bouge, { passive:false });
+
+// ---------------------------------------------------------------------------
+// LES CURSEURS ET LA SORTIE
+// ---------------------------------------------------------------------------
+const boites = {};
+for (const r of R) {
+  const d = document.createElement('div');
+  d.className = 'reglage';
+  d.innerHTML = '<div class="etiquette"><span>' + r.nom + '</span>' +
+    '<span class="valeur" id="v_' + r.cle + '"></span></div>' +
+    '<input type="range" id="s_' + r.cle + '" min="' + r.min + '" max="' + r.max +
+    '" step="' + r.pas + '" value="' + V[r.cle] + '">' +
+    '<p class="note">' + r.note + '</p>';
+  document.getElementById('reglages').appendChild(d);
+  const s = d.querySelector('input');
+  boites[r.cle] = s;
+  s.addEventListener('input', () => {
+    V[r.cle] = parseFloat(s.value);
+    TRAJ = trajectoire(); CAMP = camPitchSerie();
+    montre();
+  });
+}
+function montre() {
+  for (const r of R) {
+    document.getElementById('v_' + r.cle).textContent =
+      V[r.cle] >= 10 ? V[r.cle].toFixed(1) : V[r.cle].toFixed(2);
+    boites[r.cle].value = V[r.cle];
+  }
+  document.getElementById('sortie').textContent =
+    'DÉCOLLAGE — réglé sur la page\n' +
+    R.map(r => '  ' + r.cle + ' = ' + (V[r.cle] >= 10 ? V[r.cle].toFixed(1) : V[r.cle].toFixed(2))).join('\n') +
+    '\n  ÉCART CAMÉRA (t en s, d en m)\n' +
+    PTS.map(p => '    ' + p.t.toFixed(2) + '  ->  ' + Math.round(p.d)).join('\n');
+  dessineCourbe(); dessineScene();
+}
+
+document.getElementById('btnJoue').addEventListener('click', () => { tJeu = 0; joue = true; });
+document.getElementById('btnBoucle').addEventListener('click', e => {
+  boucle = !boucle;
+  e.target.classList.toggle('actif', boucle);
+  e.target.textContent = boucle ? 'BOUCLE : OUI' : 'BOUCLE : NON';
+});
+document.getElementById('btnDefaut').addEventListener('click', () => {
+  Object.assign(V, DEFAUT);
+  PTS = DEFAUT_PTS.map(p => ({ ...p }));
+  TRAJ = trajectoire(); CAMP = camPitchSerie();
+  montre();
+  document.getElementById('etat').textContent = 'Remis à ce que fait le jeu aujourd’hui.';
+});
+document.getElementById('btnCopier').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById('sortie').textContent);
+    document.getElementById('etat').textContent = 'Copié. Colle-le-moi tel quel.';
+  } catch (e) {
+    document.getElementById('etat').textContent = 'Impossible de copier ici : sélectionne le bloc à la main.';
+  }
+});
+
+let dernier = performance.now();
+function boucleImage(now) {
+  const dt = Math.min(0.05, (now - dernier) / 1000);
+  dernier = now;
+  if (joue) {
+    tJeu += dt;
+    if (tJeu > TMAX) { if (boucle) tJeu = 0; else { tJeu = TMAX; joue = false; } }
+    dessineCourbe(); dessineScene();
+  }
+  requestAnimationFrame(boucleImage);
+}
+montre();
+requestAnimationFrame(boucleImage);
+document.getElementById('etat').textContent =
+  'Tire les ronds de la courbe du haut. Le reste se règle aux curseurs.';
+</script>
+</body>
+</html>
