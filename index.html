@@ -47,11 +47,13 @@
      SE POSE qui décide. Poser le doigt sur le texte d'Émilie ne faisait donc
      rien, et il fallait viser la barre de défilement, à droite. On lit une
      lettre en la poussant du pouce, n'importe où sur la page. */
-  #lettre, #lettre *, #carteMur, #carteMur * { touch-action: pan-y; }
+  #lettre, #lettre *, #carteMur, #carteMur *,
+  #guitare, #guitare * { touch-action: pan-y; }
   /* ET SANS BARRE. Une barre de défilement dit « ceci est une page web ».
      Une lettre n'en a pas : elle a un bord, et on la fait glisser. */
-  #lettre .feuille, #carteMur .papier { scrollbar-width: none; }
-  #lettre .feuille::-webkit-scrollbar, #carteMur .papier::-webkit-scrollbar { display: none; }
+  #lettre .feuille, #carteMur .papier, #guitare .papier { scrollbar-width: none; }
+  #lettre .feuille::-webkit-scrollbar, #carteMur .papier::-webkit-scrollbar,
+  #guitare .papier::-webkit-scrollbar { display: none; }
   /* LA LOUPE DE L'IPHONE. Deux appuis rapprochés sur du texte font surgir un
      ovale grossissant, celui de la sélection : il passe par-dessus le jeu au
      moment précis où l'on fait une figure. Il ne naît que là où le texte est
@@ -752,14 +754,19 @@
   /* LA CARTE DU MUR. Même papier que la lettre — c'est la même maison, la même
      main — mais elle porte un dessin plutôt qu'un texte, et elle se traduit :
      ce n'est pas un mot pour quelqu'un, c'est une indication pour qui vient. */
-  #carteMur {
+  #carteMur, #guitare {
     position: fixed; inset: 0; z-index: 70;
     background: var(--ph-bg);
     display: flex; align-items: center; justify-content: center;
     padding: 24px 20px;
   }
-  #carteMur[hidden] { display: none; }
-  #carteMur .papier {
+  #carteMur[hidden], #guitare[hidden] { display: none; }
+  /* « display: block » sur les boutons l'emportait sur l'attribut hidden :
+     « LA REGARDER » restait affiché après qu'on avait regardé. */
+  #guitare button[hidden] { display: none; }
+  #guitare button { margin-bottom: 10px; }
+  #guitare button:last-child { margin-bottom: 0; }
+  #carteMur .papier, #guitare .papier {
     max-width: 30rem; width: 100%;
     border: 1px solid var(--ph-dim);
     padding: 22px 20px 16px;
@@ -767,16 +774,16 @@
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
   }
-  #carteMur .titre {
+  #carteMur .titre, #guitare .titre {
     margin: 0 0 16px; color: var(--ph-text);
     font-size: 12px; letter-spacing: 0.22em; text-align: center;
   }
   #carteMur svg { display: block; width: 100%; height: auto; color: var(--ph-text); }
-  #carteMur .note {
+  #carteMur .note, #guitare .note {
     margin: 16px 0 20px; color: var(--ph-text);
     font-size: 14px; line-height: 1.8; text-transform: none; letter-spacing: 0.02em;
   }
-  #carteMur button {
+  #carteMur button, #guitare button {
     display: block; margin: 0 auto;
     background: transparent; border: 1px solid var(--ph-dim); border-radius: 4px;
     color: var(--ph-text); font-family: inherit; font-size: 12px;
@@ -933,6 +940,15 @@
     </svg>
     <p class="note" id="carteNote"></p>
     <button id="carteFerme"></button>
+  </div>
+</div>
+<div id="guitare" hidden>
+  <div class="papier">
+    <p class="titre" id="guitareTitre"></p>
+    <p class="note" id="guitareNote"></p>
+    <button id="guitareJoue"></button>
+    <button id="guitareRegarde"></button>
+    <button id="guitareFerme"></button>
   </div>
 </div>
 <button id="installPastille" hidden data-en="INSTALL · NO NETWORK NEEDED">INSTALLER · SANS RÉSEAU</button>
@@ -2754,6 +2770,112 @@ const SFX = {
   // bas très bas — c'est le capot qui étouffe tout — et du bruit de roulement
   // par-dessus. La hauteur suit la vitesse, mais par PALIERS : une boîte à
   // quatre rapports, donc le régime retombe à chaque passage.
+  // ---------------------------------------------------------------------
+  // LA GUITARE. Une corde pincée, c'est une attaque très courte et un timbre
+  // qui s'assombrit en s'éteignant : un triangle et un passe-bas qui descend
+  // de deux mille six cents à sept cents hertz pendant la note. Le morceau est
+  // une suite d'arpèges lents — la mineur, sol, fa, mi — qui tourne tant qu'on
+  // joue.
+  // ---------------------------------------------------------------------
+  _cordes: [],
+  corde: (f, when, dur, v) => {
+    if (!actx || muet) return;
+    const o = actx.createOscillator(), g = actx.createGain();
+    const lp = actx.createBiquadFilter();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f, when);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(v, when + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(2600, when);
+    lp.frequency.exponentialRampToValueAtTime(700, when + dur);
+    o.connect(g).connect(lp).connect(master);
+    o.start(when); o.stop(when + dur + 0.05);
+    SFX._cordes.push(o);
+  },
+  morceau: () => {
+    if (!actx || muet) return;
+    SFX.morceauStop();
+    // demi-tons depuis le la de la corde grave, quatre accords, quatre notes
+    const ACCORDS = [[0, 7, 15, 7], [-2, 5, 14, 5], [-4, 3, 12, 3], [-5, 2, 11, 2]];
+    const PAS = 0.55;
+    const passe = () => {
+      if (!actx) return 8;
+      const t0 = actx.currentTime + 0.05;
+      let k = 0;
+      for (let tour = 0; tour < 2; tour++)
+        for (const acc of ACCORDS)
+          for (const n of acc) {
+            SFX.corde(110 * Math.pow(2, n / 12), t0 + k * PAS, 1.5,
+                      0.085 + (k % 4 === 0 ? 0.03 : 0));
+            k++;
+          }
+      return k * PAS;
+    };
+    const duree = passe();
+    SFX._morceau = setInterval(passe, duree * 1000);
+  },
+  morceauStop: () => {
+    if (SFX._morceau) { clearInterval(SFX._morceau); SFX._morceau = null; }
+    for (const o of SFX._cordes) { try { o.stop(); } catch (e) {} }
+    SFX._cordes = [];
+  },
+  // ---------------------------------------------------------------------
+  // LE VENT ET LES NAPPES, quand on est allongé dans l'herbe.
+  //
+  // Du bruit très filtré qui respire toutes les quinze secondes, et trois
+  // sinusoïdes tenues — la, mi, la — dont les enveloppes tournent à des
+  // périodes incommensurables : 41, 29 et 23 millihertz. Le motif ne se répète
+  // donc jamais tout à fait, ce qui est la seule manière d'écouter longtemps
+  // quelque chose qui ne raconte rien.
+  // ---------------------------------------------------------------------
+  ventDoux: (on, nappes) => {
+    if (!actx) return;
+    if (!on) {
+      const V = SFX._vent;
+      if (!V) return;
+      SFX._vent = null;
+      const t = actx.currentTime;
+      try {
+        V.g.gain.cancelScheduledValues(t);
+        V.g.gain.setTargetAtTime(0.0001, t, 0.6);
+        setTimeout(() => { try { V.n.stop(); for (const o of V.o) o.stop(); } catch (e) {} }, 2200);
+      } catch (e) {}
+      return;
+    }
+    if (muet || SFX._vent || !bruitBuf) return;
+    const t = actx.currentTime;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.06, t + 2.4);
+    g.connect(master);
+    const n = actx.createBufferSource();
+    n.buffer = bruitBuf; n.loop = true;
+    const lp = actx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 360; lp.Q.value = 0.4;
+    const ng = actx.createGain(); ng.gain.value = 0.46;
+    n.connect(lp).connect(ng).connect(g);
+    n.start(t);
+    const o = [];
+    const souffle = actx.createOscillator(), sg = actx.createGain();
+    souffle.frequency.value = 0.068; sg.gain.value = 0.26;
+    souffle.connect(sg).connect(ng.gain); souffle.start(t);
+    o.push(souffle);
+    // LES NAPPES NE VIENNENT QUE COUCHÉ. En marchant au refuge on veut juste
+    // entendre qu'il y a de l'air dehors ; les trois notes tenues, c'est pour
+    // quand on s'arrête de faire quelque chose.
+    for (const [f, v, r] of (nappes ? [[55, 0.030, 0.041], [82.5, 0.021, 0.029], [110, 0.015, 0.023]] : [])) {
+      const osc = actx.createOscillator(), og = actx.createGain();
+      osc.type = 'sine'; osc.frequency.value = f;
+      og.gain.value = 0;
+      const l2 = actx.createOscillator(), l2g = actx.createGain();
+      l2.frequency.value = r; l2g.gain.value = v;
+      l2.connect(l2g).connect(og.gain); l2.start(t);
+      osc.connect(og).connect(g); osc.start(t);
+      o.push(osc, l2);
+    }
+    SFX._vent = { g, n, o, nappes: !!nappes };
+  },
   jeepOn: () => {
     if (!actx || muet || SFX._jeep) return;
     const t = actx.currentTime;
@@ -3823,7 +3945,11 @@ function secretsCiel(dt) {
   // encore. Le disque aussi, une fois. »
   if (dehors && !state.dehorsDeja) state.dehorsDeja = true;
   if (state.figSortie > 0) state.figSortie -= dt;
-  const enVol = state.running && !state.pose && !state.auSol && !state.takeoff && !state.roulage;
+  // ALLONGÉ DANS L'HERBE, ON TRACE AUSSI. C'est même l'endroit où l'on trace
+  // vraiment : en vol on vise entre deux virages, ici on a tout le temps. Le
+  // « nez » n'est plus celui de l'appareil mais la direction du regard.
+  const enVol = !!state.couche
+             || (state.running && !state.pose && !state.auSol && !state.takeoff && !state.roulage);
   if (!enVol) {
     state.ourseT = 0; state.bergerT = 0; state.orionT = 0;
     for (const F of CIEL_SUITE) state.suite[F.cle] = 0;
@@ -3850,7 +3976,7 @@ function secretsCiel(dt) {
     let k = -1, best = cone;
     for (let i = 0; i < dirs.length; i++) {
       if (vus[i]) continue;
-      const d = state.forward.dot(dirs[i]);
+      const d = (state.couche ? state.regardCiel : state.forward).dot(dirs[i]);
       if (d > best) { best = d; k = i; }
     }
     return k;
@@ -8773,7 +8899,7 @@ const state = {
 // l'appui annulait le clic sur REPLIER. On restait enfermé dans la lettre.
 // Une seule liste, à un seul endroit, et la dette est payée.
 const PANNEAUX_LISIBLES =
-  '#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu, #infos, #lettre, #carteMur';
+  '#changelog, #aide, #viseurs, #overlay, #install, #coop, #menu, #infos, #lettre, #carteMur, #guitare';
 const aim = { x: 0, y: 0, active: false };
 
 // pointeur grossier = doigt : le pilotage et la consigne d'accueil en dépendent
@@ -8888,6 +9014,16 @@ document.getElementById('carteFerme').addEventListener('click', e => {
   e.stopPropagation(); fermeCarteMur();
 });
 fermeAuClicDehors(document.getElementById('carteMur'), '.papier', fermeCarteMur);
+document.getElementById('guitareFerme').addEventListener('click', e => {
+  e.stopPropagation(); fermeGuitare();
+});
+document.getElementById('guitareJoue').addEventListener('click', e => {
+  e.stopPropagation(); joueGuitare();
+});
+document.getElementById('guitareRegarde').addEventListener('click', e => {
+  e.stopPropagation(); regardeGuitare();
+});
+fermeAuClicDehors(document.getElementById('guitare'), '.papier', fermeGuitare);
 // LE BOUTON POSER N'EXISTE PLUS. Il demandait d'appuyer pour dire ce que la
 // trajectoire disait déjà — et il fallait ensuite tirer franchement pour
 // annuler ce qu'un appui avait engagé. Le tube remplace les deux : on y entre,
@@ -8969,6 +9105,10 @@ function resetGame() {
   state.forme = 0; state.objN = 0; state.defi = false;
   state.stats = statsVides();
   state.pied = null; state.jeep = null; state.action = null;
+  state.couche = null; state.joue = null;
+  document.body.classList.remove('lit');
+  SFX.ventDoux(false);
+  SFX.morceauStop();
   poseJeepAuDepart();
   state.decrocheT = 0; state.vrille = null; state.vrilleRoll = 0; state.roquettesN = avance.roquettesReelles ? 4 : avion().roquettes;
   // LES TRAITS RESTENT JUSQU'À LA MORT, ET PAS AU-DELÀ. Une figure tracée
@@ -9325,6 +9465,9 @@ function pointsDuRefuge() {
     // la carte est SOUS LE TOIT, contre le mur du fond : il faut entrer dans
     // le hangar, comme il faut entrer dans la maison pour le poste
     { cle: 'carte',  x: P.hangar.x + P.hangar.w / 2 - 2.2, z: P.hangar.z, d: 2.8 },
+    // LA GUITARE est contre le mur du fond de la maison, à côté de la table :
+    // elle était dessinée depuis le premier jour et ne servait à rien.
+    { cle: 'guitare', x: P.maison.x + P.maison.w / 2 - 0.18, z: P.maison.z - 0.7, d: 2.2 },
   ];
 }
 
@@ -9342,6 +9485,8 @@ function passeAPied() {
 }
 
 function remonteEnAvion() {
+  releveToi();
+  rangeGuitare();
   state.pied = null;
   state.action = null;
   majActionBtn();
@@ -9354,9 +9499,107 @@ const REDECO_PRES = 26;   // mètres : la distance d'où l'on remonte à bord
 // le sol sous ses pieds : le bitume est plat, le reste du monde ne l'est pas
 const solSousPied = (x, z) => hauteurSol(x, z) + PISTE.y;
 const _pd = new THREE.Vector3();
+// ---------------------------------------------------------------------------
+// S'ALLONGER DANS L'HERBE.
+//
+// Double appui, et il se couche. La caméra devient sa tête, le manche balaie
+// tout le ciel, et plus rien d'autre ne bouge : pas de collimateur au milieu,
+// pas de jauge, pas de bouton. On entend le vent, et trois notes tenues qui
+// respirent à des périodes incommensurables — ça ne se répète jamais.
+//
+// C'est aussi le meilleur endroit du jeu pour tracer une constellation : en
+// vol on vise entre deux virages, ici on a tout le temps qu'on veut. Et de
+// temps en temps une étoile filante passe, sans que rien ne l'annonce.
+//
+// Un deuxième double appui le relève.
+// ---------------------------------------------------------------------------
+const COUCHE_TOURNE = 1.15;    // rad/s de balayage à pleine barre
+const COUCHE_HAUT   = 1.40;    // radians : presque le zénith
+const COUCHE_BAS    = 0.10;    // on ne regarde pas sous l'horizon : on est sur le dos
+const COUCHE_FILANTE = [9, 26]; // secondes entre deux étoiles filantes
+const _reg = new THREE.Vector3();
+function coucheToi() {
+  const M = state.pied;
+  if (!M || state.couche) return;
+  state.couche = { yaw: M.cap, pit: 1.02, t: 0, fil: 5 + Math.random() * 8 };
+  state.regardCiel = state.regardCiel || new THREE.Vector3(0, 1, 0);
+  redecoBtn.hidden = true;
+  actionBtn.hidden = true;
+  document.body.classList.add('lit');     // le HUD et les barres se retirent
+  SFX.ventDoux(false);
+  SFX.ventDoux(true, true);               // le vent, et les nappes par-dessus
+}
+function releveToi() {
+  if (!state.couche) return;
+  state.couche = null;
+  document.body.classList.remove('lit');
+  SFX.ventDoux(false);
+  if (state.refuge) SFX.ventDoux(true);   // debout, il reste le vent
+  majActionBtn();
+}
+function updateCouche(dt) {
+  const C = state.couche, M = state.pied;
+  if (!M) { releveToi(); return; }
+  C.t += dt;
+  const w = window.innerWidth, h = window.innerHeight;
+  const ref = Math.min(w, h) * 0.42;
+  const dx = aim.active ? THREE.MathUtils.clamp((aim.x - w / 2) / ref, -1, 1) : 0;
+  const dy = aim.active ? THREE.MathUtils.clamp((aim.y - h / 2) / ref, -1, 1) : 0;
+  C.yaw -= dx * COUCHE_TOURNE * dt;
+  C.pit = THREE.MathUtils.clamp(C.pit - dy * COUCHE_TOURNE * dt, COUCHE_BAS, COUCHE_HAUT);
+  const ySol = solSousPied(M.x, M.z);
+  // il est sur le dos, la tête posée
+  if (piloteG) {
+    piloteG.visible = true;
+    piloteG.position.set(M.x, ySol - 0.72, M.z);
+    piloteG.rotation.set(-Math.PI / 2, M.cap, 0);
+  }
+  const cp = Math.cos(C.pit), sp = Math.sin(C.pit);
+  _reg.set(Math.sin(C.yaw) * cp, sp, Math.cos(C.yaw) * cp).normalize();
+  state.regardCiel.copy(_reg);
+  camera.position.set(M.x, ySol + 0.30, M.z);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(M.x + _reg.x, ySol + 0.30 + _reg.y, M.z + _reg.z);
+  // les étoiles filantes : rien ne les annonce, et elles ne rapportent rien
+  C.fil -= dt;
+  if (C.fil <= 0 && !etoile) {
+    C.fil = COUCHE_FILANTE[0] + Math.random() * (COUCHE_FILANTE[1] - COUCHE_FILANTE[0]);
+    const a = Math.random() * Math.PI * 2, e = 0.35 + Math.random() * 0.9;
+    const d0 = new THREE.Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)).normalize();
+    const pp = new THREE.Vector3(-d0.z, 0, d0.x).normalize()
+      .multiplyScalar(Math.random() < 0.5 ? -1 : 1);
+    etoile = { t: 0, dir: d0, perp: pp };
+  }
+}
+
+// À GENOUX DANS L'HERBE. Il pose un genou, la guitare sur la cuisse, et la
+// caméra fait lentement le tour — c'est le seul moment du jeu où l'on regarde
+// quelqu'un plutôt que de regarder à sa place. Un appui, et il se relève.
+const JOUE_TOUR = 0.16;      // rad/s : un tour complet en quarante secondes
+function updateJoue(dt) {
+  const J = state.joue, M = state.pied;
+  if (!M) { rangeGuitare(); return; }
+  J.t += dt;
+  const ySol = solSousPied(M.x, M.z);
+  if (piloteG) {
+    piloteG.visible = true;
+    piloteG.position.set(M.x, ySol - 0.52, M.z);      // un genou à terre
+    piloteG.rotation.set(-0.28, M.cap, 0);
+  }
+  const a = M.cap + Math.PI + J.t * JOUE_TOUR;
+  const R = 4.2;
+  camera.position.set(M.x + Math.sin(a) * R, ySol + 2.0, M.z + Math.cos(a) * R);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(M.x, ySol + 0.7, M.z);
+}
+
 function updateAPied(dt) {
   const M = state.pied;
   M.t += dt;
+  // LE VENT DU REFUGE. Il n'y a aucune musique là-bas, et le silence total
+  // d'un monde en fil de fer sonne comme une panne. Un souffle très bas, sous
+  // le seuil de l'attention, suffit à dire qu'on est dehors.
+  if (state.refuge && !SFX._vent) SFX.ventDoux(true);
 
   // LE MANCHE DÉPLACE QUELQU'UN. On lit le doigt exactement comme en vol —
   // l'écart au centre de l'écran — mais on l'interprète dans le repère de la
@@ -9541,6 +9784,7 @@ function faitAction() {
     joueMusiqueRefuge();
     return;
   }
+  if (c === 'guitare') { ouvreGuitare(); return; }
   if (c === 'descendre') { descendDeJeep(); return; }
   if (c === 'carte') { ouvreCarteMur(); return; }
   // ON MONTE DEDANS, PUISQU'IL EST LÀ. Il était garé dans l'herbe depuis trois
@@ -9599,6 +9843,7 @@ function monteEnJeep() {
                  cap: jeepG.rotation.y, v: 0, t: 0,
                  camX: camera.position.x, camZ: camera.position.z, camY: camera.position.y };
   state.pied = null;
+  SFX.ventDoux(false);
   // ON LE VOIT DEDANS. Il disparaissait au moment de monter : la Jeep roulait
   // toute seule, et l'on conduisait une caisse vide. Il reste assis à gauche,
   // derrière le volant, et c'est lui qu'on suit.
@@ -9842,6 +10087,65 @@ function ouvreCarteMur() {
   trouve('carte');
   SFX.cloche();
 }
+// ---------------------------------------------------------------------------
+// LA GUITARE.
+//
+// Elle est dessinée contre le mur de la maison depuis le premier jour, à côté
+// du gramophone, et elle ne servait à rien. On peut maintenant la prendre — et
+// une fois qu'on l'a, deux choses : en jouer, ou la regarder.
+//
+// En jouer met l'homme à genoux dans l'herbe et fait sortir quelques notes.
+// La regarder montre ce qu'Émilie a gravé dans le bois. Comme la lettre, c'est
+// un mot pour quelqu'un : il reste en français.
+// ---------------------------------------------------------------------------
+function ouvreGuitare() {
+  const pan = document.getElementById('guitare');
+  if (!pan) return;
+  document.getElementById('guitareTitre').textContent = t('guitareTitre');
+  document.getElementById('guitareNote').textContent = '';
+  document.getElementById('guitareJoue').textContent = t('guitareJoue');
+  document.getElementById('guitareRegarde').textContent = t('guitareRegarde');
+  document.getElementById('guitareFerme').textContent = t('guitareFerme');
+  document.getElementById('guitareJoue').hidden = false;
+  document.getElementById('guitareRegarde').hidden = false;
+  pan.hidden = false;
+  actionBtn.hidden = true;
+  redecoBtn.hidden = true;
+  document.body.classList.add('lit');
+  state.paused = true;
+  trouve('guitare');
+  SFX.cloche();
+}
+function fermeGuitare() {
+  const pan = document.getElementById('guitare');
+  if (!pan) return;
+  pan.hidden = true;
+  document.body.classList.remove('lit');
+  if (state.refuge && !state.joue) redecoBtn.hidden = false;
+  majActionBtn();
+  state.paused = false;
+}
+function regardeGuitare() {
+  document.getElementById('guitareNote').textContent = t('guitareGrave');
+  document.getElementById('guitareRegarde').hidden = true;
+}
+function joueGuitare() {
+  fermeGuitare();
+  if (!state.pied) return;
+  state.joue = { t: 0 };
+  redecoBtn.hidden = true;
+  actionBtn.hidden = true;
+  document.body.classList.add('lit');
+  SFX.morceau();
+}
+function rangeGuitare() {
+  if (!state.joue) return;
+  state.joue = null;
+  document.body.classList.remove('lit');
+  SFX.morceauStop();
+  majActionBtn();
+}
+
 function fermeCarteMur() {
   const pan = document.getElementById('carteMur');
   if (!pan) return;
@@ -11711,6 +12015,21 @@ function simulate(dt) {
     // L'astuce marche donc — et elle a un prix, qui arrive en roulant.
     updateEnemies(dt);
     updateBullets(dt);
+    if (state.joue) {
+      updateJoue(dt);
+      updatePoste(dt);
+      updateDecor(dt);
+      state.announceT = Math.max(0, state.announceT - dt);
+      return;
+    }
+    if (state.couche) {
+      updateCouche(dt);
+      secretsSoleil(dt);
+      updatePoste(dt);
+      updateDecor(dt);
+      state.announceT = Math.max(0, state.announceT - dt);
+      return;
+    }
     updateAPied(dt);
     updatePoste(dt);
     updateDecor(dt);
@@ -15138,6 +15457,16 @@ const T = {
     act_avion: 'REMONTER',
     act_mot: 'LIRE',
     act_carte: 'REGARDER LA CARTE',
+    act_guitare: 'LA GUITARE',
+    guitareTitre: 'LA GUITARE',
+    guitareJoue: 'EN JOUER',
+    guitareRegarde: 'LA REGARDER',
+    guitareFerme: 'LA REPOSER',
+    // GRAVÉ DANS LE BOIS, ET DONC EN FRANÇAIS. C'est elle qui parle, comme
+    // dans la lettre : un mot pour quelqu'un ne se traduit pas.
+    guitareGrave:
+      'J’ai joué notre morceau sur cette guitare et je la laisse ici afin que tu ' +
+      'puisses sentir à quel point nous étions beaux lorsque nous jouions ensemble.',
     carteFerme: 'REPLIER',
     carteTitre: 'CE QUI RESTE À TROUVER',
     carteNote: 'De l’autre côté de la chaîne, la plaine ne s’arrête pas au refuge. Elle continue vers l’ouest, et plus loin encore il n’y a plus rien de dessiné au sol. C’est là, et seulement là, que quatre étoiles se lèvent en croix.',
@@ -15253,6 +15582,14 @@ const T = {
     act_avion: 'GET BACK IN',
     act_mot: 'READ',
     act_carte: 'LOOK AT THE MAP',
+    act_guitare: 'THE GUITAR',
+    guitareTitre: 'THE GUITAR',
+    guitareJoue: 'PLAY IT',
+    guitareRegarde: 'LOOK AT IT',
+    guitareFerme: 'PUT IT BACK',
+    guitareGrave:
+      'J’ai joué notre morceau sur cette guitare et je la laisse ici afin que tu ' +
+      'puisses sentir à quel point nous étions beaux lorsque nous jouions ensemble.',
     carteFerme: 'FOLD IT BACK',
     carteTitre: 'WHAT IS STILL OUT THERE',
     carteNote: 'Past the range, the plain does not stop at the refuge. It goes on west, and further still nothing is drawn on the ground any more. That is where — and only there — four stars rise in a cross.',
@@ -15882,6 +16219,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.32', fr: 'À pied, deux appuis couchent l’homme dans l’herbe : le manche balaie tout le ciel, et il n’y a plus rien d’autre.', en: 'On foot, a double tap lays the man down in the grass: the stick sweeps the whole sky, and nothing else remains.' },
+  { v: '1.32', fr: 'Allongé, on trace les constellations avec le regard, et des étoiles filantes passent sans que rien ne l’annonce.', en: 'Lying down, you trace constellations with your gaze, and shooting stars cross unannounced.' },
+  { v: '1.32', fr: 'Un vent très bas souffle au refuge, et trois notes tenues s’y ajoutent quand on s’allonge.', en: 'A very low wind blows at the refuge, and three held notes join it when you lie down.' },
+  { v: '1.32', fr: 'On peut prendre la guitare posée près du gramophone : en jouer à genoux, ou lire ce qui est gravé dedans.', en: 'You can take the guitar by the gramophone: kneel and play it, or read what is carved inside.' },
+  { v: '1.32', fr: 'À pied, le double appui ne déclenche plus un tonneau sur l’avion garé à trente mètres.', en: 'On foot, a double tap no longer sends the aircraft parked thirty metres away into a barrel roll.' },
   { v: '1.31', fr: 'Le tonneau barriqué déporte de cent mètres et ne revient pas : c’est une esquive, pas une embardée.', en: 'The barrel roll now shifts you a hundred metres and keeps it: a dodge, not a swerve.' },
   { v: '1.31', fr: 'La lettre perd un mot à chaque relecture, de plus en plus vite : la pluie a eu l’encre.', en: 'The letter loses a word on every reread, faster and faster: the rain got the ink.' },
   { v: '1.31', fr: 'Les mécaniciens râlent en français au-dessus de leur tête, et on ne sait jamais de quoi ils parlent.', en: 'The mechanics grumble in French above their heads, and you never know what about.' },
@@ -16639,10 +16981,21 @@ window.addEventListener('pointerdown', e => {
   // Deux appuis rapprochés déclenchent une figure. Laquelle dépend de l'endroit
   // visé par rapport à l'avion : au-dessus de lui, c'est un renversement ; à
   // côté, un tonneau du côté touché.
+  // IL JOUE : LE MOINDRE APPUI LE RELÈVE. Rien ne l'écrit à l'écran, et c'est
+  // le geste qu'on essaie en premier.
+  if (state.joue) { rangeGuitare(); return; }
   const side = e.clientX >= window.innerWidth / 2 ? 1 : -1;
   const now = performance.now();
+  // À PIED, LE DOUBLE APPUI NE FAIT PAS DE FIGURE. Il en faisait une : on
+  // marchait dans l'herbe, on tapait deux fois, et l'appareil garé à trente
+  // mètres partait en tonneau tout seul. À pied, deux appuis couchent l'homme
+  // sur le dos, et deux autres le relèvent.
+  const aPied = !!state.pied || !!state.couche;
   const libre = state.running && state.spinT <= 0 && !state.fig;
-  if (libre && now - lastTapT < DOUBLE_TAP && side === lastTapSide) {
+  if (aPied && now - lastTapT < DOUBLE_TAP && side === lastTapSide) {
+    if (state.couche) releveToi(); else coucheToi();
+    lastTapT = 0;
+  } else if (libre && !aPied && now - lastTapT < DOUBLE_TAP && side === lastTapSide) {
     // la figure suit la direction du geste par rapport à l'avion : au-dessus
     // on renverse par le haut, en dessous par le bas, sur le côté on tonneau
     const dx = e.clientX - state.screenX;

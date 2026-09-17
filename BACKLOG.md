@@ -2251,11 +2251,11 @@ qu'à cinq mètres.
 - [x] La Jeep : son plus grave et plus granuleux
 - [x] La Jeep : bug de descente — on se retrouve à un mètre du sol
 - [x] La lettre perd un mot par visite, de plus en plus vite vers la fin
-- [ ] S'allonger dans l'herbe au double appui : tête au ciel, joystick qui balaie, étoiles filantes
-- [ ] La guitare près du gramophone : en jouer à genoux, ou lire ce qu'Émilie y a gravé
+- [x] S'allonger dans l'herbe au double appui : tête au ciel, joystick qui balaie, étoiles filantes
+- [x] La guitare près du gramophone : en jouer à genoux, ou lire ce qu'Émilie y a gravé
 - [x] Les mécanos râlent en français au-dessus de leur tête, en mots très courts
 - [x] Un mécano lance-roquettes dès qu'un char entre dans le rayon du terrain
-- [ ] Un bruit de vent très léger au refuge
+- [x] Un bruit de vent très léger au refuge
 
 
 ## v1.31 — le tonneau, la pluie sur l'encre, et la Jeep
@@ -2300,3 +2300,40 @@ par homme, 2,4 s à l'écran, invisible au-delà de 110 m. Mesuré : présents s
 - Le bloc du refuge replaçait l'homme à l'aile à chaque image, même en Jeep.
 - Son : base 46 → 32 Hz, passe-bas 420 → 300, deuxième cylindre en carré
   désaccordé de 3,5 %, bruit de roulement 0,10 → 0,18 à 150 Hz.
+
+
+## v1.32 — le ciel, la guitare, le vent
+
+### S'allonger dans l'herbe
+Double appui à pied. La caméra devient sa tête (30 cm au-dessus du sol), le
+manche balaie `COUCHE_TOURNE = 1,15` rad/s en site et en azimut, l'inclinaison
+est bornée à [0,10 ; 1,40] rad — on est sur le dos, on ne regarde pas dessous.
+Mesuré : 1,28 rad de balayage en azimut et 0,38 en site sur 80 images, HUD
+entièrement retiré, relevé au double appui suivant.
+
+Les constellations se tracent avec le regard : `viseEtoile` lit
+`state.regardCiel` au lieu du nez de l'appareil, et la porte `enVol` s'ouvre
+aussi quand on est couché. Une étoile filante toutes les 9 à 26 secondes, sans
+un mot à l'écran.
+
+Corrigé au passage : à pied, un double appui déclenchait un tonneau sur
+l'appareil garé à trente mètres.
+
+### Le son
+`SFX.ventDoux(on, nappes)` : bruit passe-bas 360 Hz qui respire à 0,068 Hz.
+Debout au refuge, c'est tout. Couché, trois sinusoïdes tenues — la, mi, la —
+dont les enveloppes tournent à 41, 29 et 23 mHz : incommensurables, donc le
+motif ne se répète jamais.
+
+### La guitare
+Elle était dessinée contre le mur depuis le premier jour. Point d'intérêt à
+2,2 m, panneau à deux verbes : en jouer, ou la regarder. Ce qui est gravé est
+d'Émilie, et reste en français dans les deux langues (150 caractères).
+
+En jouer met un genou à terre et la caméra tourne autour à 0,16 rad/s — quarante
+secondes pour un tour. Le morceau est une suite d'arpèges : la mineur, sol, fa,
+mi, 32 notes de 0,55 s, en boucle. Un appui, il se relève.
+
+### Non-régression
+Atterrissage toujours à 1,4 m du hangar, 416 m de roulage en 9,1 s. Aucune
+erreur en vol normal.
