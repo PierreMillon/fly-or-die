@@ -2072,3 +2072,35 @@ Mesuré, arrivées dans l'axe, prise du tube :
 Plus bas et plus près, il faut être sur la pente : c'est l'entonnoir qui se
 ferme, et c'est voulu.
 
+## Une seule manière de se poser, sur tous les terrains (v1.27)
+
+Sa demande : « pour le refuge, et pour toutes les pistes d'aviation générale, le
+système de se poser face au vent — un cas global qui se répète à chaque piste ».
+
+Tout l'atterrissage était écrit dans le repère de la piste principale : l'axe
+des z, un « sens » valant plus ou moins un, et le centre du tube cloué à x = 0.
+Le refuge avait donc son mécanisme à lui — passer bas et lent dans la bande —
+sans guidage, sans entonnoir, sans sens imposé.
+
+Une piste, c'est maintenant **cinq nombres** : un point, un cap, une longueur,
+une demi-largeur. Le tube, l'axe, la pente et l'arrondi se calculent dans SON
+repère. Ajouter un terrain ne demandera pas une ligne de code.
+
+- Une seule géométrie de tube, dessinée dans son propre repère ; c'est le groupe
+  qu'on pose et qu'on tourne sur la piste en service.
+- `sensAuVentDe(P)` : de ses deux caps, celui qui va le plus franchement contre
+  le vent. La bande du refuge est inclinée de trois degrés, ses caps sont donc
+  3 et 183, et ça ne change rien au calcul.
+- Les mécaniciens ne sortent que pour leur terrain : s'aligner au refuge faisait
+  sortir trois hommes à trente-deux kilomètres de là.
+
+Mesuré, quatre vents × deux pistes, arrivée à 1 200 m et 130 m de haut :
+**8 prises sur 8, toutes face au vent**, prise pleine à 1,00.
+
+### Le même piège, pour la troisième fois
+
+`PISTES` lisait `REFUGE`, qui naît six cents lignes plus bas : la page entière
+plantait au chargement. Comme `decouvertes` dans le hangar, comme `legendesN`
+avant lui. Tout ce qui décrit un terrain se construit maintenant à la première
+demande, et pas à l'évaluation du fichier.
+

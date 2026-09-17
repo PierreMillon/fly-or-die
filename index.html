@@ -5764,38 +5764,90 @@ function tubeRayon(d) {
 // la hauteur de l'axe du tube à cette distance
 function tubeHaut(d) { return PISTE.y + d * Math.tan(PENTE_CIBLE); }
 
-let tubeMesh = null;
-(function poserTube() {
-  const g = new THREE.Group();
-  for (const sens of [-1, 1]) {
-    const pts = [];
-    const zc = PAPI_Z - sens * TOUCHER_AVANT;      // le point visé de ce côté
-    const prec = [];
-    for (let a = 0; a <= TUBE_ANNEAUX; a++) {
-      const d = TUBE_DIST * a / TUBE_ANNEAUX;
-      const r = tubeRayon(d), y = tubeHaut(d);
-      const z = zc - sens * d;
-      const n = 28, cur = [];
-      for (let i = 0; i < n; i++) {
-        const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
-        pts.push(Math.cos(a0) * r, y + Math.sin(a0) * r, z,
-                 Math.cos(a1) * r, y + Math.sin(a1) * r, z);
-      }
-      // quatre longerons : sans eux ce sont des anneaux, pas un tube
-      for (let k = 0; k < 4; k++) {
-        const ak = k / 4 * Math.PI * 2;
-        cur.push([Math.cos(ak) * r, y + Math.sin(ak) * r, z]);
-      }
-      if (prec.length) for (let k = 0; k < 4; k++)
-        pts.push(prec[k][0], prec[k][1], prec[k][2], cur[k][0], cur[k][1], cur[k][2]);
-      prec.length = 0; prec.push(...cur);
-    }
-    const li = new THREE.LineSegments(segGeom(pts), lineMat(COL_LINE, 0.30));
-    li.frustumCulled = false;
-    li.visible = false;
-    li.userData.sens = sens;
-    g.add(li);
+// ---------------------------------------------------------------------------
+// TOUTES LES PISTES DU MONDE, DANS UNE TABLE.
+//
+// Tout l'atterrissage était écrit dans le repère de la piste principale :
+// l'axe des z, un « sens » valant plus ou moins un, et le centre du tube cloué
+// à x = 0. Le refuge avait donc son propre mécanisme — passer bas et lent dans
+// la bande — qui ne ressemblait à rien de ce qu'on fait ailleurs, et qui
+// n'offrait ni guidage, ni entonnoir, ni sens imposé par le vent.
+//
+// Une piste, c'est un point, un cap, une longueur et une demi-largeur. Le reste
+// se calcule dans SON repère, et le même code sert partout. Ajouter un terrain
+// demandera cinq nombres et rien d'autre.
+// ---------------------------------------------------------------------------
+// ELLE SE CONSTRUIT À LA PREMIÈRE DEMANDE, et c'est le troisième piège du même
+// genre dans ce fichier : le refuge naît six cents lignes plus bas que le tube,
+// donc le lire ici plantait la page entière au chargement. Tout ce qui décrit
+// un terrain doit attendre que les terrains existent.
+let _pistes = null;
+function pistes() {
+  if (!_pistes) _pistes = [
+    { cle: 'base',   x: 0, z: PAPI_Z, cap: 0,
+      demiL: PISTE.demiL, long: Math.abs(PISTE.z0 - PISTE.z1) },
+    { cle: 'refuge', x: REFUGE.x + REFUGE_PLAN.bande.x, z: REFUGE.z + REFUGE_PLAN.bande.z,
+      cap: -REFUGE_PLAN.bande.a * Math.PI / 180,
+      demiL: REFUGE_PLAN.bande.w / 2, long: REFUGE_PLAN.bande.l }
+  ];
+  return _pistes;
+}
+// LE CAP D'ATTERRISSAGE D'UNE PISTE, dans le sens demandé. Le « sens » garde le
+// signe qu'il avait sur la piste principale — moins un veut dire cap nord — et
+// vaut pour toutes : c'est le même mot partout.
+const capPiste = (P, sens) => sens < 0 ? P.cap : P.cap + Math.PI;
+// On se pose contre la manche : de ses deux caps possibles, celui qui va le
+// plus franchement à l'encontre du vent.
+function sensAuVentDe(P) {
+  // la manche pointe vers (sin base, 0, cos base) : le vent va par là
+  const vx = Math.sin(VENT.base), vz = Math.cos(VENT.base);
+  // le cap « moins un » vole vers (−sin cap, 0, −cos cap)
+  const fx = -Math.sin(P.cap), fz = -Math.cos(P.cap);
+  return (fx * vx + fz * vz) < 0 ? -1 : 1;
+}
+// LA PISTE EN SERVICE : la plus proche, et seulement si elle est à portée.
+// Trente kilomètres séparent les deux terrains, donc il n'y a jamais d'hésitation.
+const PISTE_PORTEE = 6000;
+function pisteActive() {
+  let best = null, dBest = PISTE_PORTEE;
+  for (const P of pistes()) {
+    const d = Math.hypot(state.pos.x - P.x, state.pos.z - P.z);
+    if (d < dBest) { dBest = d; best = P; }
   }
+  return best;
+}
+
+let tubeMesh = null, tubePiste = null, tubeSens = 0;
+(function poserTube() {
+  // UNE SEULE GÉOMÉTRIE, DANS SON PROPRE REPÈRE. Il y en avait deux, une par
+  // sens, et il en aurait fallu deux de plus par terrain ajouté. Le tube est
+  // dessiné une fois, l'axe le long de son +z, et c'est le GROUPE qu'on pose
+  // et qu'on tourne sur la piste en service. Ajouter un terrain ne coûte donc
+  // plus un seul triangle.
+  const g = new THREE.Group();
+  const pts = [], prec = [];
+  for (let a = 0; a <= TUBE_ANNEAUX; a++) {
+    const d = TUBE_DIST * a / TUBE_ANNEAUX;
+    const r = tubeRayon(d), y = tubeHaut(d) - PISTE.y;
+    const n = 28, cur = [];
+    for (let i = 0; i < n; i++) {
+      const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
+      pts.push(Math.cos(a0) * r, y + Math.sin(a0) * r, d,
+               Math.cos(a1) * r, y + Math.sin(a1) * r, d);
+    }
+    // quatre longerons : sans eux ce sont des anneaux, pas un tube
+    for (let k = 0; k < 4; k++) {
+      const ak = k / 4 * Math.PI * 2;
+      cur.push([Math.cos(ak) * r, y + Math.sin(ak) * r, d]);
+    }
+    if (prec.length) for (let k = 0; k < 4; k++)
+      pts.push(prec[k][0], prec[k][1], prec[k][2], cur[k][0], cur[k][1], cur[k][2]);
+    prec.length = 0; prec.push(...cur);
+  }
+  const li = new THREE.LineSegments(segGeom(pts), lineMat(COL_LINE, 0.30));
+  li.frustumCulled = false;
+  g.add(li);
+  g.visible = false;
   scene.add(g);
   tubeMesh = g;
 })();
@@ -5825,29 +5877,49 @@ function sensAuVent() {
   // et les vingt-cinq degrés d'oscillation la font changer de signe : le seuil
   // en service basculerait d'un bout à l'autre pendant qu'on est en finale.
   // La base ne bouge pas de la partie, donc le terrain non plus.
+  //
+  // Celui-ci ne concerne que la piste principale — le plan de descente, les
+  // feux, le décollage. Les autres terrains passent par sensAuVentDe().
   return Math.cos(VENT.base) > 0 ? -1 : 1;
 }
 
+const _tubA = new THREE.Vector3(), _tubD = new THREE.Vector3(), _tubC = new THREE.Vector3();
 function majTube() {
-  const sens = sensAuVent();
-  const zc = PAPI_Z - sens * TOUCHER_AVANT;
-  const d = (state.pos.z - zc) * -sens;          // positif : on est en amont
+  // LE MÊME CALCUL POUR TOUS LES TERRAINS, dans le repère de celui qu'on
+  // aborde. L'axe des z et le centre cloué à x = 0 ne valaient que pour la
+  // piste principale : la bande du refuge est inclinée de trois degrés et se
+  // trouve à trente-deux kilomètres, elle n'avait donc rien de tout ça.
+  const P = pisteActive();
+  TUBE.piste = P;
+  if (!P) { TUBE.tient = false; TUBE.prise = 0; return; }
+  const sens = sensAuVentDe(P);
+  const cap = capPiste(P, sens);
+  // la direction d'atterrissage, et le point visé : TOUCHER_AVANT en AMONT du
+  // repère de la piste, exactement comme avant sur la principale
+  _tubD.set(-Math.sin(cap), 0, -Math.cos(cap));
+  _tubA.set(P.x, PISTE.y, P.z).addScaledVector(_tubD, -TOUCHER_AVANT);
+  // d : la distance le long de l'axe, positive quand on est en amont
+  const d = (state.pos.x - _tubA.x) * -_tubD.x + (state.pos.z - _tubA.z) * -_tubD.z;
   TUBE.sens = sens;
+  TUBE.cap = cap;
   TUBE.d = d;
   TUBE.dedans = false;
   TUBE.prise = 0;
   if (d < -40 || d > TUBE_DIST || defiEst('sansPiste') || avance.sansAtterrir
       || state.pose || state.roulage || state.refuge) { TUBE.tient = false; return; }
   const r = tubeRayon(Math.max(0, d));
-  TUBE.cx = 0;
-  TUBE.cy = tubeHaut(Math.max(0, d));
-  const ex = state.pos.x - TUBE.cx, ey = state.pos.y - TUBE.cy;
-  TUBE.ecart = Math.hypot(ex, ey);
+  // le centre du couloir à cette distance, et l'écart perpendiculaire à l'axe
+  _tubC.copy(_tubA).addScaledVector(_tubD, -Math.max(0, d));
+  _tubC.y = tubeHaut(Math.max(0, d));
+  TUBE.cx = _tubC.x; TUBE.cy = _tubC.y; TUBE.cz = _tubC.z;
+  const dx = state.pos.x - _tubC.x, dy = state.pos.y - _tubC.y, dz = state.pos.z - _tubC.z;
+  const le = dx * _tubD.x + dz * _tubD.z;        // la part le long de l'axe
+  TUBE.ecart = Math.hypot(dx - _tubD.x * le, dy, dz - _tubD.z * le);
   // LE CAP DOIT ÊTRE CELUI DE LA PISTE, et dans LE BON SENS. Il suffisait
   // autrefois d'être aligné sur l'axe, peu importe le bout : on pouvait donc se
   // poser vent arrière sans que rien ne le dise. Désormais le tube ne prend que
-  // si l'on vient face au vent.
-  const versLaPiste = sens < 0 ? -state.forward.z : state.forward.z;
+  // si l'on vient face au vent — et « l'axe » est celui de CETTE piste-là.
+  const versLaPiste = state.forward.x * _tubD.x + state.forward.z * _tubD.z;
   if (versLaPiste < Math.cos(28 * Math.PI / 180)) {
     // ET ON LE DIT. Aligné sur l'axe mais par le mauvais bout, le tube ne
     // prenait pas et rien n'expliquait pourquoi : on refaisait le tour en se
@@ -11495,8 +11567,23 @@ function simulate(dt) {
   majPapi();
   majTube();
   // le tube ne se montre que du bon côté, et seulement quand on vient vraiment
-  if (tubeMesh) for (const li of tubeMesh.children)
-    li.visible = PLAN.lisible && li.userData.sens === TUBE.sens && TUBE.d > -20;
+  // LE DESSIN SE POSE SUR LA PISTE EN SERVICE. Un seul tube, qu'on déplace et
+  // qu'on tourne : c'est ce qui permet d'en avoir un sur chaque terrain sans
+  // rien redessiner. Sur la principale il ne s'affiche que si les feux sont
+  // lisibles ; au refuge il n'y a pas de feux, donc c'est la proximité qui
+  // décide — et c'est justement là qu'un guide sert le plus.
+  if (tubeMesh) {
+    const P = TUBE.piste;
+    if (P && TUBE.d > -20 && TUBE.d < TUBE_DIST * 1.05
+        && (P.cle !== 'base' || PLAN.lisible)
+        && !state.pose && !state.roulage && !state.refuge) {
+      const cap = TUBE.cap || 0;
+      tubeMesh.position.set(P.x - Math.sin(cap) * -TOUCHER_AVANT, PISTE.y,
+                            P.z - Math.cos(cap) * -TOUCHER_AVANT);
+      tubeMesh.rotation.y = cap;
+      tubeMesh.visible = true;
+    } else tubeMesh.visible = false;
+  }
 
   // LE MAGNÉTISME. Plus de bouton, plus de barre à tenir : c'est la géométrie
   // qui décide. Entrer dans le tube suffit à être pris, en sortir suffit à le
@@ -11511,8 +11598,15 @@ function simulate(dt) {
     if (tenu > 0.01) {
       // L'AXE. On vise un point du centre du tube quatre cents mètres devant :
       // l'appareil rejoint la ligne au lieu de la couper.
-      const devant = TUBE.sens < 0 ? -400 : 400;
-      const voulu = Math.atan2(state.pos.x, -devant);
+      //
+      // ET CET AXE EST CELUI DE LA PISTE QU'ON ABORDE. Il était écrit « quatre
+      // cents mètres sur les z, et x vaut zéro » : vrai pour la principale,
+      // faux pour une bande inclinée de trois degrés à trente-deux kilomètres.
+      const capT = TUBE.cap || 0;
+      const vx = -Math.sin(capT), vz = -Math.cos(capT);
+      const tx = (TUBE.cx !== undefined ? TUBE.cx : 0) + vx * 400;
+      const tz = (TUBE.cz !== undefined ? TUBE.cz : 0) + vz * 400;
+      const voulu = Math.atan2(-(tx - state.pos.x), -(tz - state.pos.z));
       const avantYaw = state.yaw;
       state.yaw = dampAngle(state.yaw, voulu, TUBE_PRISE * tenu, dt);
       let dyaw = state.yaw - avantYaw;
@@ -11540,7 +11634,13 @@ function simulate(dt) {
     }
     // ILS SORTENT DÈS QUE LE TUBE NOUS TIENT : le temps qu'on descende, ils
     // ont traversé le terrain, et ils sont déjà là quand les roues s'arrêtent.
-    if (state.assist && !state.mecanosEnRoute) { state.mecanosEnRoute = true; mecanosVersArret(); }
+    // ET ILS NE SORTENT QUE POUR LEUR TERRAIN. Le tube existe maintenant au
+    // refuge aussi : s'aligner là-bas faisait sortir trois hommes à trente-deux
+    // kilomètres de là, sur une piste où personne n'allait se poser.
+    if (state.assist && !state.mecanosEnRoute
+        && TUBE.piste && TUBE.piste.cle === 'base') {
+      state.mecanosEnRoute = true; mecanosVersArret();
+    }
     if (!state.assist && !state.roulage && !state.pose) {
       state.mecanosEnRoute = false;
       // en l'air, sans approche engagée : la piste est à eux, ils la quittent
@@ -15340,6 +15440,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.27', fr: 'Le refuge a le même atterrissage que la piste principale : entonnoir, axe, pente, arrondi.', en: 'The refuge gets the same landing as the main runway: funnel, line, slope, flare.' },
+  { v: '1.27', fr: 'Une piste, c’est cinq nombres : ajouter un terrain n’ajoute plus une ligne de code.', en: 'A runway is five numbers: adding a field no longer adds a line of code.' },
+  { v: '1.27', fr: 'Chaque terrain choisit son seuil d’après le vent, même incliné de trois degrés.', en: 'Each field picks its threshold from the wind, even one three degrees off north.' },
   { v: '1.26', fr: 'On se pose face au vent : la manche à air décide du seuil, et le tube n’ouvre que de ce côté.', en: 'You land into the wind: the sock picks the threshold, and the tube only opens on that side.' },
   { v: '1.26', fr: 'Le vent et la piste en service s’affichent au collimateur, sous les feux.', en: 'Wind and runway in use are shown on the sight, under the lights.' },
   { v: '1.26', fr: 'Aligné vent arrière, on est prévenu au lieu de tourner sans comprendre.', en: 'Lined up downwind, you are told instead of circling without knowing why.' },
