@@ -2126,3 +2126,77 @@ par-dessus. Le HTML ne porte plus rien.
 Mesuré : bouton `v1.28`, première ligne du journal `v1.28`, identiques avant et
 après changement de langue.
 
+
+## v1.29 — l'atterrissage entier, et la caméra qu'il a tracée
+
+### Ce qui empêchait tout posé automatique (mesuré)
+Le coussin d'air du sol rend `k²·34` m/s dès qu'on passe sous 40 m HORS du
+bitume. Un plan à 3° à 70 m/s descend de 3,6 m/s. Les deux s'égalisent à
+**36 m d'altitude** : mesuré, l'appareil s'y installait, traversait tout le
+terrain à 36 m, le tube le lâchait au bout du couloir, et il repartait de
+l'autre côté (z = −5354 au lieu de toucher à z = 200). Le plancher `FLOOR = 26`
+faisait la même chose juste en dessous. Les deux s'effacent maintenant pendant
+l'approche assistée, et seulement pendant.
+
+### Le point visé
+- `TOUCHER_AVANT = 300` (donc le milieu du bitume) → `TOUCHER_APRES = 60` après
+  le SEUIL, lu sur la longueur de la piste en service : `viseDe(P) = P.long/2 − 60`.
+- Piste principale : 1160 m, seuils +260 / −900, hangar au centre −320.
+  Le tube vise donc z = +200 au lieu de z = −20.
+- Le peigne (8 barres de 3,2 m sur 26 m) est dessiné aux deux seuils.
+
+### Mesures du posé automatique, entrée à 1400 m dans l'axe
+| essai | prise | toucher | depuis le seuil | arrêt | écart hangar | roulage |
+|---|---|---|---|---|---|---|
+| pile dans l'axe | 1,00 | z = 97 à 83 m/s | 163 m | z = −318,6 | **1,4 m** | 415 m en **9,1 s** |
+| 60 m trop haut | 1,00 | z = 101 à 83 m/s | 159 m | z = −318,5 | 1,5 m | 419 m en 9,1 s |
+| depuis 1700 m | 1,00 | z = 96 à 83 m/s | 164 m | z = −318,6 | 1,4 m | 414 m en 9,1 s |
+| 120 m hors axe à 1000 m | — | pas de prise : l'écart (120 m) dépasse le rayon du tube à cette distance (109 m) |
+
+Avant : 17 s de roulage à ralentir sans arrêt. Après : `FREIN_FRANC = 9` m/s²,
+on roule sur son erre jusqu'au point de freinage puis on freine franchement —
+**9,1 s**, dont environ 5 à pleine vitesse.
+
+### Le hangar
+`prof 60 → 78`, `baie 40 → 54`, rang de 4 → 5 de front. Les cinq appareils,
+Faucheur compris, se lisent depuis le bitume porte ouverte.
+
+### La manche à air
+Mât 7 → 14 m, cône ×2, plantée à x = 33 — dix mètres du bord du bitume (demi-largeur 23).
+
+### La caméra du décollage — sa courbe, vérifiée
+`ATTENTE 0,55 → 0,40`, `ROULAGE 1,4 → 1,95`, `MONTEE 2,4 → 2,80`,
+amortissement d'assiette 2,2 → 4,6. L'écart caméra-avion n'est plus calculé :
+il est lu sur `CAM_DECOL_COURBE`.
+
+| t visé | 0,00 | 0,55 | 1,20 | 2,49 | 3,45 | 5,00 |
+|---|---|---|---|---|---|---|
+| tracé | 16 | 16 | 38 | 70 | 58 | 58 |
+| mesuré | 14,5 | 16,0 | 38,0 | **69,9** | 58,0 | 58,0 |
+
+Fin de séquence à t = 5,13 s, altitude 220 m, vitesse 144 m/s.
+
+### Le reste
+- La lettre : `#lettre` n'était pas dans la liste blanche `touch-action: pan-y`,
+  donc la règle universelle `* { touch-action: none }` bloquait le doigt sur le
+  texte et seule la barre répondait. Corrigé, et la barre est masquée.
+- La loupe iOS : `user-select: none` sur tout sauf `input`/`textarea`.
+- Au refuge : plus de « RÉPIT · LA VAGUE SUIVANTE ARRIVE », plus de traits de
+  vitesse sur un appareil garé, plus de « ON MARCHE ».
+- Panneau du refuge : `yBas 2,4 → 4,0`.
+- « REDÉCOLLER » n'apparaît qu'à moins de 26 m de l'appareil.
+- Arrêté, l'avion pivote sur place (`TAXI_PIVOT = 0.9`).
+
+### Encore à faire, demandé et pas fait dans cette version
+- Le remplissage noir : chaque maille du sol et chaque facette d'avion doit être
+  une surface pleine noire bordée de vert (son explication du 17/09). Les avions
+  autres que le premier sont en fil de fer pur.
+- Le tonneau barriqué doit déplacer latéralement de deux à trois longueurs
+  d'avion, tout du long.
+- Un mécanicien lance-roquettes contre les chars trop près de la piste.
+- La Jeep : le bonhomme visible dedans, volant à gauche, son plus grave et plus
+  granuleux ; bug de descente à un mètre du sol.
+- La lettre s'efface un peu à chaque visite ; illisible à la troisième.
+- La guitare : la prendre, en jouer à genoux, et lire ce qu'Émilie y a gravé.
+- Un bruit de vent très léger au refuge.
+- Liste de propositions pour le double appui à pied.

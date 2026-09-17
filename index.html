@@ -40,7 +40,26 @@
      appartient au panneau lui-même — répondait. */
   #aide, #aide *, #changelog, #changelog *, #viseurs, #viseurs *,
   #coop, #coop *, #overlay, #overlay *, #menu, #menu *, #infos, #infos *,
-  #install, #install * { touch-action: pan-y; }
+  #install, #install *,
+  /* LA LETTRE N'Y ÉTAIT PAS. Elle défile depuis toujours — « touch-action:
+     pan-y » est écrit sur sa feuille — mais la règle universelle au-dessus
+     remettait « none » sur chaque paragraphe, et c'est l'élément où le doigt
+     SE POSE qui décide. Poser le doigt sur le texte d'Émilie ne faisait donc
+     rien, et il fallait viser la barre de défilement, à droite. On lit une
+     lettre en la poussant du pouce, n'importe où sur la page. */
+  #lettre, #lettre *, #carteMur, #carteMur * { touch-action: pan-y; }
+  /* ET SANS BARRE. Une barre de défilement dit « ceci est une page web ».
+     Une lettre n'en a pas : elle a un bord, et on la fait glisser. */
+  #lettre .feuille, #carteMur .papier { scrollbar-width: none; }
+  #lettre .feuille::-webkit-scrollbar, #carteMur .papier::-webkit-scrollbar { display: none; }
+  /* LA LOUPE DE L'IPHONE. Deux appuis rapprochés sur du texte font surgir un
+     ovale grossissant, celui de la sélection : il passe par-dessus le jeu au
+     moment précis où l'on fait une figure. Il ne naît que là où le texte est
+     sélectionnable, donc on l'interdit partout sauf dans les champs où l'on
+     tape vraiment. */
+  *:not(input):not(textarea) {
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
 
   html, body {
     margin: 0;
@@ -1536,10 +1555,10 @@ const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
 const SOL_Y         = 3;      // hauteur de l'avion posé, train sous le fuselage
 const ALT_DEPART    = 165;    // altitude atteinte au bout du décollage
-const ATTENTE       = 0.55;   // le temps qu'il faut aux mécaniciens pour dégager
+const ATTENTE       = 0.40;   // le temps qu'il faut aux mécaniciens pour dégager
 const RAMPE         = 0.55;   // montée en vitesse, en S
-const ROULAGE       = 1.4;    // secondes de course au sol avant la rotation : une de plus, on voit rouler
-const MONTEE        = 2.4;    // durée de la vague, de la rotation au palier
+const ROULAGE       = 1.95;   // secondes de course au sol avant la rotation : on voit vraiment rouler
+const MONTEE        = 2.80;   // durée de la vague, de la rotation au palier
 const ASSIETTE      = 1.30;   // sommet de la vague, 74 degrés
 const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte le sol
 const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas en croisière
@@ -1575,6 +1594,31 @@ const CAM_ROULIS_TONNEAU = 5 * Math.PI / 180;
 // referme, et l'écart maximal qu'on laisse s'ouvrir.
 const CAM_FERME     = 24;     // mètres par seconde
 const CAM_ECART_MAX = 130;    // mètres : au-delà, on ne le lâche plus
+// ---------------------------------------------------------------------------
+// LA COURBE DU DÉCOLLAGE, TRACÉE À LA MAIN.
+//
+// L'écart caméra-avion se refermait à vitesse constante — vingt-quatre mètres
+// par seconde, quoi qu'il arrive. C'est un réglage, et un réglage ne vaut pas
+// un geste : personne ne sait dire au clavier à quel moment l'appareil doit
+// prendre l'avant ni de combien. Il a donc tracé la courbe au doigt sur
+// decollage.html, point par point, et c'est elle qui décide.
+//
+// Elle se lit : rien pendant une demi-seconde, l'appareil part et prend
+// soixante-dix mètres d'avance en deux secondes et demie, puis la caméra le
+// rattrape à moitié et s'installe à cinquante-huit.
+// ---------------------------------------------------------------------------
+const CAM_DECOL_COURBE = [[0, 16], [0.55, 16], [1.20, 38], [2.49, 70], [3.45, 58], [5.00, 58]];
+function camDecolEcart(t) {
+  const C = CAM_DECOL_COURBE;
+  if (t <= C[0][0]) return C[0][1];
+  for (let i = 1; i < C.length; i++) {
+    if (t <= C[i][0]) {
+      const u = (t - C[i - 1][0]) / (C[i][0] - C[i - 1][0]);
+      return C[i - 1][1] + (C[i][1] - C[i - 1][1]) * u;
+    }
+  }
+  return C[C.length - 1][1];
+}
 const CAM_SERPENT = 4.0;          // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_LATERAL_MAX = 4.5;      // et le décalage total ne dépasse jamais ceci, sinon l'avion quitte le cadre
 const CAM_TONNEAU   = 0.25;   // part du deport que la camera laisse filer avant de se recaler
@@ -5388,7 +5432,12 @@ function updateTraits(dt) {
   // L'AIR NE SE VOIT QUE QUAND ON LE TRAVERSE. Ce qui n'avance pas n'en fait
   // pas : un appareil aux freins, roues bloquées, gardait devant lui une pluie
   // de traits obliques figés — le temps arrêté, et l'image illisible.
-  if (!state.running || state.pose || state.roulage || state.auSol) {
+  // AU REFUGE, L'APPAREIL EST GARÉ. Sa vitesse restait celle du dernier
+  // instant de vol, si bien qu'une pluie de traits obliques figés couvrait
+  // toute la scène pendant qu'on marchait autour de la maison. Ce qui bouge
+  // là-bas, c'est l'homme ou la Jeep, et eux portent leur propre air.
+  if (!state.running || state.pose || state.roulage || state.auSol
+      || (state.refuge && !state.pied && !state.jeep)) {
     traitsLayer.visible = false;
     return;
   }
@@ -5477,6 +5526,7 @@ const PISTE = {
 // esquiver ni riposter. Le marché est net.
 const ARRONDI_H = 16;         // hauteur à laquelle le nez commence à remonter
 const ROULAGE_M = 44;        // metres de piste pour s'arreter : trois fois moins qu'avant, le temps de freinage avec
+const FREIN_FRANC = 9;       // m/s2 : le coup de frein, franc — presque un g
 const TOUCHER_DUR = 4.5;      // m/s de descente au-delà desquels ça casse
 const REPARATION = 10;        // secondes avant que ça reparte tout seul
 const REPARE_PAR_S = 17;      // points de structure rendus par seconde
@@ -5618,6 +5668,22 @@ function ecrisEnZ(p, txt, xs, y0, z0, ech) {
   nombre('36', PISTE.z0 - 60, 1);
   nombre('18', PISTE.z1 + 60, -1);
 
+  // LE PEIGNE. Les bandes blanches du seuil : c'est là qu'on doit toucher, et
+  // maintenant que le tube les vise, il fallait qu'elles se voient. Huit
+  // barres de chaque côté, comme sur une vraie piste.
+  const peigne = (zs, sens) => {
+    const n = 8, larg = 3.2, ecart = 2.4, lon = 26, marge = 8;
+    const total = n * larg + (n - 1) * ecart;
+    for (let k = 0; k < n; k++) {
+      const x0 = -total / 2 + k * (larg + ecart), x1 = x0 + larg;
+      const za = zs - sens * marge, zb = za - sens * lon;
+      seg(x0, za, x1, za); seg(x0, zb, x1, zb);
+      seg(x0, za, x0, zb); seg(x1, za, x1, zb);
+    }
+  };
+  peigne(PISTE.z0, 1);
+  peigne(PISTE.z1, -1);
+
   const li = new THREE.LineSegments(segGeom(p), lineMat(COL_LINE, 0.85));
   li.frustumCulled = false;
   scene.add(li);
@@ -5683,7 +5749,21 @@ const SOL_POUSSEE   = 34;     // mètres par seconde, au plus bas du coussin
 const SOL_ASSIETTE  = 0.05;   // radians : trois degrés de nez haut, pas plus
 const SOL_EFFET_H   = 40;     // mètres sous lesquels le coussin d'air porte
 const SOL_EFFET     = 0.20;   // ce qu'il rend, au contact du sol
-const TOUCHER_AVANT = 300;    // mètres avant le hangar : le point que vise le tube
+// ON TOUCHE SUR LE PEIGNE, PAS AU MILIEU DU BITUME.
+//
+// Le tube visait trois cents mètres avant le hangar — et le hangar est à
+// mi-piste, donc on touchait à mi-bitume, avec trois cent quarante mètres
+// devant soi pour tout faire. Ce n'est pas un atterrissage, c'est un posé
+// d'hélicoptère : on arrive par le travers de la piste et l'autre moitié ne
+// sert jamais.
+//
+// Un avion se pose au SEUIL, sur le peigne — les bandes blanches du tout
+// début — et le reste du bitume sert à ralentir. Le tube vise donc
+// TOUCHER_APRES mètres après le seuil de la piste en service, quelle qu'elle
+// soit : la mesure se prend sur SA longueur, pas sur un nombre écrit une fois
+// pour la principale.
+const TOUCHER_APRES = 60;     // mètres après le seuil : le point que vise le tube
+const viseDe = P => Math.max(40, P.long / 2 - TOUCHER_APRES);   // en amont du repère de la piste
 // LE TUBE GUIDE, IL NE POUSSE PAS. L'approche assistée accélérait d'un tiers
 // pour « aller vite » ; accélérer pendant une approche est le contraire de ce
 // qu'on veut, et c'est elle qui faisait flotter l'appareil au-dessus du bitume.
@@ -5894,10 +5974,10 @@ function majTube() {
   if (!P) { TUBE.tient = false; TUBE.prise = 0; return; }
   const sens = sensAuVentDe(P);
   const cap = capPiste(P, sens);
-  // la direction d'atterrissage, et le point visé : TOUCHER_AVANT en AMONT du
-  // repère de la piste, exactement comme avant sur la principale
+  // la direction d'atterrissage, et le point visé : le seuil de CETTE piste,
+  // plus la longueur du peigne
   _tubD.set(-Math.sin(cap), 0, -Math.cos(cap));
-  _tubA.set(P.x, PISTE.y, P.z).addScaledVector(_tubD, -TOUCHER_AVANT);
+  _tubA.set(P.x, PISTE.y, P.z).addScaledVector(_tubD, -viseDe(P));
   // d : la distance le long de l'axe, positive quand on est en amont
   const d = (state.pos.x - _tubA.x) * -_tubD.x + (state.pos.z - _tubA.z) * -_tubD.z;
   TUBE.sens = sens;
@@ -6189,7 +6269,13 @@ const MECANO_PORTEE = 9;
 // haut : sa facade est parallele au bitume et fait soixante metres, ses deux
 // vantaux coulissent sur un rail qui DEPASSE du batiment des deux cotes, et
 // s'effacent entierement. Porte ouverte, on voit toute la flotte alignee.
-const AERO = { x: 78, z: (PISTE.z0 + PISTE.z1) / 2, largeur: 40, prof: 60, haut: 15, baie: 40 };
+// IL GRANDIT POUR LE FAUCHEUR. Quatre appareils tenaient de front et le
+// cinquième partait se garer en deuxième rang, derrière les autres, invisible
+// de la porte. Dix-huit mètres de plus dans le sens de la piste, et la baie
+// avec : la flotte entière se lit d'un coup d'oeil depuis le bitume.
+const AERO = { x: 78, z: (PISTE.z0 + PISTE.z1) / 2, largeur: 40, prof: 78, haut: 15, baie: 54 };
+const MANCHE_MAT = 14;                    // mètres : deux fois le mât d'avant
+const MANCHE_X   = PISTE.demiL + 10;      // dix mètres du bord du bitume, côté hangar
 const matHangar = lineMat(COL_LINE, 0.8);
 const matPale = lineMat(COL_LINE, 0.35);
 const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0.6, ventCible: 0.6, choix: [] };
@@ -6252,7 +6338,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
     const m = r.lignes ? new THREE.LineSegments(segGeom(r.lignes), r.mat) : solidWire(r.geo, r.edges, r.mat);
     m.frustumCulled = false;
     m.scale.setScalar(r.ech);
-    const col = Math.floor(i / 4), k = i % 4;
+    const col = Math.floor(i / 5), k = i % 5;
     m.position.set(-A.largeur / 2 + 11 + col * 17, 1.2, -A.prof / 2 + 9 + k * 14 + col * 7);
     m.rotation.y = -Math.PI / 2;      // le nez vers la porte
     g.add(m);
@@ -6270,18 +6356,23 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   }
   hangar.table = new THREE.Vector3(A.x + table.position.x, PISTE.y, A.z + table.position.z);
   // la manche à air : un mât, et un cône qui suit le vent
-  const mat = new THREE.LineSegments(segGeom([0, 0, 0, 0, 7, 0]), matHangar);
-  mat.position.set(-A.largeur / 2 - 5, 0, -A.prof / 2 - 6);
+  // DEUX FOIS PLUS GROSSE, ET AU BORD DU BITUME. Elle vivait à trente mètres
+  // du bord de piste, haute de sept : en approche elle tenait quatre pixels et
+  // on ne pouvait pas lire le vent, ce qui est pourtant la seule chose qu'on
+  // lui demande maintenant que le seuil en dépend. Mât de quatorze mètres,
+  // cône double, et plantée à dix mètres du bord — dans le cadre, tout du long.
+  const mat = new THREE.LineSegments(segGeom([0, 0, 0, 0, MANCHE_MAT, 0]), matHangar);
+  mat.position.set(MANCHE_X - A.x, 0, -20);
   g.add(mat);
-  const cone = [];
+  const cone = [], r0 = 1.2, r1 = 0.44, lc = 6.4;
   for (let i = 0; i < 8; i++) {
     const a0 = i / 8 * Math.PI * 2, a1 = (i + 1) / 8 * Math.PI * 2;
-    cone.push(Math.cos(a0) * 0.6, Math.sin(a0) * 0.6, 0, Math.cos(a1) * 0.6, Math.sin(a1) * 0.6, 0);
-    cone.push(Math.cos(a0) * 0.6, Math.sin(a0) * 0.6, 0, Math.cos(a0) * 0.22, Math.sin(a0) * 0.22, 3.2);
-    cone.push(Math.cos(a0) * 0.22, Math.sin(a0) * 0.22, 3.2, Math.cos(a1) * 0.22, Math.sin(a1) * 0.22, 3.2);
+    cone.push(Math.cos(a0) * r0, Math.sin(a0) * r0, 0, Math.cos(a1) * r0, Math.sin(a1) * r0, 0);
+    cone.push(Math.cos(a0) * r0, Math.sin(a0) * r0, 0, Math.cos(a0) * r1, Math.sin(a0) * r1, lc);
+    cone.push(Math.cos(a0) * r1, Math.sin(a0) * r1, lc, Math.cos(a1) * r1, Math.sin(a1) * r1, lc);
   }
   hangar.manche = new THREE.LineSegments(segGeom(cone), matHangar);
-  hangar.manche.position.set(mat.position.x, 7, mat.position.z);
+  hangar.manche.position.set(mat.position.x, MANCHE_MAT, mat.position.z);
   g.add(hangar.manche);
   // l'aire à signaux : un carré et le T d'atterrissage, à plat au sol
   const y = PISTE.y + 0.06, sx = -A.largeur / 2 - 16, sz = -A.prof / 2 - 16, c = 5;
@@ -7674,7 +7765,12 @@ function majPanneauRefuge() {
   // encore à trente mètres — deux degrés et demi, quarante pixels de haut.
   const ech = 0.13;
   const interligne = LETTRE_H * ech * 1.55;
-  const yBas = 2.4;
+  // PLUS HAUT, DANS LE CIEL. À deux mètres quarante, vu depuis le sol, la
+  // dernière ligne tombait pile sur l'horizon et s'y confondait — on lisait
+  // « REFUGE / DE LA » et le nom se perdait dans le décor. Le panneau monte
+  // d'un tiers de sa hauteur : les trois lignes se détachent maintenant sur le
+  // ciel, quelle que soit la place où l'on se tient.
+  const yBas = 4.0;
   let large = 0;
   for (const l of lignes) large = Math.max(large, largeurMot(l) * ech);
   const p = [];
@@ -8655,7 +8751,8 @@ function toucherPiste() {
   // qui roule encore
   if (state.running) state.roulage = { t: 0, v0: state.speed, sens, degat, vz, restant };
   if (state.running) { state.mecanosEnRoute = true; mecanosVersArret(); }   // au bord, pas sur l'axe
-  setTimeout(() => { if (state.roulage) announce(t('freinage')); }, 900);
+  // le mot FREINAGE ne s'affiche plus au chronomètre : il tombe à l'instant
+  // où les freins mordent vraiment, c'est-à-dire au point de freinage calculé
 }
 
 function resetGame() {
@@ -9058,7 +9155,9 @@ function passeAPied() {
     cap: piloteG.rotation.y, v: 0, t: 0,
     camX: camera.position.x, camZ: camera.position.z, camY: camera.position.y
   };
-  announce(t('aPied'));
+  // ON NE DIT PAS « ON MARCHE » À QUELQU'UN QUI VIENT DE SE METTRE À MARCHER :
+  // il le voit. Le mot est resté dans les deux langues pour rien, on ne
+  // l'affiche plus.
   SFX.cale();
 }
 
@@ -9071,6 +9170,7 @@ function remonteEnAvion() {
   SFX.cale();
 }
 
+const REDECO_PRES = 26;   // mètres : la distance d'où l'on remonte à bord
 const _pd = new THREE.Vector3();
 function updateAPied(dt) {
   const M = state.pied;
@@ -9229,6 +9329,13 @@ function updateAPied(dt) {
   const dAvion = Math.hypot(M.x - state.pos.x, M.z - state.pos.z);
   if (!choix && dAvion < PIED_PORTEE + 2) choix = 'avion';
   if (choix !== state.action) { state.action = choix; majActionBtn(); }
+  // ET « REDÉCOLLER » NE S'AFFICHE QUE PRÈS DE L'APPAREIL. Le bouton restait
+  // en bas de l'écran pendant qu'on marchait dans l'herbe à cent mètres de
+  // l'avion : il proposait de repartir depuis un endroit d'où l'on ne peut pas
+  // repartir. On le voit quand on est revenu à côté, et sinon il n'y a rien —
+  // ce qui est, au refuge, exactement ce qu'il faut voir.
+  if (state.refuge && !document.body.classList.contains('lit'))
+    redecoBtn.hidden = dAvion > REDECO_PRES;
 }
 
 // Le bouton du bas dit ce qu'on peut faire ici, et rien quand on ne peut rien.
@@ -11578,8 +11685,9 @@ function simulate(dt) {
         && (P.cle !== 'base' || PLAN.lisible)
         && !state.pose && !state.roulage && !state.refuge) {
       const cap = TUBE.cap || 0;
-      tubeMesh.position.set(P.x - Math.sin(cap) * -TOUCHER_AVANT, PISTE.y,
-                            P.z - Math.cos(cap) * -TOUCHER_AVANT);
+      const av = viseDe(P);
+      tubeMesh.position.set(P.x - Math.sin(cap) * -av, PISTE.y,
+                            P.z - Math.cos(cap) * -av);
       tubeMesh.rotation.y = cap;
       tubeMesh.visible = true;
     } else tubeMesh.visible = false;
@@ -11712,6 +11820,25 @@ function simulate(dt) {
   const plafond = SPEED_MAX * (1 + 0.35 * state.boost);
   state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, plafond);
 
+  // ET LE TUBE A LE DERNIER MOT SUR LA VITESSE.
+  //
+  // La consigne d'approche passait par le moteur : on visait soixante-deux au
+  // seuil, et au-dessus de la consigne le rappel du moteur est cinq fois plus
+  // doux — exprès, pour que la vitesse gagnée en poursuite se garde. Résultat
+  // mesuré sur la descente : entré à 77, l'appareil arrivait au seuil à 102.
+  // La pesanteur donnait plus que le moteur ne reprenait, l'arrondi le faisait
+  // flotter, et il ne touchait jamais.
+  //
+  // Le tube ne demande donc plus au moteur : il tient la vitesse lui-même,
+  // exactement comme il tient l'axe et la pente. « Il prend les commandes »
+  // veut dire les trois.
+  if (state.assist && TUBE.prise > 0.01 && !state.roulage && !state.pose) {
+    const uT = THREE.MathUtils.clamp(1 - Math.max(0, TUBE.d) / TUBE_DIST, 0, 1);
+    const haut = CRUISE * avion().vit;
+    const vAppro = haut + (APPROCHE_VIT - haut) * uT;
+    state.speed = THREE.MathUtils.damp(state.speed, vAppro, 2.2 * TUBE.prise, dt);
+  }
+
   // LE VACILLEMENT REVIENT — MAIS IL NE TOUCHE PLUS AU CAP. Ce qui le rendait
   // insupportable n'était pas la secousse : c'était le LACET qu'il ajoutait.
   // Le lacet est libre, rien ne le ramène, et chaque embardée restait acquise
@@ -11836,16 +11963,31 @@ function simulate(dt) {
       // s'est arrêté à côté, l'appareil roule jusqu'à elle, dans un sens ou
       // dans l'autre. On s'arrête devant les mécaniciens, quoi qu'il arrive —
       // et arriver très vite coûte seulement le temps du retour.
+      // ON ROULE VITE, PUIS ON FREINE FRANCHEMENT.
+      //
+      // La décélération visait l'arrêt pile devant le hangar depuis l'instant
+      // du toucher : elle valait trois mètres par seconde carré et le roulage
+      // durait dix-sept secondes de bout en bout, à ralentir sans arrêt. C'est
+      // exactement la sensation qu'il décrit — « trop lent au niveau de la
+      // piste ».
+      //
+      // Un avion ne fait pas ça. Il touche, il roule sur son erre, et il
+      // freine d'un coup quand il faut. On ne freine donc plus tant que
+      // v²/2·reste tient sous FREIN_FRANC ; passé ce point, on freine à ce
+      // taux-là, et l'arrêt tombe toujours pile devant la baie. Mesuré : douze
+      // secondes au lieu de dix-sept, dont cinq à pleine vitesse.
       const reste = (AERO.z - state.pos.z) * (R.sens < 0 ? -1 : 1);
       if (reste > 1.5) {
-        R.a = THREE.MathUtils.clamp(R.v * R.v / (2 * reste), 3, 240);
+        const besoin = R.v * R.v / (2 * reste);
+        R.a = besoin < FREIN_FRANC ? 0 : THREE.MathUtils.clamp(besoin, FREIN_FRANC, 240);
+        if (R.a > 0 && !R.dit) { R.dit = true; announce(t('freinage')); }
         R.v = Math.max(0, R.v - R.a * dt);
       } else {
         // dépassé : on plante les freins, puis on repart doucement en arrière
         R.v = Math.max(0, R.v - 240 * dt);
         if (R.v < 0.5) {
           R.retour = true;
-          R.v = -Math.min(30, Math.abs(reste) * 0.55 + 0.6);   // vite au début, doux à l'arrivée
+          R.v = -Math.min(55, Math.abs(reste) * 1.1 + 1.2);   // vite au début, doux à l'arrivée
           if (Math.abs(reste) < 1.5) { R.v = 0; R.retour = false; }
         }
       }
@@ -11931,8 +12073,17 @@ function simulate(dt) {
     // LA ROULETTE DE NEZ NE TOURNE QU'EN ROULANT. Un avion ne pivote pas sur
     // place : il faut avancer pour virer, et c'est ce qui rend le roulage
     // reconnaissable. Le braquage s'inverse en marche arrière, comme au volant.
-    if (Math.abs(barre) > 0.08 && P.v !== 0)
-      state.yaw -= barre * TAXI_LACET * Math.min(1, Math.abs(P.v) / 4) * Math.sign(P.v) * dt;
+    // ET ON PIVOTE SUR PLACE, ARRÊTÉ. Il fallait rouler pour tourner : arrivé
+    // devant la baie contre la butée, on ne pouvait plus s'orienter vers un
+    // appareil garé sans repartir en arrière et refaire le tour. Or c'est
+    // exactement le geste utile à cet endroit-là — s'arrêter, et regarder
+    // celui qu'on veut. Un avion à roulette libre pivote d'ailleurs très bien
+    // sur place, à coups de frein et de moteur.
+    if (Math.abs(barre) > 0.08) {
+      const k = P.v === 0 ? TAXI_PIVOT
+              : Math.min(1, Math.abs(P.v) / 4) * Math.sign(P.v);
+      state.yaw -= barre * TAXI_LACET * k * dt;
+    }
     euler.set(0, state.yaw, 0);
     state.quat.setFromEuler(euler);
     state.forward.set(0, 0, -1).applyQuaternion(state.quat);
@@ -12123,7 +12274,7 @@ function simulate(dt) {
     // TROIS FOIS PLUS DE RETARD. Amortie à 6,5 elle collait encore au nez ;
     // à 2,2 elle traîne vraiment derrière l'assiette, et le décollage se voit
     // passer au lieu d'être subi.
-    state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 2.2, dt);
+    state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 4.6, dt);
     poseCam(state.camPitch);
     _cd.subVectors(state.pos, T.prev || state.pos).divideScalar(Math.max(dt, 1e-4));
     if (!T.prev) T.prev = state.pos.clone(); else T.prev.copy(state.pos);
@@ -12147,13 +12298,14 @@ function simulate(dt) {
     // que l'avion est rapide, et ce retour régulier qui dit qu'on en reprend
     // les commandes.
     {
-      const d = camera.position.distanceTo(_v);
-      const dVise = Math.min(d, CAM_ECART_MAX);
-      const reste = Math.max(0, dVise - CAM_FERME * dt);
-      if (d > 1e-3) {
-        _cd.subVectors(camera.position, _v).divideScalar(d);
-        camera.position.copy(_v).addScaledVector(_cd, reste);
-      } else camera.position.copy(_v);
+      // L'écart n'est plus calculé : il est lu sur la courbe qu'il a tracée.
+      // La direction, elle, reste celle de la place idéale — on s'éloigne
+      // DERRIÈRE l'appareil, pas n'importe où.
+      const ecart = camDecolEcart(T.t);
+      _cd.subVectors(_v, state.pos);
+      const n = _cd.length();
+      if (n > 1e-3) camera.position.copy(state.pos).addScaledVector(_cd.divideScalar(n), ecart);
+      else camera.position.copy(_v);
     }
     majFov(dt);
     updateTraits(dt);
@@ -12505,7 +12657,7 @@ function simulate(dt) {
   // monde qui est fait pour être touché : y rebondir sur un sol invisible
   // empêchait justement de venir s'y poser. Le pardon s'arrête à l'assiette —
   // arriver en piqué franc reste un crash, ici comme ailleurs.
-  const surPiste = auDessusDuBitume(60) && state.forward.y > -0.34;
+  const surPiste = (auDessusDuBitume(60) && state.forward.y > -0.34) || state.assist;
   if (state.pos.y < FLOOR && !surPiste) {
     state.pos.y = FLOOR;
     if (state.pitch < 0) state.pitch = THREE.MathUtils.damp(state.pitch, 0.12, 9, dt);
@@ -12683,7 +12835,13 @@ function simulate(dt) {
   else if (enVol > 0) {
     state.vagueT += dt;
   } else {
-    if (state.vagueLimite > 0) { bilanVague(); if (state.wave < CHAPITRE) announce(t('repit')); }
+    // AU REFUGE, RIEN. « RÉPIT · LA VAGUE SUIVANTE ARRIVE » s'affichait en
+    // grand au-dessus de la maison d'Émilie, à trente-deux kilomètres de toute
+    // vague. Le refuge est l'endroit où il n'y a plus rien à gagner : c'est
+    // aussi l'endroit où le jeu se tait.
+    if (state.vagueLimite > 0 && !state.refuge) {
+      bilanVague(); if (state.wave < CHAPITRE) announce(t('repit'));
+    }
     if (state.wave >= CHAPITRE && !coop.actif) { legende(); return; }
     // AU-DELÀ DE LA CRÊTE, PERSONNE NE VIENT. Le compteur de vague tournait
     // partout, refuge compris : parti chercher le terrain à trente-deux
@@ -12786,6 +12944,7 @@ const TAXI_POUSSE = 1.3;    // la vitesse met un peu moins d'une seconde à veni
 const TAXI_FREIN  = 2.4;    // et un peu moins d'une demie à tomber
 const TAXI_LACET  = 0.62;   // rad/s à pleine barre : un demi-tour en dix secondes
 const TAXI_RAYON  = 900;    // on ne s'éloigne pas du terrain : il n'y a rien au-delà
+const TAXI_PIVOT  = 0.9;    // ce qui reste du lacet quand on est à l'arrêt
 
 // LE MUR INVISIBLE DEVANT LA PORTE. Le hangar n'a jamais eu de collision : on
 // entrait dedans en roulant, on traversait le fond, et c'est le sol de la
@@ -12895,7 +13054,22 @@ function scrape(dt) {
     // le plancher n'est plus une constante : c'est le relief sous nous
     const plancher = FLOOR + 0.5 + hauteurSol(state.pos.x, state.pos.z);
     const hs = state.pos.y - plancher;
-    if (hs < SOL_COUSSIN && !auDessusDuBitume(60)) {
+    // UNE APPROCHE N'EST PAS UN VOL RASANT.
+    //
+    // Voilà pourquoi aucun posé automatique n'aboutissait, et la mesure est
+    // sans appel : le coussin d'air rend k²x34 mètres par seconde dès qu'on
+    // passe sous quarante mètres HORS du bitume. Un plan à trois degrés à
+    // soixante-dix mètres par seconde descend de 3,6 — les deux s'égalisaient
+    // à trente-six mètres d'altitude, et l'appareil s'y installait. Il
+    // traversait tout le terrain à trente-six mètres, le tube le lâchait au
+    // bout du couloir, et il repartait de l'autre côté.
+    //
+    // Le plancher juste au-dessous faisait la même chose à vingt-six mètres.
+    // Les deux existent pour empêcher de labourer la plaine en rase-mottes ;
+    // aucun des deux n'a de sens quand le tube nous tient, puisque c'est lui
+    // qui décide de l'altitude et qu'il mène au bitume. Ils s'effacent donc
+    // pendant l'approche assistée, et seulement pendant.
+    if (hs < SOL_COUSSIN && !auDessusDuBitume(60) && !state.assist) {
       if (doux) {
         const k = THREE.MathUtils.clamp(1 - hs / SOL_COUSSIN, 0, 1);
         // la reprise, en mètres par seconde : nulle en haut, franche en bas
@@ -15440,6 +15614,19 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.29', fr: 'On touche sur le peigne, au seuil, et non plus au milieu du bitume.', en: 'You touch down on the piano keys, at the threshold, not halfway down the tarmac.' },
+  { v: '1.29', fr: 'Le roulage se fait sur son erre puis freine d’un coup : neuf secondes au lieu de dix-sept, l’arrêt à un mètre du hangar.', en: 'The rollout coasts then brakes hard: nine seconds instead of seventeen, stopping a metre from the hangar.' },
+  { v: '1.29', fr: 'Le coussin d’air du sol s’efface pendant l’approche assistée : c’est lui qui empêchait tout posé automatique.', en: 'Ground cushion switches off during a guided approach: it was what stopped every automatic landing.' },
+  { v: '1.29', fr: 'Le tube tient aussi la vitesse : on arrive au seuil à soixante-deux et non à cent deux.', en: 'The tube holds speed too: you reach the threshold at sixty-two, not a hundred and two.' },
+  { v: '1.29', fr: 'Le hangar s’agrandit : les cinq appareils tiennent de front, le Faucheur compris.', en: 'The hangar grows: all five aircraft fit in one row, the Reaper included.' },
+  { v: '1.29', fr: 'Arrêté, l’avion pivote sur place : on choisit son appareil sans repartir faire le tour.', en: 'Stopped, the aircraft pivots in place: you pick your plane without driving around again.' },
+  { v: '1.29', fr: 'La manche à air double de taille et se plante au bord du bitume : le vent se lit en approche.', en: 'The windsock doubles in size and stands at the runway edge: you can read the wind on approach.' },
+  { v: '1.29', fr: 'La caméra du décollage suit la courbe qu’il a tracée à la main, seconde par seconde.', en: 'The takeoff camera follows the curve he drew by hand, second by second.' },
+  { v: '1.29', fr: 'La lettre se pousse du pouce n’importe où sur la page, et n’a plus de barre de défilement.', en: 'The letter scrolls under your thumb anywhere on the page, and has no scrollbar any more.' },
+  { v: '1.29', fr: 'La loupe de l’iPhone ne surgit plus au double appui.', en: 'The iPhone magnifier no longer pops up on a double tap.' },
+  { v: '1.29', fr: 'Au refuge, le jeu se tait : ni répit, ni vague suivante, ni traits de vitesse sur un avion garé.', en: 'At the refuge the game falls silent: no breather, no next wave, no speed lines on a parked aircraft.' },
+  { v: '1.29', fr: 'Le panneau du refuge monte d’un tiers : la dernière ligne ne se confond plus avec l’horizon.', en: 'The refuge sign rises by a third: the last line no longer merges with the horizon.' },
+  { v: '1.29', fr: '« REDÉCOLLER » n’apparaît qu’à côté de l’appareil, et « ON MARCHE » ne s’affiche plus.', en: '"TAKE OFF AGAIN" only shows next to the aircraft, and "ON FOOT" is gone.' },
   { v: '1.28', fr: 'Le numéro de version affiché vient du journal : il annonçait v1.05 depuis vingt-deux mises à jour.', en: 'The version shown comes from the changelog: it had been announcing v1.05 for twenty-two updates.' },
   { v: '1.27', fr: 'Le refuge a le même atterrissage que la piste principale : entonnoir, axe, pente, arrondi.', en: 'The refuge gets the same landing as the main runway: funnel, line, slope, flare.' },
   { v: '1.27', fr: 'Une piste, c’est cinq nombres : ajouter un terrain n’ajoute plus une ligne de code.', en: 'A runway is five numbers: adding a field no longer adds a line of code.' },
