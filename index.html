@@ -90,6 +90,21 @@
   /* un nombre long ne doit pas passer par-dessus son voisin : chaque bloc
      coupe ce qui déborde plutôt que de mordre sur le suivant */
   #topbar > *, #bottombar > * { overflow: hidden; text-overflow: clip; }
+  /* COUPER N'EST PAS TENIR. « SCORE 3110 » finissait tronqué en « SCORE 311 »
+     par le bouton d'à côté : on lisait un score faux, ce qui est pire que pas
+     de score du tout. Les chiffres rétrécissent donc avec la largeur de
+     l'écran au lieu d'être rognés, et les boutons, dont le texte est fixe,
+     ne rétrécissent plus du tout — c'est la seule manière que tout tienne
+     sur un téléphone étroit sans que rien ne mente. */
+  #topbar .chiffre {
+    font-size: clamp(8.5px, 2.7vw, 12px);
+    letter-spacing: clamp(0.01em, 0.4vw, 0.08em);
+    flex: 0 1 auto;
+  }
+  #topbar button { flex-shrink: 0; }
+  @media (max-width: 420px) {
+    #topbar { gap: 5px; padding-left: 7px; padding-right: 7px; }
+  }
   #bottombar #bouclierLbl { flex-shrink: 2; }
 
   /* au-dessus du menu : sans ça les boutons du haut étaient couverts par
@@ -3854,6 +3869,11 @@ function secretsCiel(dt) {
     marque(prime);
     stat('constellations');
     if (F.viseur && !fini) debloqueViseur(F.viseur);
+    // ELLE COMPTE POUR TOUJOURS. L'avancement des figures vivait dans l'état de
+    // la partie : on ne pouvait rien construire dessus d'une partie à l'autre.
+    // Chacune laisse maintenant sa trace, et c'est le ciel entier qui ouvre la
+    // dernière porte du jeu.
+    trouve('ciel_' + F.cle);
     F.donne();
     announce(t('c_' + F.cle) + prime, t('c_' + F.cle + '_s'));
     SFX.cloche();
@@ -3997,19 +4017,68 @@ const AVIONS = [
   { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 14, leurres: 6, acces: 'legende' },
   { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 8,  leurres: 0, acces: 'libre' },
   { id: 'ancien',       nom: 'L’ANCIEN',     en: 'THE OLD ONE', vit: 0.62, lacet: 1.5, tangage: 1.35, roquettes: 0,  leurres: 0, acces: 'refuge', courant: true, timbre: 'planeur' },
+  // CELUI QUI TE CHASSAIT. On ne le gagne ni en volant longtemps ni en allant
+  // loin : on le gagne en l'ABATTANT, ce que presque personne ne fera — quatre
+  // mille points de structure, et il tue en vingt-deux secondes. C'est le seul
+  // appareil du jeu dont la clé est un combat.
+  //
+  // Et il se pilote comme ce qu'il est : un disque. Le plus rapide de tous, et
+  // de très loin le moins maniable — un cercle plat n'a pas d'aile pour
+  // s'appuyer sur l'air. On ne le prend pas pour gagner, on le prend pour
+  // savoir ce que c'était.
+  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel' },
 ];
 let avionChoisi = 'bimoteur';
 try { avionChoisi = localStorage.getItem('fod_avion') || 'bimoteur'; } catch (e) {}
 const avion = () => AVIONS.find(a => a.id === avionChoisi) || AVIONS[0];
+// LE MONDE PREND LE RYTHME DE L'APPAREIL.
+//
+// Changer d'avion ne changeait que sa propre allure : dans l'Ancien, à 0,62,
+// tout le monde vous doublait et le combat devenait impossible ; dans le
+// Faucheur, à 1,7, plus personne ne vous inquiétait. Deux appareils sur quatre
+// étaient donc injouables pour une raison purement arithmétique.
+//
+// Les adversaires prennent le même facteur. Les distances relatives ne bougent
+// pas — un combat reste un combat — mais le MONDE change de tempo : lent,
+// silencieux et lisible dans le biplan de 1910 ; tendu, court, sans marge dans
+// le disque. C'est ce qui fait qu'on choisit un appareil pour l'expérience
+// qu'il donne, et pas pour la ligne de chiffres du menu.
+const vitMonde = () => avion().vit;
 // le carnet n'existe pas encore à cet endroit du fichier : on lit le compte
 // des légendes directement dans le stockage, et legende() le tient à jour
 let legendesN = 0;
 try { legendesN = (JSON.parse(localStorage.getItem('fod_carnet') || '{}').legendes || 0); } catch (e) {}
+// MÊME PIÈGE QUE legendesN, ET IL M'A REPRIS. « decouvertes » naît tout en bas
+// du fichier, et le hangar se bâtit bien avant : le lire ici ne plantait pas à
+// l'écriture mais à l'exécution, et la page entière restait noire. Les
+// fonctions flèches comme avionOuvert s'en sortent parce qu'elles ne lisent
+// qu'à l'appel ; le code qui s'exécute tout de suite, lui, doit aller chercher
+// la clé dans le stockage, comme le carnet juste au-dessus.
+let cielCompletN = false;
+try {
+  const T = JSON.parse(localStorage.getItem('fod_trouve') || '{}');
+  cielCompletN = ['ourse', 'orion', 'berger', 'ciel_polaire', 'ciel_sirius',
+                  'ciel_cassio', 'ciel_pleiades', 'ciel_croix'].every(c => !!T[c]);
+} catch (e) {}
 // L'ANCIEN NE S'ACHÈTE PAS ET NE SE GAGNE PAS EN COMBAT : il s'ouvre quand on
 // a posé les roues au refuge, une fois. C'est le seul appareil du jeu dont la
 // clé est un endroit.
+// LE CIEL ENTIER. Les trois figures qu'on trouve en volant — le chariot, le
+// chasseur, l'étoile du Berger — et les cinq de la suite, dont la Croix du Sud
+// qui ne se lève que sur la plaine du dehors. C'est la dernière chose du jeu,
+// et c'est la seule clé qui demande d'avoir tout regardé.
+//
+// ON NE L'ABAT PAS. C'était mon idée, et elle était fausse : une chose qui
+// tombe sous les balles est un adversaire de plus. Celle-là ne tombe pas —
+// c'est ce qui la rend différente de tout le reste — donc on ne peut pas la
+// gagner en la tuant. On la gagne en ayant lu le ciel jusqu'au bout.
+const CIEL_TOUT = ['ourse', 'orion', 'berger',
+                   'ciel_polaire', 'ciel_sirius', 'ciel_cassio', 'ciel_pleiades', 'ciel_croix'];
+const cielComplet = () => CIEL_TOUT.every(c => !!decouvertes[c]);
 const avionOuvert = a => a.acces === 'libre'
-                      || (a.acces === 'refuge' ? !!decouvertes.refuge : legendesN > 0);
+                      || (a.acces === 'refuge' ? !!decouvertes.refuge
+                       :  a.acces === 'ciel'   ? cielComplet()
+                       :  legendesN > 0);
 // L'ANCIEN NE FAIT PAS DE FIGURES, PAR AUCUN GESTE.
 //
 // Un biplan haubané de 1910 ne se retourne pas : les câbles ne tiennent pas le
@@ -4116,8 +4185,16 @@ const meshPionnier = new THREE.LineSegments(segGeom(PIONNIER_SHAPE), matPlayer);
 meshPionnier.scale.setScalar(12 / 7 / PLANE_SCALE * 0.85);
 const meshAncien = new THREE.LineSegments(segGeom(ANCIEN_SHAPE), matPlayer);
 meshAncien.scale.setScalar(12 / 7.2 / PLANE_SCALE * 0.9);
+// LE DISQUE, AUX COULEURS DU JOUEUR. C'est exactement la même maquette que
+// celle qui vous poursuivait : même géométrie, même échelle relative, et rien
+// d'ajouté. Le voir vert plutôt que rouge est tout ce qui change, et c'est
+// bien assez.
+const KIND_FAUCHEUR = KINDS.find(x => x.nom === 'FAUCHEUR');
+const meshFaucheur = solidWire(KIND_FAUCHEUR.geom, KIND_FAUCHEUR.edges, matPlayer);
+meshFaucheur.scale.setScalar(KIND_FAUCHEUR.echelle * ENVERGURE_JOUEUR / KIND_FAUCHEUR.envergure / PLANE_SCALE);
 meshPionnier.frustumCulled = meshInter.frustumCulled = meshAncien.frustumCulled = false;
-playerMesh.add(meshInter, meshPionnier, meshAncien);
+meshFaucheur.frustumCulled = false;
+playerMesh.add(meshInter, meshPionnier, meshAncien, meshFaucheur);
 // elle est FILLE de l'appareil : elle hérite de son échelle et de son assiette,
 // et il ne reste qu'un angle à faire avancer
 const propAncien = new THREE.LineSegments(segGeom(ANCIEN_HELICE), matPlayer);
@@ -4140,8 +4217,10 @@ function appliqueAvion() {
   meshInter.visible = id === 'intercepteur';
   meshPionnier.visible = id === 'pionnier';
   meshAncien.visible = id === 'ancien';
-  // l'ancien a son hélice dans sa maquette : celle du jeu ferait double
-  if (typeof propMesh !== 'undefined') propMesh.visible = id !== 'intercepteur' && id !== 'ancien';
+  meshFaucheur.visible = id === 'faucheur';
+  // l'ancien porte la sienne, le faucheur et l'intercepteur n'en ont pas
+  if (typeof propMesh !== 'undefined')
+    propMesh.visible = id !== 'intercepteur' && id !== 'ancien' && id !== 'faucheur';
 }
 function appliqueTeinte() {
   const t = TEINTES.find(x => x.id === teinteChoisie) || TEINTES[0];
@@ -4302,14 +4381,54 @@ function batisGrille(cx, cz) {
 // deux mètres sous la grille pour que les traits restent nets par-dessus, et
 // polygonOffset la repousse encore d'un cran — sans quoi la ligne et la face
 // se disputent le même pixel et la crête clignote.
+// LES DEUX DEMANDES N'EN FONT QU'UNE, ET ELLE SE RÈGLE À L'ALTITUDE.
+//
+// « Le sol doit être noir » et « les montagnes sont toujours transparentes »
+// semblaient s'exclure, et je suis passé d'un extrême à l'autre : tout vert en
+// v1.20 — l'écran entier colorié —, tout noir en v1.23 — les montagnes sans
+// corps, donc indiscernables du ciel. Ce n'est pas la même surface qui est en
+// cause : c'est la même surface à deux ALTITUDES différentes.
+//
+// La plaine, à hauteur nulle, doit être la couleur du fond : elle occupe la
+// moitié basse de l'image en permanence, et toute couleur y devient un aplat.
+// La montagne, elle, monte à neuf cents mètres et n'occupe que sa propre
+// silhouette : elle peut porter une teinte sans colorier quoi que ce soit.
+//
+// Chaque sommet du relief porte donc sa couleur, interpolée entre le fond au
+// ras du sol et un vert très sombre en altitude. Mesuré au rapport de
+// luminance WCAG, le haut vaut 1,32 contre le ciel — une masse qu'on voit
+// sans qu'elle crie, là où le vert de la v1.20 valait 1,88 et remplissait tout.
+const RELIEF_HAUT = new THREE.Color(0x0f2a1d);   // la couleur des sommets
+const RELIEF_BAS  = new THREE.Color(COL_BG);     // celle de la plaine : le fond
 function batisRelief(cx, cz) {
   const R = GRID_SPAN / 2, N = GRID_SPAN / GRID_STEP;
   const pos = new Float32Array((N + 1) * (N + 1) * 3);
-  let p = 0;
+  const col = new Float32Array((N + 1) * (N + 1) * 3);
+  let p = 0, q = 0;
   for (let j = 0; j <= N; j++) {
     for (let i = 0; i <= N; i++) {
       const x = cx - R + i * GRID_STEP, z = cz - R + j * GRID_STEP;
-      pos[p++] = x; pos[p++] = hauteurSol(x, z) - 4; pos[p++] = z;
+      const h = hauteurSol(x, z);
+      pos[p++] = x; pos[p++] = h - 4; pos[p++] = z;
+      // ET LA PLAINE NE PREND RIEN DU TOUT.
+      //
+      // J'avais mis une racine carrée pour « faire apparaître la masse dès les
+      // premiers contreforts ». Une racine carrée donne dix pour cent de la
+      // couleur à dix mètres d'altitude : la plaine entière, qui ondule de
+      // quelques mètres, se retrouvait teintée — et comme elle occupe la moitié
+      // basse de l'image en permanence, l'écran redevenait un aplat vert. Le
+      // même défaut qu'en v1.20, par un autre chemin.
+      //
+      // Il y a donc un SEUIL. En dessous de cent cinquante mètres, c'est la
+      // plaine, et la plaine est la couleur du fond. Au-dessus, la masse monte
+      // au carré jusqu'aux cimes : seules les vraies montagnes ont un corps, et
+      // elles n'occupent que leur propre silhouette.
+      const RELIEF_SEUIL = 150;
+      const uh = THREE.MathUtils.clamp((h - RELIEF_SEUIL) / (TERRAIN_H - RELIEF_SEUIL), 0, 1);
+      const u = uh * uh;
+      col[q++] = RELIEF_BAS.r + (RELIEF_HAUT.r - RELIEF_BAS.r) * u;
+      col[q++] = RELIEF_BAS.g + (RELIEF_HAUT.g - RELIEF_BAS.g) * u;
+      col[q++] = RELIEF_BAS.b + (RELIEF_HAUT.b - RELIEF_BAS.b) * u;
     }
   }
   const idx = [];
@@ -4321,6 +4440,7 @@ function batisRelief(cx, cz) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   g.setIndex(idx);
   return g;
 }
@@ -4424,13 +4544,12 @@ function batisRelief(cx, cz) {
     //
     // Un champ de hauteurs n'a pas d'intérieur : il n'y a aucune raison de
     // n'en peindre qu'un côté. Deux faces, et les trous n'existent plus.
-    // ET LUI AUSSI EST NOIR. Une montagne pleine et verte, c'est un paysage ;
-    // une montagne pleine et NOIRE, c'est une masse qui cache ce qu'il y a
-    // derrière — et c'est exactement ce qu'on lui demande. L'occultation ne
-    // dépend pas de la couleur : elle vient du tampon de profondeur, que ce
-    // matériau écrit quoi qu'il peigne. On garde donc le corps, et on rend le
-    // dessin au trait.
-    new THREE.MeshBasicMaterial({ color: COL_BG, fog: false, depthWrite: true,
+    // IL PREND SA COULEUR DE SES SOMMETS. Mesuré en peignant le relief en
+    // magenta : il occulte parfaitement, pas un trait ne le traverse, et ça n'a
+    // jamais été le problème. Le problème était qu'un corps peint de la couleur
+    // du ciel n'est pas un corps. Chaque sommet porte donc la sienne, du fond
+    // au ras du sol jusqu'au vert très sombre en altitude.
+    new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, depthWrite: true,
                                   side: THREE.DoubleSide })
   );
   relief.frustumCulled = false;
@@ -5232,6 +5351,19 @@ function updateBoost(dt) {
 }
 
 function updateTraits(dt) {
+  // L'AIR NE SE VOIT QUE QUAND ON LE TRAVERSE.
+  //
+  // Signalé trois fois, corrigé deux fois ailleurs : la traînée des bouts
+  // d'aile avait sa garde, le ruban aussi, mais les TRAITS eux-mêmes n'en
+  // avaient aucune. Posé, à pied dans l'herbe du refuge, en Jeep, on gardait
+  // devant soi une pluie de traits obliques figés — le temps arrêté, et
+  // l'image entière illisible. Ils n'ont rien à faire là : personne ne
+  // traverse l'air en marchant.
+  if (!state.running || state.pose || state.roulage || state.refuge
+      || state.pied || state.jeep || state.auSol) {
+    traitsLayer.visible = false;
+    return;
+  }
   // Trois sources, dont la plus forte l'emporte : le régime, le nez qui pique
   // — visible avant même que la vitesse ait eu le temps de monter, ce qui est
   // tout l'intérêt — et la poursuite.
@@ -5547,8 +5679,20 @@ const TUBE_ANNEAUX = 9;
 // 0,28, donc un rappel de 0,32 rad/s — trop faible pour ramener vers le centre
 // avant la fin du couloir, et comme la prise croît avec la proximité, on
 // restait faible parce qu'on restait loin. Un serpent qui se mord la queue.
-const TUBE_PRISE = 2.0;       // rad/s de rappel quand on est pile au centre
-const TUBE_LACHE = 0.55;      // au-delà de cette poussée au manche, il lâche
+// TROIS VIRGULE QUATRE, ET NON DEUX. Sa demande, mot pour mot : « dès qu'on
+// entre dans le tube, l'avion doit quasi prendre les commandes sur nous si on
+// ne fait pas de gestes brusques ». À deux, il suggérait ; à 3,4 il pilote, et
+// on sent qu'il pilote. Ce n'est pas une laisse pour autant : forcer le lâche,
+// et forcer veut dire un vrai geste.
+const TUBE_PRISE = 3.4;       // rad/s de rappel quand on est pile au centre
+// ET IL NE LÂCHE PLUS POUR UN FRÉMISSEMENT. À 0,55, une correction ordinaire —
+// un tiers de manche pour regarder à côté — le faisait déjà décrocher à moitié.
+// À 0,78, une correction reste une correction et seul un vrai coup rend la main.
+const TUBE_LACHE = 0.78;      // au-delà de cette poussée au manche, il lâche
+// LA VITESSE AU SEUIL. Ni un décrochage — l'aile ne porte plus sous 46 — ni un
+// passage : de quoi poser les roues et s'arrêter dans la longueur de piste qui
+// reste devant.
+const APPROCHE_VIT = 62;
 
 // le rayon du tube à une distance donnée du point visé
 function tubeRayon(d) {
@@ -5917,6 +6061,14 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   const CHOIX = ['bimoteur', 'intercepteur', 'pionnier'];
   rang.push({ lignes: ANCIEN_ENTIER, mat: matPlayer, ech: 12 / 7.2 * 0.75 });
   CHOIX.push('ancien');
+  // ET LE DISQUE EST GARÉ AVEC EUX, du premier jour. On le voit dans le rang
+  // bien avant de pouvoir y monter — c'est le même ressort que l'Ancien : on
+  // regarde un appareil pendant des parties entières, et c'est ce qui donne
+  // envie de faire ce qu'il faut pour l'avoir.
+  rang.push({ geo: KIND_FAUCHEUR.geom, edges: KIND_FAUCHEUR.edges,
+              mat: cielCompletN ? matPlayer : matPale,
+              ech: KIND_FAUCHEUR.echelle * 0.9 });
+  CHOIX.push('faucheur');
   rang.forEach((r, i) => {
     const m = r.lignes ? new THREE.LineSegments(segGeom(r.lignes), r.mat) : solidWire(r.geo, r.edges, r.mat);
     m.frustumCulled = false;
@@ -5972,9 +6124,18 @@ function updateAerodrome(dt) {
   hangar.porteG.position.z = -hangar.ouverture * AERO.baie / 2;
   hangar.porteD.position.z =  hangar.ouverture * AERO.baie / 2;
   // le vent tourne lentement, et la manche frissonne
-  if (Math.random() < 0.004) hangar.ventCible = Math.random() * Math.PI * 2;
-  hangar.vent = dampAngle(hangar.vent, hangar.ventCible, 0.3, dt);
-  hangar.manche.rotation.set(Math.sin(performance.now() / 300) * 0.08 + 0.35, hangar.vent, 0);
+  if (Math.random() < 0.004) VENT.cible = Math.random() * Math.PI * 2;
+  VENT.a = dampAngle(VENT.a, VENT.cible, 0.3, dt);
+  hangar.vent = VENT.a;
+  poseManche(hangar.manche);
+  if (refugeManche && refugeG && refugeG.visible) poseManche(refugeManche);
+}
+
+// LA MANCHE PREND LE VENT, et elle frissonne un peu : une manche à air
+// parfaitement immobile est un cône planté sur un mât.
+function poseManche(m) {
+  if (!m) return;
+  m.rotation.set(Math.sin(performance.now() / 300) * 0.08 + 0.35, VENT.a, 0);
 }
 
 function poserMecanos() {
@@ -6023,6 +6184,23 @@ function mecanosVersArret() {
     // se rangent maintenant en limite de bitume, à hauteur du point d'arrêt,
     // et ils n'y entrent qu'une fois les roues immobiles.
     m.but.set(MECANO_BORD + i * 2.2, PISTE.y, AERO.z + (i - 1) * 4);
+  });
+}
+
+// ILS NE RESTENT PAS SUR LA PISTE. Une fois lancés vers le point d'arrêt, rien
+// ne les rappelait : on remettait les gaz, on repartait en combat, et ils
+// restaient plantés au bord du bitume pendant toute la partie. Un terrain
+// vivant, c'est trois hommes à leur table quand il n'y a rien à faire, et trois
+// hommes qui sortent quand quelque chose arrive. Dès que les roues quittent le
+// sol et qu'aucune approche n'est engagée, ils rentrent.
+function mecanosALaTable() {
+  mecanos.forEach((m, i) => {
+    if (m.repos || m.mort || m.fuite > 0) return;
+    m.repos = true;
+    m.livre = null; m.caisse.visible = false;
+    m.plaque = undefined; m.couche = 0;
+    m.g.rotation.set(0, 0, 0);
+    m.but.copy(hangar.table).add(_mec.set([-1.3, 1.3, 0][i], 0, [0, 0, 1.1][i]));
   });
 }
 
@@ -6150,7 +6328,13 @@ function updateMecanos(dt) {
       _v.subVectors(m.but, m.p); _v.y = 0;
       const d = _v.length();
       if (d > 0.2) {
-        m.p.addScaledVector(_v.divideScalar(d), Math.min(d, 1.9 * dt));
+        // ON NE FLÂNE PAS SUR UNE PISTE. Ils rentraient à la table au pas de
+        // promenade, un mètre neuf par seconde : quinze secondes pour dégager
+        // le bitume, pendant lesquelles on les survole. Tant qu'ils sont sur la
+        // piste ils courent ; une fois dans l'herbe, ils reprennent leur pas.
+        const surLaPiste = Math.abs(m.p.x) < PISTE.demiL + 3
+                        && m.p.z < PISTE.z0 && m.p.z > PISTE.z1;
+        m.p.addScaledVector(_v.divideScalar(d), Math.min(d, (surLaPiste ? 9.5 : 1.9) * dt));
         m.g.rotation.y = Math.atan2(_v.x, _v.z);
         m.g.position.set(m.p.x, m.p.y + Math.abs(Math.sin(performance.now() / 160 + m.cote)) * 0.05, m.p.z);
         m.g.rotation.z = Math.sin(performance.now() / 320) * 0.04;
@@ -6531,6 +6715,7 @@ let refugeG = null, piloteG = null, panneauG = null, jeepG = null;
 // pour y poser deux objets qui bougent : le plateau qui tourne, et les notes
 // qui s'en échappent.
 const posteLocal = new THREE.Vector3(), pavillonLocal = new THREE.Vector3();
+let refugeManche = null;
 let disqueMesh = null, notesG = null;
 const notes = [];
 let jeepRamenee = false;
@@ -6822,6 +7007,53 @@ try { disqueCasse = localStorage.getItem('fod_disque') === 'casse'; } catch (e) 
            fx1, fy1, fz, fx0, fy1, fz, fx0, fy1, fz, fx0, fy0, fz);
     p.push(0, fy0, fz, 0, fy1, fz, fx0, (fy0 + fy1) / 2, fz, fx1, (fy0 + fy1) / 2, fz);
     s.add(traits(p, matBois));
+  }
+
+  // --- LA MANCHE À AIR ET LES DEUX SEUILS. C'est un terrain d'aviation, pas
+  // un pré : il y a une manche pour lire le vent et deux repères plantés aux
+  // bouts de la bande pour savoir où elle commence. Sa demande, et elle est
+  // juste — on n'invente pas des règles de vent pour un endroit qui n'a pas de
+  // quoi les lire.
+  {
+    const B = P.bande, a = -B.a * Math.PI / 180;
+    const s = new THREE.Group();
+    // au bord de la bande, du côté des bâtiments, à mi-longueur
+    s.position.set(B.x + Math.cos(a) * (B.w / 2 + 7), 0, B.z + Math.sin(a) * (B.w / 2 + 7));
+    g.add(s);
+    const p = [];
+    poutre(p, 0, 0, 0, 0, 6.2, 0, 0.09);           // le mât, en bois comme le reste
+    // trois haubans : sans eux, un mât de six mètres est un trait posé debout
+    for (let k = 0; k < 3; k++) {
+      const an = k / 3 * Math.PI * 2;
+      p.push(0, 5.4, 0, Math.cos(an) * 2.2, 0, Math.sin(an) * 2.2);
+    }
+    s.add(traits(p, matBois));
+    const cone = [];
+    for (let i = 0; i < 8; i++) {
+      const a0 = i / 8 * Math.PI * 2, a1 = (i + 1) / 8 * Math.PI * 2;
+      cone.push(Math.cos(a0) * 0.55, Math.sin(a0) * 0.55, 0, Math.cos(a1) * 0.55, Math.sin(a1) * 0.55, 0);
+      cone.push(Math.cos(a0) * 0.55, Math.sin(a0) * 0.55, 0, Math.cos(a0) * 0.20, Math.sin(a0) * 0.20, 2.9);
+      cone.push(Math.cos(a0) * 0.20, Math.sin(a0) * 0.20, 2.9, Math.cos(a1) * 0.20, Math.sin(a1) * 0.20, 2.9);
+    }
+    refugeManche = new THREE.LineSegments(segGeom(cone), mat);
+    refugeManche.position.set(0, 5.6, 0);
+    s.add(refugeManche);
+    // LES DEUX SEUILS : un chevron planté à chaque bout de la bande, ouvert
+    // vers la piste. De l'air, ils disent où poser les roues ; au sol, ils
+    // disent que quelqu'un a entretenu cet endroit.
+    for (const sg of [-1, 1]) {
+      const q = [], b = new THREE.Group();
+      b.position.set(B.x - Math.sin(a) * sg * B.l / 2, 0, B.z + Math.cos(a) * sg * B.l / 2);
+      b.rotation.y = a;
+      for (const sx of [-1, 1]) {
+        const x0 = sx * (B.w / 2 + 1.5);
+        poutre(q, x0, 0, 0, x0, 1.5, 0, 0.09);
+        q.push(x0, 1.5, 0, x0 - sx * 2.4, 1.5, sg * 2.2);
+        q.push(x0, 1.5, 0, x0 - sx * 2.4, 1.5, -sg * 2.2);
+      }
+      b.add(traits(q, matBois));
+      g.add(b);
+    }
   }
 
   // --- LE PETIT HANGAR. Trois murs, un toit, et rien du tout du côté de la
@@ -7610,14 +7842,30 @@ const FAUCHEUR_ROQ     = 0.35;  // le délai entre deux roquettes
 const FAUCHEUR_COLLE = 180;    // en deçà, il se cale sur notre vitesse
 const FAUCHEUR_LOIN  = 900;    // au-delà, il vient à pleine vitesse
 function vitesseFaucheur(e, dist) {
-  if (!e.phase2) return e.speed;
+  // C'EST ICI QUE PASSE TOUT LE MONDE, et c'est donc ici que le tempo du monde
+  // s'applique. J'avais multiplié les quatre branches particulières — le soin,
+  // l'entrée du faucheur, la figure — et oublié la seule que prennent les
+  // adversaires ordinaires : mesuré, la vitesse ennemie ne bougeait pas d'un
+  // mètre par seconde entre le biplan et le disque.
+  //
+  // Le terme qui se cale déjà sur notre vitesse, lui, n'a rien à recevoir : il
+  // la suit par construction.
+  if (!e.phase2) return e.speed * vitMonde();
   const k = THREE.MathUtils.clamp((dist - FAUCHEUR_COLLE) / (FAUCHEUR_LOIN - FAUCHEUR_COLLE), 0, 1);
-  return Math.max(state.speed * 1.12 + 25, e.speed * k);
+  return Math.max(state.speed * 1.12 + 25, e.speed * k * vitMonde());
 }
 // Tout ce qui blesse un adversaire passe par ici : c'est le seul endroit où
 // le blindage peut s'appliquer sans en oublier une source.
 function blesse(e, degats) {
   e.hp -= degats / (e.blindage || 1);
+  // IL NE TOMBE PAS. Ce n'est pas un adversaire très résistant : c'est une
+  // chose qu'on ne tue pas. Les balles l'atteignent, la jauge descend, et elle
+  // s'arrête à un. On finit par comprendre qu'il n'y a rien à gagner de ce
+  // côté-là, et c'est la seule fois du jeu où tirer ne sert à rien.
+  if (e.faucheur && e.hp < 1) {
+    e.hp = 1;
+    if (!e.dit) { e.dit = true; announce(t('faucheurDur'), t('faucheurDurSous')); SFX.alerte(); }
+  }
   if (e.faucheur && !e.phase2 && e.hp <= e.hpMax * 0.5) {
     e.phase2 = true;
     e.blindage = FAUCHEUR_BLINDAGE;
@@ -8447,7 +8695,15 @@ function entreAuRefuge() {
   announce(t('refuge'));
   SFX.cloche();
   redecoBtn.hidden = false;
-  SFX.refugeOn();
+  // IL N'Y A RIEN À ENTENDRE ICI, ET C'EST LE PROPOS.
+  //
+  // Il y avait une nappe : quatre voix tenues — do, sol, do, sol — qui
+  // montaient en trois secondes et ne s'arrêtaient plus tant qu'on restait.
+  // Signalé trois fois comme « un son qui reste » ; j'ai cherché dans le
+  // moteur, qui était coupé, au lieu de chercher ce que j'avais ajouté
+  // exprès. Le seul endroit du jeu où l'on ne fait rien ne doit pas avoir de
+  // musique d'ambiance : le silence EST ce qu'on est venu chercher, et la
+  // seule musique du refuge sort du poste, quand on pose l'aiguille.
 }
 
 // La caméra s'écarte et tourne. Très lentement : un tour en une demi-minute.
@@ -8696,8 +8952,12 @@ function updateAPied(dt) {
     M.pas = (M.pas || 0) + dt * (4.4 + 5.2 * k);
     piloteG.rotation.z = Math.sin(M.pas) * 0.06 * Math.min(1, M.v / PIED_VIT);
     piloteG.position.y = PISTE.y + Math.abs(Math.sin(M.pas)) * 0.07 * Math.min(1, M.v / PIED_VIT);
-    // il se penche en avant quand il court
-    piloteG.rotation.x = -0.16 * Math.max(0, (M.v - PIED_VIT) / (PIED_COURSE - PIED_VIT));
+    // IL COURT DROIT. Je l'inclinais de neuf degrés vers l'avant en croyant
+    // dessiner une course ; de dos, en contre-plongée, ça ne se lit pas comme
+    // quelqu'un qui court mais comme quelqu'un qui tombe en avant. Ce qui dit
+    // la course, c'est la cadence du pas et l'écharpe qui s'allonge — les deux
+    // sont déjà là. Il reste droit.
+    piloteG.rotation.x = 0;
     majEcharpe(THREE.MathUtils.clamp(M.v / PIED_COURSE, 0, 1), M.t);
   }
 
@@ -8786,7 +9046,25 @@ function faitAction() {
   }
   if (c === 'descendre') { descendDeJeep(); return; }
   if (c === 'carte') { ouvreCarteMur(); return; }
-  if (c === 'ancien' || c === 'casse') { announce(t('pasEncore')); return; }
+  // ON MONTE DEDANS, PUISQU'IL EST LÀ. Il était garé dans l'herbe depuis trois
+  // versions avec un bouton qui répondait « pas encore » : on pouvait le
+  // choisir dans un menu, à trente-deux kilomètres de lui, mais pas en marchant
+  // jusqu'à lui. C'était le mauvais sens. On y monte ici, sur place, et c'est
+  // cet appareil-là qu'on emmène — celui qu'on a sous les yeux.
+  if (c === 'ancien') {
+    const a = AVIONS.find(x => x.id === 'ancien');
+    if (!a || !avionOuvert(a)) { announce(t('pasEncore')); return; }
+    avionChoisi = 'ancien';
+    appliqueAvion();
+    try { localStorage.setItem('fod_avion', avionChoisi); } catch (e) {}
+    state.roquettesN = a.roquettes; state.leurres = a.leurres;
+    majMenu();
+    announce(t('avionPris') + (langue === 'en' ? a.en : a.nom), t('ancienSous'));
+    SFX.bouclierOn();
+    remonteEnAvion();
+    return;
+  }
+  if (c === 'casse') { announce(t('pasEncore')); return; }
 }
 
 
@@ -9074,8 +9352,52 @@ function texteStats() {
 // qui n'a plus rien à apprendre des quatre premières vagues.
 const DEFI_VAGUE = 5, DEFI_FACTEUR = 1.5;
 const FUITE_DIST = 3500, FUITE_ALERTE = 40, FUITE_DUREE = 60;
+// LE VENT EST UN, ET IL SOUFFLE PARTOUT PAREIL.
+//
+// Chaque terrain avait le sien, tiré au hasard dans son coin : deux manches à
+// air qui racontaient deux histoires différentes à trente-deux kilomètres
+// l'une de l'autre. Un vent, lu par toutes les manches du monde — c'est ce qui
+// permettra de dire, bientôt, dans quel sens on se pose.
+const VENT = { a: Math.random() * Math.PI * 2, cible: 0, force: 0.6 };
+VENT.cible = VENT.a;
 const RADAR_BAS = 80;        // sous cette hauteur, on passe sous les radars
+// ---------------------------------------------------------------------------
+// LA NAPPE DU FAUCHEUR.
+//
+// Il se détachait sur un critère de distance : s'éloigner du combat le lâchait,
+// quoi qu'on fasse ensuite. On ne pouvait donc rien y faire — ni l'éviter, ni
+// le semer, ni le comprendre. Et au-delà de la chaîne il rompait, ce qui rendait
+// la plaine du dehors entièrement sûre : le plus long voyage du jeu ne coûtait
+// rien.
+//
+// C'est maintenant un RADAR, et un radar a un dessous. Dehors, tout ce qui vole
+// au-dessus de sa nappe est sur son écran, et il vient. En rasant le relief on
+// disparaît : il perd le contact, il cherche, il renonce. Les trois minutes de
+// vol vers le refuge se font donc à cent mètres du sol, entre les crêtes, en
+// tenant la hauteur — et c'est très exactement le vol qu'on veut que ce voyage
+// soit. Monter est confortable et se paie ; raser est tendu et sauve.
+//
+// ET IL Y A UNE BULLE AUTOUR DU REFUGE. Sa nappe n'y entre pas : on doit
+// pouvoir décoller de là tranquillement. Un endroit d'où l'on ne peut pas
+// repartir n'est pas un refuge, c'est un piège.
+const FAUCHEUR_NAPPE  = 220;    // mètres au-dessus du relief : au-dessus, il te voit
+const FAUCHEUR_BULLE  = 2600;   // mètres autour du refuge : sa nappe n'y va pas
+const FAUCHEUR_VEILLE = 3.5;    // secondes sur son écran avant qu'il se détache
+const FAUCHEUR_OUBLI  = 7;      // secondes hors de sa nappe avant qu'il renonce
+function vuParLeFaucheur() {
+  if (!state.running || avionChoisi === 'faucheur') return false;
+  if (state.pose || state.roulage || state.takeoff || state.refuge) return false;
+  // la nappe ne couvre que le dehors : dans la zone de combat, c'est la fuite
+  // qui le déclenche, et elle a ses propres règles
+  if (Math.hypot(state.pos.x, state.pos.z) <= TERRAIN_R2) return false;
+  if (Math.hypot(state.pos.x - REFUGE.x, state.pos.z - REFUGE.z) < FAUCHEUR_BULLE) return false;
+  return state.pos.y - hauteurSol(state.pos.x, state.pos.z) > FAUCHEUR_NAPPE;
+}
 function lacherFaucheur() {
+  // ON NE SE CHASSE PAS SOI-MÊME. Dans le disque, plus rien ne se détache :
+  // c'est toute la récompense de l'avoir gagné, et elle est à la hauteur du
+  // chemin qu'il a fallu faire — le ciel entier — pour en arriver là.
+  if (avionChoisi === 'faucheur') return;
   state.faucheur = true;
   trouve('faucheur');
   const k = KINDS.find(x => x.nom === 'FAUCHEUR');
@@ -9597,7 +9919,7 @@ function updateEnemies(dt) {
           _q.setFromRotationMatrix(_m4);
           e.quat.rotateTowards(_q, vir * 1.4 * dt);
           e.forward.set(0, 0, -1).applyQuaternion(e.quat);
-          e.pos.addScaledVector(e.forward, e.speed * 1.15 * dt);
+          e.pos.addScaledVector(e.forward, e.speed * 1.15 * vitMonde() * dt);
           e.mesh.position.copy(e.pos);
           e.mesh.quaternion.copy(e.quat);
           e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
@@ -9612,7 +9934,7 @@ function updateEnemies(dt) {
     if (e.entree) {
       const E = e.entree; E.t += dt;
       if (E.phase === 'passage') {
-        e.pos.addScaledVector(e.forward, e.speed * dt);
+        e.pos.addScaledVector(e.forward, e.speed * vitMonde() * dt);
         if (E.t > 3.0) { E.phase = 'boucle'; E.t = 0; }
       } else {
         // il vise un point six cents metres DERRIERE nous, et il n'y va qu'au
@@ -9622,7 +9944,7 @@ function updateEnemies(dt) {
         const dd = _seg.length() || 1;
         _seg.divideScalar(dd);
         e.forward.lerp(_seg, Math.min(1, 0.55 * dt)).normalize();
-        e.pos.addScaledVector(e.forward, e.speed * dt);
+        e.pos.addScaledVector(e.forward, e.speed * vitMonde() * dt);
         if (E.t > 9 || dd < 220) e.entree = null;
       }
       if (e.pos.y < 90) e.pos.y = 90;
@@ -9644,7 +9966,7 @@ function updateEnemies(dt) {
     if (e.evadeCd > 0) e.evadeCd -= dt;
     if (e.fig) {
       updateFigEnnemi(e, dt);
-      e.pos.addScaledVector(e.forward, e.speed * dt);
+      e.pos.addScaledVector(e.forward, e.speed * vitMonde() * dt);
       if (e.pos.y < 70) e.pos.y = 70;
       e.mesh.position.copy(e.pos);
       e.mesh.quaternion.copy(e.quat);
@@ -9956,6 +10278,7 @@ function abattre(e) {
   const i = state.enemies.indexOf(e);
   if (i < 0) return;
   state.enemies.splice(i, 1);
+
   // LE SUIVANT HÉRITE. Au milieu d'un groupe, la charge acquise sur celui qui
   // tombe passe au prochain qu'on accroche dans la seconde : on enchaîne au
   // lieu de repartir de zéro.
@@ -10868,33 +11191,43 @@ function simulate(dt) {
     state.fuiteT = (loin && !dehors) ? state.fuiteT + dt : Math.max(0, state.fuiteT - dt * 2);
     if (state.fuiteT > FUITE_ALERTE && state.fuiteT - dt <= FUITE_ALERTE) { announce(t('fuite')); SFX.alerte(); }
     if (state.fuiteT > FUITE_DUREE) lacherFaucheur();
+    // ET DEHORS, C'EST LA HAUTEUR QUI DÉCIDE. On est prévenu dès qu'on entre
+    // sur son écran, et on a le temps de redescendre : la nappe n'est pas un
+    // piège, c'est une règle qu'on peut jouer.
+    const vu = vuParLeFaucheur();
+    state.nappeT = vu ? (state.nappeT || 0) + dt : 0;
+    if (vu && state.nappeT - dt <= 0.05) { announce(t('surSonEcran'), t('surSonEcranSous')); SFX.alerte(); }
+    if (state.nappeT > FAUCHEUR_VEILLE) lacherFaucheur();
   }
-  // IL NE PASSE PAS LA CRÊTE, ET ÇA SE DÉCIDE DEHORS DU TEST QUI LE LÂCHE.
-  // Le bloc vivait dans `if (!state.faucheur)` — donc il ne tournait jamais
-  // une fois le faucheur en l'air, c'est-à-dire exactement quand il aurait
-  // servi. Mesuré : lâché à 6 000 m, il était encore là à 7 442.
+  // IL ROMPT QUAND IL PERD LE CONTACT, PAS QUAND ON FRANCHIT UNE LIGNE.
   //
-  // C'est la chose que la ville envoie ; le dehors n'est pas à elle. Au-delà
-  // de la chaîne il rompt, fait demi-tour et rentre — et c'est le moment où
-  // l'on comprend qu'on est vraiment sorti. La chenillée, elle, passe : elle
-  // est lente, on la voit venir, et c'est le prix d'une astuce qu'on a choisie.
+  // Il rompait au-delà de la chaîne, quoi qu'on fasse : la plaine du dehors
+  // était donc entièrement sûre, et le plus long voyage du jeu ne coûtait rien.
+  // Maintenant c'est sa nappe qui décide. Dehors, sous sa hauteur de veille ou
+  // dans la bulle du refuge, on a disparu de son écran : il cherche sept
+  // secondes, puis il rentre. Redescendre est une décision, franchir une ligne
+  // n'en était pas une.
   if (state.running && state.faucheur
-      && Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R2) {
+      && Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R2 && !vuParLeFaucheur()) {
     for (let i = state.enemies.length - 1; i >= 0; i--) {
       const e = state.enemies[i];
       if (!e.faucheur) continue;
       e.rompt = (e.rompt || 0) + dt;
-      if (e.rompt > 3) {
+      if (e.rompt > FAUCHEUR_OUBLI) {
         if (e.mesh.parent) e.mesh.parent.remove(e.mesh);
         state.enemies.splice(i, 1);
         state.faucheur = false;
         state.fuiteT = 0;
         announce(t('faucheurRompt'), t('faucheurRomptSous'));
       } else {
-        e.pos.addScaledVector(state.forward, -260 * dt);   // il s'en va
-        e.pos.y += 90 * dt;
+        // il ne s'en va pas encore : il cherche, il perd du terrain
+        e.pos.addScaledVector(state.forward, -160 * dt);
+        e.pos.y += 40 * dt;
       }
     }
+  } else if (state.running && state.faucheur) {
+    // retrouvé : le compte des secondes perdues repart de zéro
+    for (const e of state.enemies) if (e.faucheur) e.rompt = 0;
   }
   if (state.secousse > 0) state.secousse = Math.max(0, state.secousse - dt);
 
@@ -11038,13 +11371,23 @@ function simulate(dt) {
       // n'importe quel pilote qui suit un plan.
       const err = state.pos.y - tubeHaut(Math.max(0, TUBE.d));
       const corr = THREE.MathUtils.clamp(err / 260, -0.035, 0.055);
-      const vise = -(PENTE_CIBLE + corr);
+      let vise = -(PENTE_CIBLE + corr);
+      // L'ARRONDI. Les quatre-vingts derniers mètres, la pente s'efface et le
+      // nez vient à plat : c'est le geste qui fait qu'on pose les roues au lieu
+      // de planter le train. Sans lui, le tube menait l'appareil au sol sur
+      // trois degrés constants, ce qui est un impact, pas un atterrissage.
+      const kArr = THREE.MathUtils.clamp(1 - Math.max(0, TUBE.d) / 80, 0, 1);
+      vise += (SOL_ASSIETTE - vise) * kArr * kArr;
       state.pitch = THREE.MathUtils.damp(state.pitch, vise, TUBE_PRISE * tenu, dt);
     }
     // ILS SORTENT DÈS QUE LE TUBE NOUS TIENT : le temps qu'on descende, ils
     // ont traversé le terrain, et ils sont déjà là quand les roues s'arrêtent.
     if (state.assist && !state.mecanosEnRoute) { state.mecanosEnRoute = true; mecanosVersArret(); }
-    if (!state.assist && !state.roulage && !state.pose) state.mecanosEnRoute = false;
+    if (!state.assist && !state.roulage && !state.pose) {
+      state.mecanosEnRoute = false;
+      // en l'air, sans approche engagée : la piste est à eux, ils la quittent
+      if (state.pos.y > SOL_Y + 12) mecanosALaTable();
+    }
   }
   // la poursuite ne change pas la poussée, elle change la vitesse visée :
   // l'avion y monte donc par le même chemin que d'habitude, sans à-coup
@@ -11065,8 +11408,24 @@ function simulate(dt) {
   state.courantK = THREE.MathUtils.damp(state.courantK || 0, state.courant ? 1 : 0,
                                         state.courant ? 1 / COURANT_MONTEE * 2.2 : 1 / COURANT_CHUTE * 2.2, dt);
   const air = 1 + (COURANT_GAIN - 1) * state.courantK;
-  const croisiere = CRUISE * avion().vit * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
+  let croisiere = CRUISE * avion().vit * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
                   * coussin * (state.assist ? APPROCHE_GAIN : 1) * air;
+  // LE TUBE TIENT AUSSI LA VITESSE, et c'est ce qui manquait pour que l'arrivée
+  // soit juste. Il tenait l'axe et la pente pendant que l'appareil descendait à
+  // cent soixante-quinze : le rappel d'assiette le mettait à plat, un avion à
+  // plat ne descend plus, et il flottait sur onze cents mètres avant que les
+  // roues prennent — donc bien après le hangar. Je rattrapais ça en le faisant
+  // rouler en marche arrière jusqu'au parking, ce qui est une rustine sur un
+  // symptôme.
+  //
+  // Une approche, c'est une vitesse qui descend en même temps que l'altitude.
+  // De la bouche du tube au seuil, la consigne glisse de la croisière à
+  // APPROCHE_VIT, en proportion de ce que le tube tient réellement.
+  if (state.assist && TUBE.prise > 0.01) {
+    const uT = THREE.MathUtils.clamp(1 - Math.max(0, TUBE.d) / TUBE_DIST, 0, 1);
+    const vSeuil = croisiere + (APPROCHE_VIT - croisiere) * uT;
+    croisiere += (vSeuil - croisiere) * TUBE.prise;
+  }
   const pesanteur = state.forward.y < 0 ? 2.6 : 1;
   // ELLES S'AJOUTENT. La poussée fixe une vitesse visée, la pesanteur en donne
   // une autre : tant que le plafond était à 205, le piqué d'un avion déjà
@@ -12286,9 +12645,27 @@ function scrape(dt) {
       } else if (state.pos.y <= plancher) {
         state.pos.y = plancher;
         if (state.scrapeT <= 0) {
-          damagePlayer(5, null, 'sol'); state.scrapeT = 0.45; SFX.eraflure();
+          // LE SOL COÛTE CE QU'ON Y APPORTE.
+          //
+          // C'était cinq points, quelle que soit l'allure : on rebondissait sur
+          // la plaine à deux cents mètres par seconde comme sur un matelas, et
+          // le vol au ras des pâquerettes ne payait donc que ses avantages.
+          //
+          // Le prix suit maintenant l'ÉNERGIE, qui va comme le carré de la
+          // vitesse. À la vitesse de décrochage, on s'éraffle et on repart ; à
+          // pleine vitesse, on ne repart pas. Il n'y a rien entre les deux qui
+          // ne se sente pas venir : l'alarme de vitesse et la hauteur-sol
+          // disent exactement ce qu'on est en train de risquer.
+          const kv = THREE.MathUtils.clamp(
+            (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN), 0, 1);
+          const cout = Math.max(5, Math.ceil(state.vieMax * 1.35 * kv * kv));
+          if (kv > 0.55) { SFX.roquetteImpact(state.pos); spawnBurst(state.pos, 10); }
+          else SFX.eraflure();
+          damagePlayer(cout, null, 'sol');
+          state.scrapeT = 0.45;
           state.pitch = Math.max(state.pitch, 0.25);   // le nez se relève, on rebondit
-          state.speed *= 0.99;
+          // et on y laisse de la vitesse, d'autant plus qu'on arrivait vite
+          state.speed *= 1 - 0.45 * kv;
         }
       }
     }
@@ -14041,7 +14418,7 @@ const T = {
     jeepRentree: 'LA JEEP EST RENTRÉE',
     jeepRentreeSous: 'trente-deux kilomètres par la route  ·  elle est à toi',
     ecrase: 'LA CHENILLÉE T’A RATTRAPÉ  ·  À PIED, ON NE LA SÈME PAS',
-    aPied: 'ON MARCHE  ·  LE MANCHE DÉPLACE L’HOMME',
+    aPied: 'ON MARCHE',
     rembarque: 'À BORD',
     pasEncore: 'PAS ENCORE',
     act_avion: 'REMONTER',
@@ -14114,6 +14491,11 @@ const T = {
     avionPris: 'APPAREIL PRIS  ·  ',
     avionFerme: 'PAS ENCORE À TOI',
     avionMien: 'C’EST LE TIEN',
+    faucheurDur: 'IL NE TOMBE PAS',
+    faucheurDurSous: 'Rien de ce que tu as ne l’abat. Passe dessous.',
+    ancienSous: 'Il est lent, il est silencieux, et il lit l’air.',
+    surSonEcran: 'TU ES SUR SON ÉCRAN',
+    surSonEcranSous: 'Descends. Sous sa nappe, il ne te voit plus.',
     redecoller: 'ENCORE', videoReprendre: 'REGARDER UNE VIDÉO · REPRENDRE',
     pasDeVideo: "Bêta : la vidéo n'est pas encore branchée, la reprise est offerte quand même. Ce clic est compté pour savoir ce que ça rapporterait.",
     scoreMot: 'SCORE ', nouveauRecord: 'NOUVEAU RECORD', recordMot: 'RECORD '
@@ -14146,7 +14528,7 @@ const T = {
     jeepRentree: 'THE JEEP MADE IT BACK',
     jeepRentreeSous: 'thirty-two kilometres by road  ·  it is yours',
     ecrase: 'THE TRACKED GUN CAUGHT YOU  ·  ON FOOT, YOU CANNOT SHAKE IT',
-    aPied: 'ON FOOT  ·  THE STICK MOVES THE MAN',
+    aPied: 'ON FOOT',
     rembarque: 'ABOARD',
     pasEncore: 'NOT YET',
     act_avion: 'GET BACK IN',
@@ -14219,6 +14601,11 @@ const T = {
     avionPris: 'AIRCRAFT TAKEN  ·  ',
     avionFerme: 'NOT YOURS YET',
     avionMien: 'THIS IS YOURS',
+    faucheurDur: 'IT DOES NOT GO DOWN',
+    faucheurDurSous: 'Nothing you carry will kill it. Go under.',
+    ancienSous: 'Slow, silent, and it reads the air.',
+    surSonEcran: 'YOU ARE ON ITS SCREEN',
+    surSonEcranSous: 'Go down. Under its sheet it loses you.',
     redecoller: 'AGAIN', videoReprendre: 'WATCH A VIDEO · CONTINUE',
     pasDeVideo: 'Beta: the video is not wired yet, the continue is free anyway. This tap is counted to know what it would earn.',
     scoreMot: 'SCORE ', nouveauRecord: 'NEW RECORD', recordMot: 'RECORD '
@@ -14635,7 +15022,13 @@ function majMenu() {
       const b = document.createElement('button');
       const ouvert = avionOuvert(a);
       b.className = (a.id === avionChoisi ? 'actif' : '') + (ouvert ? '' : ' verrou');
-      b.textContent = (fr ? a.nom : a.en) + (ouvert ? '' : (fr ? '  ·  LÉGENDE' : '  ·  LEGEND'))
+      // CHAQUE VERROU DIT SA CLÉ. Tous affichaient « LÉGENDE », y compris
+      // l'Ancien qui s'ouvre au refuge et le Faucheur qui s'ouvre au combat :
+      // un verrou qui ment sur sa serrure ne donne envie de rien.
+      const cle = a.acces === 'refuge' ? (fr ? '  ·  AU REFUGE' : '  ·  AT THE REFUGE')
+                : a.acces === 'ciel'   ? (fr ? '  ·  TOUT LE CIEL' : '  ·  THE WHOLE SKY')
+                : (fr ? '  ·  LÉGENDE' : '  ·  LEGEND');
+      b.textContent = (fr ? a.nom : a.en) + (ouvert ? '' : cle)
         + '  ·  ' + (fr ? 'vit. ' : 'spd ') + a.vit + '  ·  ' + a.roquettes + (fr ? ' roq.' : ' rkt') + '  ·  ' + a.leurres + (fr ? ' leurres' : ' flares');
       b.onclick = e => {
         e.stopPropagation();
@@ -14765,6 +15158,20 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.24', fr: 'La plaine est noire, et les montagnes ont un corps : c’est l’altitude qui décide.', en: 'The plain is black and the mountains have a body: altitude decides.' },
+  { v: '1.24', fr: 'Le faucheur ne tombe pas, et il ne se lâche plus sur la distance : c’est un radar.', en: 'The reaper does not go down, and distance no longer releases it: it is a radar.' },
+  { v: '1.24', fr: 'Dehors, vole bas et tu disparais de son écran. Monte, et il vient.', en: 'Out there, fly low and you vanish from its screen. Climb, and it comes.' },
+  { v: '1.24', fr: 'Il n’entre pas dans la bulle du refuge : on décolle de là tranquillement.', en: 'It does not enter the refuge bubble: you take off from there in peace.' },
+  { v: '1.24', fr: 'On le pilote quand on a tracé le ciel entier, et alors plus rien ne te chasse.', en: 'You fly it once you have traced the whole sky, and then nothing hunts you.' },
+  { v: '1.24', fr: 'Chaque appareil impose son tempo au monde : les adversaires prennent sa vitesse.', en: 'Each aircraft sets the tempo: the enemies take its speed.' },
+  { v: '1.24', fr: 'Foncer dans le sol coûte ce qu’on y apporte. À pleine vitesse, on ne repart pas.', en: 'Flying into the ground costs what you bring to it. At full speed, you do not get up.' },
+  { v: '1.24', fr: 'Au refuge, on monte dans l’avion ancien là où il est garé.', en: 'At the refuge, you climb into the old aircraft where it stands.' },
+  { v: '1.24', fr: 'Le refuge a sa manche à air et ses deux seuils, comme tout terrain d’aviation.', en: 'The refuge has its windsock and two thresholds, like any airfield.' },
+  { v: '1.24', fr: 'Plus aucune nappe sonore au refuge : il n’y a rien à entendre, et c’est le propos.', en: 'No more drone at the refuge: there is nothing to hear, and that is the point.' },
+  { v: '1.24', fr: 'Les mécaniciens dégagent le bitume dès qu’on est en l’air, en courant.', en: 'The ground crew clears the runway at a run as soon as you are airborne.' },
+  { v: '1.24', fr: 'Les traits de vitesse n’existent plus au sol, à pied ni en Jeep.', en: 'Speed lines are gone on the ground, on foot and in the Jeep.' },
+  { v: '1.24', fr: 'Le score ne se fait plus tronquer par les boutons : les chiffres rétrécissent.', en: 'The score is no longer cut off by the buttons: the figures shrink instead.' },
+  { v: '1.24', fr: 'Le tube tient l’axe, la pente, la vitesse et l’arrondi : il pose l’appareil.', en: 'The tube holds line, slope, speed and flare: it lands the aircraft.' },
   { v: '1.23', fr: 'Le sol redevient noir : c’est un dessin au trait, pas un paysage colorié.', en: 'The ground goes back to black: this is a line drawing, not a coloured landscape.' },
   { v: '1.23', fr: 'Les montagnes cachent toujours ce qu’il y a derrière — ça n’a jamais tenu à leur couleur.', en: 'Ridges still hide what is behind them: that never depended on their colour.' },
   { v: '1.23', fr: 'L’Ancien ne fait plus aucune figure, par aucun geste : il n’a que l’air, et il le tient.', en: 'The Old One does no aerobatics by any input: it has the air, and it holds it.' },
@@ -15138,6 +15545,10 @@ const INDICES = [
     su: () => jeepRamenee,
     fr: 'Il y a une chose, très loin, qui peut revenir avec toi. Une seule.',
     en: 'There is one thing, very far away, that can come back with you. Only one.' },
+  { cle: 'faucheurAbattu',
+    su: () => decouvertes.faucheurAbattu,
+    fr: 'La chose qui se détache quand tu t’éloignes peut tomber. Et alors elle est à toi.',
+    en: 'The thing that comes loose when you stray can be brought down. And then it is yours.' },
   { cle: 'carte',
     su: () => decouvertes.carte,
     fr: 'Sous un toit, au bout du monde, quelqu’un a punaisé une carte. Elle ne montre pas d’où l’on vient.',

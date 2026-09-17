@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>La platine — Fly or Die</title>
+<style>
+  :root {
+    --bg: #04070a;
+    --line: #46ffa0;
+    --text: #8ffcc4;
+    --dim: #1d4a36;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px; line-height: 1.6;
+  }
+  body { padding: 20px 16px 48px; max-width: 34rem; margin: 0 auto; }
+  h1 { font-size: 13px; letter-spacing: 0.24em; font-weight: 500; margin: 0 0 4px; }
+  .sous { color: var(--dim); font-size: 12px; margin: 0 0 22px; }
+  .rangee { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  button {
+    flex: 1 1 auto; min-width: 8rem;
+    background: transparent; border: 1px solid var(--dim); border-radius: 4px;
+    color: var(--text); font-family: inherit; font-size: 12px;
+    letter-spacing: 0.18em; padding: 12px 10px;
+  }
+  button.actif { border-color: var(--line); color: var(--line); }
+  button:disabled { opacity: 0.35; }
+  .reglage { margin: 0 0 16px; }
+  .etiquette {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 10px; margin-bottom: 4px;
+  }
+  .etiquette span:first-child { font-size: 12px; letter-spacing: 0.1em; }
+  .valeur { color: var(--line); font-variant-numeric: tabular-nums; }
+  .note { color: var(--dim); font-size: 11px; line-height: 1.5; margin: 2px 0 0; }
+  input[type=range] {
+    width: 100%; margin: 0; -webkit-appearance: none; appearance: none;
+    background: transparent; height: 26px;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 1px; background: var(--dim);
+  }
+  input[type=range]::-moz-range-track { height: 1px; background: var(--dim); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 18px; height: 18px; margin-top: -9px; border-radius: 50%;
+    background: var(--bg); border: 1px solid var(--line);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bg); border: 1px solid var(--line);
+  }
+  hr { border: 0; border-top: 1px solid var(--dim); margin: 26px 0 22px; }
+  pre {
+    border: 1px solid var(--dim); border-radius: 4px; padding: 14px;
+    font-size: 11px; line-height: 1.7; overflow-x: auto;
+    color: var(--line); white-space: pre; margin: 0 0 12px;
+  }
+  .etat { color: var(--dim); font-size: 11px; min-height: 1.5em; margin: 10px 0 0; }
+</style>
+</head>
+<body>
+
+<h1>LA PLATINE</h1>
+<p class="sous">Le sillon du refuge, avec le code exact du jeu.<br>
+Règle à l'oreille, puis recopie les constantes en bas dans <code>index.html</code>.</p>
+
+<div class="rangee">
+  <button id="btnLire">POSER L'AIGUILLE</button>
+  <button id="btnStop" disabled>LEVER L'AIGUILLE</button>
+</div>
+<div class="rangee">
+  <button id="btnGuitare">AVEC LA GUITARE</button>
+  <button id="btnDefaut">VALEURS DU JEU</button>
+</div>
+<p class="etat" id="etat"></p>
+
+<hr>
+
+<div id="reglages"></div>
+
+<hr>
+
+<pre id="sortie"></pre>
+<div class="rangee">
+  <button id="btnCopier">COPIER LES CONSTANTES</button>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// C'EST LE CODE DU JEU, RECOPIÉ SANS UNE VIRGULE DE DIFFÉRENCE.
+//
+// La première platine était une maquette écrite à part : on y réglait quelque
+// chose, et le jeu jouait autre chose. C'est exactement ce qui s'est passé —
+// les deux curseurs commandaient le bus du disque entier dans la maquette, et
+// les seuls craquements dans le jeu, ce qui laissait le souffle quatre fois
+// trop fort. Une page de réglage qui ne joue pas la même chose que le produit
+// est pire qu'une absence de page.
+//
+// Ici, batisDisque(), craquement(), programmeDisque() et la mise en route sont
+// les fonctions du jeu, au caractère près. Ce qu'on entend ici est ce qu'on
+// entendra là-bas.
+// ---------------------------------------------------------------------------
+
+const MUSIQUE_URL   = './sons/refuge-guitare.m4a';
+const MUSIQUE_GAIN  = 0.42;
+const MUSIQUE_FONDU = 2.0;
+
+// LES CONSTANTES RÉGLABLES. Ce sont celles du jeu, avec leur valeur actuelle.
+const R = [
+  { cle: 'DISQUE_AMORCE',   val: 11.8,  min: 0,    max: 30,   pas: 0.1,
+    nom: 'AMORCE',
+    note: 'secondes de sillon seul avant que la guitare entre' },
+  { cle: 'DISQUE_CRAQ_AV',  val: 0.25,  min: 0,    max: 0.6,  pas: 0.005,
+    nom: 'DISQUE PENDANT L’AMORCE',
+    note: 'le niveau du disque entier — souffle compris — tant qu’il tourne seul' },
+  { cle: 'DISQUE_CRAQ_PD',  val: 0.16,  min: 0,    max: 0.6,  pas: 0.005,
+    nom: 'DISQUE SOUS LA GUITARE',
+    note: 'il se retire derrière elle : c’est ce rapport-là qui compte' },
+  { cle: 'DISQUE_DENSITE',  val: 11,    min: 0.5,  max: 40,   pas: 0.5,
+    nom: 'CRAQUEMENTS PAR SECONDE',
+    note: 'en moyenne ; leurs instants suivent une loi exponentielle, donc des grappes et des trous' },
+  { cle: 'DISQUE_SILLON',   val: 0.16,  min: 0,    max: 0.5,  pas: 0.005,
+    nom: 'SOUFFLE DU SILLON',
+    note: 'le bruit continu sous les clics. Trop haut, ça devient de la pluie' },
+  { cle: 'DISQUE_GROS',     val: 0.06,  min: 0,    max: 0.3,  pas: 0.005,
+    nom: 'PART DE GROS CHOCS',
+    note: 'un craquement sur seize était un choc : plus grave, plus long, plus fort' },
+  { cle: 'DISQUE_BAS',      val: 2400,  min: 400,  max: 8000, pas: 50,
+    nom: 'COUPE-HAUT DU SILLON',
+    note: 'au-dessus, le souffle est effacé. Bas = sourd et lointain' },
+  { cle: 'DISQUE_HAUT',     val: 240,   min: 40,   max: 1200, pas: 10,
+    nom: 'COUPE-BAS DU SILLON',
+    note: 'en dessous, rien ne passe. Haut = plus fin, moins de grondement' },
+  { cle: 'DISQUE_PLEURAGE', val: 0.58,  min: 0,    max: 2,    pas: 0.02,
+    nom: 'PLEURAGE DU PLATEAU',
+    note: 'la hauteur qui flotte. Zéro = un fichier ; trop = un plateau cassé' },
+  { cle: 'DISQUE_GUITARE',  val: 1.10,  min: 0,    max: 2,    pas: 0.05,
+    nom: 'NIVEAU DE LA GUITARE',
+    note: 'seulement audible avec la guitare chargée' },
+];
+const DEFAUTS = Object.fromEntries(R.map(r => [r.cle, r.val]));
+const V = Object.fromEntries(R.map(r => [r.cle, r.val]));
+
+// ---------------------------------------------------------------------------
+// LE SON — les fonctions du jeu
+// ---------------------------------------------------------------------------
+let actx = null, muet = false;
+let musiqueEl = null, musiqueG = null, musiqueEtat = 'rien', musiqueSrc = null;
+let disqueG = null, disqueCraq = null, disqueBruit = null, disqueRetard = null;
+let disqueProchain = 0, disqueMinuteur = null;
+let sillonG = null, sillonBas = null, sillonHaut = null, pleurageG = null;
+let avecGuitare = false;
+
+// LE SILLON ET LES CRAQUEMENTS. Deux secondes de bruit blanc servent aux deux
+// et ne sont jamais entendues telles quelles : bouclées et filtrées elles font
+// le souffle, découpées en éclats de deux millisecondes elles font les clics.
+function batisDisque() {
+  if (disqueG || !actx) return;
+  disqueG = actx.createGain();
+  disqueG.gain.value = 0.0001;
+  disqueG.connect(actx.destination);
+
+  disqueBruit = actx.createBuffer(1, Math.round(actx.sampleRate * 2), actx.sampleRate);
+  const d = disqueBruit.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+
+  const src = actx.createBufferSource();
+  src.buffer = disqueBruit; src.loop = true;
+  sillonBas = actx.createBiquadFilter();
+  sillonBas.type = 'lowpass'; sillonBas.frequency.value = V.DISQUE_BAS; sillonBas.Q.value = 0.7;
+  sillonHaut = actx.createBiquadFilter();
+  sillonHaut.type = 'highpass'; sillonHaut.frequency.value = V.DISQUE_HAUT;
+  sillonG = actx.createGain(); sillonG.gain.value = V.DISQUE_SILLON;
+  src.connect(sillonBas).connect(sillonHaut).connect(sillonG).connect(disqueG);
+  src.start();
+
+  disqueCraq = actx.createGain();
+  disqueCraq.gain.value = 1;
+  disqueCraq.connect(disqueG);
+}
+
+// UN CRAQUEMENT. Un éclat de bruit très court, filtré, éteint en quelques
+// millisecondes. Durée, hauteur et amplitude tirées à chaque fois : deux
+// craquements ne se ressemblent jamais. Un sur seize est un choc.
+function craquement(t) {
+  const gros = Math.random() < V.DISQUE_GROS;
+  const amp = gros ? 0.55 + Math.random() * 0.45
+                   : Math.pow(Math.random(), 2.4) * 0.5 + 0.02;
+  const duree = gros ? 0.010 + Math.random() * 0.028
+                     : 0.0015 + Math.random() * 0.010;
+  const s = actx.createBufferSource();
+  s.buffer = disqueBruit;
+  s.playbackRate.value = 0.5 + Math.random() * 1.4;
+  const f = actx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.value = gros ? 500 + Math.random() * 900 : 1100 + Math.random() * 3200;
+  f.Q.value = 0.6 + Math.random() * 2.2;
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(amp, t + 0.0006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+  s.connect(f).connect(g).connect(disqueCraq);
+  s.start(t, Math.random() * 1.9, duree + 0.02);
+  s.stop(t + duree + 0.03);
+}
+
+// L'ORDONNANCEUR regarde un quart de seconde devant lui et pose les
+// craquements à venir. L'écart jusqu'au suivant vaut −ln(1−hasard) ÷ densité :
+// c'est la loi exponentielle, celle des événements qui n'ont pas de mémoire.
+function programmeDisque() {
+  if (!actx || musiqueEtat !== 'joue') return;
+  const horizon = actx.currentTime + 0.25;
+  let garde = 0;
+  while (disqueProchain < horizon && garde++ < 200) {
+    if (disqueProchain > actx.currentTime) craquement(disqueProchain);
+    disqueProchain += -Math.log(1 - Math.random()) / Math.max(0.5, V.DISQUE_DENSITE);
+  }
+  if (disqueProchain < actx.currentTime) disqueProchain = actx.currentTime + 0.01;
+}
+
+function preparerMusique() {
+  if (musiqueEl || !actx) return;
+  try {
+    musiqueEl = new Audio(MUSIQUE_URL);
+    musiqueEl.preload = 'none';
+    musiqueEl.addEventListener('ended', leve);
+    musiqueEl.addEventListener('error', () => {
+      dis('Pas de guitare : ' + MUSIQUE_URL + ' est introuvable ou illisible ici. Le sillon, lui, se règle.');
+    });
+    musiqueSrc = actx.createMediaElementSource(musiqueEl);
+    musiqueG = actx.createGain();
+    musiqueG.gain.value = 0.0001;
+    // LA GUITARE PASSE PAR LE PLATEAU. Un retard de douze millisecondes que
+    // l'oscillateur fait respirer : c'est tout le pleurage.
+    disqueRetard = actx.createDelay(0.05);
+    disqueRetard.delayTime.value = 0.012;
+    const lfo = actx.createOscillator();
+    lfo.type = 'sine'; lfo.frequency.value = 0.9;
+    pleurageG = actx.createGain();
+    pleurageG.gain.value = 0.0035 * V.DISQUE_PLEURAGE;
+    lfo.connect(pleurageG).connect(disqueRetard.delayTime);
+    lfo.start();
+    musiqueSrc.connect(disqueRetard).connect(musiqueG).connect(actx.destination);
+    const p = musiqueEl.play();
+    if (p && p.then) p.then(() => { musiqueEl.pause(); musiqueEl.currentTime = 0; }, () => {});
+    else { musiqueEl.pause(); musiqueEl.currentTime = 0; }
+  } catch (e) { musiqueEl = null; musiqueG = null; musiqueSrc = null; }
+}
+
+function pose() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();
+  if (musiqueEtat === 'joue') leve();
+  batisDisque();
+  if (avecGuitare) preparerMusique();
+  musiqueEtat = 'joue';
+  const t = actx.currentTime;
+  // LES DEUX RÉGLAGES PORTENT SUR TOUT LE DISQUE, pas sur les seuls clics.
+  disqueG.gain.cancelScheduledValues(t);
+  disqueG.gain.setValueAtTime(0.0001, t);
+  disqueG.gain.exponentialRampToValueAtTime(Math.max(0.0002, V.DISQUE_CRAQ_AV), t + 0.5);
+  disqueG.gain.setTargetAtTime(Math.max(0.0002, V.DISQUE_CRAQ_PD), t + V.DISQUE_AMORCE, 1.0);
+  disqueCraq.gain.setValueAtTime(1, t);
+  disqueProchain = t + 0.05;
+  if (disqueMinuteur) clearInterval(disqueMinuteur);
+  disqueMinuteur = setInterval(programmeDisque, 120);
+  if (avecGuitare && musiqueEl) {
+    if (musiqueG) {
+      musiqueG.gain.cancelScheduledValues(t);
+      musiqueG.gain.setValueAtTime(0.0001, t);
+      musiqueG.gain.exponentialRampToValueAtTime(MUSIQUE_GAIN * V.DISQUE_GUITARE, t + MUSIQUE_FONDU);
+    }
+    musiqueEl.currentTime = 0;
+    musiqueEl.preload = 'auto';
+    setTimeout(() => {
+      if (musiqueEtat !== 'joue' || !musiqueEl) return;
+      const p = musiqueEl.play();
+      if (p && p.catch) p.catch(() => dis('La guitare a refusé de démarrer ici.'));
+    }, V.DISQUE_AMORCE * 1000);
+  }
+  btnLire.disabled = true; btnStop.disabled = false;
+  dis('Le disque tourne. Amorce de ' + V.DISQUE_AMORCE.toFixed(1) + ' s, puis le disque passe sous la guitare.');
+}
+
+function leve() {
+  musiqueEtat = 'rien';
+  if (disqueMinuteur) { clearInterval(disqueMinuteur); disqueMinuteur = null; }
+  if (disqueG && actx) {
+    const t = actx.currentTime;
+    disqueG.gain.cancelScheduledValues(t);
+    disqueG.gain.setValueAtTime(Math.max(0.0002, disqueG.gain.value), t);
+    disqueG.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+  }
+  if (musiqueEl) { try { musiqueEl.pause(); musiqueEl.currentTime = 0; } catch (e) {} }
+  btnLire.disabled = false; btnStop.disabled = true;
+}
+
+// LES CURSEURS AGISSENT PENDANT QUE ÇA JOUE. Un réglage qu'il faut relancer
+// pour entendre ne se règle pas : on compare deux souvenirs au lieu de deux
+// sons. Tout ce qui peut changer en direct change en direct.
+function applique(cle) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  if (cle === 'DISQUE_SILLON' && sillonG) sillonG.gain.setTargetAtTime(V.DISQUE_SILLON, t, 0.05);
+  if (cle === 'DISQUE_BAS' && sillonBas) sillonBas.frequency.setTargetAtTime(V.DISQUE_BAS, t, 0.05);
+  if (cle === 'DISQUE_HAUT' && sillonHaut) sillonHaut.frequency.setTargetAtTime(V.DISQUE_HAUT, t, 0.05);
+  if (cle === 'DISQUE_PLEURAGE' && pleurageG) pleurageG.gain.setTargetAtTime(0.0035 * V.DISQUE_PLEURAGE, t, 0.05);
+  if (cle === 'DISQUE_GUITARE' && musiqueG) musiqueG.gain.setTargetAtTime(MUSIQUE_GAIN * V.DISQUE_GUITARE, t, 0.2);
+  // les deux niveaux du disque : on entend celui qui correspond au moment où
+  // l'on se trouve, donc on force celui d'après dès qu'on y touche
+  if ((cle === 'DISQUE_CRAQ_AV' || cle === 'DISQUE_CRAQ_PD') && disqueG && musiqueEtat === 'joue') {
+    disqueG.gain.cancelScheduledValues(t);
+    disqueG.gain.setTargetAtTime(Math.max(0.0002, V[cle]), t, 0.08);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// L'ÉCRAN
+// ---------------------------------------------------------------------------
+const btnLire = document.getElementById('btnLire');
+const btnStop = document.getElementById('btnStop');
+const btnGuitare = document.getElementById('btnGuitare');
+const btnDefaut = document.getElementById('btnDefaut');
+const btnCopier = document.getElementById('btnCopier');
+const etat = document.getElementById('etat');
+const sortie = document.getElementById('sortie');
+function dis(m) { etat.textContent = m; }
+
+const boites = {};
+for (const r of R) {
+  const d = document.createElement('div');
+  d.className = 'reglage';
+  d.innerHTML =
+    '<div class="etiquette"><span>' + r.nom + '</span>' +
+    '<span class="valeur" id="v_' + r.cle + '"></span></div>' +
+    '<input type="range" id="s_' + r.cle + '" min="' + r.min + '" max="' + r.max +
+    '" step="' + r.pas + '" value="' + r.val + '">' +
+    '<p class="note">' + r.note + '</p>';
+  document.getElementById('reglages').appendChild(d);
+  const s = d.querySelector('input');
+  boites[r.cle] = s;
+  s.addEventListener('input', () => {
+    V[r.cle] = parseFloat(s.value);
+    montre(); applique(r.cle);
+  });
+}
+
+function fmt(r) {
+  return V[r.cle] >= 100 ? String(Math.round(V[r.cle]))
+       : V[r.cle] >= 10 ? V[r.cle].toFixed(1)
+       : V[r.cle].toFixed(V[r.cle] < 1 ? 3 : 2);
+}
+function montre() {
+  for (const r of R) {
+    document.getElementById('v_' + r.cle).textContent = fmt(r);
+    boites[r.cle].value = V[r.cle];
+  }
+  sortie.textContent = R.map(r => {
+    const n = 'const ' + r.cle;
+    return n + ' '.repeat(Math.max(1, 26 - n.length)) + '= ' + fmt(r) + ';';
+  }).join('\n');
+}
+
+btnLire.addEventListener('click', pose);
+btnStop.addEventListener('click', leve);
+btnGuitare.addEventListener('click', () => {
+  avecGuitare = !avecGuitare;
+  btnGuitare.classList.toggle('actif', avecGuitare);
+  btnGuitare.textContent = avecGuitare ? 'GUITARE : OUI' : 'AVEC LA GUITARE';
+  dis(avecGuitare ? 'La guitare entrera après l’amorce, au prochain « poser l’aiguille ».'
+                  : 'Le sillon seul : c’est ce qu’on règle en premier.');
+});
+btnDefaut.addEventListener('click', () => {
+  for (const r of R) V[r.cle] = DEFAUTS[r.cle];
+  montre();
+  for (const r of R) applique(r.cle);
+  dis('Remis aux valeurs qui sont dans le jeu aujourd’hui.');
+});
+btnCopier.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(sortie.textContent); dis('Constantes copiées.'); }
+  catch (e) { dis('Impossible de copier ici : sélectionne le bloc à la main.'); }
+});
+
+montre();
+dis('Rien ne joue. Pose l’aiguille — le son demande un geste, sur mobile comme ailleurs.');
+</script>
+</body>
+</html>

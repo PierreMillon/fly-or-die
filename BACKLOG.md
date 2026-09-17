@@ -1928,3 +1928,96 @@ chose qui faisait décoller un appareil dont les roues touchent — donc la
 dernière raison de voir les ailes bouger au sol. Elle est retirée : roues au
 sol, on avance, on recule, on braque, et on repart avec le bouton.
 
+## Les montagnes transparentes : la sixième fois, et la bonne (v1.24)
+
+J'ai cherché six fois au mauvais endroit : la nappe, la précision du tampon, le
+polygonOffset, le dos-face, la couleur, la hauteur. Cette fois j'ai mesuré au
+lieu de raisonner — **le relief peint en magenta**, une capture.
+
+Résultat sans ambiguïté : **pas un seul trait ne traverse la masse**.
+L'occultation est parfaite et l'a toujours été depuis la v0.99. Le tampon de
+profondeur fait son travail quelle que soit la couleur peinte.
+
+Ce qu'il appelle « transparent » n'est donc pas un défaut de profondeur : c'est
+un corps peint EXACTEMENT de la couleur du ciel. Une masse invisible n'est pas
+une masse.
+
+### Les deux demandes ne se contredisent pas, elles se règlent à l'altitude
+
+« Le sol doit être noir » et « les montagnes sont transparentes » semblaient
+s'exclure, et je suis passé d'un extrême à l'autre : tout vert en v1.20, tout
+noir en v1.23. Ce n'est pas la même surface qui est en cause, c'est la même
+surface à deux hauteurs.
+
+- La **plaine** occupe la moitié basse de l'image en permanence : toute couleur
+  y devient un aplat. Elle est la couleur du fond.
+- La **montagne** n'occupe que sa propre silhouette : elle peut porter une
+  teinte sans colorier quoi que ce soit.
+
+Chaque sommet du relief porte donc sa couleur, par attribut de sommet.
+
+### Et le seuil, qui n'était pas là au premier essai
+
+Premier jet : `u = sqrt(h / TERRAIN_H)`. Une racine carrée donne **dix pour cent
+de la couleur à dix mètres d'altitude** — la plaine ondule de quelques mètres,
+donc la plaine entière était teintée, et l'écran redevenait un aplat vert. Le
+même défaut qu'en v1.20, par un autre chemin. Mesuré sur capture : toute la
+moitié basse uniformément verte.
+
+Il y a maintenant un seuil : rien en dessous de 150 m, puis une montée au carré
+jusqu'aux cimes. Contraste WCAG des sommets contre le ciel : **1,32** — une
+masse qu'on voit, là où le vert de la v1.20 valait 1,88 et remplissait tout.
+
+## Le faucheur est un radar (v1.24)
+
+Ses règles, décidées ensemble :
+
+- **On ne l'abat pas.** Les balles l'atteignent, la jauge descend, elle s'arrête
+  à un. C'est la seule fois du jeu où tirer ne sert à rien.
+- **On le gagne avec le ciel entier** — les huit figures, dont la Croix du Sud
+  qui ne se lève que sur la plaine du dehors. La dernière chose du jeu.
+- **Dehors, c'est la hauteur qui décide.** Au-dessus de 220 m au-dessus du
+  relief on est sur son écran et il vient ; en rasant, il perd le contact,
+  cherche sept secondes, et rentre. Le voyage au refuge se fait donc bas.
+- **Une bulle de 2 600 m autour du refuge** où sa nappe n'entre pas : un endroit
+  d'où l'on ne peut pas décoller n'est pas un refuge.
+- **Dans le disque, plus rien ne se détache.** C'est toute la récompense.
+- Et les mécaniciens ne le réparent pas : ils ne savent pas ce que c'est.
+
+## Le tempo du monde (v1.24)
+
+Sa demande : « chaque avion pilotable doit avoir une différence de vitesse,
+répercutée sur les ennemis ». Sans ça, changer d'appareil ne changeait que sa
+propre allure — dans l'Ancien à 0,62 tout le monde vous doublait, dans le
+Faucheur à 1,7 plus personne ne vous inquiétait. Deux appareils sur cinq étaient
+injouables pour une raison purement arithmétique.
+
+Les adversaires prennent le même facteur. Mesuré, un ennemi nominal à 100 m/s :
+pionnier 85, bimoteur 100 — et c'est `vitesseFaucheur()` qui l'applique, le
+point de passage de tous les adversaires. J'avais d'abord multiplié les quatre
+branches particulières (le soin, l'entrée, la figure) et oublié la seule que
+prennent les appareils ordinaires : mesuré, la vitesse ennemie ne bougeait pas
+d'un mètre par seconde entre le biplan et le disque.
+
+## Le sol coûte ce qu'on y apporte (v1.24)
+
+C'était cinq points quelle que soit l'allure. Le prix suit maintenant l'énergie,
+qui va comme le carré de la vitesse. Mesuré, en piqué à trente degrés :
+
+| vitesse | structure restante |
+| --- | --- |
+| 50 m/s | 100 |
+| 120 m/s | 92 |
+| 200 m/s | 65 |
+| 320 m/s | **mort** |
+
+## Le son qui restait au refuge (v1.24)
+
+Signalé trois fois. J'ai cherché dans le moteur, qui était coupé, au lieu de
+chercher ce que j'avais ajouté exprès : `SFX.refugeOn()`, une nappe de quatre
+voix tenues qui montait en trois secondes et ne s'arrêtait jamais.
+
+Retirée. Le seul endroit du jeu où l'on ne fait rien n'a pas de musique
+d'ambiance — le silence EST ce qu'on vient y chercher, et la seule musique du
+refuge sort du poste quand on pose l'aiguille.
+
