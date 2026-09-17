@@ -927,7 +927,7 @@
   <button id="viseurBtn">VIS</button>
   <button id="sonBtn">SON</button>
   <button id="aideBtn">?</button>
-  <button id="versionBtn">v1.05</button>
+  <button id="versionBtn"><!-- rendJournal() y met le numéro : ne rien écrire ici --></button>
   <button id="vagueBtn" hidden data-en="WAVE +500">VAGUE +500</button>
   <button id="defiBtn" hidden>DÉFI DU JOUR</button>
   <button id="menuBtn">MENU</button>
@@ -15440,6 +15440,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.28', fr: 'Le numéro de version affiché vient du journal : il annonçait v1.05 depuis vingt-deux mises à jour.', en: 'The version shown comes from the changelog: it had been announcing v1.05 for twenty-two updates.' },
   { v: '1.27', fr: 'Le refuge a le même atterrissage que la piste principale : entonnoir, axe, pente, arrondi.', en: 'The refuge gets the same landing as the main runway: funnel, line, slope, flare.' },
   { v: '1.27', fr: 'Une piste, c’est cinq nombres : ajouter un terrain n’ajoute plus une ligne de code.', en: 'A runway is five numbers: adding a field no longer adds a line of code.' },
   { v: '1.27', fr: 'Chaque terrain choisit son seuil d’après le vent, même incliné de trois degrés.', en: 'Each field picks its threshold from the wind, even one three degrees off north.' },
@@ -15704,6 +15705,21 @@ function rendJournal() {
         + (j.merci ? ' <span class="merci">(' + (fr ? 'merci ' : 'thanks ') + j.merci + ' !)</span>' : '')
         + '</li>').join('')
     + '</ul></div>').join('');
+  // LE NUMÉRO AFFICHÉ VIENT DU JOURNAL, ET DE LUI SEUL.
+  //
+  // Il était écrit en dur dans le HTML — « v1.05 » — et rien ne l'a jamais
+  // touché depuis. Vingt-deux versions plus tard le bouton l'affichait encore,
+  // et le menu avec lui : on appuyait sur « mise à jour », elle se faisait
+  // vraiment, et l'écran continuait d'annoncer la version d'il y a un mois. Le
+  // joueur n'a aucun moyen de savoir qu'il a la dernière, ce qui est
+  // exactement l'information que ce bouton doit porter.
+  //
+  // Un numéro écrit à deux endroits finit toujours par diverger. Il n'est donc
+  // plus écrit qu'une fois, en tête du journal, et l'étiquette le recopie.
+  if (blocs.length && versionBtn) {
+    versionBtn.textContent = 'v' + blocs[0].v;
+    versionBtn.dataset.fr = versionBtn.dataset.en = 'v' + blocs[0].v;
+  }
 }
 
 function majPause() {

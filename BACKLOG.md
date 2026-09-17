@@ -2104,3 +2104,25 @@ plantait au chargement. Comme `decouvertes` dans le hangar, comme `legendesN`
 avant lui. Tout ce qui décrit un terrain se construit maintenant à la première
 demande, et pas à l'évaluation du fichier.
 
+## Le bouton annonçait v1.05 depuis vingt-deux versions (v1.28)
+
+Son signalement : « j'ai cliqué sur le bouton mise à jour et ça reste à la
+version 1.05 ».
+
+La mise à jour marchait. C'est l'étiquette qui mentait : `<button
+id="versionBtn">v1.05</button>` était écrit **en dur dans le HTML**, et rien ne
+l'a jamais touché depuis la v1.05. Le menu le recopiait, donc il mentait aussi.
+
+C'est le pire cas possible pour ce bouton : sa seule raison d'être est de dire
+au joueur quelle version il a, et il disait toujours la même. On appuie sur
+« mise à jour », elle se fait vraiment, et l'écran continue d'annoncer la
+version d'il y a un mois — on ne peut pas savoir que ça a marché.
+
+Un numéro écrit à deux endroits finit toujours par diverger. Il n'est donc plus
+écrit qu'une fois, en tête du journal, et `rendJournal()` recopie ce numéro dans
+le bouton et dans son `dataset` — sans quoi la bascule de langue le réécrirait
+par-dessus. Le HTML ne porte plus rien.
+
+Mesuré : bouton `v1.28`, première ligne du journal `v1.28`, identiques avant et
+après changement de langue.
+
