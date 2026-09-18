@@ -2411,3 +2411,47 @@ c'est sûr. Aujourd'hui c'est un pari.
 ### Non-régression
 Atterrissage : toucher 162 m après le seuil, arrêt à **1,4 m du hangar**, 417 m
 de roulage en 9,5 s — identique à la v1.33.
+
+## v1.35 — la police est à nous
+
+### Ce qu'il y avait
+Trois balises vers Google : deux `preconnect` et une feuille de style. C'était
+la **seule** requête du jeu vers un tiers, et la seule chose que le service
+worker ne pouvait pas mettre dans son socle — une feuille d'une autre origine,
+dont les URL ne sont même pas lisibles depuis `sw.js`.
+
+### Deux fausses pistes, écartées par la mesure
+- `document.fonts.check('16px "IBM Plex Mono"')` renvoie **vrai** quand la
+  famille est inconnue : la question posée est « peux-tu rendre ce texte », et
+  la réponse est oui, avec une police système. Mon premier essai mesurait ça et
+  annonçait « tout va bien » sur une version où la police était absente.
+- `document.fonts` **n'énumère pas** les fontes déclarées dans une feuille de
+  style d'une autre origine : il rendait zéro là où la police était bien là.
+
+Reste une mesure honnête : la **largeur d'une chaîne rendue**. Si la police
+manque, elle tombe sur la monospace du système et les deux largeurs sont égales.
+
+### Mesuré, sur banc où Google est injoignable
+`MW0123456789ilj` à 16 px, police du jeu contre monospace du système :
+
+| | en ligne | hors réseau | Google bloqué | requêtes tierces |
+|---|---|---|---|---|
+| v1.34 | 144,49 = 144,49 | 144,49 = 144,49 | 144,49 = 144,49 | 1 |
+| v1.35 | **144,00** ≠ 144,49 | **144,00** ≠ 144,49 | **144,00** ≠ 144,49 | **0** |
+
+Partout où Google n'est pas joignable, la v1.34 rendait tout dans la monospace
+du téléphone. L'écart est d'un demi-pixel sur quinze caractères : on ne voit pas
+que c'est la mauvaise police, on voit seulement que les colonnes du HUD ne
+tombent pas juste.
+
+Et une correction à ce que j'avais avancé : le HUD **se redessine à chaque
+image**, donc une police qui arrive en retard se rattrape à l'image suivante.
+Le défaut n'est pas le retard, c'est l'absence.
+
+### Ce qui est fait
+Quatre `woff2`, **48 Ko** au total, les mêmes fichiers que ceux que Google
+servait : latin et latin-ext, graisses 400 et 500. Dans `vendor/plex/`, dans le
+socle du service worker, avec `font-display: block` et un `preload` des deux
+latins. Les `preconnect` sont retirés.
+
+`essais/police.mjs` — 6 vérifications, dont trois qui coupent le réseau.

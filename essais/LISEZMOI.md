@@ -46,6 +46,25 @@ la chaîne, il ne perce jamais son plafond, il est déterministe ; le tube va bi
 de 190 m à la bouche à 9 m au toucher ; le point visé tombe à 520 m en amont du
 centre de la piste principale. Instantané, aucune dépendance.
 
+## `police.mjs` — la police, y compris sans réseau
+
+Le seul essai qui coupe le réseau. Trois situations : en ligne, hors réseau
+après installation, et réseau présent mais Google injoignable.
+
+Il mesure la **largeur d'une chaîne rendue**, pas autre chose. Deux fausses
+pistes écartées en route :
+
+- `document.fonts.check('16px "IBM Plex Mono"')` renvoie **vrai** quand la
+  famille est inconnue — la question posée est « peux-tu rendre ce texte », et
+  la réponse est oui, avec une police système. Il ne dit rien de la police
+  voulue.
+- `document.fonts` **n'énumère pas** les fontes déclarées dans une feuille de
+  style d'une autre origine : sur la version qui chargeait Google Fonts, il
+  rendait zéro alors que la police était bien là.
+
+Reste la mesure : si la police manque, la chaîne tombe sur la monospace du
+système et les deux largeurs sont égales au centième près.
+
 ## Les faire tourner à chaque poussée
 
 `action-github.yml.exemple` est prêt et n'est pas activé :

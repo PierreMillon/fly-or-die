@@ -12,9 +12,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Fly or Die">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- LA POLICE EST À NOUS. Plus de preconnect, plus de requête vers Google : les
+     quatre fichiers sont dans vendor/plex/ et dans le socle du service worker.
+     On précharge les deux sous-ensembles latins — ceux qui portent tout le
+     français et tout l'anglais — pour qu'ils soient là avant la première image.
+     Les deux latin-ext suivent à la demande, pour les rares signes qui sortent. -->
+<link rel="preload" href="vendor/plex/plex-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/plex/plex-mono-500-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="jeu.css">
 </head>
 <body>
@@ -15526,6 +15530,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.35', fr: 'La police est dans le dépôt : le jeu ne demande plus rien à personne, et a la même tête sans réseau.', en: 'The typeface lives in the repository: the game asks nothing of anyone, and looks the same with no network.' },
   { v: '1.34', fr: 'La feuille de style et les calculs purs sortent du fichier : huit cent soixante-dix lignes et vingt-deux vérifications de moins à porter.', en: 'The stylesheet and the pure maths move out of the file: eight hundred and seventy lines and twenty-two checks lifted off it.' },
   { v: '1.34', fr: 'Le dépôt a enfin ses essais : le jeu démarre-t-il, et les calculs sont-ils justes.', en: 'The repository finally has its tests: does the game start, and is the maths right.' },
   { v: '1.34', fr: 'Les cent vingt et une propriétés de l’état sont décrites : une faute de frappe se voit maintenant à l’écriture.', en: 'All hundred and twenty-one state properties are described: a typo now shows while you type it.' },

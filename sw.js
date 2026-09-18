@@ -11,14 +11,14 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v1.34';
+const VERSION = 'v1.35';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
 // le dépôt, tout ce qui compte est de la même origine : plus rien à demander à
-// un CDN, donc plus rien qui puisse tomber. Les polices viennent d'ailleurs et
-// leurs URL sont écrites dans une feuille de style qu'on ne lit pas ici : elles
-// se mettent en cache toutes seules au premier passage.
+// un CDN, donc plus rien qui puisse tomber. La police non plus ne vient plus
+// d'ailleurs (v1.35) : elle est dans le socle, et une première ouverture sans
+// réseau a désormais exactement la même tête qu'une autre.
 const SOCLE = [
   './',
   './index.html',
@@ -27,6 +27,14 @@ const SOCLE = [
   // donnerait une page nue. C'est le seul prix du découpage, et il se paie ici.
   './jeu.css',
   './math.js',       // les calculs purs, sortis du fichier en v1.34
+  // LA POLICE, DANS LE SOCLE. C'était la dernière chose que le jeu allait
+  // chercher ailleurs, et la seule qui manquait à une première ouverture hors
+  // réseau. Quarante-huit kilooctets pour quatre fichiers : moins qu'une seule
+  // image du décor, et le jeu ne dépend plus de personne.
+  './vendor/plex/plex-mono-400-latin.woff2',
+  './vendor/plex/plex-mono-400-latin-ext.woff2',
+  './vendor/plex/plex-mono-500-latin.woff2',
+  './vendor/plex/plex-mono-500-latin-ext.woff2',
   './carte.html',
   './favicon.svg',
   './manifest.webmanifest',

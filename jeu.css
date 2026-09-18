@@ -9,6 +9,82 @@
    Elle est cachée par le service worker comme le reste : le jeu s'installe et
    se lance toujours sans réseau.
    ------------------------------------------------------------------------ */
+
+/* ---------------------------------------------------------------------------
+   LA POLICE EST DANS LE DÉPÔT.
+ 
+   Elle venait de Google Fonts. Trois conséquences, dont une grave :
+ 
+   — HORS RÉSEAU, LA PREMIÈRE FOIS, ELLE N'ARRIVE JAMAIS. Le jeu s'installe,
+     on le rouvre dans un avion ou un train, et tout le texte tombe sur la
+     police système du téléphone. Le service worker cache tout ce qui est de
+     la même origine ; Google Fonts n'en est pas, et ne se mettait en cache
+     qu'après un premier passage réussi. C'est exactement le cas d'usage d'un
+     jeu installable, et c'était le seul endroit où il cassait.
+ 
+   — UN JEU AU TRAIT SE LIT À SES CHIFFRES. L'échelle d'altitude, le compas, la
+     jauge de structure : tout est aligné au caractère, et une police non
+     monospace décale les colonnes. Le HUD se redessine à chaque image, donc
+     une police tardive se rattrape — mais une police absente, non.
+ 
+   — ET C'EST UNE REQUÊTE VERS UN TIERS, sur un jeu qui n'en fait aucune autre.
+ 
+   Quatre fichiers, quarante-huit kilooctets, les mêmes que ceux que Google
+   servait. Ils sont dans le socle du service worker : ils arrivent à
+   l'installation, avec le reste.
+   ------------------------------------------------------------------------ */
+  @font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 400;
+    /* BLOCK, ET PAS SWAP. Le fichier est à côté du jeu, sur la même origine,
+       préchargé : l'attente se compte en millisecondes. « swap » afficherait
+       une police système pendant ce temps-là, puis basculerait — c'est le
+       clignotement qu'on voit sur la moitié des sites. Si le fichier manquait
+       vraiment, le navigateur rendrait la main au bout de trois secondes. */
+    font-display: block;
+    src: url('vendor/plex/plex-mono-400-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 400;
+    /* BLOCK, ET PAS SWAP. Le fichier est à côté du jeu, sur la même origine,
+       préchargé : l'attente se compte en millisecondes. « swap » afficherait
+       une police système pendant ce temps-là, puis basculerait — c'est le
+       clignotement qu'on voit sur la moitié des sites. Si le fichier manquait
+       vraiment, le navigateur rendrait la main au bout de trois secondes. */
+    font-display: block;
+    src: url('vendor/plex/plex-mono-400-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 500;
+    /* BLOCK, ET PAS SWAP. Le fichier est à côté du jeu, sur la même origine,
+       préchargé : l'attente se compte en millisecondes. « swap » afficherait
+       une police système pendant ce temps-là, puis basculerait — c'est le
+       clignotement qu'on voit sur la moitié des sites. Si le fichier manquait
+       vraiment, le navigateur rendrait la main au bout de trois secondes. */
+    font-display: block;
+    src: url('vendor/plex/plex-mono-500-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: 'IBM Plex Mono';
+    font-style: normal;
+    font-weight: 500;
+    /* BLOCK, ET PAS SWAP. Le fichier est à côté du jeu, sur la même origine,
+       préchargé : l'attente se compte en millisecondes. « swap » afficherait
+       une police système pendant ce temps-là, puis basculerait — c'est le
+       clignotement qu'on voit sur la moitié des sites. Si le fichier manquait
+       vraiment, le navigateur rendrait la main au bout de trois secondes. */
+    font-display: block;
+    src: url('vendor/plex/plex-mono-500-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
   :root {
     --ph-line: #46ffa0;
     --ph-text: #8ffcc4;

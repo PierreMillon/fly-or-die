@@ -39,3 +39,6 @@ jobs:
 
       - name: Le test de fumée
         run: node essais/fumee.mjs http://127.0.0.1:8123
+
+      - name: La police, réseau coupé
+        run: node essais/police.mjs http://127.0.0.1:8123
