@@ -2349,3 +2349,65 @@ appareils. Non-régression : atterrissage à 1,3 m du hangar, 416 m en 9,1 s.
 ## À FAIRE
 
 Rien en attente. Les demandes en cours sont toutes traitées et mesurées.
+
+## v1.34 — le dépôt se tient debout tout seul
+
+Déclenché par une relecture extérieure. Trois de ses constats sont justes, deux
+de ses affirmations sont fausses, et la fausse était sa conclusion.
+
+### La démonstration qui tranche
+
+Il affirme, deux fois, qu'extraire le JavaScript dans un fichier séparé
+« supprime la classe de bugs d'ordre d'initialisation ». Vérifié sous node :
+
+```
+dans un module separe : ReferenceError : Cannot access 'TABLE' before initialization
+initialisation paresseuse : 1
+```
+
+La zone morte temporelle ne dépend pas du nom du fichier. Ce qui la supprime,
+c'est l'initialisation paresseuse — ce que fait déjà `pistes()` — ou une
+`function` déclarée, qui est hissée. Déplacer le code n'y change rien.
+
+Autres corrections : le fichier fait **17 657 lignes**, pas 5 000 ; `biaiseTrait`
+porte **deux** doses, 0,2 % pour les objets et 4 % pour le sol, et c'est la
+seconde qui fait tout ; `seuilLock` n'est **pas** une fonction pure — elle lit
+`state`, `eblouissement()` et trois découvertes ; le journal pèse 267 entrées,
+soit **1,5 %** du fichier, donc le sortir ne réglerait rien.
+
+### Ce qui est fait
+
+**`essais/` est versionné.** Il vivait dans `/tmp` et mourait avec la machine.
+
+- `fumee.mjs` — 9 vérifications dans un vrai Chromium : le moteur démarre,
+  l'état est exposé, la partie tourne, le décollage se termine, on est à 218 m
+  et 134 m/s, la première vague est lancée, la structure est entière, et rien
+  n'a été jeté dans la console.
+- `math.mjs` — 22 vérifications sous node nu, sans navigateur.
+- `action-github.yml.exemple` — prêt, non activé (tu as choisi le test seul).
+
+**`jeu.css`** — 870 lignes de style sorties. `index.html` passe de 17 657 à
+16 787 lignes. Vérifié : police, fond et bordures identiques, et le service
+worker le cache, donc l'installation hors réseau garde son habillage.
+
+**`math.js`** — les calculs qui ne connaissent ni l'écran, ni three.js, ni
+l'état : `hauteurSol`, `PISTE`, `tubeRayon`, `tubeHaut`, `viseDe`, `capPiste`,
+et leurs constantes. **Zéro erreur TypeScript** avec `// @ts-check`.
+
+**Le schéma de l'état** — les 121 propriétés décrites en JSDoc.
+
+### Pourquoi `// @ts-check` n'est pas sur index.html
+Mesuré avec TypeScript 6 : **2 183 erreurs** sur les 16 063 lignes du script,
+presque toutes des paramètres sans type. C'est un chantier, pas une soirée — et
+une vérification qu'on désactive parce qu'elle crie trop ne sert à rien.
+
+### Pourquoi le découpage en cinq modules n'est pas fait
+On ne remanie pas avant d'avoir des essais, on remanie après. Avec le test de
+fumée seul, redistribuer la boucle, l'IA, le HUD et l'audio dans cinq fichiers
+me dirait que le jeu se lance — pas que l'atterrissage s'est décalé de trois
+cents mètres. Le jour où `essais/` couvre l'atterrissage, le tonneau et le sol,
+c'est sûr. Aujourd'hui c'est un pari.
+
+### Non-régression
+Atterrissage : toucher 162 m après le seuil, arrêt à **1,4 m du hangar**, 417 m
+de roulage en 9,5 s — identique à la v1.33.

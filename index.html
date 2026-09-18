@@ -15,877 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --ph-line: #46ffa0;
-    --ph-text: #8ffcc4;
-    --ph-dim: rgba(70, 255, 160, 0.4);
-    --ph-fill: #0a1f16;
-    --ph-bg: #04070a;
-    --ph-chrome: #071812;
-  }
-
-  /* touch-action n'est pas une propriété héritée : la poser sur html et body
-     ne protégeait rien de ce qu'il y a dedans. Les canvas gardaient donc le
-     comportement par défaut, et sur iOS deux appuis rapprochés déclenchaient
-     le zoom-au-double-tap — ce qui décalait toute la page et laissait une
-     bande noire en bas. Exactement le geste qui sert à faire une figure. */
-  * { touch-action: none; }
-  /* seuls les panneaux doivent encore défiler au doigt */
-  /* Et sur tout ce qu'ils contiennent. touch-action n'est pas héritée : la
-     règle universelle ci-dessus la remettait à « none » sur chaque paragraphe,
-     chaque vignette, chaque titre. Or c'est l'élément où le doigt SE POSE qui
-     décide. Poser le doigt sur un texte du panneau bloquait donc le
-     défilement, et seule la mince bande de la barre de défilement — qui, elle,
-     appartient au panneau lui-même — répondait. */
-  #aide, #aide *, #changelog, #changelog *, #viseurs, #viseurs *,
-  #coop, #coop *, #overlay, #overlay *, #menu, #menu *, #infos, #infos *,
-  #install, #install *,
-  /* LA LETTRE N'Y ÉTAIT PAS. Elle défile depuis toujours — « touch-action:
-     pan-y » est écrit sur sa feuille — mais la règle universelle au-dessus
-     remettait « none » sur chaque paragraphe, et c'est l'élément où le doigt
-     SE POSE qui décide. Poser le doigt sur le texte d'Émilie ne faisait donc
-     rien, et il fallait viser la barre de défilement, à droite. On lit une
-     lettre en la poussant du pouce, n'importe où sur la page. */
-  #lettre, #lettre *, #carteMur, #carteMur *,
-  #guitare, #guitare * { touch-action: pan-y; }
-  /* ET SANS BARRE. Une barre de défilement dit « ceci est une page web ».
-     Une lettre n'en a pas : elle a un bord, et on la fait glisser. */
-  #lettre .feuille, #carteMur .papier, #guitare .papier { scrollbar-width: none; }
-  #lettre .feuille::-webkit-scrollbar, #carteMur .papier::-webkit-scrollbar,
-  #guitare .papier::-webkit-scrollbar { display: none; }
-  /* LA LOUPE DE L'IPHONE. Deux appuis rapprochés sur du texte font surgir un
-     ovale grossissant, celui de la sélection : il passe par-dessus le jeu au
-     moment précis où l'on fait une figure. Il ne naît que là où le texte est
-     sélectionnable, donc on l'interdit partout sauf dans les champs où l'on
-     tape vraiment. */
-  *:not(input):not(textarea) {
-    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
-  }
-
-  html, body {
-    margin: 0;
-    height: 100%;
-    overflow: hidden;
-    background: var(--ph-bg);
-    color: var(--ph-text);
-    touch-action: none;
-    overscroll-behavior: none;
-    font-family: "IBM Plex Mono", ui-monospace, monospace;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  canvas { display: block; }
-
-  /* la scène 3D et le calque HUD 2D occupent tous les deux tout l'écran,
-     le HUD par-dessus et transparent aux doigts (les gestes sont écoutés
-     sur window, pas sur un élément particulier) */
-  #scene, #hud {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
-  #hud { z-index: 5; pointer-events: none; }
-
-  #topbar, #bottombar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    z-index: 10;
-    background: var(--ph-chrome);
-    color: var(--ph-text);
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    overflow: hidden;
-  }
-  /* sur un téléphone étroit, tout doit pouvoir rétrécir plutôt que
-     pousser le bouton de version hors de l'écran */
-  #topbar > *, #bottombar > * { flex-shrink: 1; min-width: 0; white-space: nowrap; }
-  /* un nombre long ne doit pas passer par-dessus son voisin : chaque bloc
-     coupe ce qui déborde plutôt que de mordre sur le suivant */
-  #topbar > *, #bottombar > * { overflow: hidden; text-overflow: clip; }
-  /* COUPER N'EST PAS TENIR. « SCORE 3110 » finissait tronqué en « SCORE 311 »
-     par le bouton d'à côté : on lisait un score faux, ce qui est pire que pas
-     de score du tout. Les chiffres rétrécissent donc avec la largeur de
-     l'écran au lieu d'être rognés, et les boutons, dont le texte est fixe,
-     ne rétrécissent plus du tout — c'est la seule manière que tout tienne
-     sur un téléphone étroit sans que rien ne mente. */
-  #topbar .chiffre {
-    font-size: clamp(8.5px, 2.7vw, 12px);
-    letter-spacing: clamp(0.01em, 0.4vw, 0.08em);
-    flex: 0 1 auto;
-  }
-  #topbar button { flex-shrink: 0; }
-  @media (max-width: 420px) {
-    #topbar { gap: 5px; padding-left: 7px; padding-right: 7px; }
-  }
-  #bottombar #bouclierLbl { flex-shrink: 2; }
-
-  /* au-dessus du menu : sans ça les boutons du haut étaient couverts par
-     l'écran de titre, donc inaccessibles au moment précis où l'on veut
-     choisir son viseur */
-  /* LES BANDEAUX NE PRENNENT PLUS LE DOIGT. Ce sont deux bandes pleine
-     largeur : celle du bas ne porte que la jauge de vie, et c'est exactement
-     là qu'un pouce se pose. Tout contact qui y atterrissait était rejeté
-     comme un appui sur un bouton, et le manche ne démarrait pas — un
-     glissement sur deux qui ne prenait pas. Seuls les boutons restent
-     sensibles ; le reste laisse passer. */
-  #topbar, #bottombar { pointer-events: none; }
-  #topbar button { pointer-events: auto; }
-
-  /* LA VIE EN HAUT, LES BOUTONS EN BAS. On lit une jauge du coin de l'oeil en
-     haut de l'écran ; on touche un bouton avec le pouce en bas. Les deux
-     bandes ont donc échangé leur place : #bottombar porte la vie et se colle
-     en haut, #topbar porte le score et les boutons et descend. */
-  #topbar {
-    z-index: 40;
-    bottom: 0;
-    padding: 7px 10px calc(7px + env(safe-area-inset-bottom));
-  }
-  #bottombar {
-    top: 0;
-    padding: calc(7px + env(safe-area-inset-top)) 10px 7px;
-    justify-content: flex-start;
-  }
-
-  .spacer { flex: 1; }
-  .dim { color: var(--ph-dim); }
-
-  #viseurBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 5px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    padding: 3px 8px;
-    flex-shrink: 0;
-  }
-
-  #sonBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 5px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    padding: 3px 8px;
-    flex-shrink: 0;
-  }
-  #sonBtn.off { opacity: 0.3; }
-
-  #aideBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 5px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 11px;
-    padding: 3px 9px;
-    flex-shrink: 0;
-  }
-
-  #versionBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 5px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 11px;
-    padding: 3px 8px;
-    flex-shrink: 0;
-  }
-
-  #gauge {
-    display: inline-block;
-    width: 92px;
-    height: 8px;
-    border: 1px solid var(--ph-dim);
-    vertical-align: middle;
-  }
-  #gaugeFill {
-    display: block;
-    height: 100%;
-    width: 100%;
-    background: var(--ph-line);
-    transition: width 0.18s linear;
-  }
-
-  #aideLangue { display: flex; gap: 6px; justify-content: flex-end; margin: -2px 0 10px; }
-  #timbreBtn, #langBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 4px;
-    color: var(--ph-dim);
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    padding: 5px 10px;
-  }
-
-  #coop textarea {
-    width: 100%;
-    background: #04070a;
-    border: 1px solid var(--ph-dim);
-    border-radius: 4px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 10px;
-    padding: 6px;
-    resize: none;
-    margin: 0 0 8px;
-  }
-  #coop button {
-    background: var(--ph-fill);
-    border: 1px solid var(--ph-line);
-    border-radius: 5px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    padding: 9px 14px;
-    margin: 0 8px 10px 0;
-  }
-  #coopChoix { display: flex; gap: 8px; flex-wrap: wrap; }
-
-  /* Le carnet : des chiffres, donc des chiffres alignés. */
-  #carnet { border-top: 1px solid var(--ph-dim); margin-top: 14px; padding-top: 12px; }
-  #carnet dl {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 3px 12px;
-    margin: 0 0 10px;
-    font-size: 11.5px;
-  }
-  #carnet dt { color: var(--ph-dim); }
-  #carnet dd {
-    margin: 0;
-    color: var(--ph-text);
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
-  #carnet button {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 4px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    padding: 7px 12px;
-    margin-right: 6px;
-  }
-  /* Une branche sans porte de sortie est une impasse : on avait choisi une fois
-     pour toutes, et même en refermant le panneau on y revenait. */
-  #coop button.retour {
-    background: none;
-    border: 0;
-    color: var(--ph-dim);
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    padding: 0 0 8px;
-    display: block;
-  }
-  #coopEtat { color: var(--ph-line); }
-  #coopBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 6px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.18em;
-    padding: 10px 22px;
-    margin-top: 2px;
-  }
-
-  #viseurBtn, #sonBtn, #aideBtn, #versionBtn { display: none; }
-  #vagueBtn {
-    background: none;
-    border: 1px solid var(--ph-line);
-    border-radius: 5px;
-    color: var(--ph-line);
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    padding: 3px 7px;
-    flex-shrink: 0;
-    margin-left: 4px;
-  }
-  /* LE VIDE DU MILIEU. Le ressort poussait le bouton contre le bord opposé et
-     laissait un trou au centre de la bande ; les chiffres, eux, débordaient.
-     La bande se serre à gauche, tout est côte à côte, plus rien ne fuit. */
-  #topbar .spacer { flex: 0 0 6px; }
-  #topbar { justify-content: flex-start; }
-  #vagueBtn[hidden] { display: none; }
-  /* À L'ACCUEIL, LES DEUX BOUTONS PRENNENT TOUTE LA LARGEUR. En bas le MENU,
-     en haut le défi du jour : ce sont les deux seules choses à toucher sur cet
-     écran, et un pouce ne vise pas une pastille de quarante pixels. Le corps
-     porte la classe « accueil » tant que le panneau de titre est ouvert. */
-  /* LE DÉFI DESCEND DANS LA BANDE. Il était en pastille au-dessus du titre,
-     où il le gênait et où le pouce ne va pas. Il partage maintenant la bande
-     du bas avec MENU, moitié-moitié : les deux seules choses à toucher sur
-     cet écran sont côte à côte, en bas, et larges. */
-  body.accueil #defiBtn, body.accueil #menuBtn { flex: 1 1 0; min-width: 0; }
-  /* ET DÉCOLLER REMONTE AU-DESSUS DE L'AVION. Poussé tout en bas, il tombait
-     sous la cellule et le texte de série se retrouvait coincé entre les deux.
-     Il se pose maintenant un peu sous le texte, donc juste au-dessus du nez,
-     et tout le reste descend au bas de l'écran. */
-  /* DANS LE VIDE, PAS SUR L'AVION. Le texte d'accueil tenait trois lignes et
-     poussait le bouton en plein milieu de la cellule. Il ne reste qu'une
-     question, et le bouton se pose dans l'espace libre entre le record et le
-     nez de l'appareil. */
-  body.accueil #startBtn { margin-top: clamp(24px, 11vh, 120px); }
-  body.accueil #objectif { margin-top: auto; }
-  body.accueil #installBtn { margin-top: 0; }
-  body.accueil #topbar { padding-left: 10px; padding-right: 10px; }
-  /* les compteurs de partie n'ont rien à dire sur l'écran de titre : ils
-     laissaient pourtant leurs gouttières, et le bouton débordait d'autant */
-  body.accueil #topbar > span { display: none; }
-  body.accueil #menuBtn {
-    text-align: center; padding-top: 13px; padding-bottom: 13px; border-radius: 8px;
-  }
-  body.accueil #defiBtn {
-    text-align: center; padding-top: 13px; padding-bottom: 13px;
-    border-radius: 8px; font-size: 11px; letter-spacing: 0.14em;
-  }
-  #menuBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 5px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    padding: 3px 10px;
-    flex-shrink: 0;
-  }
-  #menu .ligne {
-    display: block;
-    width: 100%;
-    margin: 0 0 6px;
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 5px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    padding: 9px 10px;
-    text-align: left;
-  }
-  #menu .ligne[hidden] { display: none; }
-  /* LES TIROIRS. Un titre qui se lit comme un titre — plus large, plus
-     espacé, sans cadre — et son contenu légèrement rentré, pour qu'on voie
-     d'un coup d'œil ce qui appartient à quoi. Le chevron dit l'état, et il
-     est le seul ornement. */
-  #menu .groupe { margin: 0 0 6px; }
-  #menu .groupe > summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 11px 10px;
-    border: 0;
-    border-bottom: 1px solid var(--ph-dim);
-    color: var(--ph-line);
-    font-size: 11px;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-  }
-  #menu .groupe > summary::-webkit-details-marker { display: none; }
-  #menu .groupe > summary::before { content: "+  "; color: var(--ph-dim); }
-  #menu .groupe[open] > summary::before { content: "\2212  "; }
-  #menu .groupe[open] > summary { color: var(--ph-text); border-bottom-color: var(--ph-line); }
-  #menu .groupe > :not(summary) { margin-left: 10px; }
-  #menu .groupe > .ligne { width: calc(100% - 10px); }
-  #menu .groupe > :nth-child(2) { margin-top: 8px; }
-  #menu .aide { color: var(--ph-dim); font-size: 10px; letter-spacing: 0.12em; margin: 10px 0 6px; }
-  #menu .aide:first-child { margin-top: 0; }
-  /* les panneaux tombent sous la bande du haut, qui porte maintenant la vie */
-  #menu .puces { display: flex; flex-wrap: wrap; gap: 6px; }
-  #menu .puces button {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 4px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    padding: 5px 8px;
-  }
-  #menu .puces button.actif { border-color: var(--ph-line); background: var(--ph-fill); }
-  #menu .puces button.verrou { color: var(--ph-dim); }
-  #menu .puces button i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
-  /* LE DEFI MONTE DANS LA BANDE, DECOLLER DESCEND SOUS LE POUCE. Les deux
-     etaient au milieu de l'ecran, l'un sous l'autre : le plus gros bouton du
-     jeu se trouvait la ou la main n'est pas, et une proposition secondaire
-     lui volait la place. Le defi devient une pastille en haut a gauche. */
-  #defiBtn { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    background: none; border: 1px solid var(--ph-dim); border-radius: 6px;
-    color: var(--ph-text); font-family: inherit; font-size: 10px;
-    letter-spacing: 0.12em; padding: 7px 11px; }
-  #defiBtn[hidden] { display: none; }
-  /* LE PACTE DU DÉFI. On ne lance plus un défi d'un doigt distrait : la
-     fenêtre dit ce qu'il enlève, ce qu'il demande, ce qu'il rapporte, et
-     attend un oui. */
-  #pactDefi {
-    position: fixed; z-index: 50;
-    left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: min(92vw, 420px);
-    background: var(--ph-chrome); border: 1px solid var(--ph-line);
-    border-radius: 10px; padding: 20px 20px 18px;
-    display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 18px 60px rgba(0,0,0,0.65);
-  }
-  #pactDefi[hidden] { display: none; }
-  #pactDefi h2 {
-    margin: 0; font-size: 14px; letter-spacing: 0.16em;
-    color: var(--ph-line); font-weight: 500; line-height: 1.5;
-  }
-  #pactDefi p { margin: 0; font-size: 13px; line-height: 1.75; color: var(--ph-text); }
-  #pactPrime { color: var(--ph-dim) !important; font-size: 11.5px !important; letter-spacing: 0.08em; }
-  #pactDefi .pactBtns { display: flex; gap: 9px; margin-top: 2px; }
-  #pactDefi button {
-    flex: 1; font-family: inherit; font-size: 12px; letter-spacing: 0.16em;
-    padding: 13px 10px; border-radius: 6px; cursor: pointer;
-    background: none; border: 1px solid var(--ph-dim); color: var(--ph-text);
-  }
-  #pactOui { border-color: var(--ph-line) !important; background: var(--ph-fill) !important; }
-
-  #changelog, #aide, #viseurs, #coop, #install, #menu, #infos {
-    /* et les panneaux par-dessus tout */
-    position: fixed;
-    top: calc(38px + env(safe-area-inset-top));
-    right: 8px;
-    left: 8px;
-    max-width: 460px;
-    margin-left: auto;
-    max-height: 62vh;
-    overflow-y: auto;
-    z-index: 45;
-    background: var(--ph-chrome);
-    border: 1px solid var(--ph-dim);
-    border-radius: 6px;
-    padding: 12px 14px;
-    font-size: 12px;
-    line-height: 1.5;
-  }
-  #changelog[hidden], #aide[hidden], #viseurs[hidden], #coop[hidden],
-  #install[hidden], #menu[hidden], #infos[hidden] { display: none; }
-  #infos h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.14em; font-weight: 500; color: var(--ph-line); }
-  #infos p { margin: 0 0 8px; color: var(--ph-text); }
-  #infos .ligne, #menu .ligne.opt { display: block; width: 100%; margin: 0 0 6px; background: none; border: 1px solid var(--ph-dim); border-radius: 5px; color: var(--ph-text); font-family: inherit; font-size: 11px; letter-spacing: 0.1em; padding: 9px 10px; text-align: left; }
-  #infos .ligne.actif { border-color: var(--ph-line); background: var(--ph-fill); }
-  #infos input { width: 100%; box-sizing: border-box; background: none; border: 1px solid var(--ph-dim); border-radius: 5px; color: var(--ph-text); font-family: inherit; font-size: 13px; letter-spacing: 0.2em; padding: 9px 10px; text-transform: uppercase; }
-
-  /* INSTALLATION. Trois pas numérotés, parce qu'aucun navigateur ne sait
-     expliquer ça et qu'on ne peut pas le faire à la place du joueur sur iOS :
-     Apple n'expose aucune interface pour le proposer. On décrit donc le geste,
-     à l'endroit et au moment où il est utile. */
-  #install ol { margin: 0 0 12px; padding: 0; list-style: none; counter-reset: pas; }
-  #install ol li {
-    display: flex; gap: 11px; align-items: flex-start;
-    margin: 0 0 11px; counter-increment: pas; line-height: 1.55;
-  }
-  #install ol li::before {
-    content: counter(pas);
-    flex: 0 0 auto;
-    width: 22px; height: 22px; border-radius: 50%;
-    background: var(--ph-fill); border: 1px solid var(--ph-line);
-    color: var(--ph-line); font-size: 11px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  #install .fin { color: var(--ph-dim); font-size: 11px; line-height: 1.6; margin: 0; }
-  #install .fin b { color: var(--ph-text); font-weight: 500; }
-
-  /* La pastille du haut : elle ne se montre qu'après une première partie, et
-     une seule fois — un rappel n'est pas un harcèlement. */
-  #installPastille {
-    position: fixed;
-    top: calc(44px + env(safe-area-inset-top));
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 39;
-    background: rgba(7, 24, 18, 0.94);
-    border: 1px solid var(--ph-dim);
-    border-radius: 20px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    padding: 7px 15px;
-  }
-  #installPastille[hidden] { display: none; }
-
-  /* La bascule de version : le seul moment où le hors-ligne peut tromper. */
-  #majPastille {
-    position: fixed;
-    bottom: calc(52px + env(safe-area-inset-bottom));
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 44;
-    background: var(--ph-line);
-    border: 1px solid var(--ph-line);
-    border-radius: 20px;
-    color: #04070a;
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    padding: 9px 18px;
-  }
-  #majPastille[hidden] { display: none; }
-  #coopHote[hidden], #coopInvite[hidden], #coopEtape2[hidden] { display: none; }
-  #viseurs .grille {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-    gap: 8px;
-  }
-  #viseurs .item {
-    border: 1px solid var(--ph-dim);
-    border-radius: 6px;
-    padding: 6px 4px 5px;
-    text-align: center;
-  }
-  #viseurs .item.actif { border-color: var(--ph-line); background: var(--ph-fill); }
-  #viseurs .item canvas { display: block; margin: 0 auto 3px; }
-  #viseurs .item .n { font-size: 9px; letter-spacing: 0.1em; color: var(--ph-text); }
-  #viseurs .item.verrou .n { color: var(--ph-dim); }
-  #viseurs .item button {
-    margin-top: 4px;
-    width: 100%;
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 4px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 9px;
-    letter-spacing: 0.06em;
-    padding: 3px 0;
-  }
-  #coop .aide, #viseurs .aide { color: var(--ph-dim); font-size: 11px; margin: 0 0 10px; line-height: 1.6; }
-  #changelog div, #aide p { margin: 0 0 8px; }
-  /* le numéro de version est un titre, la liste est en dessous */
-  #changelog .bloc { margin: 0 0 16px; }
-  #changelog .bloc b { display: block; margin-bottom: 5px; letter-spacing: 0.08em; }
-  #changelog .bloc ul { margin: 0; padding: 0 0 0 15px; list-style: none; }
-  #changelog .bloc li { margin: 0 0 5px; position: relative; }
-  #changelog .bloc li::before {
-    content: '—'; position: absolute; left: -15px; opacity: 0.45;
-  }
-  #changelog .bloc li:last-child { margin-bottom: 0; }
-  #changelog .merci { color: var(--ph-line); }
-  #changelog div:last-child, #aide p:last-child { margin-bottom: 0; }
-  #changelog b, #aide b { color: var(--ph-line); }
-  #aide h2 {
-    margin: 16px 0 7px;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.22em;
-    color: var(--ph-line);
-  }
-  #aide h2:first-child { margin-top: 0; }
-  #aide .eq {
-    margin: 9px 0;
-    text-align: center;
-    color: var(--ph-line);
-    letter-spacing: 0.06em;
-  }
-  #aide .src { color: var(--ph-dim); font-size: 11px; }
-
-  #overlay {
-    position: fixed;
-    /* Pas « inset: 0 ». Sur iOS un élément fixe se cale sur la GRANDE fenêtre,
-       celle qu'on aurait si la barre du navigateur se repliait — pas sur ce
-       qu'on voit. Le menu était donc dessiné pour une hauteur qui n'existait
-       pas, et sa dernière ligne se retrouvait sous la barre d'outils de
-       Safari. dvh suit la fenêtre réellement visible, seconde par seconde. */
-    top: 0; left: 0; right: 0;
-    height: 100vh; height: 100dvh;
-    box-sizing: border-box;
-    z-index: 30;
-    /* dégradé plutôt qu'un voile plein : le texte reste lisible en haut,
-       et l'avion posé au sol se voit en bas */
-    background: linear-gradient(to bottom,
-      rgba(4, 7, 10, 0.96) 0%,
-      rgba(4, 7, 10, 0.9) 42%,
-      rgba(4, 7, 10, 0.45) 62%,
-      rgba(4, 7, 10, 0.1) 80%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    /* Sur un téléphone en 5G avec la barre du navigateur et la barre de vie,
-       les cinq lignes du menu de mort ne tiennent pas dans ce qui reste :
-       le dernier bouton passait sous la jauge. Les espaces suivent donc la
-       hauteur disponible, et ce qui déborde encore se fait défiler. */
-    gap: clamp(9px, 2vh, 18px);
-    /* le bas réserve la hauteur de la barre de vie, qui passe par-dessus */
-    padding: clamp(26px, 11vh, 150px) 24px
-             calc(58px + env(safe-area-inset-bottom, 0px));
-    text-align: center;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-  #overlay > * { flex: 0 0 auto; }
-  #overlay[hidden] { display: none; }
-
-  #overlay h1 {
-    margin: 0;
-    font-size: clamp(1.5rem, 8vw, 2.6rem);
-    font-weight: 500;
-    letter-spacing: 0.28em;
-    color: var(--ph-line);
-    text-shadow: 0 0 18px var(--ph-dim);
-  }
-  #overlayText { margin: 0; font-size: 13px; line-height: 1.7; color: var(--ph-text); max-width: 30em; }
-  #overlayScore { margin: 0; font-size: 13px; color: var(--ph-dim); letter-spacing: 0.15em; line-height: 1.9; }
-  #overlayScore b { color: var(--ph-line); font-weight: 500; }
-  #gaugeFill.bonus { background: #ffd166; box-shadow: 0 0 8px #ffd166; }
-  #objectif { margin: 0; font-size: 12px; color: var(--ph-dim); letter-spacing: 0.12em; line-height: 1.8; max-width: 30em; }
-  #objectif b { color: var(--ph-line); font-weight: 500; }
-  #objectif[hidden] { display: none; }
-  #partageBtn[hidden], #installBtn[hidden] { display: none; }
-
-  #videoBtn, #installBtn, #partageBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 6px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    padding: 10px 18px;
-    max-width: 90vw;
-  }
-  #videoBtn[disabled] { opacity: 0.35; }
-
-  /* Le bouton de remise en l'air, posé bas et large : on y va au pouce, sans
-     regarder, pendant qu'on se fait tirer dessus au sol. */
-  #redecoBtn {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: calc(52px + env(safe-area-inset-bottom));
-    z-index: 42;
-    background: var(--ph-fill);
-    border: 1px solid var(--ph-line);
-    border-radius: 6px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 13px;
-    letter-spacing: 0.2em;
-    padding: 13px 30px;
-  }
-  #redecoBtn[hidden] { display: none; }
-  /* LE BOUTON D'ACTION. Même place que REDÉCOLLER mais juste au-dessus : on
-     n'a jamais les deux à la fois, sauf debout à côté de l'appareil, et alors
-     ils se lisent l'un sous l'autre sans se marcher dessus. */
-  #actionBtn {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: calc(112px + env(safe-area-inset-bottom));
-    z-index: 42;
-    background: var(--ph-fill);
-    border: 1px solid var(--ph-line);
-    border-radius: 6px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 13px;
-    letter-spacing: 0.2em;
-    padding: 13px 30px;
-  }
-  #actionBtn[hidden] { display: none; }
-  /* LA LETTRE. Du papier, pas un panneau de jeu : elle est plus étroite que
-     l'écran, elle respire, et son texte est le seul du jeu qui ne soit pas en
-     capitales — parce que personne n'écrit une lettre en capitales. */
-  #lettre {
-    position: fixed; inset: 0; z-index: 70;
-    /* OPAQUE, PAS PRESQUE. À 0,94 on lisait encore les boutons du jeu au
-       travers du papier : READ, TAKE OFF AGAIN, la barre du bas. Une lettre
-       qu'on ouvre remplace l'écran, elle ne le recouvre pas à moitié. */
-    background: var(--ph-bg);
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px 20px;
-  }
-  #lettre[hidden] { display: none; }
-  body.lit #topbar, body.lit #bottombar, body.lit #hud { visibility: hidden; }
-  #lettre .feuille {
-    max-width: 30rem; width: 100%;
-    border: 1px solid var(--ph-dim);
-    padding: 26px 22px 18px;
-    max-height: 100%; overflow-y: auto;
-    touch-action: pan-y;               /* elle défile au doigt */
-    -webkit-overflow-scrolling: touch;
-  }
-  #lettre .ecrit {
-    margin: 0 0 18px; color: var(--ph-text);
-    font-size: 15px; line-height: 1.85; text-transform: none;
-    letter-spacing: 0.02em; white-space: pre-line;
-  }
-  /* LA MÊME ÉCRITURE, JUSQU'AU NOM. La formule était à quinze pixels et le nom
-     à dix-sept, dans une autre couleur : trois écritures dans une lettre écrite
-     à la main par une seule personne. Tout est maintenant du même corps, de la
-     même couleur et de la même graisse que le texte — seul l'alignement change,
-     parce qu'une signature se met à droite. */
-  #lettre .signe, #lettre .nom {
-    margin: 0; color: var(--ph-text);
-    font-size: 15px; line-height: 1.85; text-align: right; text-transform: none;
-    letter-spacing: 0.02em;
-  }
-  #lettre .nom { margin-bottom: 24px; }
-  #lettre button {
-    display: block; margin: 0 auto;
-    background: transparent; border: 1px solid var(--ph-dim); border-radius: 4px;
-    color: var(--ph-text); font-family: inherit; font-size: 12px;
-    letter-spacing: 0.22em; padding: 10px 26px;
-  }
-
-  /* LA CARTE DU MUR. Même papier que la lettre — c'est la même maison, la même
-     main — mais elle porte un dessin plutôt qu'un texte, et elle se traduit :
-     ce n'est pas un mot pour quelqu'un, c'est une indication pour qui vient. */
-  #carteMur, #guitare {
-    position: fixed; inset: 0; z-index: 70;
-    background: var(--ph-bg);
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px 20px;
-  }
-  #carteMur[hidden], #guitare[hidden] { display: none; }
-  /* « display: block » sur les boutons l'emportait sur l'attribut hidden :
-     « LA REGARDER » restait affiché après qu'on avait regardé. */
-  #guitare button[hidden] { display: none; }
-  #guitare button { margin-bottom: 10px; }
-  #guitare button:last-child { margin-bottom: 0; }
-  #carteMur .papier, #guitare .papier {
-    max-width: 30rem; width: 100%;
-    border: 1px solid var(--ph-dim);
-    padding: 22px 20px 16px;
-    max-height: 100%; overflow-y: auto;
-    touch-action: pan-y;
-    -webkit-overflow-scrolling: touch;
-  }
-  #carteMur .titre, #guitare .titre {
-    margin: 0 0 16px; color: var(--ph-text);
-    font-size: 12px; letter-spacing: 0.22em; text-align: center;
-  }
-  #carteMur svg { display: block; width: 100%; height: auto; color: var(--ph-text); }
-  #carteMur .note, #guitare .note {
-    margin: 16px 0 20px; color: var(--ph-text);
-    font-size: 14px; line-height: 1.8; text-transform: none; letter-spacing: 0.02em;
-  }
-  #carteMur button, #guitare button {
-    display: block; margin: 0 auto;
-    background: transparent; border: 1px solid var(--ph-dim); border-radius: 4px;
-    color: var(--ph-text); font-family: inherit; font-size: 12px;
-    letter-spacing: 0.22em; padding: 10px 26px;
-  }
-
-  /* POSER : même place que REDÉCOLLER, un cran plus haut. Il n'apparaît que
-     quand la piste est devant et lisible, et il bat quand on est sur le plan —
-     c'est le seul moment où appuyer sert à quelque chose. */
-  #poserBtn {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: calc(52px + env(safe-area-inset-bottom));
-    z-index: 41;
-    background: rgba(4, 7, 10, 0.55);
-    border: 1px solid var(--ph-dim);
-    border-radius: 6px;
-    color: var(--ph-dim);
-    font-family: inherit;
-    font-size: 13px;
-    letter-spacing: 0.2em;
-    padding: 13px 30px;
-  }
-  #poserBtn[hidden] { display: none; }
-  #poserBtn { background-image: linear-gradient(90deg, var(--ph-fill) 0, var(--ph-fill) calc(var(--charge, 0) * 100%), transparent calc(var(--charge, 0) * 100%)); }
-  #poserBtn.pret {
-    color: #04070a;
-    background: var(--ph-line);
-    border-color: var(--ph-line);
-    animation: battementPose 0.9s ease-in-out infinite;
-  }
-  /* Engagé, il doit se lire autrement que prêt : plein et battant, c'est une
-     invitation ; creux et vif, c'est un état. Les deux se ressemblaient trait
-     pour trait et l'on ne savait plus si le pilote automatique tenait le
-     manche ou non. */
-  #poserBtn.actif {
-    color: var(--ph-line);
-    background: rgba(70, 255, 160, 0.12);
-    border-color: var(--ph-line);
-    animation: none;
-  }
-  @keyframes battementPose {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(70, 255, 160, 0.5); }
-    55%       { box-shadow: 0 0 0 13px rgba(70, 255, 160, 0); }
-  }
-  @media (prefers-reduced-motion: reduce) { #poserBtn.pret { animation: none; } }
-
-  #expliqueBtn {
-    background: none;
-    border: 1px solid var(--ph-dim);
-    border-radius: 6px;
-    color: var(--ph-dim);
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    padding: 9px 18px;
-    margin-top: 4px;
-  }
-  #expliqueBtn[hidden], #plusJamais[hidden] { display: none; }
-  #plusJamais {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--ph-dim);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    margin-top: -2px;
-  }
-  #plusJamais input { accent-color: var(--ph-line); margin: 0; }
-
-  #startBtn {
-    /* pousse le bouton en bas de la colonne : c'est la que le pouce arrive */
-    margin-top: auto;
-    background: var(--ph-fill);
-    border: 1px solid var(--ph-line);
-    border-radius: 6px;
-    color: var(--ph-text);
-    font-family: inherit;
-    font-size: 15px;
-    letter-spacing: 0.24em;
-    padding: 16px 26px;
-    width: min(92vw, 460px);
-  }
-  #coopBtn { display: none; }
-  /* LE RAPPORT DE VOL. Dix-huit lignes de chiffres débordaient de l'écran de
-     fin et passaient sous la bande du bas. Elles vivent maintenant dans leur
-     propre panneau, qui défile, et l'écran de fin ne garde que ce qu'on lit
-     vraiment tout de suite : le score, le record, et qui vous a eu. */
-  #statsBtn {
-    background: none; border: 1px solid var(--ph-dim); border-radius: 6px;
-    color: var(--ph-text); font-family: inherit; font-size: 11px;
-    letter-spacing: 0.16em; padding: 11px 18px;
-  }
-  #statsBtn[hidden] { display: none; }
-  #stats { margin: 0; font-size: 12px; color: var(--ph-dim); letter-spacing: 0.06em; line-height: 1.9; text-align: left; }
-  #stats b { color: var(--ph-text); font-weight: 500; }
-  #stats[hidden] { display: none; }
-  /* à l'accueil et à la fin, ni vie ni chiffres : ils n'apparaissent qu'en vol */
-  body.accueil #bottombar, body.accueil #topbar .chiffre { visibility: hidden; }
-  /* la barre de vie, désormais en haut, laisse la place au titre */
-</style>
+<link rel="stylesheet" href="jeu.css">
 </head>
 <body>
 
@@ -1558,6 +688,15 @@
 
 <script type="module">
 import * as THREE from 'three';
+// LES CALCULS PURS VIVENT À PART. Ce ne sont pas des morceaux de jeu : ce sont
+// des fonctions qui rendent toujours la même chose, et qui se vérifient sans
+// navigateur. Les sortir d'ici, c'est pouvoir les tester ; les laisser, c'était
+// les mesurer à travers dix-sept mille lignes.
+import {
+  borne, hauteurSol, PISTE, PENTE_CIBLE, viseDe, capPiste, tubeRayon, tubeHaut,
+  TERRAIN_R0, TERRAIN_R1, TERRAIN_R2, TERRAIN_R3, TERRAIN_H,
+  TOUCHER_APRES, TUBE_DIST, TUBE_R0, TUBE_R1
+} from './math.js';
 
 // ---------------------------------------------------------------------------
 // constantes de vol et de combat
@@ -4597,8 +3736,6 @@ const GRID_SPAN = 8400, GRID_STEP = 160;
 // ligne de bruit à stocker. La fonction est pure, donc la même partout et
 // toujours — le décor, la collision et le dessin lisent le même sol.
 // ---------------------------------------------------------------------------
-const TERRAIN_R0 = 2400;      // jusque-là, parfaitement plat : c'est la ville
-const TERRAIN_R1 = 5600;      // là, le relief est à pleine amplitude
 // ET LA PLAINE REVIENT DERRIÈRE. Le relief montait et ne redescendait plus :
 // tout ce qui est au-delà de la ville était montagne, pour toujours. On ne
 // pouvait donc rien poser dehors — et le refuge, posé à l'ouest, se retrouvait
@@ -4606,8 +3743,6 @@ const TERRAIN_R1 = 5600;      // là, le relief est à pleine amplitude
 // R1 et R2, et de nouveau plate au-delà de R3. Franchir la crête, c'est
 // déboucher sur une plaine vide, et c'est là que vit ce qui n'est sur aucune
 // carte.
-const TERRAIN_R2 = 7200;      // fin du plateau montagneux
-const TERRAIN_R3 = 8800;      // au-delà, plat de nouveau : la plaine du dehors
 // DEUX À TROIS FOIS LA PLUS HAUTE TOUR. La tour percée culmine à 330 mètres.
 // Quatre cent vingt mètres de dénivelé, écrasés par le creusement en u², ne
 // donnaient en pratique que des bosses de deux cents : la chaîne ne dominait
@@ -4619,26 +3754,6 @@ const TERRAIN_R3 = 8800;      // au-delà, plat de nouveau : la plaine du dehors
 // les trois ondulations se rencontrent qui montent à sept ou neuf cents — et
 // celles-là, il faut vraiment décider de les franchir. Le plafond est à 2400 :
 // il reste quinze cents mètres au-dessus du plus haut sommet.
-const TERRAIN_H  = 980;       // mètres de dénivelé au plus fort
-function hauteurSol(x, z) {
-  const d = Math.hypot(x, z);
-  if (d <= TERRAIN_R0 || d >= TERRAIN_R3) return 0;
-  // une enveloppe en cloche : elle monte de R0 à R1, tient jusqu'à R2, puis
-  // retombe jusqu'à R3. Les deux flancs sont lissés de la même façon, donc
-  // aucune cassure ni d'un côté ni de l'autre.
-  let k;
-  if (d < TERRAIN_R1) k = (d - TERRAIN_R0) / (TERRAIN_R1 - TERRAIN_R0);
-  else if (d <= TERRAIN_R2) k = 1;
-  else k = 1 - (d - TERRAIN_R2) / (TERRAIN_R3 - TERRAIN_R2);
-  if (k > 1) k = 1; else if (k < 0) k = 0;
-  k = k * k * (3 - 2 * k);                        // montée douce, sans cassure
-  const n = Math.sin(x / 640) * Math.cos(z / 517)
-          + 0.55 * Math.sin(x / 263 + 1.7) * Math.cos(z / 311 - 0.4)
-          + 0.28 * Math.sin((x + z) / 149 + 2.6);
-  // ramené dans 0..1 puis creusé : des vallées larges et des crêtes franches
-  const u = (n / 1.83 + 1) / 2;
-  return k * TERRAIN_H * u * u;
-}
 
 let gridSnapX = 1e9, gridSnapZ = 1e9;
 function batisGrille(cx, cz) {
@@ -5789,12 +4904,6 @@ function dessineTraits(k) {
 // Elle est orientée plein nord, cap 360, d'où le 36 peint au seuil sud et le 18
 // au seuil nord — la convention des aérodromes, le cap divisé par dix.
 // ---------------------------------------------------------------------------
-const PISTE = {
-  demiL: 23,        // demi-largeur
-  z0: 260,          // seuil arrière, derrière l'avion
-  z1: -900,         // seuil avant
-  y: 0.7            // juste au-dessus de la grille, pour ne pas cligner avec elle
-};
 // ATTERRISSAGE. Passer bas et dans l'axe au-dessus de la piste suffit : on se
 // pose, sans rien demander. C'est le seul endroit du monde où l'on peut
 // reprendre de la vie en quantité, et c'est aussi le seul où l'on ne peut ni
@@ -5982,7 +5091,6 @@ function ecrisEnZ(p, txt, xs, y0, z0, ech) {
 // ---------------------------------------------------------------------------
 const PAPI_Z = (PISTE.z0 + PISTE.z1) / 2;   // le point visé : le milieu
 const PAPI_X0 = 34, PAPI_PAS = 8;
-const PENTE_CIBLE = 3 * Math.PI / 180;
 // du plus près de la piste au plus loin. Le plus près est réglé le plus haut :
 // c'est lui qui vire au blanc en premier quand on remonte.
 const PAPI_ECARTS = [0.5, 1 / 6, -1 / 6, -0.5].map(d => d * Math.PI / 180);
@@ -6037,8 +5145,6 @@ const SOL_EFFET     = 0.20;   // ce qu'il rend, au contact du sol
 // TOUCHER_APRES mètres après le seuil de la piste en service, quelle qu'elle
 // soit : la mesure se prend sur SA longueur, pas sur un nombre écrit une fois
 // pour la principale.
-const TOUCHER_APRES = 60;     // mètres après le seuil : le point que vise le tube
-const viseDe = P => Math.max(40, P.long / 2 - TOUCHER_APRES);   // en amont du repère de la piste
 // LE TUBE GUIDE, IL NE POUSSE PAS. L'approche assistée accélérait d'un tiers
 // pour « aller vite » ; accélérer pendant une approche est le contraire de ce
 // qu'on veut, et c'est elle qui faisait flotter l'appareil au-dessus du bitume.
@@ -6078,7 +5184,6 @@ const ALIGN_TENUE   = 2;      // gardée pour la jauge du collimateur
 // mètres entre dedans. Et elle se resserre toujours à neuf mètres au toucher,
 // donc la sortie reste aussi précise qu'avant. Large à l'entrée, étroit à la
 // sortie : c'est la définition d'un entonnoir, et je ne l'avais pas respectée.
-const TUBE_DIST = 1800;       // longueur du couloir, depuis le point visé
 // QUARANTE MÈTRES À L'ENTRÉE, ET NON VINGT-SIX. Mesuré : arrivé en palier à
 // cinquante-huit mètres — la hauteur normale d'un retour de vague — on passait
 // juste à côté de la bouche et le tube ne prenait jamais. Une entrée
@@ -6089,8 +5194,6 @@ const TUBE_DIST = 1800;       // longueur du couloir, depuis le point visé
 // rayon, la bouche va du sol à deux cent trente mètres et laisse passer celui
 // qui rentre à deux cent quarante — l'altitude d'un retour de vague un peu
 // haut. Trente de plus, et il n'y a plus d'arrivée raisonnable qui la manque.
-const TUBE_R0 = 190;          // rayon à l'entrée
-const TUBE_R1 = 9;            // rayon à la sortie, au-dessus du toucher
 const TUBE_ANNEAUX = 12;      // plus long, donc un peu plus d'anneaux
 // DEUX, ET NON 1,15. Mesuré : entré par le haut de la bouche, la prise valait
 // 0,28, donc un rappel de 0,32 rad/s — trop faible pour ramener vers le centre
@@ -6112,12 +5215,7 @@ const TUBE_LACHE = 0.78;      // au-delà de cette poussée au manche, il lâche
 const APPROCHE_VIT = 62;
 
 // le rayon du tube à une distance donnée du point visé
-function tubeRayon(d) {
-  const u = THREE.MathUtils.clamp(d / TUBE_DIST, 0, 1);
-  return TUBE_R1 + (TUBE_R0 - TUBE_R1) * u;
-}
 // la hauteur de l'axe du tube à cette distance
-function tubeHaut(d) { return PISTE.y + d * Math.tan(PENTE_CIBLE); }
 
 // ---------------------------------------------------------------------------
 // TOUTES LES PISTES DU MONDE, DANS UNE TABLE.
@@ -6150,7 +5248,6 @@ function pistes() {
 // LE CAP D'ATTERRISSAGE D'UNE PISTE, dans le sens demandé. Le « sens » garde le
 // signe qu'il avait sur la piste principale — moins un veut dire cap nord — et
 // vaut pour toutes : c'est le même mot partout.
-const capPiste = (P, sens) => sens < 0 ? P.cap : P.cap + Math.PI;
 // On se pose contre la manche : de ses deux caps possibles, celui qui va le
 // plus franchement à l'encontre du vent.
 function sensAuVentDe(P) {
@@ -8829,6 +7926,150 @@ function spawnBurst(pos, scale) {
 // ---------------------------------------------------------------------------
 // état de la partie
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// LE SCHÉMA DE L'ÉTAT.
+//
+// `state` porte cent vingt et une propriétés. Rien ne les décrivait, et une
+// faute de frappe — `state.stucture` au lieu de `state.structure` — ne lève
+// aucune erreur en JavaScript : elle rend `undefined`, le calcul donne NaN, et
+// le défaut apparaît trois écrans plus loin sous une forme qui n'a plus rien à
+// voir avec sa cause.
+//
+// Ce bloc donne à l'éditeur de quoi les attraper à l'écriture. Il ne change
+// rien à l'exécution : c'est un commentaire.
+//
+// POURQUOI PAS « // @ts-check » SUR CE FICHIER. Mesuré avec TypeScript 6 :
+// 2 183 erreurs sur les seize mille lignes du script, presque toutes des
+// paramètres sans type. Les corriger est un chantier, pas une soirée, et une
+// vérification qu'on désactive parce qu'elle crie trop ne sert à rien. Elle est
+// donc active là où elle est propre — math.js, zéro erreur — et ce fichier
+// n'aura la sienne que quand le compte sera tombé.
+//
+/**
+ * @typedef {Object} EtatDuJeu
+ * @property {boolean} running
+ * @property {number} speed
+ * @property {number} yaw
+ * @property {number} pitch
+ * @property {number} roll
+ * @property {THREE.Quaternion} quat
+ * @property {number} camYaw
+ * @property {number} camPitch
+ * @property {number} camRoll
+ * @property {number} structure
+ * @property {number} score
+ * @property {number} wave
+ * @property {number} waveTimer
+ * @property {string} announce
+ * @property {number} announceT
+ * @property {string} announceSous
+ * @property {number} hitFlash
+ * @property {number} peine
+ * @property {number} chauffe
+ * @property {number} regime
+ * @property {number} boostFin
+ * @property {number} boostPortail   secondes de poussée offertes par un portail
+ * @property {Object} suite   avancement de chaque figure de CIEL_SUITE
+ * @property {Object} suiteFaite   celles qui sont deja tracees
+ * @property {boolean} dehorsDeja   la chaine a deja ete franchie : la musique ne part qu'une fois
+ * @property {boolean} pivot   la Polaire : plus jamais de vrille
+ * @property {boolean} coque   Cassiopee : les mecaniciens reparent deux fois plus vite
+ * @property {boolean} pleiades   le marche des Pleiades : viseur fin, canons plus forts
+ * @property {number} sirius   secondes d'eblouissement adverse
+ * @property {number} orionN   etoiles d'Orion deja touchees
+ * @property {number} orionT
+ * @property {boolean} orionFaite
+ * @property {number} chasse   secondes de chasse ouvertes par Orion
+ * @property {number} chaine   portails enchaînés d'affilée
+ * @property {number} chaineT   secondes qui restent pour attraper le suivant
+ * @property {number} secousse   secondes de tremblement : la catapulte se sent dans l'image
+ * @property {number} boost
+ * @property {number} boostT
+ * @property {any} recordBattu
+ * @property {Array<any>} impacts
+ * @property {number} eclipse   secondes d'éclipse restantes
+ * @property {number} solTir   secondes de tir cumulées en plein éblouissement
+ * @property {number} dore   secondes de bouclier doré restantes
+ * @property {number} doreVague   la vague où le bouclier doré a déjà été pris
+ * @property {number} solDans   secondes tenues le nez dans le disque
+ * @property {number} etoileT   repos avant la prochaine étoile filante
+ * @property {number} forme   -1 en difficulté, +1 en pleine forme : la courbe s'y adapte
+ * @property {?Object} stats   les compteurs de la partie, pour l'écran de fin
+ * @property {boolean} defi   parti de la vague 5, chaque point vaut une fois et demie
+ * @property {number} objN   avancement de l'objectif du jour dans cette partie
+ * @property {boolean} vagueTouche
+ * @property {number} vagueT
+ * @property {number} dureeVol   secondes de vol de la partie en cours, pour le carnet
+ * @property {number} reprises   reprises consommées dans cette partie
+ * @property {number} vagueLimite
+ * @property {boolean} paused
+ * @property {Array<any>} enemies
+ * @property {Array<any>} bullets
+ * @property {?Object} lock
+ * @property {number} lockT
+ * @property {Array<any>} shots
+ * @property {number} gunT
+ * @property {Array<any>} roquettes
+ * @property {Array<any>} roqEnnemies   les leurs
+ * @property {boolean} courant   l'ancien est couché dans un courant d'air
+ * @property {number} courantK   de zéro à un : ce que le courant donne en ce moment
+ * @property {?Object} pied   quand on marche : le bonhomme a pris la main
+ * @property {?Object} jeep   quand on conduit : la Jeep a pris la main
+ * @property {?Object} action   ce que le bouton du bas propose ici, s'il propose
+ * @property {number} alerte   secondes d'alerte roquette à l'écran
+ * @property {number} lockedT   repos entre deux avertissements LOCKED
+ * @property {number} lockTenu   secondes de verrouillage plein tenu : ça vibre
+ * @property {number} decrocheT   secondes passées trop lent et trop cabré
+ * @property {?Object} vrille   la vrille en cours { t, side, sortie }
+ * @property {number} vrilleRoll
+ * @property {number} roquettesN   ce qu'il reste sous les ailes
+ * @property {number} leurres   les leurres en soute : ils partent seuls quand une roquette arrive
+ * @property {Array<any>} leurresActifs   ceux qui brûlent encore, pour les voir tomber
+ * @property {boolean} leurresPleins
+ * @property {boolean} mecanosEnRoute   ils ont quitté la table pour venir nous attendre
+ * @property {number} vieMax   le plafond de la jauge : les portails le repoussent pour la partie
+ * @property {Object} trous   les trous à figure pris dans cette partie : les trois donnent l'ailier
+ * @property {?Object} ailier   l'ailier en vol { mesh, pos, quat }
+ * @property {?Object} triche   les codes secrets actifs : la partie ne compte plus
+ * @property {number} fuiteT   secondes passées trop loin de la piste
+ * @property {boolean} faucheur   le faucheur est lâché
+ * @property {?Object} dernierTireur   qui nous a touché en dernier : l'écran de fin le dit
+ * @property {boolean} ourseFaite   le chariot est tracé : le refuge est sur la boussole
+ * @property {number} ourseN   combien d'étoiles du chariot sont déjà allumées
+ * @property {number} ourseT   secondes passées sur la suivante
+ * @property {number} bergerT   secondes passées sur Vénus
+ * @property {boolean} bergerPris   une fois par partie
+ * @property {number} figSortie   secondes depuis la fin d'une figure : la fenêtre de Vénus
+ * @property {number} aube   secondes de jour levé : les adversaires n'y voient plus
+ * @property {?Object} mission   { cle, but, chrono, n, t, fini } quand le défi en est une
+ * @property {?Object} refuge   { t, angle } quand on s'est posé au terrain secret
+ * @property {number} remuant   combien le manche bouge : ça casse la visée adverse
+ * @property {Array<any>} chutes
+ * @property {Array<any>} fumees
+ * @property {number} roqT
+ * @property {number} lockCharge
+ * @property {number} spinT
+ * @property {number} spinDep
+ * @property {number} spinPasY
+ * @property {number} spinDepCam
+ * @property {number} spinPas   le pas lateral de cette image, que la camera doit faire aussi
+ * @property {number} spinSide
+ * @property {number} spinCabre   radians de nez levé pendant la barrique
+ * @property {number} camSpin
+ * @property {?Object} takeoff
+ * @property {boolean} auSol
+ * @property {?Object} roulage
+ * @property {boolean} assist
+ * @property {number} porteT   secondes restantes pendant lesquelles la porte franchie ouvre POSER
+ * @property {number} alignT   secondes tenues pile sur le plan : la barre d'approche automatique
+ * @property {?Object} pose
+ * @property {number} approche
+ * @property {number} scrapeT
+ * @property {?Object} fig   renversement en cours
+ * @property {number} screenX
+ * @property {number} screenY
+ */
+/** @type {EtatDuJeu} */
 const state = {
   running: false,
   pos: new THREE.Vector3(0, 165, 0),
@@ -16285,6 +15526,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.34', fr: 'La feuille de style et les calculs purs sortent du fichier : huit cent soixante-dix lignes et vingt-deux vérifications de moins à porter.', en: 'The stylesheet and the pure maths move out of the file: eight hundred and seventy lines and twenty-two checks lifted off it.' },
+  { v: '1.34', fr: 'Le dépôt a enfin ses essais : le jeu démarre-t-il, et les calculs sont-ils justes.', en: 'The repository finally has its tests: does the game start, and is the maths right.' },
+  { v: '1.34', fr: 'Les cent vingt et une propriétés de l’état sont décrites : une faute de frappe se voit maintenant à l’écriture.', en: 'All hundred and twenty-one state properties are described: a typo now shows while you type it.' },
   { v: '1.33', fr: 'Le pionnier et l’Ancien ont enfin un corps : contour vert, surfaces pleines noires, comme tout le reste.', en: 'The pioneer and the Old One finally have a body: green outline, solid black surfaces, like everything else.' },
   { v: '1.32', fr: 'À pied, deux appuis couchent l’homme dans l’herbe : le manche balaie tout le ciel, et il n’y a plus rien d’autre.', en: 'On foot, a double tap lays the man down in the grass: the stick sweeps the whole sky, and nothing else remains.' },
   { v: '1.32', fr: 'Allongé, on trace les constellations avec le regard, et des étoiles filantes passent sans que rien ne l’annonce.', en: 'Lying down, you trace constellations with your gaze, and shooting stars cross unannounced.' },

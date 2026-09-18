@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# À COPIER DANS .github/workflows/ POUR QUE LES ESSAIS TOURNENT TOUT SEULS.
+#
+# Il n'y est pas : tu as choisi le test de fumée seul, sans automatisation. Le
+# fichier attend ici, prêt. Pour l'activer :
+#
+#   cp essais/action-github.yml.exemple .github/workflows/essais.yml
+#
+# À partir de là, chaque poussée sur main lance les deux essais, et la version
+# est marquée en rouge sur GitHub si l'un des deux échoue.
+# ---------------------------------------------------------------------------
+name: essais
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  essais:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Les calculs purs
+        run: node essais/math.mjs
+
+      - name: Installer Chromium
+        run: |
+          npm i -D playwright
+          npx playwright install --with-deps chromium
+
+      - name: Servir le jeu
+        run: |
+          python3 -m http.server 8123 --directory . &
+          sleep 2
+
+      - name: Le test de fumée
+        run: node essais/fumee.mjs http://127.0.0.1:8123

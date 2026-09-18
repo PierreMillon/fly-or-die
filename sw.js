@@ -11,7 +11,7 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v1.33';
+const VERSION = 'v1.34';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
@@ -22,6 +22,11 @@ const BOITE = 'fly-or-die-' + VERSION;
 const SOCLE = [
   './',
   './index.html',
+  // LA FEUILLE DE STYLE EST SORTIE DU FICHIER (v1.34) : sans cette ligne, le
+  // jeu s'installerait sans son habillage et la première ouverture hors réseau
+  // donnerait une page nue. C'est le seul prix du découpage, et il se paie ici.
+  './jeu.css',
+  './math.js',       // les calculs purs, sortis du fichier en v1.34
   './carte.html',
   './favicon.svg',
   './manifest.webmanifest',
