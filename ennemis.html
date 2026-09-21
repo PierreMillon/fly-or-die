@@ -38,6 +38,14 @@
   pre { border:1px solid var(--dim); border-radius:4px; padding:12px; font-size:11px;
     line-height:1.65; overflow-x:auto; color:var(--line); white-space:pre-wrap; margin:0 0 10px; }
   .etat { color:var(--dim); font-size:11px; min-height:1.4em; margin:8px 0 0; }
+  table { width:100%; border-collapse:collapse; margin:10px 0 0; font-size:12px; }
+  th { color:var(--dim); font-weight:500; text-align:left; font-size:10px;
+       letter-spacing:.14em; padding:0 0 6px; }
+  th:first-child { width:7.4rem; }
+  td { padding:3px 8px 3px 0; vertical-align:top; }
+  tr td:first-child { color:var(--dim); }
+  tr.doù td { color:var(--pale); font-size:10px; padding:0 0 7px; }
+  tr.doù td { color:#1d4a36; }
 </style>
 </head>
 <body>
@@ -62,6 +70,19 @@ si trois adversaires sont trois choses ou une seule.</p>
   <p class="nom" style="font-size:11px">LA FAMILLE — UNE SILHOUETTE, DEUX TAILLES</p>
   <p class="ou">le chasseur, et le même grossi de moitié : le gardien</p>
   <canvas id="silB" style="height:150px"></canvas>
+  <p class="pour" style="margin-top:12px"><b>CE QUE DONNENT LES TROIS FONDUS</b> —
+  on garde de chacun ce qu'il avait de mieux, et le reste suit la taille.</p>
+  <div class="faits" style="margin-top:10px">
+    <div><span>silhouette</span><span>le delta du chasseur, à deux tailles</span></div>
+    <div><span>façon de venir</span><span>la queue — la seule des trois qu’on voit en vol</span></div>
+  </div>
+  <table id="fusion"></table>
+  <p class="contre" style="margin-top:10px"><b>CE QU’ON PERD</b> — la flèche étroite
+  de l’intercepteur, qui est une jolie forme, et deux lois de poursuite que
+  personne ne pouvait lire.</p>
+  <p class="pour"><b>CE QU’ON GAGNE</b> — une phrase qui se comprend sans être
+  écrite : <i>le petit te tourne autour, le gros te tire dessus</i>. Le petit
+  braque mieux que toi ; le gros, tu le prends au virage, mais pas au canon.</p>
 </div>
 
 <div class="rangee">
@@ -314,7 +335,30 @@ document.getElementById('btnCopier').addEventListener('click', async () => {
     document.getElementById('etat').textContent = 'Impossible de copier ici : sélectionne le bloc à la main.';
   }
 });
+// LES TROIS FONDUS EN DEUX. Chaque ligne dit ce que vaut la petite version,
+// ce que vaut la grosse, et d'où vient le chiffre.
+const FUSION = [
+  ['envergure',   '11,2 m',        '17 m',          'le chasseur, et le gardien'],
+  ['virage',      '0,62 rad/s',    '0,45 rad/s',    'le meilleur des trois au petit ; la masse au gros'],
+  ['vie',         '100 pv',        '620 pv',        'inchangés : ces deux-là marchent'],
+  ['rafale',      '3 balles',      '6 balles',      'le chasseur, et le gardien'],
+  ['cadence',     'une / 0,9 s',   'une / 0,55 s',  'idem'],
+  ['portée',      '900 m',         '1 250 m',       'idem'],
+  ['altitude',    '110 à 820 m',   '280 à 940 m',   'le petit hérite du plafond de l’intercepteur'],
+  ['roquettes',   'dès la vague 7', 'toujours',     'ta décision'],
+  ['figures',     'oui',           'oui',           'de l’intercepteur : c’est ce qui les rend amusants'],
+  ['leurres',     '—',             '3',             'du gardien'],
+  ['escorte',     '—',             '3 chasseurs',   'du gardien'],
+];
+function tableFusion() {
+  const t = document.getElementById('fusion');
+  if (!t) return;
+  t.innerHTML = '<tr><th></th><th>LE CHASSEUR</th><th>LE GARDIEN</th></tr>' +
+    FUSION.map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] +
+                    '</td></tr><tr class="doù"><td colspan="3">' + r[3] + '</td></tr>').join('');
+}
 function silhouettes() {
+  tableFusion();
   silhouette(document.getElementById('silA'), [
     { forme: 'chasseur', nom: 'CHASSEUR' },
     { forme: 'intercepteur', nom: 'INTERCEPTEUR' },
