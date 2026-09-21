@@ -909,12 +909,25 @@ const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas 
 // la place. Le chemin devient une translation latérale tenue du début à la fin
 // de la figure, enroulée autour de son propre axe : on fonce sur un mur, on
 // barrique, et on passe à côté pour de bon.
-const TONNEAU_LAT   = 14;     // ce qui part et revient : une envergure, pour la forme
-const TONNEAU_VERT  = 37;     // la moitié de la hauteur prise au sommet
+// RÉGLÉ AU DOIGT SUR tonneau.html, ET C'EST UN AUTRE GESTE.
+//
+// Ce qu'il a tracé : le pas de côté passe de cent à cent quarante-cinq mètres,
+// l'embardée qui revient tombe de quatorze à deux — elle n'existe plus —, la
+// hauteur prise est divisée par deux et la figure dure un quart de seconde de
+// moins. Autrement dit : plus d'aller-retour du tout, plus de cloche au-dessus
+// de la trajectoire, et tout ce qui reste est un DÉPLACEMENT. On ne fait plus
+// une figure à côté de sa route, on change de route en tournant.
+//
+// Mesuré sur la planche avec ces valeurs : cent quarante-cinq mètres nets à la
+// sortie, soixante-treize à mi-figure, dix-neuf mètres hors de la ligne droite
+// — ce qu'il reste de courbe vient du lissage, pas d'une embardée —, et cent
+// cinquante-six mètres de chemin au lieu de cent quatre-vingt-deux.
+const TONNEAU_LAT   = 2;      // ce qui part et revient : plus rien, ou presque
+const TONNEAU_VERT  = 16;     // la moitié de la hauteur prise au sommet
 const TONNEAU_TOURS = 1;      // tours d'enroulement le long de la barrique
 const TONNEAU_CABRE = 45;     // degrés de nez levé au plus fort
-const TONNEAU_DECAL = 100;    // le décalage NET à la sortie : huit envergures, et il reste
-const SPIN_TIME     = 1.70;   // durée du tonneau au double tap
+const TONNEAU_DECAL = 145;    // le décalage NET à la sortie, et il reste
+const SPIN_TIME     = 1.45;   // durée du tonneau au double tap
 const SPIN_DODGE    = 110;    // ancien écart latéral : gardé pour l'esquive des roquettes
 // CINQ DEGRÉS, PAS VINGT-QUATRE. Réglé au curseur sur la planche : l'image ne
 // bascule presque plus. C'est l'AVION qui tourne — l'horizon reste l'horizon,
@@ -982,6 +995,10 @@ function camDecolEcart(t) {
   return (2 * u3 - 3 * u2 + 1) * d0 + (u3 - 2 * u2 + u) * m0
        + (-2 * u3 + 3 * u2) * d1 + (u3 - u2) * m1;
 }
+// La souplesse du suivi au décollage : la raideur du rappel vers la courbe.
+// Dix, c'est un dixième de seconde de retard — assez pour qu'on sente que la
+// caméra est portée par l'air et pas boulonnée, trop peu pour qu'elle dérive.
+const CAM_DECOL_SOUPLE = 10;
 const CAM_SERPENT = 4.0;          // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_LATERAL_MAX = 4.5;      // et le décalage total ne dépasse jamais ceci, sinon l'avion quitte le cadre
 const CAM_TONNEAU   = 0.25;   // part du deport que la camera laisse filer avant de se recaler
@@ -1550,12 +1567,31 @@ let actx = null, master = null, bruitBuf = null, moteur = null, moteurG = null;
 //
 // Le disque tourne d'abord seul — l'amorce — puis la guitare entre.
 const MUSIQUE_URL = './sons/refuge-guitare.m4a';
-const DISQUE_AMORCE   = 11.8;   // secondes de sillon avant que la guitare entre
-const DISQUE_CRAQ_AV  = 0.25;   // le niveau des craquements pendant l'amorce
-const DISQUE_CRAQ_PD  = 0.16;   // et pendant la musique : ils se font oublier
-const DISQUE_DENSITE  = 11;     // craquements par seconde, en moyenne
-const DISQUE_PLEURAGE = 0.58;   // combien le plateau flotte
-const DISQUE_GUITARE  = 1.10;   // le niveau de la guitare elle-même
+// RÉGLÉ À L'OREILLE SUR platine.html, ET LE JEU S'Y CONFORME AU CHIFFRE PRÈS.
+//
+// Quatre de ces dix valeurs étaient écrites en dur dans batisDisque() — le
+// souffle du sillon, ses deux filtres, la part de gros chocs — alors que la
+// platine les faisait bouger. On réglait donc une page qui ne commandait rien :
+// c'est exactement l'écart qu'une page d'essai est censée supprimer. Les dix
+// sont des constantes, et ce sont les siennes.
+//
+// Ce qu'il a entendu : l'amorce passe de douze secondes à cinq et demie — on
+// n'attend plus, on pose l'aiguille et la guitare arrive —, la densité
+// s'épaissit de onze à vingt craquements par seconde, et plus d'un sur quatre
+// est un gros choc au lieu d'un sur seize. En contrepartie le souffle du
+// sillon tombe presque à rien et se resserre très haut : entre 990 Hz et
+// 2900 Hz il n'y a plus de nappe grave, seulement de la matière sous
+// l'aiguille. Un disque usé, pas un vieux magnétophone.
+const DISQUE_AMORCE   = 5.70;   // secondes de sillon avant que la guitare entre
+const DISQUE_CRAQ_AV  = 0.280;  // le niveau des craquements pendant l'amorce
+const DISQUE_CRAQ_PD  = 0.160;  // et pendant la musique : ils se font oublier
+const DISQUE_DENSITE  = 19.5;   // craquements par seconde, en moyenne
+const DISQUE_SILLON   = 0.060;  // le souffle continu du sillon
+const DISQUE_GROS     = 0.275;  // la part des craquements qui sont de gros chocs
+const DISQUE_BAS      = 2900;   // coupe-haut du sillon, en hertz
+const DISQUE_HAUT     = 990;    // coupe-bas du sillon, en hertz
+const DISQUE_PLEURAGE = 0.640;  // combien le plateau flotte
+const DISQUE_GUITARE  = 1.35;   // le niveau de la guitare elle-même
 let musiqueEl = null, musiqueG = null, musiqueEtat = 'rien', musiqueSrc = null;
 let disqueG = null, disqueCraq = null, disqueBruit = null, disqueRetard = null;
 let disqueProchain = 0, disqueMinuteur = null;
@@ -1616,10 +1652,10 @@ function batisDisque() {
   const src = actx.createBufferSource();
   src.buffer = disqueBruit; src.loop = true;
   const bas = actx.createBiquadFilter();
-  bas.type = 'lowpass'; bas.frequency.value = 2400; bas.Q.value = 0.7;
+  bas.type = 'lowpass'; bas.frequency.value = DISQUE_BAS; bas.Q.value = 0.7;
   const haut = actx.createBiquadFilter();
-  haut.type = 'highpass'; haut.frequency.value = 240;
-  const g = actx.createGain(); g.gain.value = 0.16;
+  haut.type = 'highpass'; haut.frequency.value = DISQUE_HAUT;
+  const g = actx.createGain(); g.gain.value = DISQUE_SILLON;
   src.connect(bas).connect(haut).connect(g).connect(disqueG);
   src.start();
 
@@ -1632,7 +1668,7 @@ function batisDisque() {
 // millisecondes. Durée, hauteur et amplitude tirées à chaque fois : deux
 // craquements ne se ressemblent jamais. Un sur seize est un choc.
 function craquement(t) {
-  const gros = Math.random() < 0.06;
+  const gros = Math.random() < DISQUE_GROS;
   const amp = gros ? 0.55 + Math.random() * 0.45
                    : Math.pow(Math.random(), 2.4) * 0.5 + 0.02;
   const duree = gros ? 0.010 + Math.random() * 0.028
@@ -12507,8 +12543,20 @@ function simulate(dt) {
     // monte, ça se recouche. En déformant le temps, le sommet arrive à 42 %
     // de la montée au lieu de 50 : la remise à plat dispose de six dixièmes
     // au lieu de cinq, et l'arrondi cesse d'être cassé.
+    // ET LA DÉFORMATION DU TEMPS NE CASSE PLUS LE DÉPART DE LA ROTATION.
+    //
+    // u^0,8 déplace bien le sommet à 42 % de la montée, mais sa dérivée
+    // seconde est infinie en zéro : mesuré, l'assiette partait à 22,8 rad/s²
+    // sur la première image de la rotation. Le nez ne se lève pas, il claque.
+    // C'est ça qu'on sent comme sec, et ça touche l'appareil lui-même, pas
+    // seulement la caméra qui le suit.
+    //
+    // La même déformation, écrite en polynôme : u + 0,3267 u (1 - u). Elle
+    // vaut zéro en zéro et un en un comme l'autre, elle place le sommet au
+    // même endroit — 0,421 mesuré contre 0,421 —, et elle est dérivable
+    // partout. L'accélération de départ tombe de 22,8 à 5,75 rad/s².
     const u = THREE.MathUtils.clamp((tv - ROULAGE) / MONTEE, 0, 1);
-    const uu = Math.pow(u, 0.8);
+    const uu = u + 0.3267 * u * (1 - u);
     state.pitch = ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
 
     // La trajectoire découle de l'assiette au lieu de lui être imposée.
@@ -12577,10 +12625,19 @@ function simulate(dt) {
       // L'écart n'est plus calculé : il est lu sur la courbe qu'il a tracée.
       // La direction, elle, reste celle de la place idéale — on s'éloigne
       // DERRIÈRE l'appareil, pas n'importe où.
-      const ecart = camDecolEcart(T.t);
+      // ET ELLE GARDE TOUJOURS UN PEU DE RETARD. Elle se posait EXACTEMENT sur
+      // la courbe, image par image : rigide, alors qu'en vol elle traîne
+      // toujours un peu derrière l'appareil. Le décollage n'a pas de raison
+      // d'être le seul moment où la caméra est vissée. L'écart lu sur la
+      // courbe est donc une CIBLE, qu'elle rejoint en souplesse — un dixième
+      // de seconde de retard, constant du début à la fin. La courbe qu'il a
+      // tracée n'est pas retouchée : c'est la manière d'y aller qui l'est.
+      const cible = camDecolEcart(T.t);
+      if (T.ecartVu === undefined) T.ecartVu = cible;
+      T.ecartVu = THREE.MathUtils.damp(T.ecartVu, cible, CAM_DECOL_SOUPLE, dt);
       _cd.subVectors(_v, state.pos);
       const n = _cd.length();
-      if (n > 1e-3) camera.position.copy(state.pos).addScaledVector(_cd.divideScalar(n), ecart);
+      if (n > 1e-3) camera.position.copy(state.pos).addScaledVector(_cd.divideScalar(n), T.ecartVu);
       else camera.position.copy(_v);
     }
     majFov(dt);
@@ -15990,6 +16047,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.41', fr: 'Le tonneau barrique est réglé sur ta planche : 145 mètres de pas de côté, plus d’embardée qui revient, et deux fois moins de hauteur prise.', en: 'The barrel roll is set from your bench: 145 metres of sidestep, no more swerve that comes back, and half the height gained.' },
+  { v: '1.41', fr: 'La rotation au décollage ne claque plus : le nez se lève avec quatre fois moins d’accélération de départ, pour exactement la même courbe.', en: 'The takeoff rotation no longer snaps: the nose lifts with four times less initial acceleration, for exactly the same curve.' },
+  { v: '1.41', fr: 'La caméra du décollage garde toujours un peu de retard au lieu d’être vissée sur sa courbe.', en: 'The takeoff camera always keeps a little lag instead of being bolted to its curve.' },
+  { v: '1.41', fr: 'Le grésillement du disque est celui que tu as réglé sur la platine : amorce plus courte, craquements plus denses et plus gros, souffle du sillon presque effacé.', en: 'The record crackle is the one you set on the bench: shorter lead-in, denser and heavier crackles, groove hiss nearly gone.' },
   { v: '1.40', fr: 'Un portail ne rend vie et poussée qu’une fois par vague : la règle était écrite dans l’aide, pas dans le code.', en: 'A gate gives life and thrust only once per wave: the rule was written in the help, not in the code.' },
   { v: '1.40', fr: 'Plus de halo ni d’éclatement figés autour d’un appareil arrêté : les effets finissent leur vie même quand la simulation s’est tue.', en: 'No more frozen halo or burst around a stopped aircraft: effects finish their life even when the simulation has gone quiet.' },
   { v: '1.40', fr: 'Le hangar s’allonge et range toute la flotte sur un seul rang : plus un appareil collé à un autre.', en: 'The hangar gets longer and lines up the whole fleet in a single row: no more aircraft stuck against another.' },

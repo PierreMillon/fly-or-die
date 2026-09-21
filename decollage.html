@@ -141,7 +141,9 @@ function etatA(t) {
   }
   // la vague de l'assiette : dérivée nulle au départ, au sommet et à l'arrivée
   const u = Math.max(0, Math.min(1, (tv - V.ROULAGE) / V.MONTEE));
-  const uu = Math.pow(u, 0.8);
+  // la même déformation du temps que le jeu, en polynôme : sommet au même
+  // endroit, mais dérivable partout — u^0,8 partait à accélération infinie
+  const uu = u + 0.3267 * u * (1 - u);
   const pitch = V.ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
   return { pitch, v, u, roule: true, tv };
 }
