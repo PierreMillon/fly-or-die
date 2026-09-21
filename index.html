@@ -220,7 +220,7 @@
 </div>
 
 <div id="bottombar">
-  <span><span id="gauge"><span id="gaugeFill"></span></span></span>
+  <span><span id="gauge"><span id="gaugeFill"></span><span id="jaugeCap" hidden></span></span></span>
   <span id="bouclierLbl" class="dim"></span>
   <span class="spacer"></span>
 </div>
@@ -1213,7 +1213,16 @@ const ROQ_E_TERMINAL = 260;   // mètres : en deçà, son virage se durcit
 const ROQ_E_VIRAGE_MAX = 6;   // rad/s : l'autorité maximale, tout près
 const ROQ_E_DEGATS  = 50;
 const ROQ_E_RECHARGE = 9;
-const ROQ_E_PORTEE  = [320, 950];
+// DEUX SECONDES POUR RÉAGIR, PAS NEUF. Tirée à neuf cent cinquante mètres et
+// rattrapant à quatre-vingt-quinze mètres par seconde, elle mettait neuf
+// secondes à arriver : on l'oubliait, on faisait autre chose, et elle tombait
+// sur quelqu'un qui ne l'attendait plus. Une menace qui dure neuf secondes
+// n'est pas une menace, c'est un bruit de fond.
+//
+// Elle part maintenant de cinq cent vingt mètres au plus et rattrape à deux
+// cent vingt : deux secondes et quelques de vol. Le temps de voir le
+// décompte, de décider, et de faire le tonneau — pas le temps d'hésiter.
+const ROQ_E_PORTEE  = [260, 520];
 const ROQ_E_ESQUIVE = 300;    // en deçà, un tonneau la fait décrocher
 // ELLE N'ARRIVAIT JAMAIS. Mesuré : huit tirs plein arrière, aucun tonneau,
 // huit disparitions sans le moindre dégât. L'alerte hurlait WARNING ROCKET ·
@@ -1231,8 +1240,8 @@ const ROQ_E_ESQUIVE = 300;    // en deçà, un tonneau la fait décrocher
 // secondes, soit 1 235 mètres de rattrapage — de quoi couvrir la portée
 // entière avec de la marge. Elle arrive toujours. Le tonneau redevient la
 // réponse, au lieu d'être une superstition.
-const ROQ_E_VIE     = 13;     // secondes : assez pour couvrir les 950 m de portée
-const ROQ_E_GAIN    = 95;     // m/s de rapprochement, quelle que soit notre vitesse
+const ROQ_E_VIE     = 6;      // secondes : assez pour couvrir les 520 m de portée
+const ROQ_E_GAIN    = 220;    // m/s de rapprochement, quelle que soit notre vitesse
 // LEURS FIGURES. Ils avaient le tonneau, et rien d'autre. Ils ont maintenant
 // tout ce que nous avons : le tonneau, l'Immelmann, le Split-S et le looping
 // complet — jouées comme les nôtres, d'un bloc, sur un quaternion de base.
@@ -5697,6 +5706,10 @@ const ALPHABET = {
   'R': [[[0,0],[0,10],[4,10],[6,8],[6,6],[4,4],[0,4]], [[3,4],[6,0]]],
   'S': [[[6,9],[4,10],[2,10],[0,8],[0,6],[2,5],[4,5],[6,4],[6,2],[4,0],[2,0],[0,1]]],
   'U': [[[0,10],[0,2],[2,0],[4,0],[6,2],[6,10]]],
+  // ajoutées pour le fronton du tunnel
+  'H': [[[0,10],[0,0]], [[6,10],[6,0]], [[0,5],[6,5]]],
+  'T': [[[0,10],[6,10]], [[3,10],[3,0]]],
+  'Y': [[[0,10],[3,5],[6,10]], [[3,5],[3,0]]],
   ' ': []
 };
 const LETTRE_L = 6, LETTRE_H = 10, LETTRE_ECART = 2.6;
@@ -6187,7 +6200,14 @@ function majPlan() {
 function majPapi() {
   if (!papiCouleurs) return;
   // les feux ne se montrent que vus de l'axe : de côté, ils ne disent rien
-  papiMesh.visible = PLAN.lisible && PLAN.axe < 160;
+  // LE PAPI NE S'ÉTEINT PAS QUAND ON EST POSÉ. Il ne s'allumait que tant que
+  // le plan d'approche était lisible — c'est-à-dire en vol, dans l'axe. Roues
+  // au sol, freins serrés, il disparaissait : un aérodrome dont les feux
+  // s'éteignent dès qu'un avion se pose n'existe pas, et c'est précisément le
+  // moment où l'on a le temps de regarder le terrain. Ils restent allumés au
+  // sol et pendant toute la course de décollage.
+  const auTerrain = state.pose || state.roulage || state.takeoff || state.assist;
+  papiMesh.visible = auTerrain || (PLAN.lisible && PLAN.axe < 160);
   const a = papiCouleurs.array;
   for (let i = 0; i < 4; i++) {
     const c = PLAN.angle > PENTE_CIBLE + PAPI_ECARTS[i] ? PAPI_BLANC : PAPI_ROUGE;
@@ -7033,11 +7053,12 @@ for (let i = 0; i < CARTE.arches.length; i++) {
         new THREE.LineSegments(aretesArche, matArche));
   const trait = g.children[g.children.length - 1];
   const lame = faitLame(ARCHE.ouvertureL, ARCHE.ouvertureH, ARCHE.prof);
-  g.add(lame);
+  const lameBas = faitLame(ARCHE.ouvertureL, ARCHE.ouvertureH, ARCHE.prof);
+  g.add(lame, lameBas);
   g.frustumCulled = false;
   scene.add(g);
-  arches.push({ g, trait, lame, boites: [], passage: null, prise: false,
-                guillo: 0, repos: 0, ferme: false, boiteLame: null,
+  arches.push({ g, trait, lame, lameBas, boites: [], boiteBas: null, passage: null, prise: false,
+                guillo: 0, repos: 0, tombe: 0, ferme: false, boiteLame: null,
                 ouv: { y0: 0, y1: ARCHE.ouvertureH } });
 }
 
@@ -7070,6 +7091,7 @@ function placeArche(a, initial) {
   ];
   // le vide entre les piles et sous la poutre : c'est lui qui rapporte
   a.passage = b(0, 0, ARCHE.ouvertureL / 2, P, 4, ARCHE.ouvertureH);
+  a.passageY0 = a.passage.y0;
   majGuillotine(a);
   rebatir(a);
 }
@@ -7130,6 +7152,7 @@ TUNNEL.y1 = TUNNEL.y0 + TUNNEL.haut;
 const TUNNEL_VIE = 50;        // points de vie par seconde passée dedans
 const TUNNEL_MARGE = 14;      // mètres de tolérance pour « on est dedans »
 const TUNNEL_CINTRE = 26;     // mètres entre deux cintres
+const TUNNEL_GRAVURE = 'YOU SHALL NOT PASS';
 const tunnelBoites = [];
 (function creuseLeTunnel() {
   const T = TUNNEL, L2 = T.long / 2, l2 = T.large / 2, e = T.epais;
@@ -7172,6 +7195,44 @@ const tunnelBoites = [];
     cintres.frustumCulled = false;
     g.add(cintres);
   }
+  // ---------------------------------------------------------------------
+  // CE QUI EST GRAVÉ AU FRONTON.
+  //
+  // Quatre mots anglais sur le linteau des deux bouches. Personne n'a besoin
+  // qu'on lui explique d'où ils viennent, et c'est tout l'intérêt : une
+  // galerie percée sous une montagne appelle cette phrase-là, elle est
+  // devenue un lieu commun — et c'est drôle, puisque justement, on passe.
+  //
+  // Les lettres sont les polylignes de l'ALPHABET, dans le plan y-z, une fois
+  // à chaque bout. Celle de l'ouest est retournée en z, sans quoi elle se
+  // lirait à l'envers pour qui arrive de ce côté.
+  // ---------------------------------------------------------------------
+  {
+    const txt = TUNNEL_GRAVURE;
+    const ech = (T.large + T.epais * 1.4) / largeurMot(txt);
+    const hy = T.y1 + (T.epais - LETTRE_H * ech) / 2;   // centré dans le bandeau
+    const z0 = -largeurMot(txt) * ech / 2;
+    const p = [];
+    for (const sens of [-1, 1]) {
+      const xs = sens * (L2 + 0.6);
+      let u = 0;
+      for (const c of txt) {
+        const gl = ALPHABET[c];
+        if (gl) for (const ligne of gl) {
+          for (let i = 0; i + 1 < ligne.length; i++) {
+            const a0 = ligne[i], b0 = ligne[i + 1];
+            // à l'est on lit les z croissants, à l'ouest les z décroissants
+            const za = sens * (z0 + (u + a0[0]) * ech), zb = sens * (z0 + (u + b0[0]) * ech);
+            p.push(xs, hy + a0[1] * ech, za, xs, hy + b0[1] * ech, zb);
+          }
+        }
+        u += LETTRE_L + LETTRE_ECART;
+      }
+    }
+    const gravure = new THREE.LineSegments(segGeom(p), matBati);
+    gravure.frustumCulled = false;
+    g.add(gravure);
+  }
   // les quatre parois, en coordonnées du monde : plancher, plafond, deux côtés
   const b = (hz, cz, y0, y1) => ({ x: T.x, z: T.z + cz, hx: L2, hz, y0, y1 });
   tunnelBoites.push(b(l2 + e, 0, T.y0 - e, T.y0),
@@ -7208,6 +7269,16 @@ function dansTunnel(p) {
 const GUILLO_N = 3;        // traversées avant la fermeture définitive
 const GUILLO_MIN = 14;     // mètres : en dessous, l'ouverture n'en est plus une
 const GUILLO_REPOS = 1.1;  // secondes : une traversée ne se compte pas deux fois
+// ---------------------------------------------------------------------------
+// ET ELLE TOMBE APRÈS NOUS, PAS SUR NOUS. La lame descendait à l'instant même
+// où le passage était crédité — c'est-à-dire pendant qu'on est encore dans le
+// trou, à cent trente mètres par seconde. On gagnait la prime et on payait
+// l'éraflure dans la même image, ce qui est le contraire d'une récompense.
+//
+// Le compteur monte tout de suite, pour qu'on ne puisse pas repasser ; la
+// lame, elle, attend deux secondes. Le temps de ressortir, de regarder
+// derrière soi, et de la voir se fermer.
+const GUILLO_DELAI = 2;    // secondes entre la traversée et la chute de la lame
 
 // une lame : un volume plein de la taille du trou, qui descend depuis le
 // linteau. Elle est dessinée comme tout le reste — un seul passage, le trait
@@ -7224,19 +7295,29 @@ function majGuillotine(b) {
   if (!o || !b.lame) return;
   const H = o.y1 - o.y0;
   const reste = b.guillo >= GUILLO_N ? 0 : H / Math.pow(2, b.guillo);
-  const descente = H - reste;
+  const descente = (H - reste) / 2;         // la moitié par le haut, la moitié par le bas
   b.ferme = reste < GUILLO_MIN;
-  b.lame.visible = descente > 0.5;
-  if (b.lame.visible) {
-    // la lame est modelée à la hauteur du trou : on la rétrécit en y, et son
-    // centre suit le bas de la descente. Elle pend donc du linteau, comme
-    // une vraie, et ne dépasse jamais par le haut.
-    b.lame.scale.y = descente / H;
-    // la lame est un enfant du groupe : sa position est LOCALE, alors que
-    // l'ouverture est mesurée dans le monde. Sur la grande tour, mise à
-    // l'échelle par son groupe, l'oubli plaçait la lame deux fois trop haut.
-    b.lame.position.y = (o.y0 + reste + descente / 2) / (b.k || 1);
-  }
+  // ELLE SE FERME PAR LES DEUX BORDS, ET VOICI POURQUOI. Une vraie guillotine
+  // tombe du linteau : l'air qui reste est alors en BAS. Or le bas d'une
+  // arche est au niveau du sol, et le plancher invisible du monde est à
+  // vingt-six mètres — au deuxième cran il ne restait plus un mètre d'air
+  // accessible, et au troisième le trou était sous terre. Le passage devenait
+  // impossible avant d'être fermé, ce qui n'a aucun sens.
+  //
+  // Les deux mâchoires se referment donc vers le milieu. Le trou rétrécit
+  // exactement de moitié à chaque fois — c'est ce qu'on voulait — et il reste
+  // à la MÊME hauteur : on vise le même endroit à chaque passage, et il
+  // faut seulement y entrer plus juste.
+  const bas = o.y0 + descente, haut = o.y1 - descente;
+  const pose = (lame, y0, y1) => {
+    if (!lame) return;
+    lame.visible = (y1 - y0) > 0.5;
+    if (!lame.visible) return;
+    lame.scale.y = (y1 - y0) / H;
+    lame.position.y = ((y0 + y1) / 2) / (b.k || 1);
+  };
+  pose(b.lame, haut, o.y1);                 // la mâchoire du haut
+  pose(b.lameBas, o.y0, bas);               // celle du bas
   // ELLE EST SOLIDE. La boîte de la lame vit dans la liste des murs du
   // bâtiment ; on la retire et on la remet, parce que placeArche() et
   // placeTour() refont cette liste à chaque déménagement.
@@ -7245,17 +7326,34 @@ function majGuillotine(b) {
     if (i >= 0) b.boites.splice(i, 1);
     b.boiteLame = null;
   }
+  if (b.boiteBas) {
+    const i = b.boites.indexOf(b.boiteBas);
+    if (i >= 0) b.boites.splice(i, 1);
+    b.boiteBas = null;
+  }
   if (descente > 0.5 && b.passage) {
-    b.boiteLame = { x: b.passage.x, z: b.passage.z, hx: b.passage.hx, hz: b.passage.hz,
-                    y0: o.y0 + reste, y1: o.y1 };
-    b.boites.push(b.boiteLame);
+    const q = b.passage;
+    b.boiteLame = { x: q.x, z: q.z, hx: q.hx, hz: q.hz, y0: haut, y1: o.y1 };
+    b.boiteBas  = { x: q.x, z: q.z, hx: q.hx, hz: q.hz, y0: o.y0, y1: bas };
+    b.boites.push(b.boiteLame, b.boiteBas);
+  }
+  // ET LE TROU LUI-MÊME RÉTRÉCIT. C'était le défaut : la lame descendait en
+  // image et en collision, mais le VOLUME qui compte la traversée gardait sa
+  // taille d'origine. On visait donc le haut du trou — là où il n'y a plus
+  // rien — on était repoussé par la lame, et l'on croyait à un mur invisible
+  // en travers d'une ouverture encore grande ouverte. Le passage vaut
+  // maintenant exactement ce qui reste d'air : soixante-quatorze mètres, puis
+  // trente-sept, puis dix-huit, puis plus rien. On vise ce qu'on voit.
+  if (b.passage) {
+    if (b.ferme) { b.passage.y0 = b.passageY0; b.passage.y1 = b.passageY0; }
+    else { b.passage.y0 = Math.max(b.passageY0, bas); b.passage.y1 = Math.max(b.passage.y0, haut); }
   }
   if (b.trait) b.trait.material = b.ferme ? matBatiClos : matBati;
 }
 
 // on remet tout à neuf : une nouvelle partie rouvre les portails
 function rouvreTousLesPortails() {
-  for (const b of [...arches, ...tours]) { b.guillo = 0; b.repos = 0; majGuillotine(b); }
+  for (const b of [...arches, ...tours]) { b.guillo = 0; b.repos = 0; b.tombe = 0; majGuillotine(b); }
 }
 // deux boucles seulement : la façade et sa fenêtre. Rien entre les deux.
 const aretesTour = prismeAretes([
@@ -7294,13 +7392,14 @@ for (let i = 0; i < TOURS_CARTE.length; i++) {
         new THREE.LineSegments(aretesTour, matTour));
   const trait = g.children[g.children.length - 1];
   const lame = faitLame(TOUR.trou, TOUR.trou, TOUR.prof);
-  g.add(lame);
+  const lameBas = faitLame(TOUR.trou, TOUR.trou, TOUR.prof);
+  g.add(lame, lameBas);
   g.frustumCulled = false;
   scene.add(g);
   const k = TOURS_CARTE[i].grande ? GRANDE_K : 1;
   g.scale.setScalar(k);
-  tours.push({ g, trait, lame, boites: [], passage: null, prise: false,
-               guillo: 0, repos: 0, ferme: false, boiteLame: null, k,
+  tours.push({ g, trait, lame, lameBas, boites: [], boiteBas: null, passage: null, prise: false,
+               guillo: 0, repos: 0, tombe: 0, ferme: false, boiteLame: null, k,
                grande: !!TOURS_CARTE[i].grande, sy: k,
                ouv: { y0: TOUR.y0 * k, y1: TOUR.y1 * k } });
 }
@@ -7337,6 +7436,7 @@ function placeTour(t, initial) {
     b( dx, M, P, y0, y1)
   ];
   t.passage = b(0, TOUR.trou / 2 * k, P, y0, y1);
+  t.passageY0 = t.passage.y0;
   majGuillotine(t);
   rebatir(t);
 }
@@ -11376,7 +11476,6 @@ const _scrapePrec = new THREE.Vector3();   // notre position à l'image précéd
 const _scrapeDe = new THREE.Vector3();     // l'autre bout du segment parcouru
 const _scrapeSeg = new THREE.Vector3();    // et le segment lui-même
 const _viseurPt = new THREE.Vector3();  // le point de notre cellule qu'un adversaire tient en joue
-const _roqLead = new THREE.Vector3();   // le point d'interception visé par une roquette adverse
 const _segA = new THREE.Vector3();
 const _segB = new THREE.Vector3();
 const _pn = new THREE.Vector3();
@@ -11893,6 +11992,14 @@ function updateEnemies(dt) {
     // celui qui remue beaucoup ne se laisse pas cadrer : la visée adverse
     // retombe au lieu de monter, et c'est le répit qu'on cherchait
     if (state.remuant > 0.45) e.visee = Math.max(0, e.visee - dt * (state.remuant - 0.3) * 4);
+    // ET UNE VRAIE FIGURE DÉCROCHE LES PLUS SIMPLES. Remuer fait déjà baisser
+    // la visée adverse ; un tonneau, un Immelmann ou un renversement sont
+    // autre chose — l'appareil sort du plan où l'autre l'attendait. Ceux dont
+    // le temps de réaction est long n'y survivent pas et repartent de zéro ;
+    // l'intercepteur, le gardien et le faucheur, eux, suivent. C'est ce qui
+    // fait qu'une figure sauve la vie contre une vague de biplans et ne suffit
+    // plus du tout contre un boss.
+    if ((state.fig || state.spinT > 0) && (K.reflexe || 0) >= 1) e.visee = 0;
     const aligne = !zoneSure && !(state.triche && state.triche.fantome) && dist < K.portee * (1 - 0.45 * gene)
                 && e.forward.dot(_v) > K.cone - (e.coneBonus || 0) + (1 - K.cone) * gene * 1.6;
     e.visee = aligne ? e.visee + dt * (e.viseeX || 1) : 0;
@@ -12337,9 +12444,13 @@ function updateRoqEnnemies(dt) {
     const closure = Math.max(1, vRoq - state.speed * Math.max(0, r.dir.dot(state.forward)));
     r.ttg = d / closure;
     if (!r.perdue) {
-      // le point d'interception : où nous serons dans r.ttg secondes
-      _roqLead.copy(state.pos).addScaledVector(state.forward, state.speed * r.ttg);
-      _seg.subVectors(_roqLead, r.pos).normalize();
+      // ELLE NOUS SUIT, ELLE N'ANTICIPE PAS. L'interception visait où nous
+      // SERIONS : juste, mais illisible — l'engin partait de côté, et le
+      // joueur ne voyait pas ce qui le poursuivait. Une roquette suit, et
+      // elle rattrape parce qu'elle va plus vite. C'est tout, et ça se
+      // comprend sans explication. Ce qui la sème, c'est une figure, pas un
+      // calcul de trajectoire.
+      _seg.subVectors(state.pos, r.pos).normalize();
       const ang = Math.acos(THREE.MathUtils.clamp(r.dir.dot(_seg), -1, 1));
       const autorite = THREE.MathUtils.clamp(
         ROQ_E_VIRAGE * (ROQ_E_TERMINAL / Math.max(30, d)), ROQ_E_VIRAGE, ROQ_E_VIRAGE_MAX);
@@ -13598,12 +13709,12 @@ function simulate(dt) {
     // demande d'avoir eu l'idée.
     // ---------------------------------------------------------------------
     if (P.v > 2) for (const b of arches) {
-      if (b.mort || b.ferme || b.repos > 0) continue;
+      if (b.mort || b.ferme || b.repos > 0 || b.tombe > 0) continue;
       const q = b.passage;
       if (Math.abs(state.pos.x - q.x) < q.hx && Math.abs(state.pos.z - q.z) < q.hz + 4) {
         b.guillo = Math.min(GUILLO_N, b.guillo + 1);
         b.repos = GUILLO_REPOS;
-        majGuillotine(b);
+        b.tombe = GUILLO_DELAI;
         stat('passages');
         gagneVie(defiEst('sansBonus') ? 0 : ARCHE_PRIME);
         const vSol = P.v;
@@ -14691,8 +14802,10 @@ function scrapeCorps(dt) {
   if (state.viePleineT > 0) state.viePleineT = Math.max(0, state.viePleineT - dt);
   // le repos d'un portail : une traversée dure plusieurs images, et sans lui
   // un seul passage compterait deux ou trois crans de guillotine
-  for (const b of arches) if (b.repos > 0) b.repos -= dt;
-  for (const b of tours) if (b.repos > 0) b.repos -= dt;
+  for (const b of [...arches, ...tours]) {
+    if (b.repos > 0) b.repos -= dt;
+    if (b.tombe > 0 && (b.tombe -= dt) <= 0) { b.tombe = 0; majGuillotine(b); }
+  }
 
   // LE COUSSIN D'AIR. Arriver à plat sur le sol n'est pas taper dedans : sous
   // l'aile l'air se comprime, la portance monte, et l'appareil se redresse
@@ -14913,10 +15026,10 @@ function scrapeCorps(dt) {
   for (const t of tours) {
     if (t.mort) continue;
     const q = t.passage;
-    if (q && !t.ferme && t.repos <= 0 && traverse(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+    if (q && !t.ferme && t.repos <= 0 && !(t.tombe > 0) && traverse(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
       t.guillo = Math.min(GUILLO_N, t.guillo + 1);
       t.repos = GUILLO_REPOS;
-      majGuillotine(t);
+      t.tombe = GUILLO_DELAI;
       stat('passages');
       // LA GRANDE TOUR REND LE DOUBLE. C'est tout ce qui la distingue dans
       // le code — sa hauteur et sa fenêtre en haut font le reste du travail.
@@ -14931,10 +15044,10 @@ function scrapeCorps(dt) {
   for (const a of arches) {
     if (a.mort) continue;
     const q = a.passage;
-    if (q && !a.ferme && a.repos <= 0 && traverse(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+    if (q && !a.ferme && a.repos <= 0 && !(a.tombe > 0) && traverse(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
       a.guillo = Math.min(GUILLO_N, a.guillo + 1);
       a.repos = GUILLO_REPOS;
-      majGuillotine(a);
+      a.tombe = GUILLO_DELAI;
       objCompte('arches');
       stat('passages');
       gagneVie(defiEst('sansBonus') ? 0 : ARCHE_PRIME);
@@ -15512,6 +15625,12 @@ function drawHud() {
       const mot = CHOIX.mien   ? nom + '  ·  ' + t('avionMien')
                 : CHOIX.verrou ? nom + '  ·  ' + t('avionFerme')
                 : nom;
+      // ET CE QU'IL FAUT FAIRE POUR L'OUVRIR. « Verrouillé » ne dit rien :
+      // on regarde un appareil qu'on ne peut pas prendre et l'on n'apprend
+      // rien de plus qu'en ne le regardant pas. Une phrase, sous le nom, dit
+      // par où passe la clé — c'est une promesse, et c'est ce qui donne envie
+      // de repartir.
+      const indice = (CHOIX.verrou && a) ? t('acces_' + a.acces) : '';
       let tp = 12;
       hctx.font = tp + 'px "IBM Plex Mono", ui-monospace, monospace';
       while (tp > 8 && hctx.measureText(mot).width > w - 24) {
@@ -15519,6 +15638,16 @@ function drawHud() {
       }
       const demi = hctx.measureText(mot).width / 2;
       hctx.fillText(mot, THREE.MathUtils.clamp(q.x, demi + 12, w - demi - 12), q.y + R + 14);
+      if (indice) {
+        let ti = 11;
+        hctx.font = ti + 'px "IBM Plex Mono", ui-monospace, monospace';
+        while (ti > 8 && hctx.measureText(indice).width > w - 24) {
+          ti -= 1; hctx.font = ti + 'px "IBM Plex Mono", ui-monospace, monospace';
+        }
+        const d2 = hctx.measureText(indice).width / 2;
+        hctx.fillStyle = 'rgba(190,255,220,0.48)';
+        hctx.fillText(indice, THREE.MathUtils.clamp(q.x, d2 + 12, w - d2 - 12), q.y + R + 30);
+      }
       hctx.restore();
     }
   }
@@ -15667,7 +15796,10 @@ function drawHud() {
         if (f <= 0.02) continue;
         const taille = THREE.MathUtils.clamp(190 / Math.max(6, d), 8, 14);
         hctx.font = taille.toFixed(1) + 'px "IBM Plex Mono", ui-monospace, monospace';
-        hctx.fillStyle = 'rgba(255,120,110,' + (0.9 * f).toFixed(3) + ')';
+        // VERT, COMME TOUT LE RESTE. Le rouge était la dernière tache de
+        // couleur étrangère de l'écran : ce qui dit que ça coûte, c'est le
+        // signe moins et le fait que ça monte, pas une teinte.
+        hctx.fillStyle = 'rgba(143,252,196,' + (0.9 * f).toFixed(3) + ')';
         hctx.fillText('-' + c.n, q.x, q.y);
       }
     }
@@ -16720,6 +16852,7 @@ function noteDegat(cause, montant) {
 // là où elle est haute. On relève sa position réelle, et rarement : à chaque
 // rafraîchissement des chiffres, pas à chaque image.
 let hudBasLibre = 0;
+const jaugeCap = document.getElementById('jaugeCap');
 const bandeBas = document.getElementById('topbar');   // la bande du bas, malgré son nom
 function refreshBars() {
   if (bandeBas) hudBasLibre = bandeBas.getBoundingClientRect().top;
@@ -16744,6 +16877,18 @@ function refreshBars() {
   // potentiel gagné se voit, et ce qu'il en reste aussi
   gaugeFill.style.width = Math.min(100, st / Math.max(JAUGE_ECHELLE, state.vieMax) * 100) + '%';
   gaugeFill.classList.toggle('pleine', state.viePleineT > 0);
+  // OÙ S'ARRÊTE CE QUE LES MÉCANICIENS PEUVENT RENDRE. La barre vaut deux
+  // cents ; le plafond de la partie en vaut cent au départ. Réparé à fond,
+  // l'appareil n'en remplit donc que la moitié — et l'on croit que la
+  // réparation n'a pas fini son travail. Un repère marque le plafond : à
+  // gauche c'est de la vie qu'on récupère au sol, à droite de la vie qu'il
+  // faut aller chercher dans les trous. Le trait se déplace quand le plafond
+  // monte, et disparaît quand il atteint le bout.
+  if (jaugeCap) {
+    const k = Math.min(1, state.vieMax / Math.max(JAUGE_ECHELLE, state.vieMax));
+    jaugeCap.style.left = (k * 100) + '%';
+    jaugeCap.hidden = k >= 0.999;
+  }
   // et le doré dit « au-delà du départ », pas « le plafond a bougé » : c'est
   // la vie de bonus elle-même qu'on regarde se remplir
   gaugeFill.classList.toggle('bonus', st > VIE_DEPART);
@@ -16806,6 +16951,10 @@ const T = {
     plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Plus de crash au sol ni contre les murs, jusqu’au prochain posé.',
     portailSol: 'ARRACHÉ DU SOL', portailSolSous: 'Un portail franchi en roulant décolle et catapulte.',
     tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
+    acces_legende: 'Entre dans la légende pour l’ouvrir',
+    acces_refuge: 'Il attend au refuge, loin à l’ouest',
+    acces_ciel: 'Complète le ciel : toutes les figures des étoiles',
+    acces_libre: 'Il est déjà à toi',
     tour: 'TOUR TRAVERSÉE  ·  +', grandeTour: 'LA GRANDE TOUR  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
     fente: 'FENTE PASSÉE  ·  +', puits: 'SORTI PAR LE TOIT  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     doreFin: 'PROTECTION DU SOLEIL TERMINÉE', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
@@ -16936,6 +17085,10 @@ const T = {
     plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Immune to crash, ground and walls, until you land again.',
     portailSol: 'TORN OFF THE GROUND', portailSolSous: 'A gate taken while taxiing lifts you off and slingshots you.',
     tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
+    acces_legende: 'Enter the legend to unlock it',
+    acces_refuge: 'It waits at the refuge, far west',
+    acces_ciel: 'Complete the sky: every star figure',
+    acces_libre: 'It is already yours',
     tour: 'TOWER THREADED  ·  +', grandeTour: 'THE GREAT TOWER  ·  +', arche: 'ARCH CLEARED  ·  +',
     fente: 'SLOT THREADED  ·  +', puits: 'OUT THROUGH THE ROOF  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     doreFin: 'SUN COVER OVER', viseur: 'SIGHT UNLOCKED  ·  ',
@@ -17614,6 +17767,14 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.60', fr: 'La guillotine se referme par les deux bords et attend deux secondes : le trou rétrécit vraiment, et la lame ne tombe plus sur nous.', en: 'The guillotine closes from both edges and waits two seconds: the hole really shrinks, and the blade no longer falls on you.' },
+  { v: '1.60', fr: 'La roquette adverse nous suit au lieu d’anticiper, part de cinq cents mètres et arrive en deux secondes.', en: 'The enemy rocket follows instead of leading, launches from five hundred metres and lands in two seconds.' },
+  { v: '1.60', fr: 'Une figure décroche le viseur des adversaires les plus simples ; le gardien et le faucheur suivent.', en: 'A manoeuvre breaks the simplest opponents’ aim; the guardian and the reaper hold on.' },
+  { v: '1.60', fr: 'Un repère sur la jauge dit jusqu’où les mécaniciens savent réparer, et où commence la vie à conquérir.', en: 'A mark on the gauge says how far the mechanics can repair, and where the life you must earn begins.' },
+  { v: '1.60', fr: 'Un appareil verrouillé dit ce qu’il faut faire pour l’ouvrir, au lieu de dire seulement qu’il est fermé.', en: 'A locked aircraft says what unlocks it, instead of only saying it is locked.' },
+  { v: '1.60', fr: 'Le PAPI reste allumé une fois posé, et les chiffres des mécaniciens passent au vert.', en: 'The PAPI stays lit once landed, and the mechanics’ figures turn green.' },
+  { v: '1.60', fr: 'Les panneaux défilent par notre propre glissement : c’est ce qui retire enfin la loupe d’iOS.', en: 'Panels scroll by our own drag: that is what finally removes the iOS magnifier.' },
+  { v: '1.60', fr: 'Quatre mots gravés au fronton des deux bouches du tunnel.', en: 'Four words carved on the lintel of both tunnel mouths.' },
   { v: '1.59', fr: 'Les viseurs adverses sont verts comme le reste : le rouge cassait l’écran de vieux moniteur.', en: 'Enemy reticles are green like everything else: the red broke the old-monitor screen.' },
   { v: '1.58', fr: 'Un tunnel de trois cent quatre-vingts mètres traverse une crête : dedans la vie monte sans arrêt, et le coup de fouet est à la sortie.', en: 'A 380-metre tunnel bores through a ridge: inside, life climbs without pause, and the kick comes at the exit.' },
   { v: '1.57', fr: 'Certains adversaires profitent de ce qu’on est occupé pour monter très haut, en silence, et plonger.', en: 'Some opponents use the moment you are busy to climb very high, silently, and dive.' },
@@ -18680,6 +18841,77 @@ document.addEventListener('gesturestart', e => e.preventDefault(), { passive: fa
 // Le menu contextuel est coupé partout, panneaux compris : un appui long n'a
 // aucun sens ici, et c'est l'autre porte d'entrée du même geste.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// ET ELLE REVENAIT QUAND MÊME. TROISIÈME TOUR.
+//
+// « user-select: none » posé partout, en !important, mesuré à « none » sur
+// l'élément lui-même : la loupe s'ouvrait toujours sur le journal. La raison
+// est une particularité d'iOS que le style ne peut pas atteindre — dans un
+// conteneur QUI DÉFILE, le geste d'appui long est capté par la machinerie de
+// sélection du navigateur AVANT qu'il regarde si le texte est sélectionnable.
+// On ne peut donc pas l'en empêcher par une règle : il faut lui retirer le
+// geste, c'est-à-dire appeler preventDefault sur le touchstart. Or ce même
+// preventDefault supprime le défilement natif.
+//
+// On reprend donc le défilement à notre compte, sur les panneaux et là
+// seulement : le doigt tire le contenu, et une inertie prend le relais quand
+// il se lève. C'est trente lignes, et cela retire d'un coup toute la
+// machinerie de texte d'iOS de nos pages — plus de loupe, plus de curseur,
+// plus de menu contextuel, et le défilement qu'on a écrit nous-mêmes.
+//
+// Les boutons, champs et liens restent au navigateur : on ne touche pas à ce
+// qui se presse.
+// ---------------------------------------------------------------------------
+const INTERACTIFS = 'button, input, textarea, select, a, label, summary';
+const glisse = { el: null, y0: 0, s0: 0, y: 0, t: 0, v: 0, anim: 0 };
+function panneauSousLeDoigt(e) {
+  const el = e.target instanceof Element ? e.target : null;
+  if (!el || el.closest(INTERACTIFS)) return null;
+  const p = el.closest(PANNEAUX_LISIBLES);
+  if (!p) return null;
+  // le conteneur qui défile vraiment : le panneau, ou la feuille qu'il porte
+  let c = el;
+  while (c && c !== p.parentNode) {
+    if (c.scrollHeight > c.clientHeight + 2) return c;
+    c = c.parentElement;
+  }
+  return p;
+}
+document.addEventListener('touchstart', e => {
+  const c = panneauSousLeDoigt(e);
+  if (!c) return;
+  e.preventDefault();                       // c'est lui qui tue la loupe
+  if (glisse.anim) { cancelAnimationFrame(glisse.anim); glisse.anim = 0; }
+  glisse.el = c;
+  glisse.y0 = glisse.y = e.touches[0].clientY;
+  glisse.s0 = c.scrollTop;
+  glisse.t = performance.now();
+  glisse.v = 0;
+}, { passive: false });
+document.addEventListener('touchmove', e => {
+  if (!glisse.el) return;
+  e.preventDefault();
+  const y = e.touches[0].clientY, t = performance.now();
+  const dt = Math.max(1, t - glisse.t);
+  glisse.v = (glisse.y - y) / dt * 16;       // pixels par image
+  glisse.y = y; glisse.t = t;
+  glisse.el.scrollTop = glisse.s0 + (glisse.y0 - y);
+}, { passive: false });
+function finDeGlisse() {
+  const c = glisse.el;
+  glisse.el = null;
+  if (!c || Math.abs(glisse.v) < 0.6) return;
+  let v = glisse.v;
+  const pas = () => {
+    c.scrollTop += v;
+    v *= 0.94;                               // l'inertie s'éteint en une seconde
+    glisse.anim = Math.abs(v) > 0.4 ? requestAnimationFrame(pas) : 0;
+  };
+  glisse.anim = requestAnimationFrame(pas);
+}
+document.addEventListener('touchend', finDeGlisse, { passive: true });
+document.addEventListener('touchcancel', finDeGlisse, { passive: true });
+
 document.addEventListener('contextmenu', e => e.preventDefault(), { passive: false });
 document.addEventListener('selectionchange', () => {
   const a = document.activeElement;

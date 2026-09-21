@@ -767,6 +767,15 @@
   #overlayScore { margin: 0; font-size: 13px; color: var(--ph-dim); letter-spacing: 0.15em; line-height: 1.9; }
   #overlayScore b { color: var(--ph-line); font-weight: 500; }
   #gaugeFill.bonus { background: #ffd166; box-shadow: 0 0 8px #ffd166; }
+  /* LE REPÈRE DU PLAFOND. Un trait vertical sur la jauge : à sa gauche, ce
+     que les mécaniciens savent rendre ; à sa droite, ce qu'il faut aller
+     chercher dans les trous. */
+  #jaugeCap {
+    position: absolute; top: -1px; bottom: -1px; width: 2px;
+    margin-left: -1px; background: var(--ph-text); opacity: 0.55;
+    pointer-events: none;
+  }
+  #gauge { position: relative; }
   /* LA JAUGE VIENT DE SE REMPLIR. Deux battements blancs, et c'est tout :
      on a payé la réparation, on a le droit de la voir se terminer. */
   #gaugeFill.pleine { background: #f2fff6; box-shadow: 0 0 16px #f2fff6; animation: jaugePleine 0.4s steps(1) 4; }
