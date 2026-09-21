@@ -9193,6 +9193,7 @@ const state = {
   boostFin: 0,
   boostPortail: 0,    // secondes de poussée offertes par un portail
   viePleineT: 0,      // secondes restantes d'éclat quand la jauge vient de se remplir
+  immunCrash: false,  // monté au plafond : plus de crash contre le sol ni les murs
   suite: {},          // avancement de chaque figure de CIEL_SUITE
   suiteFaite: {},     // celles qui sont deja tracees
   dehorsDeja: false,  // la chaine a deja ete franchie : la musique ne part qu'une fois
@@ -9475,6 +9476,8 @@ function toucherPiste() {
 }
 
 function resetGame() {
+  state.immunCrash = false;
+  state.viePleineT = 0;
   _camDecal.val = 0;
   state.dureeVol = 0;
   state.reprises = 0;
@@ -12291,6 +12294,16 @@ function damagePlayer(amount, source, cause) {
   if (state.boost > BOOST_INVINCIBLE && (cause === 'balles' || cause === 'roquette' || cause === 'choc')) {
     state.hitFlash = Math.max(state.hitFlash, 0.3); SFX.bouclier(); return;
   }
+  // ET CELUI QUI EST MONTÉ TOUT EN HAUT NE S'ÉCRASE PLUS. Le plafond est à
+  // deux mille quatre cents mètres, et rien n'y attend personne : y aller est
+  // une décision pure, longue, qui coûte du temps de combat et ne rapportait
+  // rien. Elle rapporte maintenant ceci — le sol et les murs ne peuvent plus
+  // nous tuer, jusqu'au prochain posé. Les balles et les roquettes, elles,
+  // continuent de faire leur travail : ce n'est pas l'invincibilité, c'est le
+  // droit de raser n'importe quoi.
+  if (state.immunCrash && (cause === 'sol' || cause === 'decor')) {
+    state.hitFlash = Math.max(state.hitFlash, 0.2); return;
+  }
   state.vagueTouche = true;
   state.structure -= amount;
   state.hitFlash = 1;
@@ -13284,6 +13297,9 @@ function simulate(dt) {
         state.roulage = null;
         state.speed = 0;
         state.pose = { t: 0, structure0: state.structure };
+        // et le privilège du plafond s'arrête là : les roues au sol, il faut
+        // remonter le chercher
+        state.immunCrash = false;
         carnet.poses++;
         objCompte('poses');
         stat('poses');
@@ -13346,7 +13362,13 @@ function simulate(dt) {
     // en haut on avance, en bas on recule, à droite et à gauche on braque. Rien
     // d'autre : ni tangage, ni roulis, ni tir. C'est un avion au sol.
     const gaz = aim.active ? -dy : 0, barre = aim.active ? dx : 0;
-    const voulue = gaz >  0.12 ?  TAXI_VMAX  * Math.min(1, (gaz - 0.12) / 0.62)
+    // le régime : il monte tant qu'on tient le manche au fond, il retombe
+    // deux fois plus vite dès qu'on le lâche
+    const plein = gaz > 0.82;
+    P.regime = THREE.MathUtils.clamp((P.regime || 0)
+      + (plein ? dt / TAXI_MONTEE : -dt / (TAXI_MONTEE / 2)), 0, 1);
+    const vmax = TAXI_VMAX * (1 + (TAXI_FOIS - 1) * P.regime);
+    const voulue = gaz >  0.12 ?  vmax * Math.min(1, (gaz - 0.12) / 0.62)
                  : gaz < -0.12 ? -TAXI_RECUL * Math.min(1, (-gaz - 0.12) / 0.62) : 0;
     P.v = THREE.MathUtils.damp(P.v, voulue, voulue === 0 ? TAXI_FREIN : TAXI_POUSSE, dt);
     if (Math.abs(P.v) < 0.06) P.v = 0;
@@ -13370,6 +13392,37 @@ function simulate(dt) {
     playerMesh.quaternion.copy(state.quat);
     state.pos.addScaledVector(state.forward, P.v * dt);
     state.pos.y = SOL_Y;
+    // ---------------------------------------------------------------------
+    // ET UN PORTAIL PRIS EN ROULANT NOUS ARRACHE DU SOL.
+    //
+    // Les arches posent leur pied à même la plaine, et certaines sont à
+    // portée de roulage du terrain. Passer dessous au sol ne faisait rien :
+    // on roulait sous une porte, et il ne se passait rien, ce qui est le
+    // genre de silence qui apprend à ne plus essayer.
+    //
+    // Maintenant elle décolle. La guillotine descend d'un cran comme pour
+    // n'importe quelle traversée, l'appareil quitte le sol, et il emporte le
+    // coup de fouet du portail. C'est le départ le plus violent du jeu, et il
+    // demande d'avoir eu l'idée.
+    // ---------------------------------------------------------------------
+    if (P.v > 2) for (const b of arches) {
+      if (b.mort || b.ferme || b.repos > 0) continue;
+      const q = b.passage;
+      if (Math.abs(state.pos.x - q.x) < q.hx && Math.abs(state.pos.z - q.z) < q.hz + 4) {
+        b.guillo = Math.min(GUILLO_N, b.guillo + 1);
+        b.repos = GUILLO_REPOS;
+        majGuillotine(b);
+        stat('passages');
+        gagneVie(defiEst('sansBonus') ? 0 : ARCHE_PRIME);
+        const vSol = P.v;
+        redecoller();
+        state.speed = Math.max(state.speed, vSol);
+        coupDePied();
+        trouve('portailAuSol');
+        announce(t('portailSol'), t('portailSolSous'));
+        break;
+      }
+    }
     // la butée du hangar : on s'arrête net, on l'entend une fois, et la
     // structure ne bouge pas d'un point
     if (buteHangar()) {
@@ -13999,6 +14052,13 @@ function simulate(dt) {
     state.pos.y = CEILING;
     if (state.pitch > 0) state.pitch = THREE.MathUtils.damp(state.pitch, -0.12, 9, dt);
   }
+  // LE PLAFOND SE GAGNE EN LE TOUCHANT. Dix mètres sous la butée suffisent :
+  // on n'exige pas de s'y frotter, on exige d'y être monté.
+  if (!state.immunCrash && state.pos.y > CEILING - 10) {
+    state.immunCrash = true;
+    announce(t('plafondPris'), t('plafondPrisSous'));
+    SFX.bouclierOn();
+  }
 
   playerMesh.position.copy(state.pos);
   playerMesh.quaternion.copy(state.quatVu || state.quat);
@@ -14270,6 +14330,18 @@ function updateAilier(dt) {
 // baie regarder les autres.
 // ---------------------------------------------------------------------------
 const TAXI_VMAX  = 15;      // m/s en marche avant, soit 54 km/h
+// ---------------------------------------------------------------------------
+// ET PLEIN GAZ, ÇA MONTE. Quinze mètres par seconde, c'est la vitesse d'un
+// avion qui roule pour de vrai, et c'est bien ce qu'il faut pour aller se
+// ranger sous la baie. Mais le terrain fait neuf cents mètres de rayon : le
+// traverser au pas prend une minute, et l'envie de rouler s'arrête là.
+//
+// Manche à fond tenu, le régime monte donc, lentement, jusqu'à trois fois la
+// vitesse de roulage. On ne l'obtient pas d'un coup — il faut le vouloir sur
+// huit secondes — et le moindre relâchement le fait retomber. Rouler devient
+// un déplacement, pas une corvée.
+const TAXI_MONTEE = 8;      // secondes de plein gaz pour atteindre le triple
+const TAXI_FOIS   = 3;      // ce que vaut le plein régime, en vitesses de roulage
 const TAXI_RECUL = 5;       // m/s en marche arrière : on recule doucement
 const TAXI_POUSSE = 1.3;    // la vitesse met un peu moins d'une seconde à venir
 const TAXI_FREIN  = 2.4;    // et un peu moins d'une demie à tomber
@@ -16489,6 +16561,8 @@ const T = {
   fr: {
     decollage: 'DÉCOLLAGE', auSol: 'AU SOL  ·  RÉPARATION',
     viePleine: 'VIE PLEINE', viePleineSous: 'TU PEUX REPARTIR',
+    plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Plus de crash au sol ni contre les murs, jusqu’au prochain posé.',
+    portailSol: 'ARRACHÉ DU SOL', portailSolSous: 'Un portail franchi en roulant décolle et catapulte.',
     tour: 'TOUR TRAVERSÉE  ·  +', grandeTour: 'LA GRANDE TOUR  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
     fente: 'FENTE PASSÉE  ·  +', puits: 'SORTI PAR LE TOIT  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     doreFin: 'PROTECTION DU SOLEIL TERMINÉE', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
@@ -16616,6 +16690,8 @@ const T = {
   en: {
     decollage: 'TAKE OFF', auSol: 'ON THE GROUND  ·  REPAIRS',
     viePleine: 'FULL LIFE', viePleineSous: 'YOU CAN GO',
+    plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Immune to crash, ground and walls, until you land again.',
+    portailSol: 'TORN OFF THE GROUND', portailSolSous: 'A gate taken while taxiing lifts you off and slingshots you.',
     tour: 'TOWER THREADED  ·  +', grandeTour: 'THE GREAT TOWER  ·  +', arche: 'ARCH CLEARED  ·  +',
     fente: 'SLOT THREADED  ·  +', puits: 'OUT THROUGH THE ROOF  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     doreFin: 'SUN COVER OVER', viseur: 'SIGHT UNLOCKED  ·  ',
@@ -17294,6 +17370,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.56', fr: 'Monter jusqu’au plafond donne l’immunité au crash — sol et murs — jusqu’au prochain posé.', en: 'Reaching the ceiling grants immunity to crashes — ground and walls — until you land again.' },
+  { v: '1.56', fr: 'Manche au fond tenu, le roulage monte jusqu’à trois fois sa vitesse : quarante-cinq mètres par seconde.', en: 'Stick held forward, taxiing climbs to three times its speed: forty-five metres per second.' },
+  { v: '1.56', fr: 'Franchir un portail en roulant arrache l’appareil du sol et le catapulte.', en: 'Taking a gate while taxiing tears the aircraft off the ground and slingshots it.' },
   { v: '1.55', fr: 'Ceux qui nous alignent posent leur viseur sur notre propre appareil : il tourne, il se resserre, et fermé il tire.', en: 'Whoever lines you up puts their reticle on your own aircraft: it turns, it tightens, and closed it fires.' },
   { v: '1.54', fr: 'La grande tour : deux fois plus haute que tout le reste, et elle rend deux fois plus de vie.', en: 'The great tower: twice as tall as anything else, and it gives twice the life.' },
   { v: '1.54', fr: 'Le puits en U et le mur à fente quittent la carte : il fallait connaître la figure et la réussir en aveugle.', en: 'The U shaft and the slot wall leave the map: you had to know the manoeuvre and fly it blind.' },
