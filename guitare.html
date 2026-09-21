@@ -133,13 +133,17 @@ function audio() {
 // dire cinq choses, et on en essaie cinq au hasard. La ligne dit l'état du
 // contexte, si son horloge avance, combien de notes ont été programmées, et
 // quelle version de la page on regarde — le cache d'un téléphone est têtu.
-const VERSION_PLANCHE = 'v1.46';
-let notesPosees = 0;
+const VERSION_PLANCHE = 'v1.47';
+let notesPosees = 0, appuis = 0;
 function diag() {
   const el = document.getElementById('diag');
   if (!el) return;
-  if (!actx) { el.textContent = VERSION_PLANCHE + '  ·  son : pas encore démarré'; return; }
-  el.textContent = VERSION_PLANCHE + '  ·  contexte : ' + actx.state
+  if (!actx) {
+    el.textContent = VERSION_PLANCHE + '  ·  appuis : ' + appuis + '  ·  son : pas encore démarré';
+    return;
+  }
+  el.textContent = VERSION_PLANCHE + '  ·  appuis : ' + appuis
+    + '  ·  contexte : ' + actx.state
     + '  ·  horloge : ' + actx.currentTime.toFixed(1) + ' s'
     + '  ·  notes programmées : ' + notesPosees
     + '  ·  session : ' + (('audioSession' in navigator) ? navigator.audioSession.type : 'fichier muet');
@@ -404,11 +408,44 @@ function montre() {
     R.map(r => '  ' + r.cle + ' = ' + (r.pas >= 1 ? Math.round(V[r.cle]) : V[r.cle].toFixed(3))).join('\n');
 }
 
-document.getElementById('btnJoue').addEventListener('click', joue);
-document.getElementById('btnStop').addEventListener('click', () => {
+// LE PREMIER CONTACT OUVRE LE SON, OÙ QU'IL TOMBE SUR LA PAGE.
+//
+// Mesuré sur son téléphone : la page était bien la dernière version, et la
+// ligne disait « pas encore démarré ». Autrement dit le contexte audio n'avait
+// jamais été créé, donc l'appui sur JOUER n'était jamais arrivé jusqu'au code.
+// Ça arrive dans les navigateurs encastrés — la fenêtre qui s'ouvre par-dessus
+// une autre application, avec une croix en haut à gauche : ils livrent le
+// toucher mais pas toujours le clic sur un bouton dessiné.
+//
+// On n'attend donc plus le bouton : le premier contact n'importe où sur la
+// page ouvre le son. Et le compteur d'appuis dit, en clair, si le code voit
+// passer les doigts — sans lui, « pas de son » et « pas de clic » se
+// ressemblent, et on corrige pendant des heures la mauvaise moitié.
+const premierContact = () => { appuis++; audio(); diag(); };
+for (const ev of ['pointerdown', 'touchstart', 'mousedown'])
+  document.addEventListener(ev, premierContact, { passive: true });
+
+// Et le bouton répond au toucher comme au clic, sans jamais se déclencher deux
+// fois pour le même geste.
+let dernierJeu = 0;
+const veutJouer = (e) => {
+  const t = Date.now();
+  if (t - dernierJeu < 400) return;
+  dernierJeu = t;
+  if (e && e.preventDefault) e.preventDefault();
+  joue();
+};
+const bJoue = document.getElementById('btnJoue');
+bJoue.addEventListener('click', veutJouer);
+bJoue.addEventListener('touchend', veutJouer);
+const veutArreter = (e) => {
+  if (e && e.preventDefault) e.preventDefault();
   arrete();
   document.getElementById('etat').textContent = 'Arrêtée.';
-});
+};
+const bStop = document.getElementById('btnStop');
+bStop.addEventListener('click', veutArreter);
+bStop.addEventListener('touchend', veutArreter);
 document.getElementById('btnDefaut').addEventListener('click', () => {
   Object.assign(V, DEFAUT);
   [...barre.children].forEach((c, i) => c.classList.toggle('actif', MOTEURS[i].id === V.MOTEUR));
@@ -427,7 +464,9 @@ document.getElementById('btnCopier').addEventListener('click', async () => {
 
 montre();
 document.getElementById('etat').textContent =
-  'Touche JOUER. Change de moteur en cours de route, ça suit.';
+  'Touche JOUER. Si la ligne au-dessus reste à « pas encore démarré », c’est que '
+  + 'le navigateur encastré ne rend pas la main : ouvre la page dans Safari, '
+  + 'avec la boussole en bas à droite.';
 </script>
 </body>
 </html>
