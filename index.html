@@ -31,7 +31,6 @@
 
 <div id="lettre" hidden>
   <div class="feuille">
-    <p class="papierMouille" id="lettrePapier" hidden></p>
     <p class="debut" id="lettreDebut"></p>
     <p class="ecrit" id="lettreTxt"></p>
     <p class="signe" id="lettreSig"></p>
@@ -83,6 +82,8 @@
     <p class="titre" id="guitareTitre"></p>
     <p class="note" id="guitareNote"></p>
     <button id="guitareJoue"></button>
+    <button id="guitarePrend"></button>
+    <button id="guitarePose"></button>
     <button id="guitareRegarde"></button>
     <button id="guitareFerme"></button>
   </div>
@@ -2047,6 +2048,44 @@ function souffle(dur, f0, f1, q, vol, sortie) {
 // Une signature par action, choisies pour rester distinctes quand tout se
 // superpose : le tir est sec et aigu, l'impact court et bas, la destruction
 // large et grave, les figures sont des souffles qui montent ou descendent.
+// ---------------------------------------------------------------------------
+// LES RÉGLAGES DE LA GUITARE, à régler à l'oreille sur guitare.html.
+// Tout est compté en demi-tons depuis le la de la corde grave, celui qui vaut
+// cent dix hertz. La tonalité est la mineur.
+// ---------------------------------------------------------------------------
+const GUITARE_PAS         = 0.55;   // secondes entre deux notes
+const GUITARE_PAR_ACCORD  = 4;      // notes égrenées avant de changer d'accord
+const GUITARE_HASARD      = 0.22;   // chance de quitter la descente de quintes
+const GUITARE_ALTERATION  = 0.18;   // chance qu'un accord soit enrichi
+const GUITARE_ETENDUE     = 2;      // octaves parcourues par l'arpège
+const GUITARE_HUMAIN      = 0.06;   // flottement de chaque attaque, en secondes
+const GUITARE_VOLUME      = 0.085;  // amplitude d'une corde
+// i, iv, VII, III, VI, ii°, V : la descente de quintes du mineur naturel
+const GUITARE_DEGRES = [
+  { nom: 'i',   racine: 0,  type: 'min' },
+  { nom: 'iv',  racine: 5,  type: 'min' },
+  { nom: 'VII', racine: 10, type: 'maj' },
+  { nom: 'III', racine: 3,  type: 'maj' },
+  { nom: 'VI',  racine: 8,  type: 'maj' },
+  { nom: 'ii°', racine: 2,  type: 'dim' },
+  { nom: 'V',   racine: 7,  type: 'maj' },
+];
+const GUITARE_TYPES = {
+  min:  [0, 3, 7],  maj:  [0, 4, 7],  dim:  [0, 3, 6],
+  min7: [0, 3, 7, 10], maj7: [0, 4, 7, 11], dom7: [0, 4, 7, 10],
+  sus4: [0, 5, 7], sus2: [0, 2, 7], add9: [0, 4, 7, 14], m9: [0, 3, 7, 14],
+};
+// ce qu'un accord peut devenir quand le dé de l'altération tombe
+const GUITARE_COULEURS = {
+  min: ['min7', 'm9', 'sus4'],
+  maj: ['maj7', 'dom7', 'add9', 'sus2'],
+  dim: ['min7'],
+};
+const GUITARE_MOTIFS = [
+  [0, 1, 2, 1], [0, 2, 1, 2], [0, 1, 2, 3], [3, 2, 1, 0],
+  [0, 2, 3, 1], [0, 1, 3, 2], [0, 3, 1, 2], [1, 0, 2, 3],
+];
+
 const SFX = {
   // Le tir avait le claquement d'une agrafeuse : haut, sec, sans corps. Il est
   // maintenant en trois couches, comme une vraie arme lourde — la claque du
@@ -2166,30 +2205,111 @@ const SFX = {
     o.start(when); o.stop(when + dur + 0.05);
     SFX._cordes.push(o);
   },
+  // UNE SEULE CORDE PINCÉE, pour dire qu'on vient de la prendre en main.
+  // `corde` veut une date et une durée : l'appeler sans rien lui passer posait
+  // NaN dans un paramètre audio, et le navigateur jetait.
+  pincee: (demi = 7) => {
+    if (!actx || muet) return;
+    SFX.corde(110 * Math.pow(2, demi / 12), actx.currentTime + 0.02, 1.4, 0.09);
+  },
+  // ---------------------------------------------------------------------
+  // LE MORCEAU NE SE RÉPÈTE JAMAIS, ET IL NE SE DOUBLE PLUS.
+  //
+  // Il y avait quatre accords et une boucle : la mineur, sol, fa, mi, joués
+  // en rond par un setInterval calé sur la durée du bloc. Deux défauts, et le
+  // second est un vrai bug.
+  //
+  // Le premier : quatre accords en rond, c'est une boucle de dix-sept
+  // secondes qu'on reconnaît à la deuxième écoute.
+  //
+  // Le second : un setInterval qui, à chaque réveil, programme ses notes à
+  // « maintenant + 0,05 ». Quand l'onglet passe à l'arrière-plan, le
+  // navigateur retient les minuteurs puis les relâche d'un coup : trois
+  // réveils en retard tombent dans la même image et posent trois blocs de
+  // trente-deux notes AU MÊME INSTANT. C'est exactement le son doublé qu'il a
+  // entendu en quittant la fenêtre et en y revenant.
+  //
+  // Ici il y a un CURSEUR ABSOLU, `_prochaine`, qui avance de lui-même. Le
+  // réveil ne demande pas « quelle heure est-il », il demande « ai-je de quoi
+  // tenir la seconde et demie qui vient » — et s'il est en retard, il rattrape
+  // sans jamais rien superposer.
+  //
+  // LE CYCLE DES QUINTES. La suite d'accords descend de quinte en quinte —
+  // i, iv, VII, III, VI, ii°, V, i — ce qui en la mineur donne Am, Dm, G, C,
+  // F, B°, E, Am. C'est la marche d'accords la plus employée de la musique
+  // occidentale, et c'est elle qui donne l'impression que ça tombe tout seul.
+  // Un dé à chaque accord la fait dévier, un autre l'enrichit — septième,
+  // neuvième, suspension —, et l'arpège change de motif à chaque fois. La
+  // mélodie ne revient donc jamais deux fois la même.
+  //
+  // Les réglages se règlent à l'oreille sur guitare.html.
+  // ---------------------------------------------------------------------
+  _pos: 6,
+  _prochaine: 0,
   morceau: () => {
     if (!actx || muet) return;
     SFX.morceauStop();
-    // demi-tons depuis le la de la corde grave, quatre accords, quatre notes
-    const ACCORDS = [[0, 7, 15, 7], [-2, 5, 14, 5], [-4, 3, 12, 3], [-5, 2, 11, 2]];
-    const PAS = 0.55;
-    const passe = () => {
-      if (!actx) return 8;
-      const t0 = actx.currentTime + 0.05;
-      let k = 0;
-      for (let tour = 0; tour < 2; tour++)
-        for (const acc of ACCORDS)
-          for (const n of acc) {
-            SFX.corde(110 * Math.pow(2, n / 12), t0 + k * PAS, 1.5,
-                      0.085 + (k % 4 === 0 ? 0.03 : 0));
-            k++;
-          }
-      return k * PAS;
-    };
-    const duree = passe();
-    SFX._morceau = setInterval(passe, duree * 1000);
+    SFX._pos = 6;                       // le premier pas tombe sur la tonique
+    SFX._prochaine = actx.currentTime + 0.12;
+    SFX._passe();
+    SFX._morceau = setInterval(SFX._passe, 700);
+  },
+  _passe: () => {
+    if (!actx || muet || !SFX._morceau && SFX._prochaine === 0) return;
+    const horizon = actx.currentTime + 1.5;
+    // s'il a pris du retard — onglet endormi —, on repart de maintenant au
+    // lieu de programmer dans le passé
+    if (SFX._prochaine < actx.currentTime) SFX._prochaine = actx.currentTime + 0.05;
+    let garde = 0;
+    while (SFX._prochaine < horizon && garde++ < 12) {
+      const a = SFX._accord();
+      const notes = SFX._arpege(a);
+      for (let k = 0; k < GUITARE_PAR_ACCORD; k++) {
+        const flotte = (Math.random() - 0.5) * 2 * GUITARE_HUMAIN;
+        const t = Math.max(actx.currentTime + 0.02, SFX._prochaine + k * GUITARE_PAS + flotte);
+        SFX.corde(110 * Math.pow(2, notes[k] / 12), t, GUITARE_PAS * 2.6,
+                  GUITARE_VOLUME * (k === 0 ? 1.35 : 1));
+      }
+      SFX._prochaine += GUITARE_PAR_ACCORD * GUITARE_PAS;
+    }
+    // le tampon de cordes ne doit pas grossir sans fin pendant qu'on joue
+    if (SFX._cordes.length > 400) SFX._cordes.splice(0, 200);
+  },
+  _accord: () => {
+    if (Math.random() < GUITARE_HASARD) {
+      // un saut, jamais un sur-place : rejouer le même degré n'est pas une
+      // variation, c'est un accord tenu deux fois plus longtemps
+      SFX._pos = (SFX._pos + 1 + Math.floor(Math.random() * (GUITARE_DEGRES.length - 1)))
+                 % GUITARE_DEGRES.length;
+    } else {
+      SFX._pos = (SFX._pos + 1) % GUITARE_DEGRES.length;
+    }
+    const d = GUITARE_DEGRES[SFX._pos];
+    // la dominante est majeure, toujours : sans sa tierce haussée, le retour
+    // à la tonique ne se referme pas
+    let type = d.nom === 'V' ? 'maj' : d.type;
+    if (Math.random() < GUITARE_ALTERATION) {
+      const c = GUITARE_COULEURS[type];
+      if (c) type = c[Math.floor(Math.random() * c.length)];
+    }
+    return { racine: d.racine, type };
+  },
+  _arpege: (a) => {
+    const inter = GUITARE_TYPES[a.type] || GUITARE_TYPES.min;
+    const voix = [a.racine - 12];
+    for (let o = 0; o < GUITARE_ETENDUE; o++)
+      for (const i of inter) voix.push(a.racine + i + o * 12);
+    const motif = GUITARE_MOTIFS[Math.floor(Math.random() * GUITARE_MOTIFS.length)];
+    const out = [];
+    for (let k = 0; k < GUITARE_PAR_ACCORD; k++) {
+      const i = k === 0 ? 0 : 1 + (motif[k % motif.length] % (voix.length - 1));
+      out.push(voix[Math.min(i, voix.length - 1)]);
+    }
+    return out;
   },
   morceauStop: () => {
     if (SFX._morceau) { clearInterval(SFX._morceau); SFX._morceau = null; }
+    SFX._prochaine = 0;
     for (const o of SFX._cordes) { try { o.stop(); } catch (e) {} }
     SFX._cordes = [];
   },
@@ -7257,19 +7377,11 @@ try { disqueCasse = localStorage.getItem('fod_disque') === 'casse'; } catch (e) 
           q.push(sx0 + sg * 0.05, ty + 0.02, sz0 + l * 0.06,
                  sx0 + sg * 0.23, ty + 0.03, sz0 + l * 0.06 - 0.03);
       }
-      // LA GUITARE, contre le mur, à côté de la table
-      const ux = dx - 0.18, uz = tz + 1.5;
-      const pen = 0.20;
-      for (let k = 0; k < 12; k++) {                      // la caisse
-        const a0 = k / 12 * Math.PI * 2, a1 = (k + 1) / 12 * Math.PI * 2;
-        const r0 = 0.16 + 0.05 * Math.cos(a0 * 2), r1 = 0.16 + 0.05 * Math.cos(a1 * 2);
-        q.push(ux - Math.sin(pen) * 0.30, 0.30 + Math.sin(a0) * r0, uz + Math.cos(a0) * r0,
-               ux - Math.sin(pen) * 0.30, 0.30 + Math.sin(a1) * r1, uz + Math.cos(a1) * r1);
-      }
-      q.push(ux - Math.sin(pen) * 0.30, 0.46, uz, ux - Math.sin(pen) * 1.05, 1.08, uz);  // le manche
-      q.push(ux - Math.sin(pen) * 1.05, 1.08, uz, ux - Math.sin(pen) * 1.16, 1.18, uz);  // la tête
-      for (const dzz of [-0.045, 0.045])
-        q.push(ux - Math.sin(pen) * 0.34, 0.34, uz + dzz, ux - Math.sin(pen) * 1.06, 1.07, uz + dzz);
+      // LA GUITARE N'EST PLUS DANS LE MUR. Elle était douze segments cousus
+      // dans la géométrie de la maison : on ne pouvait pas plus la déplacer
+      // qu'on ne déplace une fenêtre. Elle vit maintenant seule, avec sa
+      // position à elle, et c'est ce qui permet de l'emporter. On garde
+      // seulement l'endroit où elle est appuyée au premier jour.
       s.add(traits(q, lineMat(COL_TEXT, 0.72)));
     }
     // LE MOT, PLIÉ, COINCÉ DANS LA PORTE. Il se voit de loin — un carré clair
@@ -7644,6 +7756,127 @@ try { disqueCasse = localStorage.getItem('fod_disque') === 'casse'; } catch (e) 
 })();
 
 // ---------------------------------------------------------------------------
+// LA GUITARE EST UN OBJET, PAS UN DÉCOR.
+//
+// Elle était douze segments cousus dans la géométrie de la maison : on ne
+// pouvait pas plus la déplacer qu'on ne déplace une fenêtre. Elle a maintenant
+// sa position à elle, sauvegardée, et trois états — appuyée quelque part,
+// portée sur le dos, ou contre soi pendant qu'on en joue.
+//
+// Ce qui suit de la règle qu'il a posée : on la prend, on marche avec, on
+// monte en Jeep et en avion avec, et on la pose où l'on veut. Là où on la
+// pose, elle reste. Pour la reprendre, il faut y retourner — y compris si
+// c'est à trente-deux kilomètres.
+// ---------------------------------------------------------------------------
+// l'endroit où elle est appuyée au premier jour : contre le mur du fond de la
+// maison, à côté de la table. Ce sont les coordonnées que la maison lui
+// donnait quand elle était dans son bois.
+const GUITARE_MUR = {
+  x: REFUGE.x + REFUGE_PLAN.maison.x + REFUGE_PLAN.maison.w / 2 - 0.18,
+  y: 0,
+  z: REFUGE.z + REFUGE_PLAN.maison.z - 0.7,
+  ry: 0, rz: 0.20        // elle est appuyée, donc penchée
+};
+const GUITARE_PORTEE = 2.4;   // mètres : à quelle distance on peut la ramasser
+let guitare = Object.assign({ portee: false }, GUITARE_MUR);
+try {
+  const v = JSON.parse(localStorage.getItem('fod_guitare') || 'null');
+  if (v && typeof v.x === 'number') guitare = v;
+} catch (e) {}
+function sauveGuitare() {
+  try { localStorage.setItem('fod_guitare', JSON.stringify(guitare)); } catch (e) {}
+}
+
+// La caisse, le manche, la tête, deux cordes. Dessinée debout dans son propre
+// repère, l'origine au pied de la caisse : c'est le groupe qui la penche.
+let guitareG = null;
+(function faitGuitare() {
+  const q = [];
+  for (let k = 0; k < 12; k++) {
+    const a0 = k / 12 * Math.PI * 2, a1 = (k + 1) / 12 * Math.PI * 2;
+    const r0 = 0.16 + 0.05 * Math.cos(a0 * 2), r1 = 0.16 + 0.05 * Math.cos(a1 * 2);
+    q.push(0, 0.30 + Math.sin(a0) * r0, Math.cos(a0) * r0,
+           0, 0.30 + Math.sin(a1) * r1, Math.cos(a1) * r1);
+  }
+  q.push(0, 0.46, 0, 0, 1.08, 0);        // le manche
+  q.push(0, 1.08, 0, 0, 1.18, 0);        // la tête
+  for (const dz of [-0.045, 0.045]) q.push(0, 0.34, dz, 0, 1.07, dz);
+  const g = new THREE.Group();
+  g.add(new THREE.LineSegments(segGeom(q), lineMat(COL_TEXT, 0.72)));
+  g.frustumCulled = false;
+  scene.add(g);
+  guitareG = g;
+})();
+
+// Où elle se voit, à chaque image. Posée, elle est là où on l'a laissée.
+// Portée, elle est dans le dos de celui qui marche, contre le flanc de la
+// Jeep, ou rangée derrière le siège en vol — donc invisible.
+function majGuitare() {
+  if (!guitareG) return;
+  if (!guitare.portee) {
+    guitareG.visible = true;
+    guitareG.position.set(guitare.x, guitare.y, guitare.z);
+    guitareG.rotation.set(0, guitare.ry || 0, guitare.rz || 0);
+    return;
+  }
+  if (state.joue && state.pied) {
+    // contre soi, assis en tailleur : la caisse sur les cuisses, le manche
+    // qui part vers la gauche et vers le haut
+    const M = state.pied, ySol = solSousPied(M.x, M.z);
+    guitareG.visible = true;
+    guitareG.position.set(M.x + Math.cos(M.cap) * 0.20 + Math.sin(M.cap) * 0.14,
+                          ySol + 0.34,
+                          M.z - Math.sin(M.cap) * 0.20 + Math.cos(M.cap) * 0.14);
+    guitareG.rotation.set(0, M.cap + Math.PI / 2, 1.15);
+    return;
+  }
+  if (state.pied) {
+    // en bandoulière dans le dos : le manche en biais par-dessus l'épaule
+    const M = state.pied, ySol = solSousPied(M.x, M.z);
+    guitareG.visible = true;
+    guitareG.position.set(M.x + Math.sin(M.cap) * 0.22, ySol + 0.42, M.z + Math.cos(M.cap) * 0.22);
+    guitareG.rotation.set(0, M.cap + Math.PI / 2, -0.55);
+    return;
+  }
+  if (state.jeep && jeepG) {
+    guitareG.visible = true;
+    guitareG.position.copy(jeepG.position);
+    guitareG.position.y += 0.55;
+    guitareG.rotation.set(0, jeepG.rotation.y + Math.PI / 2, 1.25);
+    return;
+  }
+  // en vol, elle est derrière le siège : on ne la voit pas, elle est là
+  guitareG.visible = false;
+}
+
+function prendGuitare() {
+  guitare.portee = true;
+  sauveGuitare();
+  trouve('guitare');
+  announce(t('guitarePrise'));
+  SFX.pincee();
+}
+function poseGuitare() {
+  const M = state.pied;
+  if (!M) return;
+  guitare.portee = false;
+  guitare.x = M.x + Math.sin(M.cap) * 0.7;
+  guitare.z = M.z + Math.cos(M.cap) * 0.7;
+  guitare.y = solSousPied(M.x, M.z);
+  guitare.ry = M.cap;
+  guitare.rz = 0;            // posée à plat contre le sol, elle ne penche plus
+  sauveGuitare();
+  announce(t('guitarePosee'));
+  SFX.cale();
+}
+// à portée de main, et seulement si elle est au sol
+function guitareIci() {
+  const M = state.pied;
+  if (!M || guitare.portee) return false;
+  return Math.hypot(M.x - guitare.x, M.z - guitare.z) < GUITARE_PORTEE;
+}
+
+// ---------------------------------------------------------------------------
 // LE DISQUE QUI TOURNE, ET QUI CASSE.
 //
 // Un disque qu'on entend mais qu'on ne voit pas tourner n'est pas un disque :
@@ -7867,6 +8100,50 @@ let echarpeG = null;
   g.visible = false;
   scene.add(g);
   piloteG = g;
+})();
+
+// ---------------------------------------------------------------------------
+// LE MÊME, ASSIS EN TAILLEUR.
+//
+// On ne plie pas des jambes qui sont deux traits droits : les enfoncer dans le
+// sol ne fait pas s'asseoir quelqu'un, ça l'enterre — mesuré à l'écran, il
+// restait debout avec les pieds sous l'herbe. C'est donc un second bonhomme,
+// dessiné assis : les cuisses partent des hanches vers l'avant et s'écartent,
+// les tibias reviennent se croiser devant, le tronc est droit et la tête à un
+// mètre du sol au lieu d'un mètre soixante. On montre l'un ou l'autre.
+// ---------------------------------------------------------------------------
+let assisG = null;
+(function faitAssis() {
+  const g = new THREE.Group();
+  const mat = lineMat(COL_TEXT, 0.9);
+  const p = [];
+  const boite = (cx, cy, cz, lx, ly, lz) => {
+    const c = [];
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1])
+      c.push([cx + sx * lx / 2, cy + sy * ly / 2, cz + sz * lz / 2]);
+    const ar = [[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
+    for (const [i, j] of ar) p.push(c[i][0], c[i][1], c[i][2], c[j][0], c[j][1], c[j][2]);
+  };
+  const HANCHE = 0.20;
+  for (const sg of [-1, 1]) {
+    // la cuisse : de la hanche vers l'avant, en s'écartant
+    p.push(sg * 0.10, HANCHE, 0, sg * 0.30, HANCHE - 0.07, 0.28);
+    // le tibia : il revient vers l'intérieur, et les deux se croisent devant
+    p.push(sg * 0.30, HANCHE - 0.07, 0.28, -sg * 0.09, HANCHE - 0.10, 0.34);
+    // le pied, sous le genou opposé
+    p.push(-sg * 0.09, HANCHE - 0.10, 0.34, -sg * 0.17, HANCHE - 0.10, 0.31);
+  }
+  boite(0, HANCHE + 0.32, 0, 0.42, 0.64, 0.26);
+  for (const sx of [-0.27, 0.27])                       // les bras vers la caisse
+    p.push(sx, HANCHE + 0.58, 0, sx * 0.55, HANCHE + 0.16, 0.20);
+  boite(0, HANCHE + 0.82, 0, 0.26, 0.26, 0.26);
+  for (let k = -2; k <= 2; k++)
+    p.push(k * 0.055, HANCHE + 0.95, 0, k * 0.075, HANCHE + 1.05 - Math.abs(k) * 0.02, -0.02);
+  g.add(new THREE.LineSegments(segGeom(p), mat));
+  g.frustumCulled = false;
+  g.visible = false;
+  scene.add(g);
+  assisG = g;
 })();
 
 // Elle est refaite à chaque image : c'est six segments, et ça coûte moins cher
@@ -8892,6 +9169,12 @@ document.getElementById('guitareJoue').addEventListener('click', e => {
 document.getElementById('guitareRegarde').addEventListener('click', e => {
   e.stopPropagation(); regardeGuitare();
 });
+document.getElementById('guitarePrend').addEventListener('click', e => {
+  e.stopPropagation(); fermeGuitare(); prendGuitare();
+});
+document.getElementById('guitarePose').addEventListener('click', e => {
+  e.stopPropagation(); fermeGuitare(); poseGuitare();
+});
 fermeAuClicDehors(document.getElementById('guitare'), '.papier', fermeGuitare);
 // LE BOUTON POSER N'EXISTE PLUS. Il demandait d'appuyer pour dire ce que la
 // trajectoire disait déjà — et il fallait ensuite tirer franchement pour
@@ -9345,9 +9628,8 @@ function pointsDuRefuge() {
     // la carte est SOUS LE TOIT, contre le mur du fond : il faut entrer dans
     // le hangar, comme il faut entrer dans la maison pour le poste
     { cle: 'carte',  x: P.hangar.x + P.hangar.w / 2 - 2.2, z: P.hangar.z, d: 2.8 },
-    // LA GUITARE est contre le mur du fond de la maison, à côté de la table :
-    // elle était dessinée depuis le premier jour et ne servait à rien.
-    { cle: 'guitare', x: P.maison.x + P.maison.w / 2 - 0.18, z: P.maison.z - 0.7, d: 2.2 },
+    // LA GUITARE N'EST PLUS DANS CETTE LISTE : ces points-là sont cloués au
+    // refuge, et elle ne l'est plus. On la cherche là où elle est.
   ];
 }
 
@@ -9452,25 +9734,29 @@ function updateCouche(dt) {
   }
 }
 
-// À GENOUX DANS L'HERBE. Il pose un genou, la guitare sur la cuisse, et la
-// caméra fait lentement le tour — c'est le seul moment du jeu où l'on regarde
-// quelqu'un plutôt que de regarder à sa place. Un appui, et il se relève.
+// ASSIS EN TAILLEUR DANS L'HERBE. Il s'asseyait un genou à terre, penché en
+// avant : la posture de quelqu'un qui s'apprête à repartir. On ne joue pas de
+// la guitare comme ça. Il s'assoit maintenant en tailleur, le dos droit, la
+// caisse posée contre lui — et la caméra fait lentement le tour, parce que
+// c'est le seul moment du jeu où l'on regarde quelqu'un plutôt que de regarder
+// à sa place. Un appui, et il se relève.
 const JOUE_TOUR = 0.16;      // rad/s : un tour complet en quarante secondes
 function updateJoue(dt) {
   const J = state.joue, M = state.pied;
   if (!M) { rangeGuitare(); return; }
   J.t += dt;
   const ySol = solSousPied(M.x, M.z);
-  if (piloteG) {
-    piloteG.visible = true;
-    piloteG.position.set(M.x, ySol - 0.52, M.z);      // un genou à terre
-    piloteG.rotation.set(-0.28, M.cap, 0);
+  if (piloteG) piloteG.visible = false;
+  if (assisG) {
+    assisG.visible = true;
+    assisG.position.set(M.x, ySol, M.z);
+    assisG.rotation.set(0, M.cap, 0);
   }
   const a = M.cap + Math.PI + J.t * JOUE_TOUR;
-  const R = 4.2;
-  camera.position.set(M.x + Math.sin(a) * R, ySol + 2.0, M.z + Math.cos(a) * R);
+  const R = 3.4;                        // assis, il est plus petit : on se rapproche
+  camera.position.set(M.x + Math.sin(a) * R, ySol + 1.5, M.z + Math.cos(a) * R);
   camera.up.set(0, 1, 0);
-  camera.lookAt(M.x, ySol + 0.7, M.z);
+  camera.lookAt(M.x, ySol + 0.45, M.z);
 }
 
 function updateAPied(dt) {
@@ -9634,8 +9920,13 @@ function updateAPied(dt) {
       return;
     }
   }
+  // ELLE PEUT ÊTRE N'IMPORTE OÙ, DONC ON LA CHERCHE OÙ ELLE EST. Posée, elle
+  // se propose quand on arrive à côté ; portée, elle se propose partout, mais
+  // en dernier — devant la Jeep, on veut d'abord monter dedans.
+  if (guitareIci()) choix = 'guitare';
   const dAvion = Math.hypot(M.x - state.pos.x, M.z - state.pos.z);
   if (!choix && dAvion < PIED_PORTEE + 2) choix = 'avion';
+  if (!choix && guitare.portee) choix = 'guitare';
   if (choix !== state.action) { state.action = choix; majActionBtn(); }
   // ET « REDÉCOLLER » NE S'AFFICHE QUE PRÈS DE L'APPAREIL. Le bouton restait
   // en bas de l'écran pendant qu'on marchait dans l'herbe à cent mètres de
@@ -9893,10 +10184,26 @@ function updateJeep(dt) {
 // ---------------------------------------------------------------------------
 const LETTRE_LENT = 25;    // visites pendant lesquelles on ne perd qu'un mot
 const LETTRE_ACC  = 6;     // ce qui fait accélérer la fin
+const LETTRE_PRENOM = 12;  // mots de plus avant que le prénom parte à son tour
 const lettreEffaces = n => n + Math.floor(Math.pow(Math.max(0, n - LETTRE_LENT), 2) / LETTRE_ACC);
-function lettrePluie(txt, n) {
-  if (n <= 0) return txt;
-  const mots = txt.split(/(\s+)/);          // on garde les blancs ET les retours
+// LA PLUIE PARLE DANS LES CROCHETS, ET ELLE NE SE RÉPÈTE PAS À LA SUITE.
+//
+// Chaque mot effacé devenait « […] », si bien qu'un passage rongé donnait une
+// file de crochets vides les uns derrière les autres — on comptait des trous
+// au lieu de lire une lettre, et rien ne disait POURQUOI il manquait quelque
+// chose. Les mots effacés qui se suivent fondent maintenant en UN SEUL
+// crochet, et c'est dans ce crochet qu'est écrit ce qui est arrivé au papier.
+// Du texte qui recommence ferme le crochet ; un nouveau trou en rouvre un.
+//
+// Les sauts de paragraphe ne sont pas avalés : sans eux la lettre finirait en
+// un seul bloc, et elle perdrait sa forme avant de perdre ses mots.
+const LETTRE_PLUIE = 'la pluie a rendu l’encre illisible';
+const _ech = c => c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;';
+const echappe = t => t.replace(/[&<>]/g, _ech);
+// les mots du corps, dans l'ordre où la pluie les prend : tiré une fois pour
+// toutes avec la même graine, donc la lettre s'efface toujours pareil
+function lettreOrdre(txt) {
+  const mots = txt.split(/(\s+)/);
   const idx = [];
   for (let i = 0; i < mots.length; i++) if (/\S/.test(mots[i])) idx.push(i);
   let g = 1234567;
@@ -9905,10 +10212,42 @@ function lettrePluie(txt, n) {
     const j = Math.floor(alea() * (i + 1));
     const t0 = idx[i]; idx[i] = idx[j]; idx[j] = t0;
   }
-  const k = Math.min(idx.length, lettreEffaces(n));
-  for (let i = 0; i < k; i++) mots[idx[i]] = '[…]';
-  return mots.join('');
+  return { mots, idx };
 }
+function lettrePluie(txt, n) {
+  const { mots, idx } = lettreOrdre(txt);
+  if (n <= 0) return echappe(txt);
+  const k = Math.min(idx.length, lettreEffaces(n));
+  const perdu = new Set(idx.slice(0, k));
+  // ELLE NE LE DIT QU'UNE FOIS. Mesuré sur une lettre à demi rongée : trente
+  // et un trous séparés, donc trente et une fois la même phrase — on ne lisait
+  // plus une lettre, on lisait un avertissement répété. Le premier crochet
+  // porte la phrase, les suivants sont des crochets nus : on a compris.
+  const phrase = '<span class="pluie">[ ' + LETTRE_PLUIE + ' ]</span>';
+  const nu = '<span class="pluie">[…]</span>';
+  let out = '', dans = false, premier = true, blanc = '';
+  for (let i = 0; i < mots.length; i++) {
+    const m = mots[i];
+    if (/\S/.test(m)) {
+      if (perdu.has(i)) {
+        if (!dans) { out += blanc + (premier ? phrase : nu); premier = false; dans = true; }
+        blanc = ' ';          // le blanc qui suivra le bloc, une fois fermé
+      } else {
+        out += blanc + echappe(m); dans = false; blanc = '';
+      }
+      continue;
+    }
+    // un blanc : s'il contient une ligne vide, c'est un paragraphe et il
+    // referme le crochet ; sinon il attend de savoir ce qui vient après
+    if (/\n\s*\n/.test(m)) { out += m; dans = false; blanc = ''; }
+    else if (!dans) { out += m; blanc = ''; }
+  }
+  return out;
+}
+// combien de mots compte le corps : au-delà, il n'y a plus rien à ronger et la
+// pluie s'attaque à ce qui restait — d'abord la formule, puis le prénom
+function lettreCorpsN(txt) { return lettreOrdre(txt).idx.length; }
+
 function ouvreLettre() {
   if (!lettrePan) return;
   // ELLE EST EN FRANÇAIS, ET SEULEMENT EN FRANÇAIS. Tout le reste du jeu
@@ -9926,20 +10265,27 @@ function ouvreLettre() {
   // lettre à chaque relecture ; les deux mots du début et les deux lignes de la
   // fin sont ce à quoi on se raccroche quand le reste s'efface, et on ne les
   // touche pas.
+  // « MON AMOUR, » NE S'EFFACE JAMAIS. C'est le dernier mot qui reste quand
+  // tout le reste est parti, et c'est celui-là qu'on vient relire.
   document.getElementById('lettreDebut').textContent = t('lettreDebut');
-  document.getElementById('lettreTxt').textContent = lettrePluie(t('lettreTxte'), lettreN);
-  // ON DIT POURQUOI LES MOTS MANQUENT. Les crochets apparaissaient sans
-  // explication : on croyait à un défaut du jeu, pas à du papier abîmé. La
-  // mention ne s'affiche qu'à partir du moment où il manque vraiment quelque
-  // chose — avant, il n'y a rien à expliquer.
-  const mouille = document.getElementById('lettrePapier');
-  mouille.textContent = t('lettrePapier');
-  mouille.hidden = lettreEffaces(lettreN) <= 0;
+  document.getElementById('lettreTxt').innerHTML = lettrePluie(t('lettreTxte'), lettreN);
   // LA SIGNATURE NE SE TRADUIT PAS. Tout le reste du jeu existe en deux
   // langues ; ces deux lignes-là s'adressent à quelqu'un, et un mot pour
   // quelqu'un n'a pas de version anglaise.
-  document.getElementById('lettreSig').textContent = t('lettreSig');
-  document.getElementById('lettreNom').textContent = t('lettreNom');
+  //
+  // ET LA PLUIE FINIT PAR LES PRENDRE, DANS CET ORDRE. Une fois le corps de la
+  // lettre entièrement rongé, elle s'attaque à la formule, puis au prénom. Il
+  // ne reste alors que « Mon amour, » et un crochet : c'est ce qu'il a demandé,
+  // et c'est aussi ce que devient une lettre qu'on a laissée trop longtemps
+  // dans une maison ouverte.
+  const corpsN = lettreCorpsN(t('lettreTxte'));
+  const ronge = lettreEffaces(lettreN);
+  const sigEl = document.getElementById('lettreSig');
+  const nomEl = document.getElementById('lettreNom');
+  sigEl.textContent = t('lettreSig');
+  nomEl.textContent = t('lettreNom');
+  sigEl.hidden = ronge > corpsN;
+  nomEl.hidden = ronge > corpsN + LETTRE_PRENOM;
   document.getElementById('lettreFerme').textContent = t('lettreFerme');
   lettrePan.hidden = false;
   // et les boutons du jeu se retirent pendant qu'on lit
@@ -9996,9 +10342,14 @@ function ouvreGuitare() {
   document.getElementById('guitareTitre').textContent = t('guitareTitre');
   document.getElementById('guitareNote').textContent = '';
   document.getElementById('guitareJoue').textContent = t('guitareJoue');
+  document.getElementById('guitarePrend').textContent = t('guitarePrend');
+  document.getElementById('guitarePose').textContent = t('guitarePose');
   document.getElementById('guitareRegarde').textContent = t('guitareRegarde');
   document.getElementById('guitareFerme').textContent = t('guitareFerme');
   document.getElementById('guitareJoue').hidden = false;
+  // on ne propose de prendre que ce qu'on n'a pas, et de poser que ce qu'on a
+  document.getElementById('guitarePrend').hidden = guitare.portee;
+  document.getElementById('guitarePose').hidden = !guitare.portee;
   document.getElementById('guitareRegarde').hidden = false;
   pan.hidden = false;
   actionBtn.hidden = true;
@@ -10024,6 +10375,8 @@ function regardeGuitare() {
 function joueGuitare() {
   fermeGuitare();
   if (!state.pied) return;
+  // on ne joue pas d'une guitare posée par terre : on la prend d'abord
+  if (!guitare.portee) { guitare.portee = true; sauveGuitare(); }
   state.joue = { t: 0 };
   redecoBtn.hidden = true;
   actionBtn.hidden = true;
@@ -10033,6 +10386,7 @@ function joueGuitare() {
 function rangeGuitare() {
   if (!state.joue) return;
   state.joue = null;
+  if (assisG) assisG.visible = false;
   document.body.classList.remove('lit');
   SFX.morceauStop();
   majActionBtn();
@@ -11889,6 +12243,7 @@ function step(now) {
   //
   // La boucle d'image, elle, tourne toujours. C'est donc ici que ça se décide,
   // une fois, pour tous les cas — posé, roulage, refuge, à pied, en Jeep.
+  majGuitare();
   if (traineeLayer && (state.pose || state.roulage || state.refuge ||
                        state.pied || state.jeep || state.auSol || !state.running)) {
     traineeLayer.visible = false;
@@ -15482,6 +15837,10 @@ const T = {
     act_mot: 'LIRE',
     act_carte: 'REGARDER LA CARTE',
     act_guitare: 'LA GUITARE',
+    guitarePrend: 'LA PRENDRE AVEC MOI',
+    guitarePose: 'LA POSER ICI',
+    guitarePrise: 'LA GUITARE EST SUR TON DOS',
+    guitarePosee: 'LA GUITARE RESTE ICI',
     guitareTitre: 'LA GUITARE',
     guitareJoue: 'EN JOUER',
     guitareRegarde: 'LA REGARDER',
@@ -15610,6 +15969,10 @@ const T = {
     act_mot: 'READ',
     act_carte: 'LOOK AT THE MAP',
     act_guitare: 'THE GUITAR',
+    guitarePrend: 'TAKE IT WITH ME',
+    guitarePose: 'LEAVE IT HERE',
+    guitarePrise: 'THE GUITAR IS ON YOUR BACK',
+    guitarePosee: 'THE GUITAR STAYS HERE',
     guitareTitre: 'THE GUITAR',
     guitareJoue: 'PLAY IT',
     guitareRegarde: 'LOOK AT IT',
@@ -16257,6 +16620,12 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.44', fr: 'La guitare se prend, se porte sur le dos, s’emmène en Jeep et en avion, et se pose où l’on veut — elle reste là où on l’a laissée.', en: 'The guitar can be picked up, carried on your back, taken in the Jeep and the aircraft, and set down anywhere — it stays where you left it.' },
+  { v: '1.44', fr: 'On en joue assis en tailleur, la caisse contre soi, et non plus un genou à terre.', en: 'You play it sitting cross-legged, the body against you, no longer down on one knee.' },
+  { v: '1.44', fr: 'Le morceau ne boucle plus : la suite d’accords descend le cycle des quintes, dévie, s’enrichit, et ne revient jamais deux fois la même.', en: 'The tune no longer loops: the chords walk down the circle of fifths, stray, take on colour, and never come round the same way twice.' },
+  { v: '1.44', fr: 'Le son ne double plus quand on quitte la fenêtre et qu’on y revient.', en: 'The sound no longer doubles when you leave the window and come back.' },
+  { v: '1.44', fr: 'Dans la lettre, les mots effacés qui se suivent ne font plus qu’un crochet, et le premier dit ce qui est arrivé au papier.', en: 'In the letter, consecutive erased words now form a single bracket, and the first one says what happened to the paper.' },
+  { v: '1.44', fr: '« Mon amour, » ne s’efface jamais ; la formule puis le prénom finissent par partir.', en: '« Mon amour, » never fades; the closing line and then the name eventually go.' },
   { v: '1.43', fr: 'La lettre commence par « Mon amour, », et son cadre ne touche plus le bord du haut de l’écran.', en: 'The letter opens with « Mon amour, », and its frame no longer touches the top edge of the screen.' },
   { v: '1.43', fr: 'Quand la pluie a mangé des mots, la lettre le dit : on comprend enfin pourquoi il manque quelque chose.', en: 'When the rain has eaten words, the letter says so: you finally understand why something is missing.' },
   { v: '1.42', fr: 'Les bâtiments et les appareils se dessinent comme le sol, en une seule passe : plus rien ne devient transparent selon la distance ou l’angle.', en: 'Buildings and aircraft are drawn like the ground, in a single pass: nothing turns transparent with distance or angle any more.' },

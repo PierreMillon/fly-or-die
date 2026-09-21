@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>La guitare — Fly or Die</title>
+<style>
+  :root { --bg:#04070a; --line:#46ffa0; --text:#8ffcc4; --dim:#1d4a36; --pale:#0f2a1d; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:14px; line-height:1.6; }
+  body { padding:18px 14px 44px; max-width:36rem; margin:0 auto; }
+  h1 { font-size:13px; letter-spacing:.24em; font-weight:500; margin:0 0 4px; }
+  .sous { color:var(--dim); font-size:12px; margin:0 0 18px; }
+  .rangee { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  button { flex:1 1 auto; min-width:7rem; background:transparent;
+    border:1px solid var(--dim); border-radius:4px; color:var(--text);
+    font-family:inherit; font-size:12px; letter-spacing:.16em; padding:11px 8px; }
+  button.actif { border-color:var(--line); color:var(--line); }
+  .titre { font-size:11px; letter-spacing:.2em; color:var(--dim); margin:16px 0 6px; }
+  .reglage { margin:0 0 13px; }
+  .etiquette { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .etiquette span:first-child { font-size:12px; letter-spacing:.08em; }
+  .valeur { color:var(--line); font-variant-numeric:tabular-nums; }
+  .note { color:var(--dim); font-size:11px; line-height:1.45; margin:1px 0 0; }
+  input[type=range] { width:100%; margin:0; -webkit-appearance:none; appearance:none;
+    background:transparent; height:24px; }
+  input[type=range]::-webkit-slider-runnable-track { height:1px; background:var(--dim); }
+  input[type=range]::-moz-range-track { height:1px; background:var(--dim); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:17px; height:17px;
+    margin-top:-8px; border-radius:50%; background:var(--bg); border:1px solid var(--line); }
+  input[type=range]::-moz-range-thumb { width:17px; height:17px; border-radius:50%;
+    background:var(--bg); border:1px solid var(--line); }
+  hr { border:0; border-top:1px solid var(--dim); margin:22px 0 16px; }
+  pre { border:1px solid var(--dim); border-radius:4px; padding:12px; font-size:11px;
+    line-height:1.65; overflow-x:auto; color:var(--line); white-space:pre; margin:0 0 10px; }
+  .etat { color:var(--dim); font-size:11px; min-height:1.4em; margin:8px 0 0; }
+  #suite { border:1px solid var(--dim); border-radius:4px; padding:12px; min-height:5.4em;
+    font-size:13px; line-height:1.9; letter-spacing:.06em; color:var(--dim); }
+  #suite b { color:var(--line); font-weight:500; }
+  #suite i { color:var(--text); font-style:normal; }
+</style>
+</head>
+<body>
+
+<h1>LA GUITARE</h1>
+<p class="sous">Le même synthétiseur que le jeu, note pour note. Quatre moteurs
+au choix en haut ; en dessous, de quoi régler la suite d'accords et le hasard.</p>
+
+<div class="rangee">
+  <button id="btnJoue">JOUER</button>
+  <button id="btnStop">ARRÊTER</button>
+</div>
+
+<div class="rangee" id="moteurs"></div>
+
+<p class="titre">CE QU'ELLE JOUE, ACCORD PAR ACCORD</p>
+<div id="suite"></div>
+<p class="note">Le dernier accord est en clair. Ce qui est entre parenthèses est
+une altération : un emprunt, une dominante secondaire, une suspension.</p>
+
+<hr>
+
+<div id="reglages"></div>
+
+<hr>
+
+<pre id="sortie"></pre>
+<div class="rangee">
+  <button id="btnCopier">COPIER POUR CLAUDE</button>
+  <button id="btnDefaut">VALEURS DU JEU</button>
+</div>
+<p class="etat" id="etat"></p>
+
+<script>
+// ---------------------------------------------------------------------------
+// LA CORDE EST CELLE DU JEU, RECOPIÉE.
+//
+// Un triangle, une attaque de douze millisecondes, et un passe-bas qui descend
+// de deux mille six cents à sept cents hertz pendant la note : c'est ce qui
+// fait qu'on entend une corde pincée et pas un orgue. Si cette page sonnait
+// autrement que le jeu, elle ne servirait à rien.
+// ---------------------------------------------------------------------------
+let actx = null, master = null;
+const _sonnantes = [];
+function audio() {
+  if (actx) return actx;
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  master = actx.createGain();
+  master.gain.value = 0.9;
+  master.connect(actx.destination);
+  return actx;
+}
+function corde(f, when, dur, v) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  const lp = actx.createBiquadFilter();
+  o.type = 'triangle'; o.frequency.setValueAtTime(f, when);
+  g.gain.setValueAtTime(0.0001, when);
+  g.gain.exponentialRampToValueAtTime(v, when + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(2600, when);
+  lp.frequency.exponentialRampToValueAtTime(700, when + dur);
+  o.connect(g).connect(lp).connect(master);
+  o.start(when); o.stop(when + dur + 0.05);
+  _sonnantes.push(o);
+  if (_sonnantes.length > 200) _sonnantes.splice(0, 100);
+}
+
+// ---------------------------------------------------------------------------
+// LES ACCORDS. Tout est compté en demi-tons depuis le LA de la corde grave,
+// celui qui vaut 110 Hz. Un accord, c'est une fondamentale et des intervalles.
+//
+// LE CYCLE DES QUINTES, en mineur naturel : chaque accord descend d'une quinte
+// vers le suivant, et au bout de sept on est revenu à la tonique. C'est la
+// suite d'accords la plus employée de toute la musique occidentale, et c'est
+// elle qui donne l'impression que ça « tombe » naturellement.
+//
+//   i  →  iv  →  VII  →  III  →  VI  →  ii°  →  V  →  i
+//   Am →  Dm  →  G    →  C    →  F   →  B°   →  E  →  Am
+// ---------------------------------------------------------------------------
+const DEGRES = [
+  { nom: 'i',   racine: 0,  type: 'min' },
+  { nom: 'iv',  racine: 5,  type: 'min' },
+  { nom: 'VII', racine: 10, type: 'maj' },
+  { nom: 'III', racine: 3,  type: 'maj' },
+  { nom: 'VI',  racine: 8,  type: 'maj' },
+  { nom: 'ii°', racine: 2,  type: 'dim' },
+  { nom: 'V',   racine: 7,  type: 'maj' },   // la tierce est haussée : c'est la dominante
+];
+const TYPES = {
+  min:  [0, 3, 7],
+  maj:  [0, 4, 7],
+  dim:  [0, 3, 6],
+  min7: [0, 3, 7, 10],
+  maj7: [0, 4, 7, 11],
+  dom7: [0, 4, 7, 10],
+  sus4: [0, 5, 7],
+  sus2: [0, 2, 7],
+  add9: [0, 4, 7, 14],
+  m9:   [0, 3, 7, 14],
+};
+const NOMS = ['LA','LA♯','SI','DO','DO♯','RÉ','RÉ♯','MI','FA','FA♯','SOL','SOL♯'];
+const SUFFIXE = { min:'m', min7:'m7', m9:'m9', dim:'°', maj:'', maj7:'M7',
+                  dom7:'7', sus4:'sus4', sus2:'sus2', add9:'add9' };
+const nomDe = (r, type) => NOMS[((r % 12) + 12) % 12] + (SUFFIXE[type] || '');
+
+// LES QUATRE MOTEURS. Ils diffèrent par une seule chose : comment on choisit
+// l'accord suivant. Le reste — le timbre, l'arpège, la durée — est commun.
+const MOTEURS = [
+  { id: 'cycle',  nom: 'CYCLE PUR',
+    note: 'la descente de quintes, du début à la fin, sans jamais dévier' },
+  { id: 'hasard', nom: 'CYCLE + HASARD',
+    note: 'la descente de quintes, mais de temps en temps elle saute ailleurs' },
+  { id: 'marche', nom: 'MARCHE LIBRE',
+    note: 'elle va où elle veut dans la tonalité, avec un penchant pour la tonique' },
+  { id: 'colore', nom: 'CYCLE + COULEURS',
+    note: 'le cycle, et les accords s’enrichissent : septièmes, neuvièmes, suspensions' },
+];
+
+const V = { MOTEUR: 'hasard', PAS: 0.55, PAR_ACCORD: 4, HASARD: 0.22, ALTERATION: 0.18,
+            ETENDUE: 2, HUMAIN: 0.06, VOLUME: 0.085 };
+const DEFAUT = Object.assign({}, V);
+
+const R = [
+  { cle:'PAS', min:0.18, max:1.2, pas:0.01, nom:'TEMPS ENTRE DEUX NOTES',
+    note:"secondes. Le jeu est à 0,55 aujourd'hui : une note toutes les demi-secondes." },
+  { cle:'PAR_ACCORD', min:2, max:8, pas:1, nom:'NOTES PAR ACCORD',
+    note:"combien de notes on égrène avant de changer d'accord" },
+  { cle:'HASARD', min:0, max:1, pas:0.02, nom:'PART DE HASARD',
+    note:"chance, à chaque accord, de quitter la descente de quintes pour ailleurs" },
+  { cle:'ALTERATION', min:0, max:1, pas:0.02, nom:'PART D’ALTÉRATION',
+    note:"chance qu'un accord soit enrichi ou emprunté : septième, neuvième, suspension, dominante secondaire" },
+  { cle:'ETENDUE', min:1, max:3, pas:1, nom:'ÉTENDUE EN OCTAVES',
+    note:"sur combien d'octaves l'arpège se promène" },
+  { cle:'HUMAIN', min:0, max:0.2, pas:0.005, nom:'MAIN QUI N’EST PAS UNE MACHINE',
+    note:"le flottement sur chaque attaque, en secondes. À zéro, c'est un séquenceur." },
+  { cle:'VOLUME', min:0.02, max:0.2, pas:0.005, nom:'NIVEAU',
+    note:"l'amplitude de chaque corde" },
+];
+
+// ---------------------------------------------------------------------------
+// LA SUITE D'ACCORDS. Un état — où l'on est dans le cycle — et une règle pour
+// avancer. Elle ne boucle jamais : à chaque accord on retire un dé.
+// ---------------------------------------------------------------------------
+let pos = DEGRES.length - 1, histoire = [];   // le premier pas tombe donc sur la tonique
+function accordSuivant() {
+  const M = V.MOTEUR;
+  if (M === 'marche') {
+    // penchant pour la tonique, puis pour les degrés voisins dans le cycle
+    const poids = [3, 2, 2, 2, 2, 1, 2];
+    const avant = pos;
+    for (let essai = 0; essai < 8; essai++) {
+      let t = poids.reduce((a, b) => a + b, 0) * Math.random();
+      pos = 0; while (t > poids[pos] && pos < 6) { t -= poids[pos]; pos++; }
+      if (pos !== avant) break;       // là non plus, on ne rejoue pas le même
+    }
+  } else if ((M === 'hasard' || M === 'colore') && Math.random() < V.HASARD) {
+    // UN SAUT, PAS UN SUR-PLACE. Retomber sur le degré qu'on vient de jouer
+    // n'est pas une variation, c'est un accord tenu deux fois plus longtemps :
+    // on tire parmi les six autres.
+    const d = 1 + Math.floor(Math.random() * (DEGRES.length - 1));
+    pos = (pos + d) % DEGRES.length;
+  } else {
+    pos = (pos + 1) % DEGRES.length;
+  }
+  const d = DEGRES[pos];
+  let type = d.type, alt = '';
+  // LA DOMINANTE EST MAJEURE, TOUJOURS. C'est la seule altération obligatoire
+  // du mineur : sans elle, le retour à la tonique ne se referme pas.
+  if (d.nom === 'V') type = 'maj';
+  const colore = M === 'colore' ? Math.max(V.ALTERATION, 0.45) : V.ALTERATION;
+  if (Math.random() < colore) {
+    const choix = [];
+    if (type === 'min') choix.push(['min7', 'septième'], ['m9', 'neuvième'], ['sus4', 'suspension']);
+    if (type === 'maj') choix.push(['maj7', 'septième majeure'], ['dom7', 'septième'],
+                                   ['add9', 'neuvième ajoutée'], ['sus2', 'suspension']);
+    if (type === 'dim') choix.push(['min7', 'adouci']);
+    if (choix.length) {
+      const c = choix[Math.floor(Math.random() * choix.length)];
+      type = c[0]; alt = c[1];
+    }
+  }
+  // LA DOMINANTE SECONDAIRE : un accord majeur à la quinte au-dessus de celui
+  // qui vient, glissé juste avant lui. C'est ce qui fait « tourner » une suite
+  // sans changer de tonalité, et c'est très exactement l'effet du cycle.
+  let sec = null;
+  if (M !== 'cycle' && Math.random() < V.ALTERATION * 0.5) {
+    sec = { racine: (d.racine + 7) % 12, type: 'dom7', alt: 'dominante secondaire' };
+  }
+  const a = { degre: d.nom, racine: d.racine, type, alt };
+  return sec ? [Object.assign({ degre: 'V/' + d.nom }, sec), a] : [a];
+}
+
+// L'ARPÈGE. Les notes de l'accord, étalées sur l'étendue demandée, parcourues
+// selon un motif tiré au sort : c'est là que vient la variation mélodique, et
+// elle est sans fin puisqu'on retire à chaque accord.
+const MOTIFS = [
+  [0, 1, 2, 1], [0, 2, 1, 2], [0, 1, 2, 3], [3, 2, 1, 0],
+  [0, 2, 3, 1], [0, 1, 3, 2], [0, 3, 1, 2], [1, 0, 2, 3],
+];
+function notesDe(a, n) {
+  const inter = TYPES[a.type] || TYPES.min;
+  const voix = [];
+  voix.push(a.racine - 12);                       // la basse, une octave dessous
+  for (let o = 0; o < V.ETENDUE; o++)
+    for (const i of inter) voix.push(a.racine + i + o * 12);
+  const motif = MOTIFS[Math.floor(Math.random() * MOTIFS.length)];
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const i = k === 0 ? 0 : 1 + (motif[k % motif.length] % (voix.length - 1));
+    out.push(voix[Math.min(i, voix.length - 1)]);
+  }
+  return out;
+}
+
+let minuteur = null, prochaine = 0;
+function programme() {
+  if (!actx) return;
+  const horizon = actx.currentTime + 1.5;
+  let garde = 0;
+  while (prochaine < horizon && garde++ < 40) {
+    for (const a of accordSuivant()) {
+      const n = V.PAR_ACCORD;
+      const notes = notesDe(a, n);
+      for (let k = 0; k < n; k++) {
+        const flotte = (Math.random() - 0.5) * 2 * V.HUMAIN;
+        const t = Math.max(actx.currentTime + 0.02, prochaine + k * V.PAS + flotte);
+        corde(110 * Math.pow(2, notes[k] / 12), t, V.PAS * 2.6,
+              V.VOLUME * (k === 0 ? 1.35 : 1));
+      }
+      prochaine += n * V.PAS;
+      histoire.push(a);
+      if (histoire.length > 14) histoire.shift();
+    }
+  }
+  montreSuite();
+}
+function joue() {
+  audio();
+  if (actx.state === 'suspended') actx.resume();
+  arrete();
+  prochaine = actx.currentTime + 0.12;
+  histoire = [];
+  programme();
+  minuteur = setInterval(programme, 700);
+  document.getElementById('etat').textContent = 'Elle joue. Rien ne se répète : tout est tiré à chaque accord.';
+}
+function arrete() {
+  if (minuteur) { clearInterval(minuteur); minuteur = null; }
+  for (const o of _sonnantes) { try { o.stop(); } catch (e) {} }
+  _sonnantes.length = 0;
+}
+function montreSuite() {
+  document.getElementById('suite').innerHTML = histoire.map((a, i) => {
+    const n = nomDe(a.racine, a.type) + (a.alt ? ' <small>(' + a.alt + ')</small>' : '');
+    return i === histoire.length - 1 ? '<b>' + n + '</b>' : '<i>' + n + '</i>';
+  }).join('  ·  ');
+}
+
+// --- les curseurs
+const boites = {};
+const zone = document.getElementById('reglages');
+for (const r of R) {
+  const d = document.createElement('div');
+  d.className = 'reglage';
+  d.innerHTML = '<div class="etiquette"><span>' + r.nom +
+    '</span><span class="valeur" id="v_' + r.cle + '"></span></div>';
+  const i = document.createElement('input');
+  i.type = 'range'; i.min = r.min; i.max = r.max; i.step = r.pas; i.value = V[r.cle];
+  i.addEventListener('input', () => { V[r.cle] = parseFloat(i.value); montre(); });
+  d.appendChild(i);
+  const n = document.createElement('p');
+  n.className = 'note'; n.textContent = r.note;
+  d.appendChild(n);
+  zone.appendChild(d);
+  boites[r.cle] = i;
+}
+const barre = document.getElementById('moteurs');
+MOTEURS.forEach(m => {
+  const b = document.createElement('button');
+  b.textContent = m.nom;
+  b.title = m.note;
+  b.addEventListener('click', () => {
+    V.MOTEUR = m.id;
+    [...barre.children].forEach(c => c.classList.remove('actif'));
+    b.classList.add('actif');
+    montre();
+    document.getElementById('etat').textContent = m.nom + ' — ' + m.note;
+  });
+  barre.appendChild(b);
+});
+[...barre.children][MOTEURS.findIndex(m => m.id === V.MOTEUR)].classList.add('actif');
+
+function montre() {
+  for (const r of R)
+    document.getElementById('v_' + r.cle).textContent =
+      r.pas >= 1 ? String(Math.round(V[r.cle])) : V[r.cle].toFixed(r.pas < 0.01 ? 3 : 2);
+  document.getElementById('sortie').textContent =
+    'LA GUITARE — réglé sur la page\n  MOTEUR = ' + V.MOTEUR + '\n' +
+    R.map(r => '  ' + r.cle + ' = ' + (r.pas >= 1 ? Math.round(V[r.cle]) : V[r.cle].toFixed(3))).join('\n');
+}
+
+document.getElementById('btnJoue').addEventListener('click', joue);
+document.getElementById('btnStop').addEventListener('click', () => {
+  arrete();
+  document.getElementById('etat').textContent = 'Arrêtée.';
+});
+document.getElementById('btnDefaut').addEventListener('click', () => {
+  Object.assign(V, DEFAUT);
+  [...barre.children].forEach((c, i) => c.classList.toggle('actif', MOTEURS[i].id === V.MOTEUR));
+  for (const r of R) boites[r.cle].value = V[r.cle];
+  montre();
+  document.getElementById('etat').textContent = 'Remis aux valeurs de départ.';
+});
+document.getElementById('btnCopier').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById('sortie').textContent);
+    document.getElementById('etat').textContent = 'Copié. Colle-le-moi tel quel.';
+  } catch (e) {
+    document.getElementById('etat').textContent = 'Impossible de copier ici : sélectionne le bloc à la main.';
+  }
+});
+
+montre();
+document.getElementById('etat').textContent =
+  'Touche JOUER. Change de moteur en cours de route, ça suit.';
+</script>
+</body>
+</html>
