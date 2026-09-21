@@ -1224,6 +1224,11 @@ const ROQ_E_RECHARGE = 9;
 // décompte, de décider, et de faire le tonneau — pas le temps d'hésiter.
 const ROQ_E_PORTEE  = [260, 520];
 const ROQ_E_ESQUIVE = 300;    // en deçà, un tonneau la fait décrocher
+// LA FENÊTRE. Une seconde avant l'impact, l'écran écrit ESQUIVE et le geste
+// devient payant : c'est là, et seulement là, qu'on décide. Avant, c'est trop
+// tôt — la roquette a le temps de se recaler ; après, c'est trop tard.
+const ESQUIVE_FENETRE = 1.0;  // secondes avant l'impact où le mot s'affiche
+const ESQUIVE_REMUE = 0.6;    // un coup de manche franc suffit, pas qu'un tonneau
 // ELLE N'ARRIVAIT JAMAIS. Mesuré : huit tirs plein arrière, aucun tonneau,
 // huit disparitions sans le moindre dégât. L'alerte hurlait WARNING ROCKET ·
 // ROLL ! et il ne se passait rien, quoi qu'on fasse — ce qui est pire qu'une
@@ -12428,9 +12433,23 @@ function updateRoqEnnemies(dt) {
     // chaque approche, sans que le joueur y soit pour rien. On annonçait donc
     // « ESQUIVÉE » pour un raté de la roquette. À soixante-dix mètres, il faut
     // qu'elle ait vraiment frôlé, donc qu'on se soit vraiment écarté.
-    const semee = (state.spinT > 0 && d < ROQ_E_ESQUIVE) || (r.dMin < 70 && d > r.dMin + 30);
+    // DANS LA FENÊTRE, UN GESTE FRANC SUFFIT. Le tonneau reste la réponse
+    // sûre — il marche dès trois cents mètres — mais qui tire fort sur le
+    // manche dans la dernière seconde la sème aussi. On demande un geste, pas
+    // une figure apprise.
+    const dansLaFenetre = r.ttg !== undefined && r.ttg < ESQUIVE_FENETRE;
+    const semee = (state.spinT > 0 && d < ROQ_E_ESQUIVE)
+               || (dansLaFenetre && state.remuant > ESQUIVE_REMUE)
+               || (r.dMin < 70 && d > r.dMin + 30);
     if (!r.perdue && semee) {
       r.perdue = true;
+      // ET ELLE PASSE LÀ OÙ ELLE NOUS AURAIT EUS. Perdue, elle continuait
+      // tout droit — dans la direction qu'elle avait au moment du geste, qui
+      // n'est pas tout à fait la nôtre. On la fige donc sur le point que nous
+      // occupions à cet instant précis : elle traverse l'endroit où nous
+      // étions, et on la voit passer. C'est ce passage-là qui fait l'esquive ;
+      // sans lui, elle disparaît et il ne s'est rien passé.
+      r.dir.subVectors(state.pos, r.pos).normalize();
       stat('roquettesEsquivees');
       announce(t('esquivee'));
       SFX.vagueNette();
@@ -15885,16 +15904,32 @@ function drawHud() {
       if (pire === null || r.ttg < pire) pire = r.ttg;
     }
     if (pire !== null && pire < ROQ_E_VIE && state.running && !state.pose && !state.roulage) {
-      const chaud = pire < 1;
+      // AU-DESSUS DE L'APPAREIL, PAS AU MILIEU DE L'ÉCRAN. Le décompte vivait
+      // à quarante pour cent de la hauteur, c'est-à-dire nulle part : l'oeil
+      // est sur la cellule, et c'est elle qui va être touchée. Il se pose donc
+      // juste au-dessus d'elle, il la suit, et il reste vert comme tout le
+      // reste — ce qui dit l'urgence, c'est le chiffre qui tombe, pas la
+      // couleur. Même police, même corps que le HUD.
+      const dans = ESQUIVE_FENETRE;
+      const q = project(_viseurPt.copy(state.pos).addScaledVector(_up, 20));
+      const cx = q.front ? THREE.MathUtils.clamp(q.x, 60, w - 60) : w / 2;
+      const cy = q.front ? THREE.MathUtils.clamp(q.y, h * 0.30, h * 0.72) : h * 0.42;
+      const chaud = pire < dans;
       const _tb = performance.now() / 1000;
       const bat = pire < 2 ? 0.55 + 0.45 * Math.abs(Math.sin(_tb * (chaud ? 14 : 7))) : 0.9;
       hctx.save();
       hctx.textAlign = 'center';
       hctx.textBaseline = 'middle';
-      hctx.font = '600 ' + (chaud ? 22 : 18) + 'px "IBM Plex Mono", ui-monospace, monospace';
-      hctx.fillStyle = (chaud ? 'rgba(255,90,80,' : 'rgba(255,190,90,') + bat.toFixed(2) + ')';
-      hctx.fillText((langue === 'en' ? 'ROCKET  ' : 'ROQUETTE  ') + pire.toFixed(1) + 's',
-                    w / 2, h * 0.40);
+      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillStyle = 'rgba(143,252,196,' + bat.toFixed(2) + ')';
+      hctx.fillText((langue === 'en' ? 'ROCKET  ' : 'ROQUETTE  ') + pire.toFixed(1) + 's', cx, cy);
+      // ET LE MOT QUI DIT QUAND. Dans la dernière seconde, il remplace le
+      // chiffre par l'ordre : c'est le seul moment où le geste paie.
+      if (chaud) {
+        hctx.font = '600 15px "IBM Plex Mono", ui-monospace, monospace';
+        hctx.fillStyle = 'rgba(190,255,220,' + Math.min(1, bat + 0.2).toFixed(2) + ')';
+        hctx.fillText(t('esquive'), cx, cy - 17);
+      }
       hctx.restore();
     }
   }
@@ -16950,7 +16985,7 @@ const T = {
     viePleine: 'VIE PLEINE', viePleineSous: 'TU PEUX REPARTIR',
     plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Plus de crash au sol ni contre les murs, jusqu’au prochain posé.',
     portailSol: 'ARRACHÉ DU SOL', portailSolSous: 'Un portail franchi en roulant décolle et catapulte.',
-    tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
+    esquive: 'ESQUIVE', tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
     acces_legende: 'Entre dans la légende pour l’ouvrir',
     acces_refuge: 'Il attend au refuge, loin à l’ouest',
     acces_ciel: 'Complète le ciel : toutes les figures des étoiles',
@@ -17084,7 +17119,7 @@ const T = {
     viePleine: 'FULL LIFE', viePleineSous: 'YOU CAN GO',
     plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Immune to crash, ground and walls, until you land again.',
     portailSol: 'TORN OFF THE GROUND', portailSolSous: 'A gate taken while taxiing lifts you off and slingshots you.',
-    tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
+    esquive: 'BREAK', tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
     acces_legende: 'Enter the legend to unlock it',
     acces_refuge: 'It waits at the refuge, far west',
     acces_ciel: 'Complete the sky: every star figure',
@@ -17767,6 +17802,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.61', fr: 'Le décompte de la roquette se pose au-dessus de l’appareil, en vert, et ESQUIVE s’affiche la dernière seconde.', en: 'The rocket countdown sits above the aircraft, in green, and BREAK appears in the last second.' },
+  { v: '1.61', fr: 'Un coup de manche franc dans cette seconde-là la sème, et elle passe alors là où elle nous aurait eus.', en: 'A hard stick input in that second sheds it, and it then flies through where it would have hit you.' },
   { v: '1.60', fr: 'La guillotine se referme par les deux bords et attend deux secondes : le trou rétrécit vraiment, et la lame ne tombe plus sur nous.', en: 'The guillotine closes from both edges and waits two seconds: the hole really shrinks, and the blade no longer falls on you.' },
   { v: '1.60', fr: 'La roquette adverse nous suit au lieu d’anticiper, part de cinq cents mètres et arrive en deux secondes.', en: 'The enemy rocket follows instead of leading, launches from five hundred metres and lands in two seconds.' },
   { v: '1.60', fr: 'Une figure décroche le viseur des adversaires les plus simples ; le gardien et le faucheur suivent.', en: 'A manoeuvre breaks the simplest opponents’ aim; the guardian and the reaper hold on.' },
