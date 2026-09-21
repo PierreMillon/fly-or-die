@@ -767,6 +767,10 @@
   #overlayScore { margin: 0; font-size: 13px; color: var(--ph-dim); letter-spacing: 0.15em; line-height: 1.9; }
   #overlayScore b { color: var(--ph-line); font-weight: 500; }
   #gaugeFill.bonus { background: #ffd166; box-shadow: 0 0 8px #ffd166; }
+  /* LA JAUGE VIENT DE SE REMPLIR. Deux battements blancs, et c'est tout :
+     on a payé la réparation, on a le droit de la voir se terminer. */
+  #gaugeFill.pleine { background: #f2fff6; box-shadow: 0 0 16px #f2fff6; animation: jaugePleine 0.4s steps(1) 4; }
+  @keyframes jaugePleine { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0.55; } }
   #objectif { margin: 0; font-size: 12px; color: var(--ph-dim); letter-spacing: 0.12em; line-height: 1.8; max-width: 30em; }
   #objectif b { color: var(--ph-line); font-weight: 500; }
   #objectif[hidden] { display: none; }

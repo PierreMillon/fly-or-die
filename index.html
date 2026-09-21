@@ -5594,7 +5594,24 @@ const PISTE_GARDE_Z1 = -1150;
 // le milieu de la piste ; x vers l'est, z vers le sud (le nord est en -z).
 // ---------------------------------------------------------------------------
 const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":4,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":6,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":110,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
-CARTE.speciaux = [{ x: -620, z: -1500, q: 0, forme: 'u' }, { x: 760, z: -1750, q: 1, forme: 'double' }, { x: -950, z: 320, q: 0, forme: 'incline' }];
+// ---------------------------------------------------------------------------
+// LES DEUX BÂTIMENTS À FIGURE SORTENT DE LA CARTE.
+//
+// Le puits en U demandait un Immelmann à l'intérieur ; le mur à fente, un
+// quart de tour à quarante-cinq degrés. Tous les deux ont le même défaut :
+// il faut connaître la figure ET la réussir en aveugle, dans un couloir, sous
+// le feu. En pratique on s'y écrasait, on n'y gagnait rien, et l'on finissait
+// par les éviter — un bâtiment qu'on évite ne sert à rien.
+//
+// Le troisième, la façade à deux fenêtres, reste : il se traverse en volant,
+// comme tous les autres, et le combo des deux fenêtres est une récompense
+// d'adresse, pas une énigme.
+//
+// Leur code de construction reste en place : une carte personnalisée, faite
+// avant aujourd'hui et gardée dans le navigateur, peut encore en contenir, et
+// elle doit se charger sans casser.
+// ---------------------------------------------------------------------------
+CARTE.speciaux = [{ x: 760, z: -1750, q: 1, forme: 'double' }];
 CARTE.fixe = true;
 // Une carte dessinée sur la page carte.html et « essayée » remplace celle-ci
 // tant qu'elle est gardée sur l'appareil.
@@ -5757,6 +5774,19 @@ function ecrisEnZ(p, txt, xs, y0, z0, ech) {
 // ---------------------------------------------------------------------------
 const PAPI_Z = (PISTE.z0 + PISTE.z1) / 2;   // le point visé : le milieu
 const PAPI_X0 = 34, PAPI_PAS = 8;
+// ---------------------------------------------------------------------------
+// UNE SEULE RAMPE, ET DU CÔTÉ OÙ IL N'Y A PAS DE HANGAR. Les huit feux
+// étaient posés en deux rampes symétriques, à trente-quatre, quarante-deux,
+// cinquante et cinquante-huit mètres de l'axe. Or le hangar occupe la bande
+// de cinquante-cinq à cent-un mètres à l'est : le quatrième feu de la rampe
+// est était donc DANS le bâtiment, et les trois autres derrière sa masse dès
+// qu'on arrivait un peu décalé.
+//
+// Un aérodrome n'en a d'ailleurs qu'une, de rampe, posée à gauche de la
+// piste en service. On garde donc celle de l'ouest — le côté opposé au
+// hangar — et l'indication redevient lisible de partout.
+// ---------------------------------------------------------------------------
+const PAPI_COTE = -1;    // ouest : le hangar est à l'est (AERO.x vaut 78)
 // du plus près de la piste au plus loin. Le plus près est réglé le plus haut :
 // c'est lui qui vire au blanc en premier quand on remonte.
 const PAPI_ECARTS = [0.5, 1 / 6, -1 / 6, -0.5].map(d => d * Math.PI / 180);
@@ -5765,8 +5795,8 @@ const PAPI_BLANC = [1, 1, 1], PAPI_ROUGE = [1, 0.32, 0.26];
 let papiMesh = null, papiCouleurs = null;
 (function poserPapi() {
   const pos = [], col = [];
-  for (const cote of [-1, 1]) for (let i = 0; i < 4; i++) {
-    pos.push(cote * (PAPI_X0 + i * PAPI_PAS), PISTE.y + 1.2, PAPI_Z);
+  for (let i = 0; i < 4; i++) {
+    pos.push(PAPI_COTE * (PAPI_X0 + i * PAPI_PAS), PISTE.y + 1.2, PAPI_Z);
     col.push(1, 1, 1);
   }
   const g = new THREE.BufferGeometry();
@@ -6045,9 +6075,13 @@ function majTube() {
     // cesse d'être une décoration.
     if (versLaPiste < -Math.cos(28 * Math.PI / 180) && d > 100 && d < TUBE_DIST
         && Math.abs(state.pos.x) < 400 && !TUBE.ditDos) {
+      // ET SANS BRUIT, DANS LE COIN DES NOUVELLES. Le bandeau plein écran et
+      // l'alarme disaient « urgence » pour une information de navigation :
+      // on est aligné par le mauvais bout, on a tout le temps de refaire le
+      // tour. La phrase va donc là où va tout ce qui se lit en volant, et
+      // l'alarme reste réservée à ce qui peut nous tuer.
       TUBE.ditDos = true;
-      announce(t('ventDos'), t('ventDosSous'));
-      SFX.alerte();
+      nouvelle(null, 0, t('ventDos'));
     }
     return;
   }
@@ -6128,12 +6162,10 @@ function majPapi() {
   // les feux ne se montrent que vus de l'axe : de côté, ils ne disent rien
   papiMesh.visible = PLAN.lisible && PLAN.axe < 160;
   const a = papiCouleurs.array;
-  for (const [d, base] of [[0, 0], [1, 4]]) {
-    for (let i = 0; i < 4; i++) {
-      const c = PLAN.angle > PENTE_CIBLE + PAPI_ECARTS[i] ? PAPI_BLANC : PAPI_ROUGE;
-      const k = (base + i) * 3;
-      a[k] = c[0]; a[k+1] = c[1]; a[k+2] = c[2];
-    }
+  for (let i = 0; i < 4; i++) {
+    const c = PLAN.angle > PENTE_CIBLE + PAPI_ECARTS[i] ? PAPI_BLANC : PAPI_ROUGE;
+    const k = i * 3;
+    a[k] = c[0]; a[k+1] = c[1]; a[k+2] = c[2];
   }
   papiCouleurs.needsUpdate = true;
 }
@@ -6155,6 +6187,32 @@ function auDessusDuBitume(marge) {
   const r = surLaBande(state.pos);
   return Math.abs(r.v) < REFUGE_PLAN.bande.w / 2 + 8 + m
       && Math.abs(r.u) < REFUGE_PLAN.bande.l / 2 + m;
+}
+
+// ---------------------------------------------------------------------------
+// ET LE BITUME NE S'ARRÊTE PAS NET. auDessusDuBitume() rend oui ou non ; le
+// plancher invisible, lui, valait donc zéro d'un côté du seuil et vingt-six
+// mètres de l'autre. En rasant la piste à contresens, on franchissait cette
+// frontière à cent trente mètres par seconde et l'appareil était TÉLÉPORTÉ
+// vingt-six mètres plus haut, nez en l'air : le saut en bout de piste.
+//
+// Cette fonction-ci rend une PART, qui retombe de un à zéro sur une bande de
+// cent quarante mètres au-delà de la marge. Le plancher revient donc en une
+// seconde de vol au lieu d'une image, et l'on ressort de la piste en montant
+// doucement plutôt qu'en étant catapulté.
+// ---------------------------------------------------------------------------
+const BITUME_FONDU = 140;   // mètres de transition au-delà du seuil
+function partBitume(marge) {
+  const m = marge || 0;
+  if (auDessusDuBitume(m)) return 1;
+  if (!auDessusDuBitume(m + BITUME_FONDU)) return 0;
+  // on est dans la bande : la part vaut ce qu'il reste à parcourir
+  let lo = 0, hi = BITUME_FONDU;
+  for (let i = 0; i < 7; i++) {      // sept coupes suffisent au mètre près
+    const mid = (lo + hi) / 2;
+    if (auDessusDuBitume(m + mid)) hi = mid; else lo = mid;
+  }
+  return 1 - hi / BITUME_FONDU;
 }
 
 // vrai tant qu'un point tombe dans le couloir réservé à la piste
@@ -6934,6 +6992,7 @@ const VIE_MAX = 1e9;      // au-dela de cent, c'est de la vie de bonus, sans pla
 // commence à la moitié, la moitié droite est à conquérir, et l'on peut jouer
 // une partie entière sans se battre, juste pour la remplir.
 // ---------------------------------------------------------------------------
+const VIE_PLEINE_ECLAT = 1.6;       // secondes pendant lesquelles la jauge brille
 const VIE_DEPART = 100;             // la vie du premier décollage
 const JAUGE_ECHELLE = VIE_DEPART * 2;   // et la barre en vaut deux fois plus
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
@@ -7054,7 +7113,10 @@ function majGuillotine(b) {
     // centre suit le bas de la descente. Elle pend donc du linteau, comme
     // une vraie, et ne dépasse jamais par le haut.
     b.lame.scale.y = descente / H;
-    b.lame.position.y = o.y0 + reste + descente / 2;
+    // la lame est un enfant du groupe : sa position est LOCALE, alors que
+    // l'ouverture est mesurée dans le monde. Sur la grande tour, mise à
+    // l'échelle par son groupe, l'oubli plaçait la lame deux fois trop haut.
+    b.lame.position.y = (o.y0 + reste + descente / 2) / (b.k || 1);
   }
   // ELLE EST SOLIDE. La boîte de la lame vit dans la liste des murs du
   // bâtiment ; on la retire et on la remet, parce que placeArche() et
@@ -7083,8 +7145,26 @@ const aretesTour = prismeAretes([
   [[-TOUR.trou / 2, TOUR.y0], [TOUR.trou / 2, TOUR.y0],
    [TOUR.trou / 2, TOUR.y1], [-TOUR.trou / 2, TOUR.y1]]
 ], TOUR.prof / 2);
+// ---------------------------------------------------------------------------
+// LA GRANDE TOUR.
+//
+// Toutes les tours se valent : même hauteur, même fenêtre, même prime. Rien
+// dans le ciel ne dit « celle-là, c'est autre chose ». Il en existe donc une,
+// et une seule, deux fois plus haute que tout ce qui l'entoure — plus haute
+// que le plus grand pylône, dont le plus grand plafonne à 435 mètres. On la
+// voit de partout, on ne peut pas la confondre, et sa fenêtre est si haut
+// qu'il faut décider d'aller la chercher.
+//
+// Elle rend le double de ce que rend une tour ordinaire. C'est la même
+// mécanique, à l'échelle : même guillotine, même étoile au radar, mêmes
+// murs. Seul le facteur change, et tout le reste en découle.
+// ---------------------------------------------------------------------------
+const GRANDE_K = 2.1;          // 693 mètres de haut, fenêtre à 414
+const GRANDE_TOUR = { x: -1750, z: 1500, q: 0, grande: true };
+
 const tours = [];
-for (let i = 0; i < CARTE.tours.length; i++) {
+const TOURS_CARTE = [...CARTE.tours, GRANDE_TOUR];
+for (let i = 0; i < TOURS_CARTE.length; i++) {
   const g = new THREE.Group();
   const dx = (TOUR.trou + TOUR.montant) / 2;
   g.add(bloc(TOUR.largeur, TOUR.y0, TOUR.prof, 0, TOUR.y0 / 2),
@@ -7098,14 +7178,17 @@ for (let i = 0; i < CARTE.tours.length; i++) {
   g.add(lame);
   g.frustumCulled = false;
   scene.add(g);
+  const k = TOURS_CARTE[i].grande ? GRANDE_K : 1;
+  g.scale.setScalar(k);
   tours.push({ g, trait, lame, boites: [], passage: null, prise: false,
-               guillo: 0, repos: 0, ferme: false, boiteLame: null,
-               ouv: { y0: TOUR.y0, y1: TOUR.y1 } });
+               guillo: 0, repos: 0, ferme: false, boiteLame: null, k,
+               grande: !!TOURS_CARTE[i].grande, sy: k,
+               ouv: { y0: TOUR.y0 * k, y1: TOUR.y1 * k } });
 }
 
 function placeTour(t, initial) {
   let x, z;
-  const c = CARTE.tours[tours.indexOf(t)];
+  const c = TOURS_CARTE[tours.indexOf(t)];
   if (c) { x = c.x; z = c.z; }
   else for (let essai = 0; ; essai++) {
     const ang = Math.random() * Math.PI * 2;
@@ -7117,18 +7200,24 @@ function placeTour(t, initial) {
   const quart = c ? !!c.q : Math.random() < 0.5;
   t.g.position.set(x, 0, z);
   t.g.rotation.y = quart ? Math.PI / 2 : 0;
-  const L = TOUR.largeur / 2, P = TOUR.prof / 2, M = TOUR.montant / 2;
-  const dx = (TOUR.trou + TOUR.montant) / 2;
-  const b = (cx, hx, hz, y0, y1) => quart
-    ? { x: x, z: z - cx, hx: hz, hz: hx, y0, y1 }
-    : { x: x + cx, z: z, hx, hz, y0, y1 };
+  // TOUT EST À L'ÉCHELLE DU GROUPE. Le dessin est mis à l'échelle par
+  // g.scale ; les murs, eux, vivent en coordonnées du monde et ne le savent
+  // pas. On les multiplie donc par le même facteur, sans quoi la grande tour
+  // serait dessinée deux fois plus grande et heurtée à sa taille d'origine.
+  const k = t.k || 1;
+  const L = TOUR.largeur / 2 * k, P = TOUR.prof / 2 * k, M = TOUR.montant / 2 * k;
+  const dx = (TOUR.trou + TOUR.montant) / 2 * k;
+  const y0 = TOUR.y0 * k, y1 = TOUR.y1 * k, haut = TOUR.hauteur * k;
+  const b = (cx, hx, hz, a0, a1) => quart
+    ? { x: x, z: z - cx, hx: hz, hz: hx, y0: a0, y1: a1 }
+    : { x: x + cx, z: z, hx, hz, y0: a0, y1: a1 };
   t.boites = [
-    b(0, L, P, 0, TOUR.y0),
-    b(0, L, P, TOUR.y1, TOUR.hauteur),
-    b(-dx, M, P, TOUR.y0, TOUR.y1),
-    b( dx, M, P, TOUR.y0, TOUR.y1)
+    b(0, L, P, 0, y0),
+    b(0, L, P, y1, haut),
+    b(-dx, M, P, y0, y1),
+    b( dx, M, P, y0, y1)
   ];
-  t.passage = b(0, TOUR.trou / 2, P, TOUR.y0, TOUR.y1);
+  t.passage = b(0, TOUR.trou / 2 * k, P, y0, y1);
   majGuillotine(t);
   rebatir(t);
 }
@@ -9103,6 +9192,7 @@ const state = {
   regime: 0,
   boostFin: 0,
   boostPortail: 0,    // secondes de poussée offertes par un portail
+  viePleineT: 0,      // secondes restantes d'éclat quand la jauge vient de se remplir
   suite: {},          // avancement de chaque figure de CIEL_SUITE
   suiteFaite: {},     // celles qui sont deja tracees
   dehorsDeja: false,  // la chaine a deja ete franchie : la musique ne part qu'une fois
@@ -13322,6 +13412,16 @@ function simulate(dt) {
       const part = (avantScore - state.score) / debout;
       for (const m of auTravail) noteMecanoPoints(m, part);
     }
+    // ET ON SAIT QUAND C'EST FINI. La vie montait, puis elle s'arrêtait de
+    // monter, et c'était tout : il fallait surveiller un chiffre pour savoir
+    // qu'on pouvait repartir. Le moment où la jauge touche son plafond est un
+    // vrai moment du jeu — on a payé pour lui. Il se voit, il s'entend, et il
+    // se dit une seule fois.
+    if (avant < state.vieMax && state.structure >= state.vieMax) {
+      state.viePleineT = VIE_PLEINE_ECLAT;
+      announce(t('viePleine'), t('viePleineSous'));
+      SFX.bouclierOn();
+    }
     tourneHelice(3.4 * dt);
     playerMesh.position.copy(state.pos);
     // LE DÉCALAGE DE CAMÉRA DOIT TOURNER AVEC LE CAP. Il était ajouté tel quel,
@@ -13886,9 +13986,10 @@ function simulate(dt) {
   // monde qui est fait pour être touché : y rebondir sur un sol invisible
   // empêchait justement de venir s'y poser. Le pardon s'arrête à l'assiette —
   // arriver en piqué franc reste un crash, ici comme ailleurs.
-  const surPiste = (auDessusDuBitume(60) && state.forward.y > -0.34) || state.assist;
-  if (state.pos.y < FLOOR && !surPiste) {
-    state.pos.y = FLOOR;
+  const partPiste = (state.forward.y > -0.34 || state.assist) ? partBitume(60) : 0;
+  const plancherEff = FLOOR * (1 - (state.assist ? 1 : partPiste));
+  if (state.pos.y < plancherEff) {
+    state.pos.y = plancherEff;
     if (state.pitch < 0) state.pitch = THREE.MathUtils.damp(state.pitch, 0.12, 9, dt);
   } else if (state.pos.y < SOL_Y) {
     state.pos.y = SOL_Y;
@@ -14284,6 +14385,7 @@ function scrape(dt) {
 }
 function scrapeCorps(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
+  if (state.viePleineT > 0) state.viePleineT = Math.max(0, state.viePleineT - dt);
   // le repos d'un portail : une traversée dure plusieurs images, et sans lui
   // un seul passage compterait deux ou trois crans de guillotine
   for (const b of arches) if (b.repos > 0) b.repos -= dt;
@@ -14323,7 +14425,14 @@ function scrapeCorps(dt) {
     // aucun des deux n'a de sens quand le tube nous tient, puisque c'est lui
     // qui décide de l'altitude et qu'il mène au bitume. Ils s'effacent donc
     // pendant l'approche assistée, et seulement pendant.
-    if (hs < SOL_COUSSIN && !auDessusDuBitume(60) && !state.assist) {
+    // ET LE COUSSIN SE RETIRE AVEC LE BITUME. Attention au piège : hs est
+    // NÉGATIF quand on vole sous le plancher, ce qui est le cas normal
+    // au-dessus de la piste. Écrire « hs < coussin × (1 − part) » suffisait
+    // donc à rallumer le coussin en plein milieu du bitume dès que la part
+    // valait un — et l'appareil était replaqué au plancher, treize mètres
+    // plus haut, mesuré. On sort d'abord, on compare ensuite.
+    const pbC = partBitume(60);
+    if (pbC < 1 && hs < SOL_COUSSIN * (1 - pbC) && !state.assist) {
       if (doux) {
         const k = THREE.MathUtils.clamp(1 - hs / SOL_COUSSIN, 0, 1);
         // la reprise, en mètres par seconde : nulle en haut, franche en bas
@@ -14359,7 +14468,13 @@ function scrapeCorps(dt) {
       }
     }
     // dernier filet, très bas : on ne passe jamais sous le monde
-    if (state.pos.y < plancher - 6 && !auDessusDuBitume(60)) state.pos.y = plancher - 6;
+    // ET CE FILET-LÀ AUSSI SE TEND PROGRESSIVEMENT. Mesuré : c'était lui le
+    // saut en bout de piste — onze mètres et demi en une image, à cinq mètres
+    // du seuil, pour venir poser l'appareil pile à plancher moins six. Il
+    // remonte maintenant depuis le sol sur les cent quarante mètres du fondu.
+    const pb = partBitume(60);
+    const filet = (plancher - 6) * (1 - pb);
+    if (state.pos.y < filet) state.pos.y = filet;
   }
 
   // on érafle le décor de la même façon, qu'il s'agisse d'un pylône ou d'une
@@ -14493,11 +14608,14 @@ function scrapeCorps(dt) {
       t.repos = GUILLO_REPOS;
       majGuillotine(t);
       stat('passages');
-      gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME);
+      // LA GRANDE TOUR REND LE DOUBLE. C'est tout ce qui la distingue dans
+      // le code — sa hauteur et sa fenêtre en haut font le reste du travail.
+      const prime = t.grande ? TOUR_PRIME * 2 : TOUR_PRIME;
+      gagneVie(defiEst('sansBonus') ? 0 : prime);
       coupDePied();
       coopReanime();
-      marque(400);
-      announce(t_('tour') + TOUR_PRIME);
+      marque(t.grande ? 900 : 400);
+      announce((t.grande ? t_('grandeTour') : t_('tour')) + prime);
     }
   }
   for (const a of arches) {
@@ -15555,15 +15673,28 @@ function drawHud() {
       hctx.stroke();
       hctx.lineWidth = 1.5;
     };
+    // L'ÉTOILE D'UN PORTAIL DIT CE QU'IL EN RESTE. Elle disparaissait dès
+    // qu'on l'avait pris, et revenait à la vague suivante : c'était la règle
+    // d'alors. Avec la guillotine il n'y a plus de vague qui rouvre — une
+    // ouverture s'use, et l'étoile MAIGRIT à chaque cran plutôt que de
+    // s'éteindre. Elle ne s'efface qu'à la fermeture définitive, quand il n'y
+    // a plus rien à aller chercher là-bas.
+    const usure = b => b.ferme ? 0 : 1 / Math.pow(2, b.guillo || 0);
     for (const a of arches) {
-      if (a.prise) continue;
+      const u = usure(a);
+      if (!u) continue;
       const d = dc(capDe(a.g.position));
-      etoile(px(d), L_VIE, 2 + 4 * proche(a.g.position), 3, bord(d) ? '0.3' : '0.75');
+      etoile(px(d), L_VIE, (2 + 4 * proche(a.g.position)) * (0.45 + 0.55 * u), 3,
+             bord(d) ? (0.3 * u).toFixed(2) : (0.75 * u).toFixed(2));
     }
     for (const t of tours) {
-      if (t.prise) continue;
+      const u = usure(t);
+      if (!u) continue;
       const d = dc(capDe(t.g.position));
-      etoile(px(d), L_VIE, 2.4 + 4.6 * proche(t.g.position), 4, bord(d) ? '0.35' : '0.95');
+      // la grande tour porte une étoile à six branches : on la reconnaît au
+      // radar avant même de l'avoir vue
+      etoile(px(d), L_VIE, (2.4 + 4.6 * proche(t.g.position)) * (t.grande ? 1.5 : 1) * (0.45 + 0.55 * u),
+             t.grande ? 6 : 4, bord(d) ? (0.35 * u).toFixed(2) : (0.95 * u).toFixed(2));
     }
 
     // LES AMIS. Un losange, forme qu'aucun autre repère n'utilise, sur la ligne
@@ -16174,8 +16305,11 @@ function majObjectif() {
 // ---------------------------------------------------------------------------
 const NOUVELLES_MAX = 3, NOUVELLE_DUREE = 4.5;
 const nouvelles = [];
-function nouvelle(qui, pv) {
-  nouvelles.unshift({ qui: qui, pv: pv, t: NOUVELLE_DUREE });
+// Une nouvelle peut aussi être une phrase toute faite : le coin des nouvelles
+// est l'endroit du jeu réservé à ce qui se lit sans interrompre le vol, et
+// tout ce qui n'est pas un événement de combat y a sa place.
+function nouvelle(qui, pv, texte) {
+  nouvelles.unshift({ qui: qui, pv: pv, texte: texte || null, t: NOUVELLE_DUREE });
   while (nouvelles.length > NOUVELLES_MAX) nouvelles.pop();
 }
 function updateNouvelles(dt) {
@@ -16197,7 +16331,7 @@ function dessineNouvelles(hctx, w, h) {
     const n = nouvelles[i];
     const a = Math.min(1, n.t / 0.8) * 0.72;
     hctx.fillStyle = 'rgba(143,252,196,' + a.toFixed(2) + ')';
-    hctx.fillText(n.qui + '  ' + (fr ? 'au portail' : 'at a gate') + '  +' + n.pv,
+    hctx.fillText(n.texte || (n.qui + '  ' + (fr ? 'au portail' : 'at a gate') + '  +' + n.pv),
                   12, y0 + i * 18);
   }
   hctx.restore();
@@ -16238,6 +16372,7 @@ function refreshBars() {
   // la jauge est graduée sur le plafond de la partie, pas sur cent : le
   // potentiel gagné se voit, et ce qu'il en reste aussi
   gaugeFill.style.width = Math.min(100, st / Math.max(JAUGE_ECHELLE, state.vieMax) * 100) + '%';
+  gaugeFill.classList.toggle('pleine', state.viePleineT > 0);
   // et le doré dit « au-delà du départ », pas « le plafond a bougé » : c'est
   // la vie de bonus elle-même qu'on regarde se remplir
   gaugeFill.classList.toggle('bonus', st > VIE_DEPART);
@@ -16296,7 +16431,8 @@ majPanneauRefuge();     // maintenant seulement le panneau sait quoi écrire
 const T = {
   fr: {
     decollage: 'DÉCOLLAGE', auSol: 'AU SOL  ·  RÉPARATION',
-    tour: 'TOUR TRAVERSÉE  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
+    viePleine: 'VIE PLEINE', viePleineSous: 'TU PEUX REPARTIR',
+    tour: 'TOUR TRAVERSÉE  ·  +', grandeTour: 'LA GRANDE TOUR  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
     fente: 'FENTE PASSÉE  ·  +', puits: 'SORTI PAR LE TOIT  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     doreFin: 'PROTECTION DU SOLEIL TERMINÉE', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
     sansFaute: 'SANS FAUTE  ·  VIE PLEINE  ·  PLAFOND +25',
@@ -16422,7 +16558,8 @@ const T = {
   },
   en: {
     decollage: 'TAKE OFF', auSol: 'ON THE GROUND  ·  REPAIRS',
-    tour: 'TOWER THREADED  ·  +', arche: 'ARCH CLEARED  ·  +',
+    viePleine: 'FULL LIFE', viePleineSous: 'YOU CAN GO',
+    tour: 'TOWER THREADED  ·  +', grandeTour: 'THE GREAT TOWER  ·  +', arche: 'ARCH CLEARED  ·  +',
     fente: 'SLOT THREADED  ·  +', puits: 'OUT THROUGH THE ROOF  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     doreFin: 'SUN COVER OVER', viseur: 'SIGHT UNLOCKED  ·  ',
     sansFaute: 'FLAWLESS  ·  FULL LIFE  ·  CAP +25',
@@ -17100,6 +17237,13 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.54', fr: 'La grande tour : deux fois plus haute que tout le reste, et elle rend deux fois plus de vie.', en: 'The great tower: twice as tall as anything else, and it gives twice the life.' },
+  { v: '1.54', fr: 'Le puits en U et le mur à fente quittent la carte : il fallait connaître la figure et la réussir en aveugle.', en: 'The U shaft and the slot wall leave the map: you had to know the manoeuvre and fly it blind.' },
+  { v: '1.54', fr: 'L’étoile d’un portail maigrit à chaque cran de guillotine au lieu de s’éteindre pour la vague.', en: 'A gate’s star thins with each notch of the guillotine instead of going out for the wave.' },
+  { v: '1.54', fr: 'Le PAPI n’a plus qu’une rampe, à l’ouest : son quatrième feu était dans le hangar.', en: 'The PAPI keeps one bar, to the west: its fourth light stood inside the hangar.' },
+  { v: '1.54', fr: 'Raser la piste à contresens ne catapulte plus en bout de piste : onze mètres et demi en une image, un et deux maintenant.', en: 'Skimming the runway the wrong way no longer catapults you at the far end: 11.5 metres in one frame, now 1.2.' },
+  { v: '1.54', fr: 'La jauge brille et le dit quand les mécaniciens ont fini.', en: 'The gauge flashes and says so when the mechanics are done.' },
+  { v: '1.54', fr: 'L’avis de vent arrière passe dans le coin des nouvelles, sans alarme.', en: 'The downwind notice moves to the news corner, with no alarm.' },
   { v: '1.53', fr: 'Les adversaires mettent un temps à s’apercevoir qu’on a viré : deux secondes pour un biplan, une demi pour le gardien.', en: 'Opponents take a moment to notice you turned: two seconds for a biplane, half a second for the guardian.' },
   { v: '1.53', fr: 'Le rayon de virage ne grandit plus avec la vitesse : le demi-tour à trois cents balayait trois cent cinquante-six mètres, il en balaie deux cent soixante-dix-sept.', en: 'Turn radius no longer grows with speed: a 180 at 300 m/s swept 356 metres, it now sweeps 277.' },
   { v: '1.53', fr: 'La loupe de l’iPhone ne s’ouvre plus sur les panneaux : la sélection se replie d’elle-même.', en: 'The iPhone magnifier no longer opens on panels: any selection collapses on its own.' },
