@@ -803,17 +803,47 @@
        qu'on ouvre remplace l'écran, elle ne le recouvre pas à moitié. */
     background: var(--ph-bg);
     display: flex; align-items: center; justify-content: center;
-    padding: 24px 20px;
+    /* LE CADRE NE TOUCHE JAMAIS LE BORD DU HAUT. Vingt-quatre pixels fixes
+       depuis `inset: 0` : sur un téléphone dont la barre d'état et l'île
+       mangent le haut, le trait du cadre passait dessous et la première ligne
+       avec. On part de la zone sûre, et on descend encore de vingt pixels. */
+    padding: max(28px, calc(env(safe-area-inset-top) + 20px)) 20px
+             max(28px, calc(env(safe-area-inset-bottom) + 20px));
   }
   #lettre[hidden] { display: none; }
   body.lit #topbar, body.lit #bottombar, body.lit #hud { visibility: hidden; }
   #lettre .feuille {
+    /* SANS CECI, « max-height: 100% » PLAFONNE LE CONTENU ET PAS LE CADRE.
+       La feuille est en content-box : les vingt-six pixels de marge du haut,
+       les dix-huit du bas et les deux traits du cadre s'ajoutaient PAR-DESSUS
+       les sept cent quatre pixels autorisés, et le cadre en faisait sept cent
+       cinquante — vingt-trois de trop en haut, vingt-trois en bas. Mesuré :
+       le trait du haut tombait à cinq pixels du bord de l'écran au lieu de
+       vingt-huit. C'est tout le défaut. */
+    box-sizing: border-box;
     max-width: 30rem; width: 100%;
     border: 1px solid var(--ph-dim);
     padding: 26px 22px 18px;
     max-height: 100%; overflow-y: auto;
     touch-action: pan-y;               /* elle défile au doigt */
     -webkit-overflow-scrolling: touch;
+  }
+  /* CE N'EST PAS ELLE QUI PARLE. La mention de la pluie décrit l'objet qu'on
+     tient, pas ce qui y est écrit : plus petite, en couleur éteinte, séparée
+     du texte par un trait. Sans quoi on la lirait comme une phrase d'Émilie. */
+  #lettre .papierMouille {
+    margin: 0 0 20px; padding: 0 0 14px;
+    border-bottom: 1px solid var(--ph-dim);
+    color: var(--ph-dim); font-size: 12px; line-height: 1.6;
+    text-transform: none; letter-spacing: 0.02em;
+  }
+  #lettre .papierMouille[hidden] { display: none; }
+  /* « Mon amour, » : la même écriture que le reste, à gauche, et un blanc
+     dessous — on n'écrit pas une lettre sans commencer par appeler quelqu'un */
+  #lettre .debut {
+    margin: 0 0 18px; color: var(--ph-text);
+    font-size: 15px; line-height: 1.85; text-transform: none;
+    letter-spacing: 0.02em;
   }
   #lettre .ecrit {
     margin: 0 0 18px; color: var(--ph-text);
@@ -845,7 +875,10 @@
     position: fixed; inset: 0; z-index: 70;
     background: var(--ph-bg);
     display: flex; align-items: center; justify-content: center;
-    padding: 24px 20px;
+    /* même zone sûre que la lettre : c'est le même papier, et il ne doit pas
+       plus qu'elle passer sous la barre d'état */
+    padding: max(28px, calc(env(safe-area-inset-top) + 20px)) 20px
+             max(28px, calc(env(safe-area-inset-bottom) + 20px));
   }
   #carteMur[hidden], #guitare[hidden] { display: none; }
   /* « display: block » sur les boutons l'emportait sur l'attribut hidden :
@@ -854,6 +887,7 @@
   #guitare button { margin-bottom: 10px; }
   #guitare button:last-child { margin-bottom: 0; }
   #carteMur .papier, #guitare .papier {
+    box-sizing: border-box;      /* même raison que la feuille de la lettre */
     max-width: 30rem; width: 100%;
     border: 1px solid var(--ph-dim);
     padding: 22px 20px 16px;

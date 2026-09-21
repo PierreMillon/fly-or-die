@@ -2348,7 +2348,21 @@ appareils. Non-régression : atterrissage à 1,3 m du hangar, 416 m en 9,1 s.
 
 ## À FAIRE
 
-Rien en attente. Les demandes en cours sont toutes traitées et mesurées.
+- **L'approche stabilisée.** L'arrivée doit tenir l'assiette quasi constante,
+  nez près de l'horizon, et ne descendre que par la réduction lente du régime.
+  Approche longue et souple dès l'entrée du tube, PAPI respecté et visible en
+  permanence, posé ou non. Reprise en main possible à tout moment d'un coup de
+  manche franc.
+
+- **Un second disque, dans une boîte.** Demandé le 21 septembre, pour plus
+  tard : un deuxième disque à trouver au refuge, rangé dans une boîte plutôt
+  que posé sur la platine.
+
+## BLOQUÉ SUR LUI
+
+- L'adresse mail de la liste bêta (`CONTACT_MAIL`).
+- Sa carte dessinée.
+- Le nom de domaine et le SIREN.
 
 ## v1.34 — le dépôt se tient debout tout seul
 

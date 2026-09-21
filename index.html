@@ -31,6 +31,8 @@
 
 <div id="lettre" hidden>
   <div class="feuille">
+    <p class="papierMouille" id="lettrePapier" hidden></p>
+    <p class="debut" id="lettreDebut"></p>
     <p class="ecrit" id="lettreTxt"></p>
     <p class="signe" id="lettreSig"></p>
     <p class="nom" id="lettreNom"></p>
@@ -9920,7 +9922,19 @@ function ouvreLettre() {
     lettreN = parseInt(localStorage.getItem('fod_lettre_n'), 10) || 0;
     localStorage.setItem('fod_lettre_n', String(lettreN + 1));
   } catch (e) {}
+  // L'APPEL RESTE ENTIER, COMME LA SIGNATURE. La pluie ronge le corps de la
+  // lettre à chaque relecture ; les deux mots du début et les deux lignes de la
+  // fin sont ce à quoi on se raccroche quand le reste s'efface, et on ne les
+  // touche pas.
+  document.getElementById('lettreDebut').textContent = t('lettreDebut');
   document.getElementById('lettreTxt').textContent = lettrePluie(t('lettreTxte'), lettreN);
+  // ON DIT POURQUOI LES MOTS MANQUENT. Les crochets apparaissaient sans
+  // explication : on croyait à un défaut du jeu, pas à du papier abîmé. La
+  // mention ne s'affiche qu'à partir du moment où il manque vraiment quelque
+  // chose — avant, il n'y a rien à expliquer.
+  const mouille = document.getElementById('lettrePapier');
+  mouille.textContent = t('lettrePapier');
+  mouille.hidden = lettreEffaces(lettreN) <= 0;
   // LA SIGNATURE NE SE TRADUIT PAS. Tout le reste du jeu existe en deux
   // langues ; ces deux lignes-là s'adressent à quelqu'un, et un mot pour
   // quelqu'un n'a pas de version anglaise.
@@ -15484,6 +15498,8 @@ const T = {
     act_ancien: 'L’AVION ANCIEN',
     act_casse: 'L’AVION CASSÉ',
     lettreFerme: 'REPLIER',
+    lettreDebut: 'Mon amour,',
+    lettrePapier: 'Le papier a pris la pluie. Par endroits l’encre a coulé, et ce qui manque ne reviendra pas.',
     lettreSig: 'Joyeux anniversaire mon ange,',
     lettreNom: 'Émilie',
     lettreTxte:
@@ -15498,6 +15514,7 @@ const T = {
       'me consoler en l’écrivant.\n\n' +
       'Le poste marche encore. Le disque aussi, une fois. Fais attention en\n' +
       'le posant, l’aiguille est vieille.\n\n' +
+      'Je suis loin, maintenant, au milieu de l’océan.\n\n' +
       'Un jour, dans les étoiles.',
     alerte: 'WARNING ROCKET  ·  ROLL ! ROLL !', esquivee: 'ROQUETTE ESQUIVÉE', leurre: 'LEURRE LÂCHÉ  ·  RESTE ', leurresPleins: 'LEURRES RECHARGÉS', locked: 'LOCKED  ·  BOUGE !', fuite: 'REVIENS AU COMBAT  ·  ILS ENVOIENT LE FAUCHEUR', faucheur: 'LE FAUCHEUR EST LÀ', carteDiff: 'CARTE DIFFÉRENTE DE CELLE DE L’HÔTE',
     rempart: 'Tiendras-tu dix vagues ?',
@@ -15607,6 +15624,8 @@ const T = {
     act_ancien: 'THE OLD AIRCRAFT',
     act_casse: 'THE BROKEN AIRCRAFT',
     lettreFerme: 'REPLIER',
+    lettreDebut: 'Mon amour,',
+    lettrePapier: 'Le papier a pris la pluie. Par endroits l’encre a coulé, et ce qui manque ne reviendra pas.',
     lettreSig: 'Joyeux anniversaire mon ange,',
     lettreNom: 'Émilie',
     lettreTxte:
@@ -15621,6 +15640,7 @@ const T = {
       'me consoler en l’écrivant.\n\n' +
       'Le poste marche encore. Le disque aussi, une fois. Fais attention en\n' +
       'le posant, l’aiguille est vieille.\n\n' +
+      'Je suis loin, maintenant, au milieu de l’océan.\n\n' +
       'Un jour, dans les étoiles.',
     alerte: 'WARNING ROCKET  ·  ROLL! ROLL!', esquivee: 'ROCKET DODGED', leurre: 'FLARE OUT  ·  LEFT ', leurresPleins: 'FLARES RELOADED', locked: 'LOCKED  ·  MOVE!', fuite: 'RETURN TO THE FIGHT  ·  THEY SEND THE REAPER', faucheur: 'THE REAPER IS HERE', carteDiff: 'YOUR MAP DIFFERS FROM THE HOST’S',
     rempart: 'Will you survive 10 waves?',
@@ -16237,6 +16257,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.43', fr: 'La lettre commence par « Mon amour, », et son cadre ne touche plus le bord du haut de l’écran.', en: 'The letter opens with « Mon amour, », and its frame no longer touches the top edge of the screen.' },
+  { v: '1.43', fr: 'Quand la pluie a mangé des mots, la lettre le dit : on comprend enfin pourquoi il manque quelque chose.', en: 'When the rain has eaten words, the letter says so: you finally understand why something is missing.' },
   { v: '1.42', fr: 'Les bâtiments et les appareils se dessinent comme le sol, en une seule passe : plus rien ne devient transparent selon la distance ou l’angle.', en: 'Buildings and aircraft are drawn like the ground, in a single pass: nothing turns transparent with distance or angle any more.' },
   { v: '1.42', fr: 'Les traits en trop ont disparu : la diagonale d’une face carrée n’est plus dessinée nulle part.', en: 'The extra lines are gone: the diagonal of a square face is no longer drawn anywhere.' },
   { v: '1.42', fr: 'Les nouvelles du portail passent sous la boussole et se lisent en plus gros.', en: 'Gate news moves below the compass and reads larger.' },
