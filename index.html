@@ -884,7 +884,7 @@ const SPEED_MAX     = 320;    // le piqué et la poursuite s'ajoutent : il faut 
 // la croisière : il existe une vitesse d'équilibre en piqué, et elle est
 // trouvée par la physique, pas décrétée.
 // ---------------------------------------------------------------------------
-const SPEED_DUR     = 900;    // garde-fou de simulation, pas un plafond de jeu
+const SPEED_DUR     = 1500;   // garde-fou de simulation, pas un plafond de jeu
 const GRAV          = 48;     // ce que la pesanteur donne ou reprend selon l'assiette
 const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
@@ -1141,6 +1141,22 @@ const TANK_VITESSE  = 28;     // m/s : cent kilomètres-heure, il nous suit au s
 const TANK_VUE      = 2000;   // mètres : au-delà, plus personne ne la regarde
 const TANK_MARCHE   = 150;    // m/s hors de vue : trente-deux kilomètres en 3 min 30
 const ROQ_E_VIRAGE  = 1.5;    // rad/s : moins agile que la nôtre, sinon rien ne l'esquive
+// ---------------------------------------------------------------------------
+// ELLE VISAIT NOTRE QUEUE. La loi de guidage était une poursuite pure : le
+// museau pointait vers l'endroit où nous SOMMES, jamais vers celui où nous
+// serons. Contre une cible qui avance, c'est une courbe qui arrive toujours
+// en retard, et le rayon de virage de l'engin — 395 m/s à 1,5 rad/s, donc
+// 263 mètres — lui interdisait de rattraper la différence. Mesuré en jeu :
+// l'alerte hurlait, on ne faisait rien, et rien n'arrivait jamais.
+//
+// Elle vise maintenant le POINT D'INTERCEPTION : là où nous serons quand elle
+// y sera, en supposant qu'on ne change rien. Voler droit, c'est donc être
+// touché — ce qui est le contrat. Et comme l'interception demande d'autant
+// plus de finesse qu'on est près, son autorité de virage grandit en fin de
+// course : au-delà, seule une vraie manoeuvre la sème.
+// ---------------------------------------------------------------------------
+const ROQ_E_TERMINAL = 260;   // mètres : en deçà, son virage se durcit
+const ROQ_E_VIRAGE_MAX = 6;   // rad/s : l'autorité maximale, tout près
 const ROQ_E_DEGATS  = 50;
 const ROQ_E_RECHARGE = 9;
 const ROQ_E_PORTEE  = [320, 950];
@@ -3445,7 +3461,12 @@ const KINDS = [
     ],
     tris: [0,1,2, 0,2,3,  3,0,4,  0,1,5,  1,2,6,  2,3,7,  0,8,2,  0,9,2],
     envergure: 17,
-    vitesse: [86, 95], virage: 0.55, vie: 620, recharge: [0.55, 1.1],
+    // DEUX FOIS PLUS VITE. À quatre-vingt-dix il se laissait tourner autour :
+    // on prenait sa queue une fois et on ne la lâchait plus, et le boss de la
+    // cinquième vague devenait une cible d'entraînement. À cent quatre-vingts
+    // il tient la cadence de l'appareil le plus rapide du joueur : il faut
+    // l'arrêter au lieu de le suivre.
+    vitesse: [172, 190], virage: 0.55, vie: 620, recharge: [0.55, 1.1],
     cone: Math.cos(16 * Math.PI / 180), portee: 1250, rafale: 6
   },
   {
@@ -6285,9 +6306,16 @@ const MANCHE_DEGAGE = 82;                 // mètres de champ libre avant le han
 // s'éteint exprès pour se faire comprendre.
 // ---------------------------------------------------------------------------
 const BATI_TRAIT = 0.85;
-const BATI_PRIS = 0.30;
+// ET UNE SEULE EXCEPTION : LE PORTAIL DÉFINITIVEMENT CLOS. L'atténuation de
+// moitié servait à dire « déjà pris cette vague » ; c'est elle qui donnait à
+// la ville ses intensités bâtardes, et elle disparaît. Ce qui reste noirci,
+// c'est le portail dont la guillotine est tombée pour de bon : il ne rendra
+// plus rien de la partie, et le dire une fois pour toutes vaut mieux qu'un
+// clignotement. Trois fois plus sombre que l'ancien atténué — on le voit,
+// mais on ne le cherche plus.
+const BATI_CLOS = 0.10;
 const matBati = lineMat(COL_LINE, BATI_TRAIT);
-const matBatiPris = lineMat(COL_LINE, BATI_PRIS);
+const matBatiClos = lineMat(COL_LINE, BATI_CLOS);
 
 const matHangar = matBati;
 const matPale = lineMat(COL_LINE, 0.35);
@@ -6601,7 +6629,21 @@ const MECANO_MOTS = [
   'PASSE-MOI LA CLÉ', 'ELLE EST OÙ ?', 'TIENS ÇA', 'ATTENDS', 'DOUCEMENT',
   'VOILÀ', 'ÇA TIENDRA', 'JE VOIS RIEN', 'IL FAIT FROID', 'DEUX MINUTES',
   'C’EST TOI QUI L’AS PRIS', 'ÇA VA PAS, ÇA', 'HÉ', 'BOUGE DE LÀ',
-  'ON A TOUT LE TEMPS', 'MOI JE DIS RIEN'
+  'ON A TOUT LE TEMPS', 'MOI JE DIS RIEN',
+  // ET PARFOIS ILS LÈVENT LES YEUX. Les mêmes hommes, le même ton, la même
+  // règle — ça ne parle jamais du vol, du posé, de la cellule ni du pilote —
+  // mais de temps en temps la question qui vient à trois heures du matin sous
+  // un capot. Elle ne se résout pas, elle ne demande rien, elle passe.
+  'COMMENT ÇA, UNE FUITE ?',
+  'J’AI L’IMPRESSION D’AVOIR DÉJÀ FAIT ÇA',
+  'J’AI TRICHÉ À L’EXAMEN DE MÉTAPHYSIQUE',
+  'MOI JE VOULAIS ÊTRE DANSEUSE ÉTOILE',
+  'ET MA MÈRE VOULAIT QUE JE FASSE DES MATHS',
+  'ET SI NOUS VIVIONS DANS UNE SIMULATION ?',
+  'NOUS NE SOMMES QUE DES SYSTÈMES DISSIPATIFS',
+  'SOUMIS À L’EXPRESSION DE NOS GÈNES',
+  'SI DIEU N’EXISTE PAS,',
+  'ALORS J’AI PAYÉ CETTE PERCEUSE BIEN TROP CHER'
 ];
 const MECANO_MOT_DUREE = 2.4;    // secondes à l'écran
 const MECANO_MOT_CHANCE = 0.16;  // par seconde et par homme : un mot toutes les six secondes
@@ -6825,7 +6867,7 @@ const matArche = matBati;
 // mais rien ne le montrait : on repassait dessous, il ne se passait rien, et on
 // croyait à une panne. Un portail déjà pris s'éteint de moitié jusqu'à la vague
 // suivante. La règle se voit, donc elle se comprend.
-const matArchePris = matBatiPris;
+const matArchePris = matBatiClos;
 // la silhouette en Pi, décrite d'un trait : deux pieds, deux faces intérieures,
 // le dessous de la poutre, et le rectangle extérieur
 const CONTOUR_ARCHE = (() => {
@@ -6859,9 +6901,14 @@ for (let i = 0; i < CARTE.arches.length; i++) {
         bloc(ARCHE.largeur, ARCHE.poutre, ARCHE.prof, 0,
              ARCHE.ouvertureH + ARCHE.poutre / 2),
         new THREE.LineSegments(aretesArche, matArche));
+  const trait = g.children[g.children.length - 1];
+  const lame = faitLame(ARCHE.ouvertureL, ARCHE.ouvertureH, ARCHE.prof);
+  g.add(lame);
   g.frustumCulled = false;
   scene.add(g);
-  arches.push({ g, boites: [], passage: null, prise: false });
+  arches.push({ g, trait, lame, boites: [], passage: null, prise: false,
+                guillo: 0, repos: 0, ferme: false, boiteLame: null,
+                ouv: { y0: 0, y1: ARCHE.ouvertureH } });
 }
 
 // Les trois volumes solides, exprimés en coordonnées du monde : deux piles et
@@ -6893,6 +6940,7 @@ function placeArche(a, initial) {
   ];
   // le vide entre les piles et sous la poutre : c'est lui qui rapporte
   a.passage = b(0, 0, ARCHE.ouvertureL / 2, P, 4, ARCHE.ouvertureH);
+  majGuillotine(a);
   rebatir(a);
 }
 // TOUR PERCÉE. Une barre bien plus haute que les pylônes, trouée d'une seule
@@ -6918,12 +6966,71 @@ TOUR.montant = (TOUR.largeur - TOUR.trou) / 2;    // 32,5 m de chaque côté
 const TOUR_PRIME = 50;   // pour cent de vie rendus, une fois par tour et par vague
 
 const matTour = matBati;
-const matTourPris = matBatiPris;
-// le dernier enfant du groupe est le trait de l'ouvrage : c'est lui qui pâlit
-function marqueTrouPris(b, pris, vif, pale) {
-  if (!b || !b.g) return;
-  const l = b.g.children[b.g.children.length - 1];
-  if (l && l.material !== undefined) l.material = pris ? pale : vif;
+const matTourPris = matBatiClos;
+// ---------------------------------------------------------------------------
+// LA GUILLOTINE.
+//
+// Un portail se laissait prendre une fois par vague, et pour que la règle se
+// voie on l'éteignait de moitié — c'est cette demi-teinte qui donnait à la
+// ville ses quatre intensités. La règle change de nature : elle devient
+// mécanique au lieu d'être comptable. À chaque traversée une lame descend et
+// l'ouverture est divisée par deux ; à la troisième il n'y a plus de trou.
+//
+// Ce qu'on y gagne : la première traversée est large et gratuite, la deuxième
+// demande de la précision, la troisième est un exploit — et l'on VOIT, de
+// loin, ce qu'il reste. Un portail clos ne se cherche plus : il noircit.
+//
+// Ce qui ne change pas : un portail clos reste un bâtiment, avec ses murs et
+// sa structure. La lame en fait partie, et l'on s'y écrase comme sur le reste.
+// ---------------------------------------------------------------------------
+const GUILLO_N = 3;        // traversées avant la fermeture définitive
+const GUILLO_MIN = 14;     // mètres : en dessous, l'ouverture n'en est plus une
+const GUILLO_REPOS = 1.1;  // secondes : une traversée ne se compte pas deux fois
+
+// une lame : un volume plein de la taille du trou, qui descend depuis le
+// linteau. Elle est dessinée comme tout le reste — un seul passage, le trait
+// peint par le fragment — donc elle a exactement le même vert que sa tour.
+function faitLame(largeur, hauteur, prof) {
+  const geo = new THREE.BoxGeometry(largeur, hauteur, prof * 0.34);
+  const l = solidWire(geo, new THREE.EdgesGeometry(geo, 20), matBati);
+  l.visible = false;
+  return l;
+}
+
+function majGuillotine(b) {
+  const o = b.ouv;
+  if (!o || !b.lame) return;
+  const H = o.y1 - o.y0;
+  const reste = b.guillo >= GUILLO_N ? 0 : H / Math.pow(2, b.guillo);
+  const descente = H - reste;
+  b.ferme = reste < GUILLO_MIN;
+  b.lame.visible = descente > 0.5;
+  if (b.lame.visible) {
+    // la lame est modelée à la hauteur du trou : on la rétrécit en y, et son
+    // centre suit le bas de la descente. Elle pend donc du linteau, comme
+    // une vraie, et ne dépasse jamais par le haut.
+    b.lame.scale.y = descente / H;
+    b.lame.position.y = o.y0 + reste + descente / 2;
+  }
+  // ELLE EST SOLIDE. La boîte de la lame vit dans la liste des murs du
+  // bâtiment ; on la retire et on la remet, parce que placeArche() et
+  // placeTour() refont cette liste à chaque déménagement.
+  if (b.boiteLame) {
+    const i = b.boites.indexOf(b.boiteLame);
+    if (i >= 0) b.boites.splice(i, 1);
+    b.boiteLame = null;
+  }
+  if (descente > 0.5 && b.passage) {
+    b.boiteLame = { x: b.passage.x, z: b.passage.z, hx: b.passage.hx, hz: b.passage.hz,
+                    y0: o.y0 + reste, y1: o.y1 };
+    b.boites.push(b.boiteLame);
+  }
+  if (b.trait) b.trait.material = b.ferme ? matBatiClos : matBati;
+}
+
+// on remet tout à neuf : une nouvelle partie rouvre les portails
+function rouvreTousLesPortails() {
+  for (const b of [...arches, ...tours]) { b.guillo = 0; b.repos = 0; majGuillotine(b); }
 }
 // deux boucles seulement : la façade et sa fenêtre. Rien entre les deux.
 const aretesTour = prismeAretes([
@@ -6942,9 +7049,14 @@ for (let i = 0; i < CARTE.tours.length; i++) {
         bloc(TOUR.montant, TOUR.trou, TOUR.prof, -dx, TOUR.y0 + TOUR.trou / 2),
         bloc(TOUR.montant, TOUR.trou, TOUR.prof,  dx, TOUR.y0 + TOUR.trou / 2),
         new THREE.LineSegments(aretesTour, matTour));
+  const trait = g.children[g.children.length - 1];
+  const lame = faitLame(TOUR.trou, TOUR.trou, TOUR.prof);
+  g.add(lame);
   g.frustumCulled = false;
   scene.add(g);
-  tours.push({ g, boites: [], passage: null, prise: false });
+  tours.push({ g, trait, lame, boites: [], passage: null, prise: false,
+               guillo: 0, repos: 0, ferme: false, boiteLame: null,
+               ouv: { y0: TOUR.y0, y1: TOUR.y1 } });
 }
 
 function placeTour(t, initial) {
@@ -6973,6 +7085,7 @@ function placeTour(t, initial) {
     b( dx, M, P, TOUR.y0, TOUR.y1)
   ];
   t.passage = b(0, TOUR.trou / 2, P, TOUR.y0, TOUR.y1);
+  majGuillotine(t);
   rebatir(t);
 }
 
@@ -9256,8 +9369,10 @@ function resetGame() {
   state.assist = false;
   state.pose = null;
   redecoBtn.hidden = true;
-  for (const a of arches) { a.prise = false; marqueTrouPris(a, false, matArche, matArchePris); }
-  for (const t of tours) { t.prise = false; marqueTrouPris(t, false, matTour, matTourPris); }
+  // LA VAGUE NE ROUVRE PLUS LES PORTAILS. Elle les rendait tous neufs, ce qui
+  // faisait du portail une rente : on attendait la vague suivante et l'on
+  // reprenait les mêmes. La guillotine les use pour la partie entière, et
+  // c'est elle qui décide — voir majGuillotine().
   for (const b of BATIMENTS) rebatir(b);
   state.eclipse = 0; state.solTir = 0; state.dore = 0; state.doreVague = -1; state.solDans = 0;
   state.etoileT = 0;
@@ -10568,7 +10683,7 @@ function lacherFaucheur() {
   const cote = Math.random() < 0.5 ? -1 : 1;
   const lat = new THREE.Vector3(-_v.z, 0, _v.x).multiplyScalar(cote);
   e.pos.copy(state.pos).addScaledVector(_v, 260).addScaledVector(lat, 560);
-  e.pos.y = Math.max(120, state.pos.y + 20);
+  e.pos.y = Math.max(120, state.pos.y + 20, plancherEnnemi(e.pos.x, e.pos.z));
   e.forward.copy(lat).multiplyScalar(-1).normalize();
   _m4.lookAt(e.pos, _b0.copy(e.pos).add(e.forward), _up);
   e.quat.setFromRotationMatrix(_m4);
@@ -10852,7 +10967,7 @@ function spawnWave() {
     const mesh = solidWire(k.geom, k.edges, matEnemy);
     mesh.scale.setScalar(k.echelle);
     scene.add(mesh);
-    state.enemies.push({
+    const ne = {
       id: ++coopSeqEnnemi,
       kind: k,
       mesh,
@@ -10901,13 +11016,16 @@ function spawnWave() {
       burst: 0,
       burstT: 0,
       visee: 0
-    });
+    };
+    // ET JAMAIS DANS LA ROCHE. L'étage tiré au sort est une altitude absolue :
+    // sous une crête de neuf cents mètres, il naissait enterré.
+    if (!auSol) ne.pos.y = Math.max(ne.pos.y, plancherEnnemi(ne.pos.x, ne.pos.z));
+    state.enemies.push(ne);
   }
   // le nom de l'escadrille dit tout de suite à quoi on a affaire
   state.vagueTouche = false;
   state.vagueT = 0;
-  for (const a of arches) { a.prise = false; marqueTrouPris(a, false, matArche, matArchePris); }
-  for (const t of tours) { t.prise = false; marqueTrouPris(t, false, matTour, matTourPris); }
+  rouvreTousLesPortails();
   state.vagueLimite = boss ? 55 : LIMITE_BASE + LIMITE_PAR * n;
   objCompte('vague', state.wave);
   announce(boss ? t('vague') + state.wave + '  ·  ' + t('gardien')
@@ -10991,6 +11109,10 @@ function ecarteDuJoueur(e) {
   e.pos.copy(state.pos).addScaledVector(_seg, RAM_MINI);
   if (e.mesh) e.mesh.position.copy(e.pos);
 }
+const _scrapePrec = new THREE.Vector3();   // notre position à l'image précédente
+const _scrapeDe = new THREE.Vector3();     // l'autre bout du segment parcouru
+const _scrapeSeg = new THREE.Vector3();    // et le segment lui-même
+const _roqLead = new THREE.Vector3();   // le point d'interception visé par une roquette adverse
 const _segA = new THREE.Vector3();
 const _segB = new THREE.Vector3();
 const _pn = new THREE.Vector3();
@@ -11199,7 +11321,7 @@ function updateEnemies(dt) {
         e.pos.addScaledVector(e.forward, e.speed * vitMonde() * dt);
         if (E.t > 9 || dd < 220) e.entree = null;
       }
-      if (e.pos.y < 90) e.pos.y = 90;
+      { const pl = plancherEnnemi(e.pos.x, e.pos.z); if (e.pos.y < pl) e.pos.y = pl; }
       _m4.lookAt(e.pos, _b0.copy(e.pos).add(e.forward), _up);
       _q.setFromRotationMatrix(_m4);
       e.quat.rotateTowards(_q, 2.2 * dt);
@@ -11219,7 +11341,7 @@ function updateEnemies(dt) {
     if (e.fig) {
       updateFigEnnemi(e, dt);
       e.pos.addScaledVector(e.forward, e.speed * vitMonde() * dt);
-      if (e.pos.y < 70) e.pos.y = 70;
+      { const pl = plancherEnnemi(e.pos.x, e.pos.z); if (e.pos.y < pl) e.pos.y = pl; }
       e.mesh.position.copy(e.pos);
       e.mesh.quaternion.copy(e.quat);
       ecarterDuDecor(e);
@@ -11370,7 +11492,7 @@ function updateEnemies(dt) {
     }
     e.forward.set(0, 0, -1).applyQuaternion(e.quat);
     e.pos.addScaledVector(e.forward, vitesseFaucheur(e, dist) * (e.rattrape ? 1.6 : 1) * dt);
-    if (e.pos.y < 60) e.pos.y = 60;
+    { const pl = plancherEnnemi(e.pos.x, e.pos.z); if (e.pos.y < pl) e.pos.y = pl; }
     // SON PLAFOND EST UN VRAI PLAFOND. Il peut viser aussi haut qu'il veut,
     // son aile ne l'y portera pas : au-dessus de son étage il ne monte plus.
     // C'est ce qui donne un sens à la montée — prendre mille mètres, c'est se
@@ -11623,12 +11745,25 @@ function updateChutes(dt) {
   }
 }
 
+// ET LA MONTAGNE EST DU DÉCOR, ELLE AUSSI. Le plancher des adversaires était
+// une constante — quatre-vingt-dix mètres au-dessus du zéro du monde — alors
+// que le relief monte à neuf cent quatre-vingts. Passé le rayon de la ville
+// ils volaient donc DANS la roche, et une vague pouvait naître sous une
+// crête : on cherchait un appareil qui ne pouvait pas être vu, et le compteur
+// de vague ne tombait jamais. Le plancher suit maintenant le sol réel.
+const RELIEF_GARDE = 70;     // mètres au-dessus de la pente, pour tout le monde
+function plancherEnnemi(x, z) { return Math.max(90, hauteurSol(x, z) + RELIEF_GARDE); }
+
 // LE DÉCOR EST SOLIDE POUR TOUT LE MONDE. Les adversaires traversaient les
 // pylônes et les arches comme s'ils n'existaient pas, ce qui d'un coup faisait
 // du décor une illusion. Ils en sont maintenant écartés, et remontés au-dessus
 // des toits plutôt que rejetés sur le côté quand c'est le plus court : un
 // avion qui rencontre un bâtiment passe par-dessus, il ne recule pas.
 function ecarterDuDecor(e) {
+  // le relief d'abord : la sortie anticipée sur un bâtiment ne doit pas
+  // pouvoir laisser un appareil sous la roche
+  const solMin = plancherEnnemi(e.pos.x, e.pos.z);
+  if (e.pos.y < solMin) e.pos.y = solMin;
   const R = e.kind.envergure * 0.5 + 6;
   const test = (bx, bz, hx, hz, y0, y1) => {
     if (e.pos.y < y0 - R || e.pos.y > y1 + R) return false;
@@ -11656,7 +11791,7 @@ function reenter(e) {
     .addScaledVector(state.forward, 780 + Math.random() * 420)
     .addScaledVector(_right, side * (140 + Math.random() * 340))
     .addScaledVector(_up, (Math.random() - 0.5) * 240);
-  e.pos.y = THREE.MathUtils.clamp(e.pos.y, 90, CEILING);
+  e.pos.y = THREE.MathUtils.clamp(e.pos.y, plancherEnnemi(e.pos.x, e.pos.z), CEILING);
   e.goalT = 0;
   e.reload = Math.max(e.reload, 0.5);
   e.burst = 0;
@@ -11857,15 +11992,25 @@ function updateRoqEnnemies(dt) {
     }
     // PERDUE, ELLE CONTINUE TOUT DROIT : elle nous passe devant et va s'ouvrir
     // plus loin. On la voit filer, c'est la récompense.
+    const vRoq = Math.max(ROQ_E_VITESSE, state.speed + ROQ_E_GAIN);
+    // LE TEMPS QU'IL LUI RESTE, et c'est lui qu'on affiche : la distance
+    // divisée par la vitesse de rapprochement réelle, pas par sa vitesse
+    // propre — nous fuyons, elle rattrape, et c'est l'écart qui compte.
+    const closure = Math.max(1, vRoq - state.speed * Math.max(0, r.dir.dot(state.forward)));
+    r.ttg = d / closure;
     if (!r.perdue) {
-      _seg.subVectors(state.pos, r.pos).normalize();
+      // le point d'interception : où nous serons dans r.ttg secondes
+      _roqLead.copy(state.pos).addScaledVector(state.forward, state.speed * r.ttg);
+      _seg.subVectors(_roqLead, r.pos).normalize();
       const ang = Math.acos(THREE.MathUtils.clamp(r.dir.dot(_seg), -1, 1));
-      const pas = Math.min(ang, ROQ_E_VIRAGE * dt);
+      const autorite = THREE.MathUtils.clamp(
+        ROQ_E_VIRAGE * (ROQ_E_TERMINAL / Math.max(30, d)), ROQ_E_VIRAGE, ROQ_E_VIRAGE_MAX);
+      const pas = Math.min(ang, autorite * dt);
       if (ang > 1e-4) { _segA.crossVectors(r.dir, _seg).normalize(); r.dir.applyAxisAngle(_segA, pas).normalize(); }
     }
     _segB.copy(r.pos);
     // quelle que soit notre vitesse, elle arrive : elle va toujours plus vite que nous
-    r.pos.addScaledVector(r.dir, Math.max(ROQ_E_VITESSE, state.speed + ROQ_E_GAIN) * dt);
+    r.pos.addScaledVector(r.dir, vRoq * dt);
     r.fum -= dt;
     while (r.fum <= 0) { semerFumee(_segB.clone().addScaledVector(r.dir, -10), r.dir); r.fum += FUM_PAS; }
     const mur = obstacleEntre(_segB, r.pos);
@@ -11874,7 +12019,13 @@ function updateRoqEnnemies(dt) {
     // de quatorze mètres » pris une fois par image peut enjamber la cellule
     // entière quand la cadence baisse. Le même défaut avait été corrigé sur
     // les balles ; il restait ici.
-    const touche = !r.perdue && distSegment(state.pos, _segB, r.pos) < 14
+    // DIX-HUIT MÈTRES, ET NON QUATORZE. Mesuré après le passage au guidage
+    // par interception : contre une cible qui vole droit, elle passe à 13,4 m.
+    // C'était donc un coup au but à six dixièmes de mètre près — autant dire
+    // une loterie. L'envergure de l'appareil fait douze mètres : dix-huit,
+    // c'est la cellule plus une marge d'éclat, et voler droit devient une
+    // décision, pas un pari.
+    const touche = !r.perdue && distSegment(state.pos, _segB, r.pos) < 18
                 && !(state.assist || state.roulage || state.pose || state.takeoff);
     if (touche) stat('roquettesRecues');
     if (touche || mur || r.t > ROQ_E_VIE || r.pos.y <= 1.2) {
@@ -12791,7 +12942,13 @@ function simulate(dt) {
   // franc à trente.
   const gainPesanteur = -state.forward.y * GRAV * pesanteur;
   let dv = gainPesanteur + (croisiere - state.speed) * rappel;
-  if (state.forward.y < 0) dv = Math.max(dv, gainPesanteur * 0.34);
+  // ET LE PIQUÉ N'A PLUS DE PALIER. Le plancher valait un tiers de ce que la
+  // pesanteur donne : au bout de quelques secondes le rappel du moteur
+  // l'avalait presque, et la vitesse se stabilisait vers trois cents. Piquer
+  // longtemps ne payait donc plus. Il vaut maintenant les sept dixièmes : nez
+  // à la verticale, on accélère tant qu'on descend, et c'est le sol qui
+  // arrête, pas un réglage.
+  if (state.forward.y < 0) dv = Math.max(dv, gainPesanteur * 0.7);
   state.speed += dv * dt;
   // Le plafond lui-même monte avec la poussée : sans cela le piqué seul
   // atteignait déjà la limite et la poursuite n'ajoutait plus rien.
@@ -14049,8 +14206,33 @@ function majChoixHangar(dt) {
   }
 }
 
+// D'OÙ L'ON VIENT. scrape() tourne après le déplacement : le point de départ
+// du segment parcouru est la position où la DERNIÈRE passe de scrape nous a
+// laissés — donc après ses éventuels repoussements, pas avant. Relever la
+// position en tête de fonction remettait les neuf mètres de l'éraflure dans
+// le segment : on se poussait, le segment couvrait le mur qu'on venait de
+// quitter, on se poussait encore, et l'appareil était éjecté des trous qu'il
+// traversait. Le relevé est donc fait à la SORTIE, quelle que soit la branche
+// par laquelle on sort — d'où le try/finally, puisque le corps rend la main
+// dès qu'il a trouvé un mur.
 function scrape(dt) {
+  _scrapeDe.copy(_scrapePrec);
+  // ET UN SAUT N'EST PAS UN VOL. Le monde téléporte l'appareil — reprise, fin
+  // de figure, remise en piste, page d'essai — et le segment d'une image à
+  // l'autre valait alors des centaines de mètres : balayé, il créditait des
+  // trous qu'on n'avait jamais traversés et en sautait d'autres. Le pas
+  // plausible est celui que la vitesse du moment autorise, avec de la marge ;
+  // au-delà, il n'y a pas de segment, seulement deux points sans rapport.
+  const pasMax = state.speed * Math.max(dt, 1 / 120) * 3 + 30;
+  if (_scrapeDe.distanceToSquared(state.pos) > pasMax * pasMax) _scrapeDe.copy(state.pos);
+  try { scrapeCorps(dt); } finally { _scrapePrec.copy(state.pos); }
+}
+function scrapeCorps(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
+  // le repos d'un portail : une traversée dure plusieurs images, et sans lui
+  // un seul passage compterait deux ou trois crans de guillotine
+  for (const b of arches) if (b.repos > 0) b.repos -= dt;
+  for (const b of tours) if (b.repos > 0) b.repos -= dt;
 
   // LE COUSSIN D'AIR. Arriver à plat sur le sol n'est pas taper dedans : sous
   // l'aile l'air se comprime, la portance monte, et l'appareil se redresse
@@ -14127,9 +14309,40 @@ function scrape(dt) {
 
   // on érafle le décor de la même façon, qu'il s'agisse d'un pylône ou d'une
   // des trois pièces d'une arche
-  const heurte = (bx, bz, hx, hz, y0, y1) =>
-    state.pos.y > y0 && state.pos.y < y1 &&
-    Math.abs(state.pos.x - bx) < hx && Math.abs(state.pos.z - bz) < hz;
+  //
+  // ET SUR LE CHEMIN PARCOURU, PAS SUR LE POINT D'ARRIVÉE. C'était un test en
+  // un point, pris une fois par image. À cent vingt mètres par seconde et
+  // trente images, le pas fait quatre mètres : le point suffit. Depuis que la
+  // chaîne de portails peut monter à quinze cents, le pas fait cinquante
+  // mètres — plus que l'épaisseur d'un pylône. On traversait donc les murs
+  // aux vitesses mêmes que le jeu récompense, ce qui est le pire moment pour
+  // que le décor cesse d'exister. On échantillonne le segment tous les huit
+  // mètres, ce qui remet le mur le plus mince du jeu hors de portée d'un pas.
+  const _hd = _scrapeSeg.subVectors(state.pos, _scrapeDe);
+  const _hl = _hd.length();
+  const _hnPlein = Math.min(48, Math.ceil(_hl / 8));
+  // LES MURS NE SE BALAIENT QUE SI LE PAS LE MÉRITE. Balayer toujours change
+  // la réponse du décor aux vitesses ordinaires : le trou compté quinze fois
+  // sur quinze tombait à douze, parce qu'un montant frôlé en fin de segment
+  // repoussait avant que le passage ne soit crédité. En dessous de dix mètres
+  // par image — c'est-à-dire jusqu'à six cents mètres par seconde — le point
+  // d'arrivée suffit et le comportement ne bouge pas d'un pouce. Au-delà, le
+  // balayage reprend la main, et c'est exactement là qu'il sert.
+  const _hnMur = _hl > 10 ? _hnPlein : 0;
+  const echantillonne = (n, bx, bz, hx, hz, y0, y1) => {
+    for (let i = n; i >= 0; i--) {
+      const u = n ? i / n : 1;
+      const y = _scrapeDe.y + _hd.y * u;
+      if (y <= y0 || y >= y1) continue;
+      if (Math.abs(_scrapeDe.x + _hd.x * u - bx) < hx
+       && Math.abs(_scrapeDe.z + _hd.z * u - bz) < hz) return true;
+    }
+    return false;
+  };
+  const heurte = (bx, bz, hx, hz, y0, y1) => echantillonne(_hnMur, bx, bz, hx, hz, y0, y1);
+  // LE PASSAGE, LUI, SE BALAIE TOUJOURS : rater un trou franchi ne coûte que
+  // la prime, jamais une fausse collision.
+  const traverse = (bx, bz, hx, hz, y0, y1) => echantillonne(_hnPlein, bx, bz, hx, hz, y0, y1);
 
   // Un simple recul enfermait le joueur dans une boucle : on tape, on recule,
   // on repart droit sur le mur, on retape. L'éraflure fait donc aussi TOURNER
@@ -14191,7 +14404,7 @@ function scrape(dt) {
       for (let k = 0; k < 2; k++) {
         if (t.priseT[k] > 0) t.priseT[k] -= dt;
         const q = t.passages[k];
-        if (!(t.priseT[k] > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+        if (!(t.priseT[k] > 0) && traverse(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
           t.priseT[k] = PASSAGE_REPOS;
           const combo = t.priseT[1 - k] > 0;
           stat('passages'); gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME * (combo ? 2 : 1));
@@ -14220,9 +14433,10 @@ function scrape(dt) {
   for (const t of tours) {
     if (t.mort) continue;
     const q = t.passage;
-    if (q && !t.prise && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
-      t.prise = true;
-      marqueTrouPris(t, true, matTour, matTourPris);
+    if (q && !t.ferme && t.repos <= 0 && traverse(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+      t.guillo = Math.min(GUILLO_N, t.guillo + 1);
+      t.repos = GUILLO_REPOS;
+      majGuillotine(t);
       stat('passages');
       gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME);
       coupDePied();
@@ -14234,9 +14448,10 @@ function scrape(dt) {
   for (const a of arches) {
     if (a.mort) continue;
     const q = a.passage;
-    if (q && !a.prise && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
-      a.prise = true;
-      marqueTrouPris(a, true, matArche, matArchePris);
+    if (q && !a.ferme && a.repos <= 0 && traverse(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+      a.guillo = Math.min(GUILLO_N, a.guillo + 1);
+      a.repos = GUILLO_REPOS;
+      majGuillotine(a);
       objCompte('arches');
       stat('passages');
       gagneVie(defiEst('sansBonus') ? 0 : ARCHE_PRIME);
@@ -14923,7 +15138,25 @@ function drawHud() {
       const taille = THREE.MathUtils.clamp(220 / Math.max(6, d), 8, 15);
       hctx.font = taille.toFixed(1) + 'px "IBM Plex Mono", ui-monospace, monospace';
       hctx.fillStyle = 'rgba(190,255,220,' + (0.85 * f).toFixed(3) + ')';
-      hctx.fillText(m.mot, q.x, q.y);
+      // IL NE DÉPASSE JAMAIS DE L'ÉCRAN. Les phrases se sont allongées le jour
+      // où ces hommes se sont mis à douter de l'existence du monde : une seule
+      // ligne les faisait sortir du cadre, et un texte coupé par le bord ne se
+      // lit pas. On coupe aux espaces, au plus deux lignes, sur une largeur
+      // qui laisse une marge de chaque côté.
+      const large = w - 24;
+      if (hctx.measureText(m.mot).width <= large) hctx.fillText(m.mot, q.x, q.y);
+      else {
+        const mots = m.mot.split(' ');
+        let l1 = '', l2 = '';
+        for (const mm of mots) {
+          const essai = l1 ? l1 + ' ' + mm : mm;
+          if (!l2 && hctx.measureText(essai).width <= large) l1 = essai;
+          else l2 = l2 ? l2 + ' ' + mm : mm;
+        }
+        const x = THREE.MathUtils.clamp(q.x, large / 2 + 12, w - large / 2 - 12);
+        hctx.fillText(l1, x, q.y - taille * 0.62);
+        if (l2) hctx.fillText(l2, x, q.y + taille * 0.62);
+      }
     }
     hctx.restore();
   }
@@ -14962,6 +15195,33 @@ function drawHud() {
   hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
   hctx.textAlign = 'center';
   hctx.textBaseline = 'middle';
+
+  // LE DÉCOMPTE DE LA ROQUETTE. L'alerte disait qu'une roquette était en
+  // route, jamais quand elle arrivait : on la subissait ou on l'oubliait, et
+  // dans les deux cas on ne pouvait rien décider. Un chiffre, en secondes,
+  // sous le viseur — celui de la plus proche, parce que c'est elle qui décide
+  // du moment où il faut bouger. Il bat de plus en plus vite en dessous de
+  // deux secondes, et rougit sous une seconde.
+  {
+    let pire = null;
+    for (const r of state.roqEnnemies) {
+      if (r.perdue || r.ttg === undefined) continue;
+      if (pire === null || r.ttg < pire) pire = r.ttg;
+    }
+    if (pire !== null && pire < ROQ_E_VIE && state.running && !state.pose && !state.roulage) {
+      const chaud = pire < 1;
+      const _tb = performance.now() / 1000;
+      const bat = pire < 2 ? 0.55 + 0.45 * Math.abs(Math.sin(_tb * (chaud ? 14 : 7))) : 0.9;
+      hctx.save();
+      hctx.textAlign = 'center';
+      hctx.textBaseline = 'middle';
+      hctx.font = '600 ' + (chaud ? 22 : 18) + 'px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillStyle = (chaud ? 'rgba(255,90,80,' : 'rgba(255,190,90,') + bat.toFixed(2) + ')';
+      hctx.fillText((langue === 'en' ? 'ROCKET  ' : 'ROQUETTE  ') + pire.toFixed(1) + 's',
+                    w / 2, h * 0.40);
+      hctx.restore();
+    }
+  }
 
   // La croix de visée, seule à l'écran désormais : elle marque l'axe des canons,
   // c'est-à-dire la direction réelle de l'avion et non le centre de l'écran.
@@ -16774,6 +17034,14 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.53', fr: 'La guillotine : chaque traversée d’un portail divise son ouverture par deux, et la troisième la ferme pour de bon.', en: 'The guillotine: each crossing halves a gate’s opening, and the third closes it for good.' },
+  { v: '1.53', fr: 'Un portail n’est noirci que lorsqu’il est clos définitivement — c’est lui qui donnait à la ville ses intensités bâtardes.', en: 'A gate only darkens once it is shut for good — that is what gave the city its mismatched intensities.' },
+  { v: '1.53', fr: 'La roquette adverse vise où l’on SERA : elle poursuivait notre queue et n’arrivait jamais.', en: 'The enemy rocket aims where you WILL be: it chased your tail and never arrived.' },
+  { v: '1.53', fr: 'Un décompte en secondes dit quand la roquette arrive.', en: 'A countdown in seconds says when the rocket lands.' },
+  { v: '1.53', fr: 'Les adversaires ne volent plus dans la roche : leur plancher suit le relief.', en: 'Opponents no longer fly inside the rock: their floor follows the terrain.' },
+  { v: '1.53', fr: 'Le décor se teste sur le chemin parcouru : à grande vitesse, un mur mince pouvait passer entre deux images.', en: 'Scenery is tested along the travelled path: at high speed a thin wall could slip between two frames.' },
+  { v: '1.53', fr: 'Le piqué n’a plus de palier, et le gardien vole deux fois plus vite.', en: 'The dive has no plateau any more, and the guardian flies twice as fast.' },
+  { v: '1.53', fr: 'Les mécaniciens se demandent parfois ce qu’on fait là.', en: 'The mechanics sometimes wonder what any of this is for.' },
   { v: '1.52', fr: 'Tous les bâtiments ont le même trait : la ville se lisait en quatre intensités.', en: 'Every building has the same line: the city used to read in four intensities.' },
   { v: '1.52', fr: 'Un portail ajoute sa poussée à la vitesse qu’on a : le franchir après un gros piqué freinait.', en: 'A gate adds its kick to the speed you have: taking one after a big dive used to brake you.' },
   { v: '1.52', fr: 'Plus de mur de vitesse au-dessus : c’est le moteur qui fixe la limite, pas un réglage.', en: 'No more speed wall above: the engine sets the limit, not a setting.' },
@@ -16788,7 +17056,7 @@ const JOURNAL = [
   { v: '1.51', fr: 'La vague et le score prennent toute la bande du haut ; MENU se range à droite, petit et centré.', en: 'The wave and the score take the whole top bar; MENU moves right, small and centred.' },
   { v: '1.50', fr: 'La planche des adversaires chiffre la fusion des trois chasseurs en deux, ligne par ligne.', en: 'The opponents board spells out merging the three fighters into two, line by line.' },
   { v: '1.49', fr: 'La planche des adversaires dessine les vraies silhouettes vues de dessus, pour trancher la fusion des trois chasseurs.', en: 'The opponents board draws the real top-down silhouettes, to settle merging the three fighters.' },
-  { v: '1.48', fr: 'Le faucheur vient de lui-même à la dixième vague : on ne le rencontrait qu’en jouant mal.', en: 'The reaper comes on its own at wave ten: you only met it by playing badly.' },
+  { v: '1.48', fr: 'Le faucheur vient de lui-même à la dixième vague : on ne le rencontrait qu’en refusant le combat.', en: 'The reaper comes on its own at wave ten: you only met it by refusing the fight.' },
   { v: '1.48', fr: 'Une planche pour comparer les sept adversaires.', en: 'A board to compare the seven opponents.' },
   { v: '1.47', fr: 'Le ciel passe de huit figures à cinq : Orion, Sirius et Cassiopée sont retirées.', en: 'The sky goes from eight figures to five: Orion, Sirius and Cassiopeia are removed.' },
   { v: '1.47', fr: 'La planche de la guitare s’ouvre au premier doigt posé, où qu’il tombe sur la page.', en: 'The guitar bench opens its sound on the first touch, wherever it lands on the page.' },
