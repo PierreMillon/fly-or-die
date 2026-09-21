@@ -15692,13 +15692,23 @@ function drawHud() {
       hctx.fillStyle = blanc ? 'rgba(255,255,255,0.92)' : 'rgba(255,82,66,0.92)';
       hctx.fillRect(w/2 - total/2 + i * (cw + ecart), ty, cw, ch);
     }
-    const mot = PLAN.blancs === 2 ? 'surLePlan'
-              : PLAN.blancs > 2 ? 'tropHaut' : 'tropBas';
-    hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
-    hctx.fillStyle = PLAN.blancs === 2 ? 'rgba(70,255,160,0.92)'
-                   : PLAN.blancs === 0 ? 'rgba(255,82,66,0.9)'
-                   : 'rgba(190,255,220,0.62)';
-    hctx.fillText(t(mot), w / 2, ty + ch + 15);
+    // TROP HAUT, TROP BAS : SEULEMENT DANS LE TUBE. Le plan est lisible bien
+    // avant qu'on décide de se poser — il suffit d'être grossièrement dans
+    // l'axe. On lisait donc « TROP HAUT » en plein combat, à deux kilomètres
+    // du terrain, alors qu'on n'était pas en approche du tout : un reproche
+    // pour une faute qu'on ne commettait pas. Les quatre feux restent, eux :
+    // ce sont des feux d'aérodrome, ils sont allumés, on les voit de loin et
+    // c'est normal. Le mot, lui, est un ordre d'approche, et il ne parle que
+    // quand le tube nous tient.
+    if (TUBE.tient || state.assist) {
+      const mot = PLAN.blancs === 2 ? 'surLePlan'
+                : PLAN.blancs > 2 ? 'tropHaut' : 'tropBas';
+      hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillStyle = PLAN.blancs === 2 ? 'rgba(70,255,160,0.92)'
+                     : PLAN.blancs === 0 ? 'rgba(255,82,66,0.9)'
+                     : 'rgba(190,255,220,0.62)';
+      hctx.fillText(t(mot), w / 2, ty + ch + 15);
+    }
     // LE VENT ET LA PISTE EN SERVICE, sous les feux. Il faut pouvoir le lire
     // d'en haut : la manche à air est un objet de quatre mètres posé au bord
     // du terrain, on ne la distingue pas à deux kilomètres. Elle reste ce qui
@@ -17802,6 +17812,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.62', fr: 'TROP HAUT et TROP BAS ne parlent que quand le tube nous tient : on les lisait en plein combat.', en: 'TOO HIGH and TOO LOW only speak when the tube has you: you read them in mid-combat.' },
   { v: '1.61', fr: 'Le décompte de la roquette se pose au-dessus de l’appareil, en vert, et ESQUIVE s’affiche la dernière seconde.', en: 'The rocket countdown sits above the aircraft, in green, and BREAK appears in the last second.' },
   { v: '1.61', fr: 'Un coup de manche franc dans cette seconde-là la sème, et elle passe alors là où elle nous aurait eus.', en: 'A hard stick input in that second sheds it, and it then flies through where it would have hit you.' },
   { v: '1.60', fr: 'La guillotine se referme par les deux bords et attend deux secondes : le trou rétrécit vraiment, et la lame ne tombe plus sur nous.', en: 'The guillotine closes from both edges and waits two seconds: the hole really shrinks, and the blade no longer falls on you.' },
