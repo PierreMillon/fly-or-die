@@ -2538,3 +2538,48 @@ n'a aucun effet sur un écran ordinaire.
 ### Les essais
 `essais/demarrage.mjs` (5 vérifications) et `essais/pliants.mjs` (24
 vérifications sur six formats) rejoignent le dépôt.
+
+## v1.37 — le défaut qui attendait qu'on progresse
+
+### Ce que le nouveau rapporteur a dit, mot pour mot
+`ReferenceError: Cannot access 'decouvertes' before initialization — ligne 3641`
+
+La v1.36 n'a rien cassé : elle a rendu visible ce qui était là. L'écran
+précédent, à 11 h 11, accusait three.js pour **exactement le même défaut**.
+
+### Le mécanisme
+`avionOuvert` lit `decouvertes`, déclaré onze mille lignes plus bas. Mais sa
+condition commence par `a.acces === 'libre' ||` : avec un appareil libre, la
+ligne n'est jamais atteinte. Or `appliqueAvion()` tourne à l'initialisation, sur
+**l'appareil sauvegardé**.
+
+Donc : bimoteur, tout va bien ; l'Ancien ou le Faucheur, la page reste noire.
+Un défaut qui attend que le joueur progresse pour se déclencher — et invisible
+sur un banc qui démarre toujours d'une partie neuve.
+
+Vérifié : présent en **v1.30** comme en v1.36. Il date du jour où un appareil
+non libre a pu être gardé d'une partie à l'autre.
+
+### Ce que j'avais fait de travers deux fois
+Le piège était noté **en commentaire, deux fois**, et contourné deux fois au
+lieu d'être supprimé : `legendesN` relisait le carnet dans le stockage,
+`cielCompletN` relisait les découvertes. Deux rustines pour une seule cause.
+
+Les deux sont supprimées. La règle est maintenant écrite dans le fichier et
+sans exception : **tout ce qui vient du stockage se déclare en tête**, avant la
+première ligne qui pourrait le lire. Ce n'est pas du style — c'est la seule
+disposition où l'ordre du fichier ne peut plus produire ce défaut.
+
+### L'essai qui aurait attrapé ça
+`essais/sauvegardes.mjs` démarre le jeu dans neuf états qu'une vraie partie peut
+laisser derrière elle : chaque appareil, refuge trouvé ou non, ciel complet ou
+non, Jeep ramenée, disque cassé, lettre à moitié effacée.
+
+| version | résultat |
+|---|---|
+| v1.30 | 5 sauvegardes sur 9 empêchent le démarrage |
+| v1.36 | 5 sur 9 |
+| v1.37 | **9 sur 9 démarrent** |
+
+Aucun essai de chargement ne pouvait l'attraper tant que tous partaient d'un
+stockage vide. C'est la leçon la plus utile de la journée.

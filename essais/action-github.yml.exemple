@@ -48,3 +48,6 @@ jobs:
 
       - name: Les écrans qui ne sont pas des téléphones debout
         run: node essais/pliants.mjs http://127.0.0.1:8123
+
+      - name: Le jeu démarre depuis toutes les sauvegardes
+        run: node essais/sauvegardes.mjs http://127.0.0.1:8123

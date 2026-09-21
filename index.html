@@ -834,6 +834,36 @@ import {
 } from './math.js';
 
 // ---------------------------------------------------------------------------
+// CE QU'ON A DÉJÀ TROUVÉ, ET QUI SE LIT AVANT TOUT LE RESTE.
+//
+// C'est la quatrième fois que le même piège se referme, et la dernière : la
+// page entière restait noire avec « Cannot access 'decouvertes' before
+// initialization ».
+//
+// Le mécanisme, chaque fois le même. `decouvertes` naissait tout en bas du
+// fichier. `avionOuvert` le lit — mais seulement pour un appareil qui n'est pas
+// libre, puisque la condition commence par `a.acces === 'libre' ||`. Or
+// `appliqueAvion()` tourne à l'initialisation et lit l'appareil sauvegardé :
+// tant qu'on volait sur le bimoteur, la ligne n'était jamais atteinte. Le jour
+// où l'on ouvre le refuge et où l'on garde l'Ancien, elle l'est — et le jeu ne
+// démarre plus. Un défaut qui attend qu'on progresse pour se déclencher.
+//
+// J'avais noté deux fois le piège en commentaire et contourné deux fois au lieu
+// de le supprimer : `legendesN` relisait le carnet dans le stockage,
+// `cielCompletN` relisait les découvertes. Deux rustines pour la même cause.
+//
+// La règle, désormais, et elle est sans exception : TOUT CE QUI VIENT DU
+// STOCKAGE SE DÉCLARE ICI, avant la première ligne qui pourrait le lire. Ce
+// n'est pas une question de style — c'est la seule disposition où l'ordre du
+// fichier ne peut plus produire ce défaut.
+// ---------------------------------------------------------------------------
+let decouvertes = {};
+try { decouvertes = JSON.parse(localStorage.getItem('fod_trouve') || '{}') || {}; } catch (e) {}
+let carnetN = {};
+try { carnetN = JSON.parse(localStorage.getItem('fod_carnet') || '{}') || {}; } catch (e) {}
+let legendesN = carnetN.legendes || 0;
+
+// ---------------------------------------------------------------------------
 // constantes de vol et de combat
 // ---------------------------------------------------------------------------
 const CRUISE        = 78;     // vitesse d'équilibre en palier
@@ -3606,22 +3636,9 @@ const avion = () => AVIONS.find(a => a.id === avionChoisi) || AVIONS[0];
 // le disque. C'est ce qui fait qu'on choisit un appareil pour l'expérience
 // qu'il donne, et pas pour la ligne de chiffres du menu.
 const vitMonde = () => avion().vit;
-// le carnet n'existe pas encore à cet endroit du fichier : on lit le compte
-// des légendes directement dans le stockage, et legende() le tient à jour
-let legendesN = 0;
-try { legendesN = (JSON.parse(localStorage.getItem('fod_carnet') || '{}').legendes || 0); } catch (e) {}
-// MÊME PIÈGE QUE legendesN, ET IL M'A REPRIS. « decouvertes » naît tout en bas
-// du fichier, et le hangar se bâtit bien avant : le lire ici ne plantait pas à
-// l'écriture mais à l'exécution, et la page entière restait noire. Les
-// fonctions flèches comme avionOuvert s'en sortent parce qu'elles ne lisent
-// qu'à l'appel ; le code qui s'exécute tout de suite, lui, doit aller chercher
-// la clé dans le stockage, comme le carnet juste au-dessus.
-let cielCompletN = false;
-try {
-  const T = JSON.parse(localStorage.getItem('fod_trouve') || '{}');
-  cielCompletN = ['ourse', 'orion', 'berger', 'ciel_polaire', 'ciel_sirius',
-                  'ciel_cassio', 'ciel_pleiades', 'ciel_croix'].every(c => !!T[c]);
-} catch (e) {}
+// `legendesN` et `decouvertes` sont lus tout en haut du fichier, avec le reste
+// de ce qui vient du stockage. Les deux relectures qui vivaient ici — l'une
+// pour le carnet, l'autre pour les découvertes — n'ont plus de raison d'être.
 // L'ANCIEN NE S'ACHÈTE PAS ET NE SE GAGNE PAS EN COMBAT : il s'ouvre quand on
 // a posé les roues au refuge, une fois. C'est le seul appareil du jeu dont la
 // clé est un endroit.
@@ -5838,7 +5855,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   // regarde un appareil pendant des parties entières, et c'est ce qui donne
   // envie de faire ce qu'il faut pour l'avoir.
   rang.push({ geo: KIND_FAUCHEUR.geom, edges: KIND_FAUCHEUR.edges,
-              mat: cielCompletN ? matPlayer : matPale,
+              mat: cielComplet() ? matPlayer : matPale,
               ech: KIND_FAUCHEUR.echelle * 0.9 });
   CHOIX.push('faucheur');
   rang.forEach((r, i) => {
@@ -14632,8 +14649,7 @@ const structLbl = null;
 // et des secondes ; les statistiques d'une partie meurent avec elle. Il
 // manquait la seule chose dont les indices ont besoin : la liste de ce qu'on a
 // vu une fois dans sa vie. Elle tient dans dix booléens.
-let decouvertes = {};
-try { decouvertes = JSON.parse(localStorage.getItem('fod_trouve') || '{}') || {}; } catch (e) {}
+// (`decouvertes` est déclaré tout en haut du fichier : voir la règle là-bas.)
 function trouve(cle) {
   if (decouvertes[cle]) return;
   decouvertes[cle] = true;
@@ -15714,6 +15730,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.37', fr: 'Le jeu redémarre avec l’Ancien ou le Faucheur : il refusait de se lancer dès qu’on gardait un appareil qui n’est pas libre.', en: 'The game starts again with the Old One or the Reaper: it refused to launch as soon as you kept an aircraft that is not free.' },
+  { v: '1.37', fr: 'Tout ce qui vient du stockage est déclaré en tête de fichier : la même panne s’était produite quatre fois.', en: 'Everything read from storage is declared at the top of the file: the same failure had happened four times.' },
   { v: '1.36', fr: 'Le jeu n’accuse plus three.js sur un simple chronomètre : il ne signale une panne que s’il en trouve une, et il dit laquelle.', en: 'The game no longer blames three.js on a mere timer: it reports a failure only when it finds one, and says which.' },
   { v: '1.36', fr: 'Un réseau muet n’empêche plus un jeu installé de démarrer : passé trois secondes et demie, il se lance depuis le cache.', en: 'A silent network no longer stops an installed game from starting: after three and a half seconds it launches from cache.' },
   { v: '1.36', fr: 'Une fois le refuge trouvé, on en repart directement depuis le menu.', en: 'Once the refuge is found, you can start straight from it in the menu.' },
