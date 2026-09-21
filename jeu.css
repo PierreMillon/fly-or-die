@@ -405,7 +405,12 @@
      maintenant sur toute la colonne : on lit sa vie du coin de l'oeil sans
      la chercher. */
   #bottombar > span:first-child { flex: 1 1 auto; min-width: 0; }
-  #bottombar #gauge { display: block; width: 100%; }
+  /* LE CADRE N'AVAIT PLUS DE TRAIT À DROITE. La jauge est en content-box :
+     « width: 100% » donnait cent pour cent au CONTENU, et les deux pixels de
+     cadre passaient par-dessus — donc deux pixels de trop, que le
+     « overflow: hidden » de la bande rognait. C'est le trait de droite qui
+     tombait. */
+  #bottombar #gauge { display: block; width: 100%; box-sizing: border-box; }
   /* le ressort de fin de bande mangeait la moitié de la place : la jauge
      s'arrêtait au milieu de l'écran alors qu'elle doit le traverser */
   #bottombar .spacer { flex: 0 0 0; }

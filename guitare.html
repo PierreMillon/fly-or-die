@@ -82,9 +82,30 @@ une altération : un emprunt, une dominante secondaire, une suspension.</p>
 // fait qu'on entend une corde pincée et pas un orgue. Si cette page sonnait
 // autrement que le jeu, elle ne servirait à rien.
 // ---------------------------------------------------------------------------
-let actx = null, master = null;
+let actx = null, master = null, silence = null;
 const _sonnantes = [];
+// SANS CECI, UN iPHONE NE SORT AUCUN SON. Le son de la trame audio du Web est
+// rangé dans la catégorie « ambiance » par défaut, celle que l'interrupteur
+// latéral coupe. Il faut demander la catégorie « lecture », et le demander
+// PENDANT le geste qui lance le son. Là où la propriété n'existe pas encore,
+// un fichier muet joué en boucle produit le même effet.
+const SILENCE_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+function regleSessionAudio() {
+  try {
+    if ('audioSession' in navigator) { navigator.audioSession.type = 'playback'; return; }
+  } catch (e) {}
+  try {
+    if (!silence) {
+      silence = new Audio(SILENCE_WAV);
+      silence.setAttribute('playsinline', '');
+      silence.loop = true;
+    }
+    const j = silence.play();
+    if (j && j.catch) j.catch(() => {});
+  } catch (e) {}
+}
 function audio() {
+  regleSessionAudio();
   if (actx) return actx;
   actx = new (window.AudioContext || window.webkitAudioContext)();
   master = actx.createGain();
@@ -277,15 +298,21 @@ function programme() {
   }
   montreSuite();
 }
-function joue() {
+async function joue() {
   audio();
-  if (actx.state === 'suspended') actx.resume();
+  // ON ATTEND VRAIMENT. Tant que le contexte est suspendu, son horloge est
+  // arrêtée : programmer des notes à « maintenant + un dixième » les pose dans
+  // un passé qui n'existe pas encore, et elles tombent toutes ensemble au
+  // réveil — ou elles ne tombent pas du tout.
+  if (actx.state !== 'running') { try { await actx.resume(); } catch (e) {} }
   arrete();
   prochaine = actx.currentTime + 0.12;
   histoire = [];
   programme();
   minuteur = setInterval(programme, 700);
-  document.getElementById('etat').textContent = 'Elle joue. Rien ne se répète : tout est tiré à chaque accord.';
+  document.getElementById('etat').textContent = actx.state === 'running'
+    ? 'Elle joue. Rien ne se répète : tout est tiré à chaque accord.'
+    : 'Le son est refusé par le navigateur (' + actx.state + '). Touche encore une fois JOUER.';
 }
 function arrete() {
   if (minuteur) { clearInterval(minuteur); minuteur = null; }

@@ -2346,6 +2346,62 @@ déborde mange les traits qui la bordent, et l'on obtient une ombre sans contour
 Vérifié en vol : le quadrillage du sol est coupé net derrière les ailes des deux
 appareils. Non-régression : atterrissage à 1,3 m du hangar, 416 m en 9,1 s.
 
+## LA DOCTRINE DU CRÉATEUR
+
+Posée le 21 septembre. Ce n'est pas une liste de tâches : c'est la règle du jeu
+pour tous les jeux à venir, celui-ci compris. Tout ce qui suit est de lui, remis
+en ordre.
+
+### La forme
+
+- Une seule mécanique.
+- Design minimaliste : à plat, peu de polygones, pixels, fil de fer.
+- Style graphique filaire de vieux moniteur, lisible par tout profil de
+  handicap visuel.
+- Français et anglais.
+- Adapté au téléphone pliant, de format plutôt carré.
+- Affiché sur smartphone uniquement. Sur les autres formats, il s'affiche en
+  responsive comme sur un autre téléphone. Portage plus tard, si budget.
+- Effets sonores et visuels juteux.
+- Musique hypnotique.
+- Optimisation de la batterie.
+- Construit en un seul fichier léger, à confirmer.
+
+### Le joueur
+
+- Accessible à un enfant de trois ans ; le terminer demande une maîtrise de
+  geek.
+- Tutoriel clair, par mécanique, et sans explication écrite.
+- Lore sur fond d'humour et de culture absurde.
+- Mode application à installer depuis le web, expliqué en introduction.
+
+### La technique
+
+- Hors ligne, sauvegarde locale, aucun serveur.
+- Mise à jour automatique, et le cas échéant un bouton à cliquer dès le début.
+- La sauvegarde survit à une mise à jour automatique poussée à distance.
+- Multijoueur sans serveur.
+- Contrôle de sécurité, notamment l'injection de macros dans la barre de
+  mémoire de partie.
+- Conformité RGPD depuis la page principale des jeux.
+
+### L'économie
+
+- Publicité factice pour débloquer une difficulté supplémentaire toutes les
+  vingt-quatre heures, ou toutes les semaines.
+- Publicités réelles ensuite, et une option payante pour les supprimer.
+- Passer par une plateforme pour la visibilité, puis par les magasins.
+- Un catalogue de jeux personnel, sur une page.
+
+### La méthode
+
+- Retours de non-joueurs, et test A/B en option de menu avant de trancher.
+- Affiner en SUPPRIMANT les mécaniques inutiles.
+- Tester avec une communauté intéressée, et gérer la difficulté en RETIRANT
+  une mécanique, pas en en ajoutant.
+- Assistance aux joueurs pour les bugs, pas pour modifier le jeu de base ; si
+  la demande est trop différente, proposer un nouveau jeu.
+
 ## À FAIRE
 
 - **L'approche stabilisée.** L'arrivée doit tenir l'assiette quasi constante,

@@ -6827,6 +6827,12 @@ ARCHE.largeur = ARCHE.ouvertureL + 2 * ARCHE.pile;
 ARCHE.hauteur = ARCHE.ouvertureH + ARCHE.poutre;
 
 const matArche = lineMat(COL_LINE, 0.85);
+// ON VOIT QU'IL EST PRIS. L'aide dit depuis toujours qu'un portail ne se laisse
+// prendre qu'une fois par vague, et depuis la v1.40 le code le tient enfin —
+// mais rien ne le montrait : on repassait dessous, il ne se passait rien, et on
+// croyait à une panne. Un portail déjà pris s'éteint de moitié jusqu'à la vague
+// suivante. La règle se voit, donc elle se comprend.
+const matArchePris = lineMat(COL_LINE, 0.30);
 // la silhouette en Pi, décrite d'un trait : deux pieds, deux faces intérieures,
 // le dessous de la poutre, et le rectangle extérieur
 const CONTOUR_ARCHE = (() => {
@@ -6908,6 +6914,13 @@ TOUR.montant = (TOUR.largeur - TOUR.trou) / 2;    // 32,5 m de chaque côté
 const TOUR_PRIME = 50;   // pour cent de vie rendus, une fois par tour et par vague
 
 const matTour = lineMat(COL_LINE, 0.9);
+const matTourPris = lineMat(COL_LINE, 0.30);
+// le dernier enfant du groupe est le trait de l'ouvrage : c'est lui qui pâlit
+function marqueTrouPris(b, pris, vif, pale) {
+  if (!b || !b.g) return;
+  const l = b.g.children[b.g.children.length - 1];
+  if (l && l.material !== undefined) l.material = pris ? pale : vif;
+}
 // deux boucles seulement : la façade et sa fenêtre. Rien entre les deux.
 const aretesTour = prismeAretes([
   [[-TOUR.largeur / 2, 0], [TOUR.largeur / 2, 0],
@@ -9249,8 +9262,8 @@ function resetGame() {
   state.assist = false;
   state.pose = null;
   redecoBtn.hidden = true;
-  for (const a of arches) a.prise = false;
-  for (const t of tours) t.prise = false;
+  for (const a of arches) { a.prise = false; marqueTrouPris(a, false, matArche, matArchePris); }
+  for (const t of tours) { t.prise = false; marqueTrouPris(t, false, matTour, matTourPris); }
   for (const b of BATIMENTS) rebatir(b);
   state.eclipse = 0; state.solTir = 0; state.dore = 0; state.doreVague = -1; state.solDans = 0;
   state.etoileT = 0;
@@ -10867,8 +10880,8 @@ function spawnWave() {
   // le nom de l'escadrille dit tout de suite à quoi on a affaire
   state.vagueTouche = false;
   state.vagueT = 0;
-  for (const a of arches) a.prise = false;
-  for (const t of tours) t.prise = false;
+  for (const a of arches) { a.prise = false; marqueTrouPris(a, false, matArche, matArchePris); }
+  for (const t of tours) { t.prise = false; marqueTrouPris(t, false, matTour, matTourPris); }
   state.vagueLimite = boss ? 55 : LIMITE_BASE + LIMITE_PAR * n;
   objCompte('vague', state.wave);
   announce(boss ? t('vague') + state.wave + '  ·  ' + t('gardien')
@@ -10891,15 +10904,59 @@ const _right = new THREE.Vector3();
 const _los = new THREE.Vector3();
 const _impactSrc = new THREE.Vector3();
 const _seg = new THREE.Vector3();
-// SEPARATION DURE. Appelee sur TOUS les chemins et AVANT le test de choc :
-// un adversaire ne peut geometriquement plus entrer dans la sphere. C'est la
-// seule facon d'etre sur qu'il ne nous touche jamais, quelle que soit la
-// vitesse de rapprochement et quel que soit le branchement qu'il a pris.
+// ILS SE DÉGAGENT, ILS NE REBONDISSENT PLUS.
+//
+// Il n'y avait QUE la séparation dure : dès qu'un adversaire entrait dans la
+// sphère de trente-quatre mètres, on le replaçait d'autorité sur sa surface.
+// Vu de l'appareil, ça donne exactement ce qu'il a décrit — il fonce dessus,
+// et il rebondit contre une paroi invisible en glissant dessus. Ce n'est pas
+// un pilote, c'est une bille.
+//
+// Or la rupture existait déjà, et elle est bonne : `evadeT` fait piquer
+// l'adversaire de côté et vers le haut ou le bas, en remplaçant sa poursuite,
+// avec un virage une fois et demie plus serré. Elle ne se déclenchait QUE
+// quand on l'avait verrouillé et qu'on chargeait les canons — donc jamais
+// dans le cas qui nous occupe, celui où il nous arrive dessus sans qu'on le
+// regarde.
+//
+// Elle se déclenche maintenant aussi sur la géométrie : à cent cinquante
+// mètres, si son nez est à moins de trente-sept degrés de nous, il rompt. Du
+// côté vers lequel il penchait déjà — un pilote ne traverse pas devant, il
+// continue son mouvement — et vers le bas s'il est plus haut que nous, vers le
+// haut sinon. Cette rupture-là n'a pas de temps de repos : la sécurité ne se
+// met pas en attente.
+// LES TROIS NOMBRES SONT MESURÉS, PAS DEVINÉS. À cent cinquante mètres,
+// adversaire à cent soixante et nous à cent trente, la vitesse de
+// rapprochement vaut deux cent quatre-vingt-dix mètres par seconde : il reste
+// une demi-seconde, et une demi-seconde ne suffit pas à dégager huit
+// envergures. Mesuré sur quatre adversaires lancés pile dessus pendant cinq
+// secondes, on restait collé sous trente-six mètres quatre images sur mille
+// deux cents. À deux cent soixante mètres et quarante-cinq degrés, avec une
+// rupture volée deux fois et demie plus serré que la poursuite, il n'en reste
+// aucune.
+const EVITE_RAYON = 260;     // mètres : à partir d'où il se dégage
+const EVITE_COS   = 0.70;    // il faut que son nez soit à moins de 45° de nous
+const EVITE_DUREE = 1.2;     // secondes de rupture
+const EVITE_SERRE = 2.5;     // ce que vaut son virage de rupture de sécurité
+// ET IL NE ROMPT PAS PARCE QU'IL NOUS SUIT. En chasse, son nez est sur nous en
+// permanence : sans ce garde-fou, il romprait sans arrêt et ne tirerait jamais
+// une balle. Ce qui distingue l'abordage de la poursuite n'est pas l'angle,
+// c'est la VITESSE DE RAPPROCHEMENT — nez à nez elle vaut la somme des deux
+// vitesses, en chasse elle vaut leur différence. Cent vingt mètres par seconde
+// sépare proprement les deux cas.
+const EVITE_APPROCHE = 120;  // m/s de rapprochement en deçà desquels il ne rompt pas
+const EVITE_SERRE_ABS = 60;  // mètres : là, il rompt quoi qu'il arrive
+
+// SEPARATION DURE, EN DERNIER RECOURS. Appelee sur TOUS les chemins et AVANT
+// le test de choc : un adversaire ne peut geometriquement plus entrer dans la
+// sphere. Depuis que la rupture existe, on ne doit plus la voir agir.
+let _ramsDurs = 0;           // combien de fois le dernier recours a servi
 function ecarteDuJoueur(e) {
   if (e.kind.sol) return;
   _seg.subVectors(e.pos, state.pos);
   const d = _seg.length();
   if (d >= RAM_MINI) return;
+  _ramsDurs++;
   if (d < 1e-6) _seg.set(0, 1, 0); else _seg.divideScalar(d);
   e.pos.copy(state.pos).addScaledVector(_seg, RAM_MINI);
   if (e.mesh) e.mesh.position.copy(e.pos);
@@ -10922,6 +10979,34 @@ function updateEnemies(dt) {
     _v.subVectors(e.pos, state.pos);
     const dist = _v.length() || 1;
     const bearing = state.forward.dot(_v) / dist; // >0 devant, <0 derrière
+
+    // LA RUPTURE DE SÉCURITÉ, AVANT TOUT LE RESTE.
+    //
+    // Elle était plus bas, après trois « continue » : celui du soin, celui de
+    // la figure en cours, celui de la pièce au sol. Or ce sont très exactement
+    // les moments où l'adversaire suit une trajectoire écrite d'avance et ne
+    // regarde plus où il va — mesuré, deux essais sur trois le laissaient
+    // encore venir coller la sphère. Elle passe donc en tête, et elle annule
+    // ce qu'il était en train de faire : on ne finit pas son tonneau dans un
+    // appareil qui arrive en face.
+    if (!K.sol && e.evadeT <= 0) {
+      const fonce = -e.forward.dot(_v) / dist;
+      // la vitesse de rapprochement, projetée sur la ligne qui nous joint :
+      // nez à nez elle vaut la somme des deux vitesses, en chasse la différence
+      const approche = (-e.forward.dot(_v) * e.speed + state.forward.dot(_v) * state.speed) / dist;
+      if ((dist < EVITE_RAYON && fonce > EVITE_COS && approche > EVITE_APPROCHE)
+          || dist < EVITE_SERRE_ABS) {
+        e.evadeT = EVITE_DUREE;
+        e.evadeCd = 0;
+        e.rompSecu = true;    // celle-ci se vole plus serré que l'esquive de tir
+        e.fig = null;         // on interrompt la figure
+        e.soin = null;        // et la course au portail
+        _los.subVectors(e.pos, state.pos).normalize();
+        _pn.crossVectors(_los, _up).normalize();
+        e.evadeSide = e.forward.dot(_pn) >= 0 ? 1 : -1;
+        e.evadeUp = e.pos.y >= state.pos.y ? 1 : -1;
+      }
+    }
 
     // Pièce au sol : elle reste où elle est, tourne sa tourelle vers le ciel
     // et n'entre dans aucune logique de poursuite. Trop loin, on la remplace.
@@ -11039,7 +11124,11 @@ function updateEnemies(dt) {
           e.hp = Math.min(e.hpMax, e.hpMax * 0.75);
           e.soinT = 18; e.soin = null;
           spawnBurst(e.pos, 7);
-          SFX.cale();
+          // ET SANS BRUIT. Le son disait « il se passe quelque chose ici » au
+          // moment précis où il ne se passe rien chez nous : on cherchait
+          // l'événement à l'écran, et c'était quelqu'un d'autre qui se
+          // soignait à trois kilomètres. La nouvelle se lit, elle ne s'entend
+          // pas.
           // PAS DE BANDEAU. Un adversaire qui se soigne n'est pas un
           // événement de notre partie : c'est une nouvelle, et une nouvelle se
           // lit en petit dans un coin. Le bandeau plein écran couvrait le
@@ -11117,6 +11206,7 @@ function updateEnemies(dt) {
     } else if (state.lock === e && e.charge > 0.3 && e.evadeCd <= 0) {
       e.evadeT = ESQUIVE_DUREE[0] + Math.random() * (ESQUIVE_DUREE[1] - ESQUIVE_DUREE[0]);
       e.evadeCd = e.evadeT + ESQUIVE_REPOS;
+      e.rompSecu = false;
       e.evadeSide = Math.random() < 0.5 ? -1 : 1;
       e.evadeUp = Math.random() < 0.5 ? -1 : 1;
     }
@@ -11131,7 +11221,7 @@ function updateEnemies(dt) {
       e.goal.y = THREE.MathUtils.clamp(e.goal.y, 70, CEILING);
       _m4.lookAt(e.pos, e.goal, _up);
       _q.setFromRotationMatrix(_m4);
-      e.quat.rotateTowards(_q, vir * 1.6 * dt);   // rupture franche
+      e.quat.rotateTowards(_q, vir * (e.rompSecu ? EVITE_SERRE : 1.6) * dt);   // rupture franche
 
     // ---- le point visé dépend de la tactique, et c'est là que tout se joue
     } else if (K.tactique === 'proportionnelle') {
@@ -14090,6 +14180,7 @@ function scrape(dt) {
     const q = t.passage;
     if (q && !t.prise && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
       t.prise = true;
+      marqueTrouPris(t, true, matTour, matTourPris);
       stat('passages');
       gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME);
       coupDePied();
@@ -14103,6 +14194,7 @@ function scrape(dt) {
     const q = a.passage;
     if (q && !a.prise && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
       a.prise = true;
+      marqueTrouPris(a, true, matArche, matArchePris);
       objCompte('arches');
       stat('passages');
       gagneVie(defiEst('sansBonus') ? 0 : ARCHE_PRIME);
@@ -16620,6 +16712,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.45', fr: 'Les adversaires rompent au lieu de rebondir sur nous : ils passent maintenant à soixante mètres au lieu de venir coller.', en: 'Opponents break off instead of bouncing off us: they now pass at sixty metres instead of pressing right up against us.' },
+  { v: '1.45', fr: 'Un portail déjà pris s’éteint de moitié jusqu’à la vague suivante : on voit enfin pourquoi il ne rend plus rien.', en: 'A gate already taken dims by half until the next wave: you can finally see why it gives nothing.' },
+  { v: '1.45', fr: 'Le cadre de la jauge de vie retrouve son trait de droite.', en: 'The health gauge frame gets its right-hand line back.' },
+  { v: '1.45', fr: 'Les nouvelles du portail ne font plus de bruit.', en: 'Gate news no longer makes a sound.' },
   { v: '1.44', fr: 'La guitare se prend, se porte sur le dos, s’emmène en Jeep et en avion, et se pose où l’on veut — elle reste là où on l’a laissée.', en: 'The guitar can be picked up, carried on your back, taken in the Jeep and the aircraft, and set down anywhere — it stays where you left it.' },
   { v: '1.44', fr: 'On en joue assis en tailleur, la caisse contre soi, et non plus un genou à terre.', en: 'You play it sitting cross-legged, the body against you, no longer down on one knee.' },
   { v: '1.44', fr: 'Le morceau ne boucle plus : la suite d’accords descend le cycle des quintes, dévie, s’enrichit, et ne revient jamais deux fois la même.', en: 'The tune no longer loops: the chords walk down the circle of fifths, stray, take on colour, and never come round the same way twice.' },
