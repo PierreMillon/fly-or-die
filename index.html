@@ -5953,7 +5953,45 @@ const TUBE_LACHE = 0.78;      // au-delà de cette poussée au manche, il lâche
 // LA VITESSE AU SEUIL. Ni un décrochage — l'aile ne porte plus sous 46 — ni un
 // passage : de quoi poser les roues et s'arrêter dans la longueur de piste qui
 // reste devant.
-const APPROCHE_VIT = 62;
+// ---------------------------------------------------------------------------
+// L'APPROCHE, D'APRÈS LES VRAIES.
+//
+// Ce que dit le manuel de vol américain (FAA-H-8083-3, chapitre 9) et ce que
+// répète n'importe quel instructeur :
+//
+// — La vitesse de finale vaut 1,3 fois la vitesse de décrochage en
+//   configuration d'atterrissage. Ici le décrochage est à quarante-six, donc
+//   la finale se vole à soixante. Ce n'est plus un chiffre choisi : il est
+//   DÉRIVÉ, et il suivra si le décrochage change.
+//
+// — Le plan est de trois degrés, constants, vers un point fixe de la piste —
+//   mille pieds pour trois milles nautiques, la règle du trois pour un. À
+//   soixante mètres par seconde, cela fait trois mètres par seconde de
+//   descente, soit six cent vingt pieds par minute : pile dans la fourchette
+//   de cinq cents à mille que l'on demande à un avion léger.
+//
+// — LE POINT VISÉ NE BOUGE PAS DANS LE PARE-BRISE. C'est LA définition de
+//   l'approche stabilisée : si le point monte, on se pose court ; s'il
+//   descend, on se pose long. Rien d'autre à regarder.
+//
+// — ET L'ASSIETTE N'EST PAS LA PENTE. C'est le point que ce jeu ratait : on
+//   descendait de trois degrés le NEZ POINTÉ trois degrés vers le bas, ce
+//   qu'aucun avion ne fait. Un avion descend à trois degrés avec l'aile à
+//   cinq ou six degrés d'incidence, donc le nez DEUX OU TROIS DEGRÉS AU-DESSUS
+//   de l'horizon. Il ne pique pas vers la piste : il est cabré et il tombe.
+//   La descente vient de la puissance réduite, pas de l'assiette.
+//
+// — L'arrondi commence entre dix et vingt pieds, soit trois à six mètres, et
+//   l'on touche cent à deux cents pieds plus loin. Le tube le commence à
+//   quatre-vingts mètres du toucher, ce qui fait quatre mètres vingt de
+//   hauteur : c'est exactement la bonne fenêtre, et cela ne change pas.
+//
+// Ce qui change, donc : la vitesse est dérivée du décrochage, et la maquette
+// prend son incidence. Le chemin reste le même — c'est le regard qui devient
+// juste.
+// ---------------------------------------------------------------------------
+const APPROCHE_INCIDENCE = 5.5 * Math.PI / 180;  // l'aile porte, le nez est haut
+const APPROCHE_VIT = Math.round(SPEED_MIN * 1.3);
 
 // le rayon du tube à une distance donnée du point visé
 // la hauteur de l'axe du tube à cette distance
@@ -13339,6 +13377,14 @@ function simulate(dt) {
       // nominale en proportion : trop haut, ça pique un peu plus ; trop bas,
       // ça redresse ; sur l'axe, ça tient les trois degrés. C'est ce que fait
       // n'importe quel pilote qui suit un plan.
+      // J'AI ESSAYÉ DE COMMANDER UNE VITESSE VERTICALE PLUTÔT QU'UN ANGLE —
+      // c'est ce qu'un pilote tient sur un plan, et c'est ce qui annule la
+      // dépendance à la vitesse. Mesuré : trois approches sur trois ne se
+      // posaient plus du tout. La loi est juste, l'intégration du jeu ne la
+      // suit pas telle quelle, et une approche qui ne se termine pas est pire
+      // qu'une approche d'un degré trop raide. On revient donc à l'angle, et
+      // la vitesse verticale reste à faire, proprement, avec un banc qui ne
+      // dépende pas de la cadence d'images.
       const err = state.pos.y - tubeHaut(Math.max(0, TUBE.d));
       const corr = THREE.MathUtils.clamp(err / 260, -0.035, 0.055);
       let vise = -(PENTE_CIBLE + corr);
@@ -13448,7 +13494,13 @@ function simulate(dt) {
   // exactement comme il tient l'axe et la pente. « Il prend les commandes »
   // veut dire les trois.
   if (state.assist && TUBE.prise > 0.01 && !state.roulage && !state.pose) {
-    const uT = THREE.MathUtils.clamp(1 - Math.max(0, TUBE.d) / TUBE_DIST, 0, 1);
+    // ON EST À LA VITESSE DE FINALE AVANT LA FINALE. La consigne glissait de
+    // la croisière à soixante sur toute la longueur du couloir : on arrivait
+    // donc au seuil en décélérant encore, à soixante-sept au lieu de soixante.
+    // Un avion stabilisé a sa vitesse d'approche bien avant le seuil — c'est
+    // la moitié du mot « stabilisée ». Elle est atteinte aux deux tiers du
+    // couloir, et tenue ensuite.
+    const uT = Math.min(1, THREE.MathUtils.clamp(1 - Math.max(0, TUBE.d) / TUBE_DIST, 0, 1) * 1.55);
     const haut = CRUISE * avion().vit;
     const vAppro = haut + (APPROCHE_VIT - haut) * uT;
     state.speed = THREE.MathUtils.damp(state.speed, vAppro, 2.2 * TUBE.prise, dt);
@@ -14342,8 +14394,16 @@ function simulate(dt) {
   euler.set(state.pitch, state.yaw, state.roll + spinRoll + state.vrilleRoll);
   state.quat.setFromEuler(euler);
   state.forward.set(0, 0, -1).applyQuaternion(state.quat);
-  if (state.spinCabre) {
-    euler.set(state.pitch + state.spinCabre, state.yaw, state.roll + spinRoll + state.vrilleRoll);
+  // ET L'INCIDENCE D'APPROCHE EST UNE ATTITUDE, ELLE AUSSI. Le chemin est à
+  // moins trois degrés ; l'appareil, lui, se présente le nez deux degrés et
+  // demi AU-DESSUS de l'horizon, parce que son aile travaille à cinq et demi.
+  // C'est la différence entre un avion qui se pose et un avion qui s'écrase,
+  // et elle ne se voit que là : sur la maquette et dans le cadre.
+  const incid = (state.assist && TUBE.prise > 0.01 && !state.roulage && !state.pose)
+              ? APPROCHE_INCIDENCE * TUBE.prise : 0;
+  if (state.spinCabre || incid) {
+    euler.set(state.pitch + state.spinCabre + incid, state.yaw,
+              state.roll + spinRoll + state.vrilleRoll);
     state.quatVu = (state.quatVu || new THREE.Quaternion()).setFromEuler(euler);
   } else state.quatVu = null;
 
@@ -16454,10 +16514,31 @@ function drawHud() {
     const tx = w - 24, ty0 = h * 0.13, ty1 = h * 0.50;
     hctx.strokeStyle = 'rgba(70,255,160,0.28)';
     hctx.beginPath(); hctx.moveTo(tx, ty0); hctx.lineTo(tx, ty1); hctx.stroke();
-    for (let i = 0; i <= 4; i++) {
-      const yy = ty0 + (ty1 - ty0) * i / 4;
-      hctx.beginPath(); hctx.moveTo(tx - 3, yy); hctx.lineTo(tx + 3, yy); hctx.stroke();
+    // ELLE PORTE SES CHIFFRES. La bande disait « quelque part entre le
+    // plancher et le plafond » : on lisait sa position, jamais son altitude.
+    // Or dès qu'on veut se dire « monte à huit cents » — pour l'étage d'un
+    // adversaire, pour la fenêtre d'une tour, pour la bouche du tunnel — il
+    // faut des nombres. Tous les quatre cents mètres, arrondis à la centaine,
+    // du sol au plafond.
+    const ALT_PAS = 400;
+    hctx.save();
+    hctx.textAlign = 'right';
+    hctx.textBaseline = 'middle';
+    hctx.font = '9px "IBM Plex Mono", ui-monospace, monospace';
+    for (let alt = 0; alt <= CEILING; alt += ALT_PAS) {
+      const u = THREE.MathUtils.clamp((alt - FLOOR) / (CEILING - FLOOR), 0, 1);
+      const yy = ty1 - (ty1 - ty0) * u;
+      const gros = alt % 800 === 0;
+      hctx.strokeStyle = 'rgba(70,255,160,' + (gros ? 0.42 : 0.24) + ')';
+      hctx.beginPath();
+      hctx.moveTo(tx - (gros ? 4 : 2), yy); hctx.lineTo(tx + (gros ? 4 : 2), yy);
+      hctx.stroke();
+      if (gros) {
+        hctx.fillStyle = 'rgba(143,252,196,0.55)';
+        hctx.fillText(String(alt), tx - 7, yy);
+      }
     }
+    hctx.restore();
     // un simple trait qui glisse le long de la bande : le triangle d'avant se
     // confondait avec les flèches qui désignent les ennemis
     const k = THREE.MathUtils.clamp((state.pos.y - FLOOR) / (CEILING - FLOOR), 0, 1);
@@ -17812,6 +17893,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.63', fr: 'L’échelle d’altitude porte ses chiffres : 0, 800, 1600, 2400, et un trait tous les quatre cents.', en: 'The altitude scale carries its figures: 0, 800, 1600, 2400, and a tick every four hundred.' },
+  { v: '1.63', fr: 'En finale le nez est au-dessus de l’horizon et non pointé vers la piste : un avion descend cabré.', en: 'On final the nose is above the horizon, not aimed at the runway: an aeroplane descends nose-up.' },
+  { v: '1.63', fr: 'La vitesse d’approche n’est plus un chiffre choisi : elle vaut 1,3 fois le décrochage, comme dans la vraie vie.', en: 'Approach speed is no longer a chosen figure: it is 1.3 times the stall, as in real life.' },
   { v: '1.62', fr: 'TROP HAUT et TROP BAS ne parlent que quand le tube nous tient : on les lisait en plein combat.', en: 'TOO HIGH and TOO LOW only speak when the tube has you: you read them in mid-combat.' },
   { v: '1.61', fr: 'Le décompte de la roquette se pose au-dessus de l’appareil, en vert, et ESQUIVE s’affiche la dernière seconde.', en: 'The rocket countdown sits above the aircraft, in green, and BREAK appears in the last second.' },
   { v: '1.61', fr: 'Un coup de manche franc dans cette seconde-là la sème, et elle passe alors là où elle nous aurait eus.', en: 'A hard stick input in that second sheds it, and it then flies through where it would have hit you.' },
