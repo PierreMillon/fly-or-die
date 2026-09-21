@@ -186,11 +186,18 @@
      l'écran au lieu d'être rognés, et les boutons, dont le texte est fixe,
      ne rétrécissent plus du tout — c'est la seule manière que tout tienne
      sur un téléphone étroit sans que rien ne mente. */
+  /* ET CE SONT EUX QUI PRENNENT LA PLACE. La vague et le score sont ce qu'on
+     regarde ; MENU est ce qu'on touche une fois par partie. Ils avaient
+     pourtant la même taille, et c'est le bouton qui s'étirait. Les chiffres
+     occupent maintenant toute la gauche et grossissent avec l'écran ; le
+     bouton se range à droite, petit, centré sur la hauteur de la bande. */
   #topbar .chiffre {
-    font-size: clamp(8.5px, 2.7vw, 12px);
-    letter-spacing: clamp(0.01em, 0.4vw, 0.08em);
+    font-size: clamp(13px, 4.4vw, 21px);
+    letter-spacing: clamp(0.01em, 0.3vw, 0.06em);
     flex: 0 1 auto;
+    line-height: 1.1;
   }
+  #topbar #waveLbl { flex: 1 1 auto; }
   #topbar button { flex-shrink: 0; }
   @media (max-width: 420px) {
     #topbar { gap: 5px; padding-left: 7px; padding-right: 7px; }
@@ -399,7 +406,12 @@
      jamais — c'est ce qui faisait lire « SCORE 311 » pour 3110. */
   #topbar .spacer { flex: 0 0 6px; }
   #topbar { justify-content: flex-start; }
-  #topbar button { flex: 1 0 auto; text-align: center; }
+  #topbar button {
+    flex: 0 0 auto;            /* il ne s'étire plus : la place est aux chiffres */
+    align-self: center;        /* et il se centre sur la hauteur de la bande */
+    font-size: 11px;
+    padding: 6px 13px;
+  }
   /* LA JAUGE PREND TOUT LE HAUT. Elle faisait quatre-vingt-douze pixels collés
      au bord gauche, perdus dans une bande pleine largeur. Elle s'étire
      maintenant sur toute la colonne : on lit sa vie du coin de l'oeil sans

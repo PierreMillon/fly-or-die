@@ -3360,6 +3360,13 @@ const KINDS = [
     cone: Math.cos(12 * Math.PI / 180), portee: 520, rafale: 2
   },
   {
+    // LE CHASSEUR ET L'INTERCEPTEUR NE SORTENT PLUS (v1.51).
+    //
+    // Décidé sur ennemis.html : il reste le biplan, le drone et le gardien.
+    // Les deux entrées restent dans cette table — l'intercepteur parce que
+    // c'est AUSSI un appareil du joueur, gagné à la légende, et le chasseur
+    // parce qu'une table qu'on vide se remplit mal ensuite — mais aucune
+    // vague ne les appelle. Elles ne coûtent rien tant qu'on ne les tire pas.
     nom: 'CHASSEUR', tactique: 'queue', etage: [110, 430],
     // l'aile volante d'origine
     verts: [
@@ -3385,7 +3392,12 @@ const KINDS = [
     cone: Math.cos(12 * Math.PI / 180), portee: 1050, rafale: 3
   },
   {
-    nom: 'DRONE', tactique: 'proportionnelle', etage: [150, 690], figures: true,
+    // ET C'EST LUI QUI PORTE LES ROQUETTES, à partir de la septième vague.
+    // Elles étaient sur l'intercepteur, qui ne sort plus : sans ce report, le
+    // « WARNING ROCKET » aurait disparu des vagues ordinaires pour n'exister
+    // qu'au gardien. Il arrive tard, quand on sait déjà piloter, et c'est ce
+    // qui fait qu'on apprend à l'esquiver au lieu de le subir.
+    nom: 'DRONE', tactique: 'proportionnelle', etage: [150, 690], figures: true, roquettesVague: 7,
     // quatre bras en croix : plus un avion, une machine
     verts: [
        0, 0, -0.6,   0.6, 0, 0,    0, 0, 0.6,   -0.6, 0, 0,
@@ -3402,6 +3414,13 @@ const KINDS = [
     // drone tout en encaissant quatre fois plus : on ne pouvait ni le semer ni
     // le prendre de vitesse. Moins d'angle, plus de vitesse : il devient un
     // intercepteur lourd, qu'on évite en manœuvrant et non en fuyant.
+    // IL GARDE SA FORME À LUI, ET C'EST UNE DÉCISION.
+    //
+    // J'avais proposé une famille : le gardien serait le chasseur, en grand.
+    // Refusé, et la raison est bonne — un adversaire qui n'est qu'un autre en
+    // plus gros n'est pas un autre adversaire, c'est un curseur. Le gardien
+    // garde donc sa croix, le drone la sienne, le biplan ses deux ailes : des
+    // formes, pas des tailles.
     nom: 'GARDIEN', tactique: 'proportionnelle', etage: [280, 940], roquettes: true, figures: true, leurres: 3,
     // Le seul adversaire qui vient seul. Même croix que le drone, mais bien
     // plus grande et beaucoup plus dure à mettre à terre.
@@ -3470,6 +3489,29 @@ const KINDS = [
     envergure: 9,
     vitesse: [0, 0], virage: 0, vie: 150, recharge: [1.5, 2.6],
     cone: Math.cos(42 * Math.PI / 180), portee: 950, rafale: 3
+  },
+  {
+    // LA LOURDE. La chenillée, en grand — même principe qu'en l'air : le gros
+    // est le petit à une autre échelle, et personne n'a besoin qu'on
+    // l'explique. Trois fois la vie, une tourelle qui pointe plus vite, des
+    // rafales de cinq, et des roquettes tirées du sol : la neuvième vague
+    // cesse d'être un combat tournoyant et devient une épreuve de rase-mottes.
+    //
+    // Elle ne vient jamais seule : deux chenillées ordinaires autour d'elle.
+    // On ne peut donc pas lui plonger dessus, il faut traiter l'escorte
+    // d'abord — et c'est là qu'on prend les roquettes.
+    nom: 'LOURDE', tactique: 'sol', sol: true, roquettes: true,
+    verts: [
+      -4.5, 0, -7,   4.5, 0, -7,   4.5, 0, 7,   -4.5, 0, 7,
+      -3.6, 2.6, -5, 3.6, 2.6, -5, 3.6, 2.6, 5, -3.6, 2.6, 5,
+      -1.8, 2.6, -1.6, 1.8, 2.6, -1.6, 1.8, 4.4, 1.6, -1.8, 4.4, 1.6,
+       0, 4.0, -9
+    ],
+    tris: [0,1,5, 0,5,4,  1,2,6, 1,6,5,  2,3,7, 2,7,6,  3,0,4, 3,4,7,
+           4,5,6, 4,6,7,  8,9,10, 8,10,11,  8,9,12, 10,11,12],
+    envergure: 14,
+    vitesse: [0, 0], virage: 0, vie: 450, recharge: [0.9, 1.5],
+    cone: Math.cos(46 * Math.PI / 180), portee: 1100, rafale: 5
   }
 ];
 
@@ -3480,11 +3522,29 @@ const KINDS = [
 // cinquième et la dixième sont des gardiens. Tenir les dix, c'est entrer dans
 // la légende ; le deuxième chapitre viendra avec un autre avion.
 const CHAPITRE = 10;
+// LA TABLE DES VAGUES, APRÈS LA FUSION (v1.51).
+//
+// L'intercepteur — l'indice 2 — ne sort plus jamais : il reste dans la table
+// KINDS parce que c'est AUSSI un appareil du joueur, gagné à la légende, mais
+// on ne le combat plus. Les vagues ne connaissent donc que le biplan (0), le
+// chasseur (1), le drone (3) et le gardien (4).
+//
+// La neuvième change de nature : elle se termine au sol, sur la lourde. On a
+// pris l'habitude du combat tournoyant, et il faut redescendre.
+// La dixième est une seule chose : vingt biplans, et ce qui vient après.
+// Les huit premières, à la main. La neuvième et la dixième ne sont pas dans
+// ce tableau : ce sont deux exceptions écrites plus bas — la lourde au sol, et
+// les vingt biplans. Au-delà de la dixième, le jeu continue sans fin sur le
+// lot le plus dur.
 const VAGUES = [
-  [0], [0], [0, 0, 1], [0, 1, 1], [4],
-  [0, 1, 2, 2], [1, 1, 2, 2, 3], [1, 2, 2, 3, 3], [1, 2, 3, 3, 3], [4]
+  [0], [0], [0], [0, 0, 3], [4], [0, 3, 3], [3], [3]
 ];
-const EFFECTIF = [1, 2, 3, 4, 1, 5, 6, 7, 8, 1];
+const EFFECTIF = [1, 2, 3, 4, 1, 5, 6, 7];
+const APRES_POOL = [3, 3, 3, 0];   // au-delà : surtout des drones
+const APRES_N = 8;                 // et l'effectif repart de là
+const BAL_N = 20;                  // les biplans de la dixième
+const VAGUE_LOURDE = 9;      // celle qui se termine au sol
+const VAGUE_FAUCHEUR = 10;   // les vingt biplans, puis lui
 const PN_GAIN = 3.2;
 
 // LE SOLEIL. Une direction fixe dans le ciel, comme les étoiles. Le regarder
@@ -10624,21 +10684,38 @@ function spawnWave() {
   // Toutes les cinq vagues, un adversaire unique. Au-delà du tableau les
   // vagues continuent indéfiniment avec le lot le plus dur : le jeu n'a pas
   // de fin, seul le score en a une.
-  const boss = state.wave % 5 === 0;
-  const pool = boss ? [4] : VAGUES[Math.min(state.wave - 1, VAGUES.length - 1)];
-  let n = boss ? 1 : EFFECTIF[Math.min(state.wave - 1, EFFECTIF.length - 1)];
-  // le dernier gardien ne vient pas seul
+  // DEUX VAGUES NE SUIVENT PAS LA RÈGLE DES CINQ. La neuvième se termine au
+  // sol sur la lourde ; la dixième est les vingt biplans et ce qui vient
+  // après. Ni l'une ni l'autre n'est un gardien, même si dix est un multiple
+  // de cinq.
+  const surLaLourde = state.wave === VAGUE_LOURDE;
+  const leBal = state.wave === VAGUE_FAUCHEUR;
+  const boss = !surLaLourde && !leBal && state.wave % 5 === 0;
+  const iLourde = KINDS.findIndex(k => k.nom === 'LOURDE');
+  const pool = boss ? [4]
+             : surLaLourde ? [iLourde]
+             : leBal ? [0]
+             : state.wave <= VAGUES.length ? VAGUES[state.wave - 1]
+             : APRES_POOL;
+  let n = boss || surLaLourde ? 1
+        : leBal ? BAL_N
+        : state.wave <= EFFECTIF.length ? EFFECTIF[state.wave - 1]
+        : APRES_N;
+  // le dernier gardien ne vient pas seul ; la lourde non plus
   const escorte = boss && state.wave >= CHAPITRE ? 3 : 0;
   // PLUS DE PALIER. Au-delà du tableau, la vague continuait au même effectif
   // pour toujours : un plateau, donc une fin de fait. Un appareil de plus
   // toutes les deux vagues, jusqu'à seize, et des cellules plus dures.
-  const audela = Math.max(0, state.wave - EFFECTIF.length);
-  if (!boss) n = Math.min(16, n + Math.floor(audela / 2));
+  const audela = Math.max(0, state.wave - VAGUE_FAUCHEUR);
+  // le bal des vingt ne se fait pas rogner par le plafond : c'est un nombre,
+  // pas une difficulté
+  if (!boss && !leBal && !surLaLourde) n = Math.min(16, n + Math.floor(audela / 2));
   // LA COURBE S'ADAPTE. Une vague nette après l'autre, l'effectif grossit
   // d'un cinquième ; des vagues arrachées la peau sur les os, il maigrit
   // d'autant. Jamais sur les deux premières, qui sont la leçon.
   if (defiEst('megaDur')) state.forme = 1; else if (defiEst('facile')) state.forme = -1;
-  if (!boss && state.wave > 2) n = Math.max(1, Math.round(n * (1 + 0.18 * state.forme)));
+  if (!boss && !leBal && !surLaLourde && state.wave > 2)
+    n = Math.max(1, Math.round(n * (1 + 0.18 * state.forme)));
   const dur = (1 + 0.05 * audela) * (1 + 0.10 * state.forme) * (defiEst('megaDur') ? 1.4 : defiEst('facile') ? 0.7 : 1) * (avance.ennemisForts ? 1.4 : 1);
   const cadence = THREE.MathUtils.clamp((1 - 0.12 * state.forme) * (1 - 0.03 * audela), 0.6, 1.2);
   // à plusieurs, chaque appareil de plus alourdit la vague de moitié
@@ -10655,10 +10732,15 @@ function spawnWave() {
   // et conclure qu'elles n'existaient pas.
   // une pièce au sol une vague sur deux, à partir de la deuxième
   const tanksDebout = state.enemies.filter(e => e.kind.sol).length;
-  const tanks = boss || tanksDebout >= 2 ? 0 : (state.wave >= 2 && state.wave % 2 === 0 ? 1 : 0);
+  // la lourde amène ses deux chenillées ; sinon, une pièce au sol une vague
+  // sur deux, et jamais chez le gardien
+  const tanks = surLaLourde ? 2
+              : (boss || leBal || tanksDebout >= 2) ? 0
+              : (state.wave >= 2 && state.wave % 2 === 0 ? 1 : 0);
   for (let i = 0; i < n + escorte + tanks; i++) {
     const auSol = i >= n + escorte;
-    const k = auSol ? KINDS[iTank] : i >= n ? KINDS[2] : KINDS[pool[Math.floor(Math.random() * pool.length)]];
+    // l'escorte du gardien est faite de drones : ce sont eux qui restent
+    const k = auSol ? KINDS[iTank] : i >= n ? KINDS[3] : KINDS[pool[Math.floor(Math.random() * pool.length)]];
     vus.add(k.nom);
     // LE PREMIER SE PRÉSENTE DANS L'AXE. La vague d'ouverture sert de leçon :
     // on décolle, on regarde devant, il est là. À partir de la deuxième, le
@@ -10747,8 +10829,10 @@ function spawnWave() {
   announce(boss ? t('vague') + state.wave + '  ·  ' + t('gardien')
                 : t('vague') + state.wave + '  ·  ' + [...vus].join(' + '));
   SFX.vague();
-  // et à la dixième, il se détache tout seul
-  if (state.wave >= FAUCHEUR_VAGUE && !state.faucheur) lacherFaucheur();
+  // LE FAUCHEUR NE SE DÉTACHE PLUS AVEC LA VAGUE. À la dixième il arrive dans
+  // le plan, quand il ne reste que deux biplans : c'est cette entrée-là qui
+  // doit le présenter, pas une ligne de texte en haut de l'écran.
+  if (state.wave > VAGUE_FAUCHEUR && !state.faucheur) lacherFaucheur();
   jalonVague(state.wave);
 }
 
@@ -11276,7 +11360,11 @@ function updateEnemies(dt) {
     if (aligne && e.visee >= VISEE_ENNEMI && state.lockedT <= 0) { state.lockedT = 3; SFX.arme(); }
     // LA ROQUETTE. Alignement tenu, distance moyenne, et l'alerte sonne.
     if (e.roqCd > 0) e.roqCd -= dt;
-    if (K.roquettes && aligne && e.visee >= VISEE_ENNEMI && e.roqCd <= 0
+    // ET LES SIENNES N'ARRIVENT QU'À LA SEPTIÈME. Un adversaire qui lâche une
+    // roquette à la troisième vague ne laisse pas le temps d'apprendre à
+    // l'esquiver : on la prend, on ne comprend pas, on recommence.
+    const aDesRoquettes = K.roquettes || (K.roquettesVague && state.wave >= K.roquettesVague);
+    if (aDesRoquettes && aligne && e.visee >= VISEE_ENNEMI && e.roqCd <= 0
         && dist > ROQ_E_PORTEE[0] && dist < ROQ_E_PORTEE[1]) {
       e.roqCd = ROQ_E_RECHARGE * (e.roqX || 1);
       state.roqEnnemies.push({ pos: e.pos.clone(), dir: _v.clone().negate(), t: 0, fum: 0, perdue: false,
@@ -16560,6 +16648,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.51', fr: 'Le chasseur et l’intercepteur fusionnent dans le gardien : trois adversaires qui se ressemblaient n’en font plus qu’un.', en: 'The fighter and the interceptor merge into the guardian: three opponents that looked alike are now one.' },
+  { v: '1.51', fr: 'Une chenillée lourde ferme la neuvième vague, escortée de deux chars.', en: 'A heavy tracked machine closes the ninth wave, escorted by two tanks.' },
+  { v: '1.51', fr: 'La dixième vague lance vingt biplans d’un coup, et le faucheur arrive dessus.', en: 'The tenth wave sends twenty biplanes at once, and the reaper arrives on top of them.' },
+  { v: '1.51', fr: 'Les drones tirent des roquettes à partir de la septième vague.', en: 'Drones fire rockets from the seventh wave on.' },
+  { v: '1.51', fr: 'La vague et le score prennent toute la bande du haut ; MENU se range à droite, petit et centré.', en: 'The wave and the score take the whole top bar; MENU moves right, small and centred.' },
   { v: '1.50', fr: 'La planche des adversaires chiffre la fusion des trois chasseurs en deux, ligne par ligne.', en: 'The opponents board spells out merging the three fighters into two, line by line.' },
   { v: '1.49', fr: 'La planche des adversaires dessine les vraies silhouettes vues de dessus, pour trancher la fusion des trois chasseurs.', en: 'The opponents board draws the real top-down silhouettes, to settle merging the three fighters.' },
   { v: '1.48', fr: 'Le faucheur vient de lui-même à la dixième vague : on ne le rencontrait qu’en jouant mal.', en: 'The reaper comes on its own at wave ten: you only met it by playing badly.' },
