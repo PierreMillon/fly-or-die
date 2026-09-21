@@ -5,6 +5,74 @@ nouvelle idée est mentionnée en conversation (même en une phrase, même pas
 prête à être codée), elle est ajoutée ici avant d'être oubliée. Rien n'est
 retiré quand une idée est implémentée — noter "→ fait en vX.Y" à la place.
 
+---
+
+# EN RETARD — à faire avant toute nouvelle idée
+
+Ces deux-là ont été demandées, écrites, et repoussées onze versions de suite
+parce que chaque nouvelle demande arrivait plus courte et passait devant.
+Elles sont ici, en tête du fichier, pour qu'aucun arbitrage ne puisse plus
+les faire perdre.
+
+## 1. L'approche stabilisée, d'après les vrais atterrissages
+
+Demandé depuis la v1.42 (tâche #44), redemandé explicitement.
+
+Ce qui est attendu : un travail de recherche sur la manière dont un avion se
+pose VRAIMENT — vitesses d'approche et leur rapport à la vitesse de
+décrochage, plan à trois degrés, assiette tenue, réduction de puissance comme
+seul moyen de descendre, longueur de la finale, arrondi, toucher, roulement.
+Puis la traduction en jeu : assiette constante, nez près de l'horizon,
+descente par réduction lente de la puissance seulement, finale longue et
+douce depuis l'entrée du tube, PAPI toujours visible et respecté, reprise en
+main possible d'un coup de manche franc.
+
+État : rien n'est fait. Le tube tient l'axe, la pente et la vitesse, mais
+c'est un rail, pas une approche.
+
+## 2. La lune remplace le soleil
+
+Quatre questions tranchées en conversation, rien en production :
+
+— Croissant à la place du soleil.
+— On garde la traversée (bouclier) et l'étoile filante.
+— L'éblouissement quitte le jeu ordinaire et devient la règle de la
+  chenillée lourde : elle détruit si l'on fonce vers elle trop longtemps, et
+  la seule défense est la lune dans le dos.
+— L'éclipse disparaît.
+— La phase est l'horloge et éclaire de MOINS EN MOINS : pleine à la première
+  vague, presque rien à la fin.
+— Le Berger lève la pleine lune vingt secondes au lieu du lever du jour.
+
+## 3. Le jeu de piste (validé, non commencé)
+
+Les deux chiffres de piste sont repeints en **29** et **27** : le cap du
+tunnel de la montagne (288) et le cap du refuge de la Grande Ourse (270).
+Pierre sait que c'est faux au sens de l'aviation — deux bouts d'une même
+piste sont opposés à 180° — et le veut quand même : ce sont des caps, pas des
+numéros, et c'est l'énigme.
+
+Deux portails alignés, à 1,5 et 3 km du terrain, sur le cap du refuge : les
+prendre tous les deux et continuer tout droit mène au refuge.
+
+La flèche de l'aire à signaux est orientée vers le tunnel.
+
+## 4. L'arche du sommet (idée neuve, non commencée)
+
+Sur le cap du refuge, le premier sommet assez haut reçoit un petit plateau
+plat, taillé en haut de la montagne — comme si quelqu'un l'avait aplani il y
+a longtemps. Dessus, une arche, d'une facture plus ancienne que la ville :
+la traverser catapulte vers le refuge.
+
+L'idée est qu'on monte pour partir loin, au lieu de partir à plat. Et que
+l'objet raconte que la route du refuge était connue avant nous.
+
+À concevoir : la forme de l'arche ancienne (elle ne doit pas être la même que
+les portails de la ville), la taille du plateau, ce que vaut la poussée, et
+si elle se prend une seule fois ou comme les autres.
+
+---
+
 ## Le soleil-lampe de bureau → fait en v0.32
 
 L'image d'origine : un enfant qui joue avec des avions en plastique dans sa
@@ -2685,3 +2753,215 @@ décollage et sans vague. Le défaut existait avant la v1.36 ; la ligne de menu
 l'a rendu facile à atteindre.
 
 Vérifié : partir du refuge, puis NOUVELLE PARTIE → `x = 0`, sur le terrain.
+
+---
+
+# Session v1.51 → v1.62 — ce qui a été fait, et ce qui a été mesuré
+
+Ce bloc rattrape onze versions écrites sans que ce fichier bouge. Il n'y a
+pas d'idée neuve ici : seulement les décisions prises et les nombres relevés,
+qui n'existaient jusqu'ici que dans le journal des versions et dans la
+conversation — c'est-à-dire nulle part de durable.
+
+## v1.51 — la fusion des trois chasseurs
+
+Le chasseur et l'intercepteur ne sortent plus en vague : le gardien reprend
+leur rôle. Une chenillée lourde ferme la neuvième vague avec deux chars, la
+dixième lance vingt biplans et le faucheur vient dessus, et les drones tirent
+des roquettes à partir de la septième.
+
+Table mesurée : 1 : 1 biplan · 2 : 2 biplans + 1 char · 3 : 3 biplans ·
+4 : 3 biplans + 1 drone + 1 char · 5 : 1 gardien · 6 : 5 drones + 1 char ·
+7 : 6 drones · 8 : 7 drones + 1 char · 9 : 1 lourde + 2 chars ·
+10 : 20 biplans · 11 et au-delà : drones + faucheur.
+
+## v1.52 — le trait unique, le boost relatif, la jauge à moitié
+
+**Un seul vert.** Les pylônes valaient 0,72, le hangar 0,80, les arches 0,85,
+les tours et les spéciaux 0,90. Une ville censée être d'un seul trait se
+lisait en quatre intensités. Une seule valeur, 0,85, et une seule exception :
+le portail définitivement clos, à 0,10.
+
+**Le portail ajoute au lieu de fixer.** `Math.min(SPEED_MAX, …)` faisait du
+portail une consigne absolue : arriver d'un piqué à plus de 320 et le
+franchir COÛTAIT la différence. Mesuré : piqué stabilisé à 306 m/s, portail
+306 → 366.
+
+**Plus de mur de vitesse.** Le plafond valait SPEED_MAX × 1,35 = 432 ; il
+devient un garde-fou de simulation à 1500, et c'est le rappel du moteur qui
+limite. Le plancher du piqué passe d'un tiers à sept dixièmes de ce que la
+pesanteur donne : nez à la verticale, on accélère tant qu'on descend.
+
+**La jauge part à moitié.** Elle est graduée sur le double de la vie de
+départ. La moitié droite est de la vie de bonus, à aller chercher.
+
+**Les mécaniciens affichent ce que la réparation coûte** — des chiffres qui
+montent au-dessus de leur tête, par paliers de 25 points.
+
+**L'Ancien et le faucheur répondent enfin au nez.** Leur nom voyageait dans
+un tableau séparé, lu par le même indice que le rang : les trois premiers
+tombaient juste, puis les silhouettes ennemies s'intercalaient, et les deux
+derniers noms se retrouvaient collés sur deux carcasses adverses. Mesuré
+après correction : les cinq appareils accrochent à 41–74 m.
+
+**La manche à air au large.** Elle était à 14,6 m du hangar, donc dans son
+remous et devant lui depuis la piste. Elle passe à 83,4 m, à 17 m du bitume.
+
+## v1.53 — le temps de réaction adverse, le rayon plafonné, la loupe
+
+**Le temps de réaction.** L'adversaire corrigeait son cap à chaque image : on
+virait, il virait. Chaque type a maintenant son délai, déclenché quand la
+ligne de visée passe derrière son aile. Mesuré sur les six types, le délai
+tenu vaut exactement la valeur annoncée : biplan 2,00 s · chasseur 1,40 ·
+drone 1,20 · intercepteur 0,90 · gardien 0,50 · faucheur 0,40.
+
+**Le rayon de virage plafonné à 110 m.** Rien ne change sous 200 m/s (136 m
+de balayage à 130). À 300 m/s, le demi-tour passe de 356 m à 277 m.
+
+**La guillotine** (voir v1.60 pour sa correction) et **le relief solide** :
+16 adversaires nés en plein massif, 0 sous le sol, 0 image passée dans la
+roche sur 60 s de vol. Avant, le pire était à 482 m sous la crête.
+
+**Le décor à grande vitesse.** Le test de collision se fait sur le chemin
+parcouru et non sur le point d'arrivée. Arrêté par le pylône à 130, 400, 800
+et 1200 m/s, avec des pas allant jusqu'à 40 m par image.
+
+**La roquette adverse vise le point d'interception** (annulé en v1.60, voir
+plus bas) et **un décompte en secondes** dit quand elle arrive.
+
+## v1.54 — la grande tour, le PAPI dehors, le bout de piste
+
+**La grande tour** : 693 m contre 432 au plus grand pylône, fenêtre à
+415–509 m et 95 m de large, le double de prime. Étoile à six branches au
+radar.
+
+**Le puits en U et le mur à fente quittent la carte.** Il fallait connaître
+la figure ET la réussir en aveugle, dans un couloir, sous le feu.
+
+**Le PAPI n'a plus qu'une rampe, à l'ouest.** Son quatrième feu était à 58 m
+de l'axe, et le hangar occupe la bande 55–101 : il était dedans.
+
+**Le bout de piste ne catapulte plus.** Trois filets se rallumaient d'un coup
+au franchissement du seuil ; ils se tendent sur 140 m. Mesuré : le plus gros
+pas en une image passe de 11,5 m à 1,2 m.
+
+Piège trouvé en route : `hs` est NÉGATIF quand on vole sous le plancher, ce
+qui est le cas normal au-dessus de la piste. Écrire « hs < coussin × (1 −
+part) » suffisait à rallumer le coussin en plein milieu du bitume.
+
+## v1.55 et v1.59 — leurs viseurs, sur nous
+
+Chacun de ceux qui nous alignent pose son viseur sur notre propre cellule, à
+un endroit tiré au sort sur la carlingue et gardé tant qu'il ne lâche pas.
+Le viseur tourne, se resserre avec son alignement, et se croise quand il est
+prêt à tirer. Verts, comme tout le reste (v1.59).
+
+## v1.56 — le plafond protège, le roulage s'emballe, le portail arrache du sol
+
+**Le plafond donne l'immunité au crash**, sol et murs, jusqu'au prochain
+posé. Mesuré : 80 points de dégâts au sol coûtaient 62, ils coûtent 0 ; les
+mêmes en balles coûtent toujours 62.
+
+**Le roulage** monte de 15 à 45 m/s en dix secondes de plein gaz — 16 à 2 s,
+25 à 4, 33 à 6, 40 à 8 — et retombe deux fois plus vite.
+
+**Un portail franchi en roulant arrache du sol.** Mesuré : guillotine 0 → 1,
++20 de vie, 104 m/s au décollage depuis 20 au sol. Deux arches sont à portée
+de roulage du terrain (570 et 724 m).
+
+## v1.57 — l'embuscade par le haut
+
+Certains montent, loin et haut et en silence, quand on est tenu par au moins
+deux autres, puis tombent. Mesuré : 445 m pris au-dessus du joueur avant le
+piqué, sur les 490 que le plafond du drone autorise.
+
+Piège trouvé : le rappel de distance (« décroché trop loin, il revient »)
+remettait le cap sur nous APRÈS la tactique, à chaque image. L'embuscade ne
+gagnait que 30 m avant de renoncer.
+
+## v1.58 — le tunnel sous la montagne
+
+380 m de roche percée au cap 288, à 5306 m du terrain, boyau de 62 × 30 entre
+733 et 763 m d'altitude. L'emplacement est calculé, pas choisi : balayage de
+tout le massif au pas de 20 m, à la recherche de la crête qui laisse le plus
+de roche au-dessus d'un boyau horizontal dont les deux bouts débouchent en
+l'air. 147 m de roche au-dessus du plafond ; bouche ouest à 728, bouche est à
+733.
+
+Dedans : +50 de vie par seconde, aucune poussée, et les trois filets du monde
+s'effacent. Le coup de fouet est à la sortie, quel que soit le bout.
+
+Mesuré : traversée en 3,7 s à 130 m/s, +184 de vie, vitesse 104 dans le boyau
+et 164 après la sortie.
+
+**Réserve connue :** de l'extérieur, la bouche ne se détache pas. Le maillage
+du sol n'a pas de trou, il passe au travers, et c'est la colline qu'on voit.
+Ce qui dépasse, c'est le portail de béton, 57 m au-dessus du sol à la bouche
+ouest. Percer le terrain lui-même reste à faire si l'on veut le rendre
+repérable.
+
+## v1.60 — la guillotine qui rétrécit vraiment
+
+Elle tombait à l'instant du passage, donc sur nous, et le volume qui compte
+la traversée gardait sa taille d'origine : on visait le haut du trou, on
+était repoussé par la lame, et l'on croyait à un mur invisible en travers
+d'une ouverture encore grande ouverte.
+
+Elle attend maintenant deux secondes, et le trou rétrécit pour de bon :
+74 m, 37, 18, puis rien.
+
+**Décision prise seul, à confirmer.** Les deux mâchoires se referment vers le
+milieu au lieu de tomber du linteau. Raison : le bas d'une arche est au
+niveau du sol et le plancher invisible du monde est à 26 m — une lame venue
+du haut rendait le deuxième cran injouable et le troisième souterrain. La
+fente reste donc à la même hauteur, et il faut seulement y entrer plus juste.
+Si Pierre préfère la vraie guillotine, il faut remonter le seuil des arches.
+
+**La roquette suit au lieu d'anticiper.** Une roquette rattrape parce qu'elle
+va plus vite, pas parce qu'elle calcule. Tir à 520 m au plus, rapprochement à
+220 m/s : la fenêtre passe de neuf secondes à deux.
+
+**Une figure décroche les simples.** Biplan, chasseur, drone et chenillée
+perdent leur visée ; intercepteur, gardien et faucheur la gardent.
+
+**Le repère du plafond sur la jauge.** Les mécaniciens réparaient bien
+jusqu'au plafond ; c'est la barre qui mentait, puisqu'elle vaut 200 depuis
+qu'elle part à moitié. Un trait marque le plafond : à gauche ce qu'ils savent
+rendre, à droite ce qu'il faut aller chercher.
+
+**Un appareil verrouillé dit par où passe sa clé**, au lieu de dire seulement
+qu'il est fermé.
+
+**La loupe d'iOS, troisième tour.** Le style ne pouvait pas suffire : dans un
+conteneur QUI DÉFILE, le geste d'appui long est capté par la machinerie de
+sélection du navigateur AVANT qu'il regarde si le texte est sélectionnable.
+Le défilement des panneaux est donc repris à notre compte, avec inertie.
+Mesuré avec de vrais événements tactiles : 287 px de défilement pour un
+glissement de 216 px.
+
+## v1.61 — le décompte au-dessus de l'appareil
+
+Il vivait à 40 % de la hauteur, c'est-à-dire nulle part. Il se pose au-dessus
+de la cellule, il la suit, il est vert et dans la police du HUD. Dans la
+dernière seconde, ESQUIVE remplace le chiffre, et c'est là — et seulement là
+— qu'un coup de manche franc suffit à la semer.
+
+Une roquette semée est figée sur le point qu'on occupait à l'instant du geste
+et le traverse : on la voit passer.
+
+Mesuré sur six tirs par cas : sans rien faire, 6/6 au but ; coup de manche
+dans la fenêtre, 0/6 et elle passe à 14 m ; tonneau sous 250 m, 0/6 et elle
+passe à 25 m.
+
+## v1.62 — TROP HAUT ne parle que dans le tube
+
+Le plan est lisible bien avant qu'on décide de se poser. On lisait donc
+« TROP HAUT » en plein combat, à deux kilomètres du terrain. Le mot est un
+ordre d'approche : il ne s'affiche que quand le tube nous tient. Les quatre
+feux restent allumés — ce sont des feux d'aérodrome.
+
+## Dwelve Hollow v0.38
+
+La même défense contre la loupe d'iOS, portée dans l'autre jeu : sélection
+interdite partout sauf dans les champs, `selectionchange` qui replie la
+sélection, menu contextuel et pincement coupés.
