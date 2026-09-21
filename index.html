@@ -11249,6 +11249,7 @@ function ecarteDuJoueur(e) {
 const _scrapePrec = new THREE.Vector3();   // notre position à l'image précédente
 const _scrapeDe = new THREE.Vector3();     // l'autre bout du segment parcouru
 const _scrapeSeg = new THREE.Vector3();    // et le segment lui-même
+const _viseurPt = new THREE.Vector3();  // le point de notre cellule qu'un adversaire tient en joue
 const _roqLead = new THREE.Vector3();   // le point d'interception visé par une roquette adverse
 const _segA = new THREE.Vector3();
 const _segB = new THREE.Vector3();
@@ -15369,6 +15370,62 @@ function drawHud() {
   hctx.textAlign = 'center';
   hctx.textBaseline = 'middle';
 
+  // ---------------------------------------------------------------------
+  // LEURS VISEURS, SUR NOUS.
+  //
+  // Qu'on soit tenu en joue se lisait au loin : un crochet se resserrait
+  // autour de l'adversaire, à l'autre bout de l'écran, et il fallait le
+  // chercher. Or ce qui compte n'est pas où IL est, c'est qu'il nous tient —
+  // et ça, ça se passe ici, sur notre cellule.
+  //
+  // Chacun de ceux qui nous alignent pose donc un viseur sur notre propre
+  // appareil, à un endroit tiré au sort sur la carlingue et gardé tant qu'il
+  // ne nous lâche pas. Le viseur tourne, et il se resserre à mesure que son
+  // alignement se fait : quand il est fermé, il tire. À quatre adversaires,
+  // quatre viseurs tournent sur nous, et l'on sait sans compter que le ciel
+  // est mauvais.
+  // ---------------------------------------------------------------------
+  {
+    const att = planeGeom.getAttribute('position');
+    const tv = performance.now() / 1000;
+    hctx.save();
+    for (const e of state.enemies) {
+      if (e.hp <= 0) { e.viseurI = -1; continue; }
+      const m = e.visee > 0.06 && !obstacleEntre(e.pos, state.pos)
+              ? Math.min(1, e.visee / VISEE_ENNEMI) : 0;
+      if (m <= 0) { e.viseurI = -1; continue; }
+      // il garde SON point tant qu'il nous tient : un viseur qui saute d'une
+      // aile à l'autre à chaque image ne se lit pas
+      if (e.viseurI === undefined || e.viseurI < 0)
+        e.viseurI = Math.floor(Math.random() * att.count);
+      _viseurPt.set(att.getX(e.viseurI), att.getY(e.viseurI), att.getZ(e.viseurI))
+               .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quatVu || state.quat)
+               .add(state.pos);
+      const q = project(_viseurPt);
+      if (!q.front) continue;
+      const R = Math.min(w, h) * (0.115 - 0.082 * m);
+      const rot = tv * (1.1 + 3.4 * m) + (e.id || 0) * 1.7;
+      hctx.strokeStyle = 'rgba(255,' + Math.round(200 - 110 * m) + ','
+                       + Math.round(150 - 60 * m) + ',' + (0.30 + 0.62 * m).toFixed(2) + ')';
+      hctx.lineWidth = 1 + 1.4 * m;
+      for (let k = 0; k < 4; k++) {
+        const a0 = rot + k * Math.PI / 2;
+        hctx.beginPath();
+        hctx.arc(q.x, q.y, R, a0 - 0.30, a0 + 0.30);
+        hctx.stroke();
+      }
+      // fermé, il pique : deux petits traits au centre disent qu'il va tirer
+      if (m > 0.85) {
+        const c = R * 0.34;
+        hctx.beginPath();
+        hctx.moveTo(q.x - c, q.y); hctx.lineTo(q.x + c, q.y);
+        hctx.moveTo(q.x, q.y - c); hctx.lineTo(q.x, q.y + c);
+        hctx.stroke();
+      }
+    }
+    hctx.restore();
+  }
+
   // LE DÉCOMPTE DE LA ROQUETTE. L'alerte disait qu'une roquette était en
   // route, jamais quand elle arrivait : on la subissait ou on l'oubliait, et
   // dans les deux cas on ne pouvait rien décider. Un chiffre, en secondes,
@@ -17237,6 +17294,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.55', fr: 'Ceux qui nous alignent posent leur viseur sur notre propre appareil : il tourne, il se resserre, et fermé il tire.', en: 'Whoever lines you up puts their reticle on your own aircraft: it turns, it tightens, and closed it fires.' },
   { v: '1.54', fr: 'La grande tour : deux fois plus haute que tout le reste, et elle rend deux fois plus de vie.', en: 'The great tower: twice as tall as anything else, and it gives twice the life.' },
   { v: '1.54', fr: 'Le puits en U et le mur à fente quittent la carte : il fallait connaître la figure et la réussir en aveugle.', en: 'The U shaft and the slot wall leave the map: you had to know the manoeuvre and fly it blind.' },
   { v: '1.54', fr: 'L’étoile d’un portail maigrit à chaque cran de guillotine au lieu de s’éteindre pour la vague.', en: 'A gate’s star thins with each notch of the guillotine instead of going out for the wave.' },
