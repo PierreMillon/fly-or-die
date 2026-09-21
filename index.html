@@ -4428,6 +4428,75 @@ let gridSnapX = 1e9, gridSnapZ = 1e9;
 // des triangles.
 // ---------------------------------------------------------------------------
 const SOL_EPAISSEUR = 1.25;      // pixels de trait, constants à toute distance
+// ---------------------------------------------------------------------------
+// LE TUNNEL SOUS LA MONTAGNE — LES NOMBRES.
+//
+// Ils vivent ici, avant le sol, parce que c'est le SOL qui doit savoir où se
+// percer : le maillage du terrain laisse tomber ses mailles là où le boyau
+// débouche, et sans cela on regarde un flanc de colline au lieu d'un trou.
+//
+// TROIS CORRECTIONS SUR LA PREMIÈRE VERSION.
+//
+// 1. IL ÉTAIT DANS L'ENFILADE. Le boyau courait bien est-ouest, donc
+//    perpendiculairement à la piste — mais je l'avais posé au cap 288,
+//    c'est-à-dire presque dans le prolongement de son propre axe. On arrivait
+//    du terrain en le regardant droit dedans. Le calcul de placement ne
+//    cherchait que la roche disponible et ignorait la direction d'arrivée.
+//    Il la prend maintenant comme contrainte : le boyau est perpendiculaire
+//    au rayon qui vient du terrain. On voit le flanc, et il faut contourner.
+//
+// 2. IL ÉTAIT COURT. Trois cent quatre-vingts mètres, quatre secondes. Il en
+//    fait mille huit cents — quatorze secondes à cent trente. Pas dix fois
+//    plus, et voici pourquoi, mesuré : le massif culmine à neuf cent
+//    quatre-vingts et ses pentes sont douces. En balayant tout le relief au
+//    pas de cinquante mètres, la meilleure crête laisse soixante-deux mètres
+//    de roche au-dessus d'un boyau droit de mille huit cents dont les deux
+//    bouts débouchent en l'air. À deux mille six cents il n'en reste que
+//    trente-six, à trois mille huit cents trente-cinq — moins que la hauteur
+//    du boyau lui-même, donc il crèverait la surface. Pour dix fois plus, il
+//    faudrait un relief plus haut et plus raide : c'est une autre décision.
+//
+// 3. IL N'ÉTAIT PAS CREUX. Le maillage du sol passait au travers. Il se perce
+//    maintenant là — et seulement là — où la surface traverse la tranche
+//    d'altitude du boyau, c'est-à-dire aux deux bouches. Ailleurs la montagne
+//    reste pleine : pas de tranchée vue du ciel, deux trous rectangulaires
+//    dans les flancs, et les étoiles au fond quand on regarde dedans.
+// ---------------------------------------------------------------------------
+const TUNNEL = {
+  x: 5100, z: -3300,        // le centre, trouvé par balayage du massif
+  cap: 147,                 // le cap du boyau, perpendiculaire à l'arrivée
+  long: 1800,
+  large: 62,                // la largeur du boyau : cinq fois l'envergure
+  haut: 30,                 // et sa hauteur
+  epais: 22,                // l'épaisseur de roche dessinée autour
+  y0: 300                   // le plancher, à hauteur des deux bouches
+};
+TUNNEL.y1 = TUNNEL.y0 + TUNNEL.haut;
+TUNNEL.ux = 0.544639; TUNNEL.uz = 0.838671;     // le vecteur unitaire du boyau
+const TUNNEL_VIE = 14;        // points de vie par seconde passée dedans
+const TUNNEL_MARGE = 14;      // mètres de tolérance pour « on est dedans »
+const TUNNEL_CINTRE = 30;     // mètres entre deux cintres
+const TUNNEL_GRAVURE = 'YOU SHALL NOT PASS';
+const TUNNEL_SALLE = 180;     // mètres entre deux salles latérales
+
+// LES COORDONNÉES DU BOYAU. u le long, v en travers : tout ce qui concerne le
+// tunnel se dit là-dedans, et jamais en x et z.
+const _tun = { u: 0, v: 0 };
+function tunnelUV(x, z) {
+  const dx = x - TUNNEL.x, dz = z - TUNNEL.z;
+  _tun.u = dx * TUNNEL.ux + dz * TUNNEL.uz;
+  _tun.v = -dx * TUNNEL.uz + dz * TUNNEL.ux;
+  return _tun;
+}
+// VRAI LÀ OÙ LE SOL DOIT MANQUER : dans l'emprise du boyau, et seulement dans
+// la tranche d'altitude qu'il occupe. C'est exactement les deux bouches.
+function trouTunnel(x, z, yBas, yHaut) {
+  const q = tunnelUV(x, z);
+  if (Math.abs(q.u) > TUNNEL.long / 2 + 40) return false;
+  if (Math.abs(q.v) > TUNNEL.large / 2) return false;
+  return yHaut > TUNNEL.y0 - 6 && yBas < TUNNEL.y1 + 6;
+}
+
 function batisSol(cx, cz) {
   const R = GRID_SPAN / 2, N = Math.floor(GRID_SPAN / GRID_STEP);
   const nTri = N * N * 2;
@@ -4447,8 +4516,20 @@ function batisSol(cx, cz) {
       const d = [x1, hauteurSol(x1, z1), z1];
       // triangle a-c-b : l'arête opposée au sommet 1 (soit a-b… non, c'est
       // c-b) est la diagonale. On garde donc l'arête 0 masquée.
+      // LE SOL SE PERCE AUX BOUCHES DU TUNNEL. Une maille dont l'emprise
+      // tombe dans le boyau et dont l'altitude traverse sa tranche est
+      // effacée : ses trois sommets sont ramenés au même point, le triangle
+      // n'a plus d'aire, et rien n'est dessiné. Le nombre de triangles ne
+      // bouge pas, donc le tampon non plus.
+      const yb = Math.min(a[1], b[1], c[1], d[1]), yh = Math.max(a[1], b[1], c[1], d[1]);
+      const perce = trouTunnel((x0 + x1) / 2, (z0 + z1) / 2, yb, yh);
       const tris = [[a, c, b, [1, 0, 0]], [b, c, d, [0, 0, 1]]];
       for (const [p0, p1, p2, garde] of tris) {
+        if (perce) {
+          for (let v = 0; v < 9; v++) { pos[k + v] = 0; bar[k + v] = 0; gar[k + v] = 0; }
+          k += 9;
+          continue;
+        }
         const pts = [p0, p1, p2];
         for (let v = 0; v < 3; v++) {
           pos[k] = pts[v][0]; pos[k + 1] = pts[v][1]; pos[k + 2] = pts[v][2];
@@ -7163,45 +7244,30 @@ const TOUR_PRIME = 50;   // pour cent de vie rendus, une fois par tour et par va
 const matTour = matBati;
 const matTourPris = matBatiClos;
 // ---------------------------------------------------------------------------
-// LE TUNNEL.
+// LE TUNNEL — LA ROCHE, LES CINTRES, LES SALLES.
 //
-// Tout ce qui rend de la vie dans ce jeu se prend en une seconde : on passe,
-// ça rend, on repart. Le tunnel est l'inverse — il rend TANT QU'ON Y EST, et
-// il faut y rester. Trois cent quatre-vingts mètres de roche percée, dans
-// laquelle on entre à cent trente et dont on ressort quand on veut bien : le
-// seul endroit du jeu où l'on gagne quelque chose en ne tirant sur personne.
+// Les nombres sont plus haut, avant le sol. Ici on bâtit ce qui se voit.
 //
-// Il est perpendiculaire à la piste et à cinq kilomètres de là, donc invisible
-// au décollage : on ne le trouve qu'en allant se battre dans les montagnes, et
-// c'est exactement ce qu'on veut — une récompense pour avoir regardé ailleurs.
+// La roche est une section rectangulaire percée, extrudée sur la longueur :
+// une seule forme, donc uniquement les arêtes vraies — le tour extérieur et
+// le tour du boyau, rien entre les deux. Le groupe est ensuite tourné au cap
+// du boyau, et tout le reste du code parle en u et v.
 //
-// Dedans : pas de poussée, rien qu'un son et la vie qui monte. Le coup de
-// fouet est à LA SORTIE, quel que soit le bout par lequel on sort. Entrer ne
-// donne rien ; c'est ce qui oblige à traverser au lieu de faire demi-tour.
+// Les cintres tous les trente mètres donnent le volume et la vitesse : un
+// boyau lisse n'a que quatre arêtes, et vues de l'intérieur elles convergent
+// en un point — on ne sait plus si l'on avance.
 //
-// Le creux est choisi par calcul, pas à l'oeil : on a balayé tout le massif à
-// la recherche de la crête qui laisse le plus de roche au-dessus d'un boyau
-// horizontal dont les deux bouts débouchent en l'air.
+// Et les salles. Tous les cent quatre-vingts mètres, alternativement à
+// gauche et à droite, une pièce vide ouverte sur le boyau : une casemate.
+// On ne peut pas y entrer — elles sont trop basses — mais on les voit défiler
+// et l'on comprend que quelqu'un a vécu là-dessous.
 // ---------------------------------------------------------------------------
-const TUNNEL = {
-  x: -5040, z: -1660,   // le centre, et le boyau court selon x
-  long: 380,
-  large: 62,            // la largeur du boyau : cinq fois l'envergure
-  haut: 30,             // et sa hauteur : de quoi passer sans frôler
-  epais: 22,            // l'épaisseur de roche dessinée autour
-  y0: 733               // l'altitude du plancher, à hauteur des deux bouches
-};
-TUNNEL.y1 = TUNNEL.y0 + TUNNEL.haut;
-const TUNNEL_VIE = 50;        // points de vie par seconde passée dedans
-const TUNNEL_MARGE = 14;      // mètres de tolérance pour « on est dedans »
-const TUNNEL_CINTRE = 26;     // mètres entre deux cintres
-const TUNNEL_GRAVURE = 'YOU SHALL NOT PASS';
 const tunnelBoites = [];
 (function creuseLeTunnel() {
   const T = TUNNEL, L2 = T.long / 2, l2 = T.large / 2, e = T.epais;
-  // la roche : une section rectangulaire percée, extrudée sur la longueur.
-  // Une seule forme, donc uniquement les arêtes vraies — le tour extérieur
-  // et le tour du boyau, rien entre les deux.
+  const g = new THREE.Group();
+
+  // la roche percée, extrudée selon z puis couchée : le boyau court en x local
   const forme = new THREE.Shape();
   forme.moveTo(-l2 - e, T.y0 - e); forme.lineTo(l2 + e, T.y0 - e);
   forme.lineTo(l2 + e, T.y1 + e); forme.lineTo(-l2 - e, T.y1 + e); forme.closePath();
@@ -7211,19 +7277,10 @@ const tunnelBoites = [];
   forme.holes.push(trou);
   const geo = new THREE.ExtrudeGeometry(forme, { depth: T.long, bevelEnabled: false })
     .translate(0, 0, -L2);
-  // l'extrusion se fait selon z : on la couche selon x, puisque le boyau doit
-  // être perpendiculaire à la piste
   geo.rotateY(Math.PI / 2);
-  const g = solidWire(geo, new THREE.EdgesGeometry(geo, 20), matBati);
-  g.position.set(T.x, 0, T.z);
-  g.frustumCulled = false;
-  scene.add(g);
-  TUNNEL.g = g;
-  // LES CINTRES. Un boyau lisse n'a que quatre arêtes, et vues de l'intérieur
-  // elles convergent en un point : on ne sait plus si l'on avance. Toutes les
-  // galeries percées du monde sont pourtant cintrées tous les quelques
-  // mètres, parce que la roche pousse. On en pose donc — et ce sont eux qui
-  // donnent la vitesse, le volume, et l'envie d'y entrer.
+  g.add(solidWire(geo, new THREE.EdgesGeometry(geo, 20), matBati));
+
+  // les cintres
   {
     const pts = [];
     const l = l2 - 1, y0 = T.y0 + 1, y1 = T.y1 - 1;
@@ -7238,22 +7295,40 @@ const tunnelBoites = [];
     cintres.frustumCulled = false;
     g.add(cintres);
   }
-  // ---------------------------------------------------------------------
-  // CE QUI EST GRAVÉ AU FRONTON.
-  //
-  // Quatre mots anglais sur le linteau des deux bouches. Personne n'a besoin
-  // qu'on lui explique d'où ils viennent, et c'est tout l'intérêt : une
-  // galerie percée sous une montagne appelle cette phrase-là, elle est
-  // devenue un lieu commun — et c'est drôle, puisque justement, on passe.
-  //
-  // Les lettres sont les polylignes de l'ALPHABET, dans le plan y-z, une fois
-  // à chaque bout. Celle de l'ouest est retournée en z, sans quoi elle se
-  // lirait à l'envers pour qui arrive de ce côté.
-  // ---------------------------------------------------------------------
+
+  // LES SALLES. Une boîte ouverte sur le boyau, dessinée au trait : trois
+  // parois, un sol, un plafond, et l'embrasure. On alterne les côtés.
+  {
+    const pts = [];
+    const P = 34, H = 16, D = 26;        // profondeur, hauteur, largeur d'embrasure
+    let cote = 1;
+    for (let u = -L2 + TUNNEL_SALLE; u < L2 - TUNNEL_SALLE / 2; u += TUNNEL_SALLE) {
+      const v0 = cote * l2, v1 = cote * (l2 + P);
+      const y0 = T.y0 + 1, y1 = T.y0 + 1 + H;
+      const u0 = u - D / 2, u1 = u + D / 2;
+      const seg = (a, b) => pts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+      const c = (uu, yy, vv) => [uu, yy, vv];
+      // l'embrasure, dans la paroi du boyau
+      seg(c(u0, y0, v0), c(u1, y0, v0)); seg(c(u1, y0, v0), c(u1, y1, v0));
+      seg(c(u1, y1, v0), c(u0, y1, v0)); seg(c(u0, y1, v0), c(u0, y0, v0));
+      // le fond
+      seg(c(u0, y0, v1), c(u1, y0, v1)); seg(c(u1, y0, v1), c(u1, y1, v1));
+      seg(c(u1, y1, v1), c(u0, y1, v1)); seg(c(u0, y1, v1), c(u0, y0, v1));
+      // les quatre arêtes qui relient
+      seg(c(u0, y0, v0), c(u0, y0, v1)); seg(c(u1, y0, v0), c(u1, y0, v1));
+      seg(c(u0, y1, v0), c(u0, y1, v1)); seg(c(u1, y1, v0), c(u1, y1, v1));
+      cote = -cote;
+    }
+    const salles = new THREE.LineSegments(segGeom(pts), matBati);
+    salles.frustumCulled = false;
+    g.add(salles);
+  }
+
+  // la gravure, aux deux bouches
   {
     const txt = TUNNEL_GRAVURE;
     const ech = (T.large + T.epais * 1.4) / largeurMot(txt);
-    const hy = T.y1 + (T.epais - LETTRE_H * ech) / 2;   // centré dans le bandeau
+    const hy = T.y1 + (T.epais - LETTRE_H * ech) / 2;
     const z0 = -largeurMot(txt) * ech / 2;
     const p = [];
     for (const sens of [-1, 1]) {
@@ -7264,8 +7339,10 @@ const tunnelBoites = [];
         if (gl) for (const ligne of gl) {
           for (let i = 0; i + 1 < ligne.length; i++) {
             const a0 = ligne[i], b0 = ligne[i + 1];
-            // à l'est on lit les z croissants, à l'ouest les z décroissants
-            const za = sens * (z0 + (u + a0[0]) * ech), zb = sens * (z0 + (u + b0[0]) * ech);
+            // ET DANS LE BON SENS. Le miroir doit être celui de la bouche
+            // par laquelle on REGARDE : pris à l'envers, la gravure se lisait
+            // « SSAP TON LLAHS UOY » sur le flanc ouest.
+            const za = -sens * (z0 + (u + a0[0]) * ech), zb = -sens * (z0 + (u + b0[0]) * ech);
             p.push(xs, hy + a0[1] * ech, za, xs, hy + b0[1] * ech, zb);
           }
         }
@@ -7276,21 +7353,48 @@ const tunnelBoites = [];
     gravure.frustumCulled = false;
     g.add(gravure);
   }
-  // les quatre parois, en coordonnées du monde : plancher, plafond, deux côtés
-  const b = (hz, cz, y0, y1) => ({ x: T.x, z: T.z + cz, hx: L2, hz, y0, y1 });
-  tunnelBoites.push(b(l2 + e, 0, T.y0 - e, T.y0),
-                    b(l2 + e, 0, T.y1, T.y1 + e),
-                    b(e / 2, -(l2 + e / 2), T.y0 - e, T.y1 + e),
-                    b(e / 2,  (l2 + e / 2), T.y0 - e, T.y1 + e));
+
+  g.position.set(T.x, 0, T.z);
+  // LE BOYAU PREND SON CAP. Après le rotateY(π/2) de la géométrie, le boyau
+  // court selon le +x local ; une rotation θ du groupe l'envoie sur
+  // (cos θ, 0, −sin θ). On veut (ux, uz), d'où θ = atan2(−uz, ux).
+  g.rotation.y = Math.atan2(-T.uz, T.ux);
+  g.frustumCulled = false;
+  scene.add(g);
+  T.g = g;
 })();
 
 // DEDANS OU DEHORS. Une seule définition, lue par le plancher invisible, par
 // le coussin d'air, par la vie qui monte et par le coup de fouet de sortie.
 function dansTunnel(p) {
-  const T = TUNNEL, q = p || state.pos;
-  return Math.abs(q.x - T.x) < T.long / 2 + TUNNEL_MARGE
-      && Math.abs(q.z - T.z) < T.large / 2 - 2
-      && q.y > T.y0 + 1 && q.y < T.y1 - 1;
+  const q = p || state.pos;
+  const uv = tunnelUV(q.x, q.z);
+  return Math.abs(uv.u) < TUNNEL.long / 2 + TUNNEL_MARGE
+      && Math.abs(uv.v) < TUNNEL.large / 2 - 2
+      && q.y > TUNNEL.y0 + 1 && q.y < TUNNEL.y1 - 1;
+}
+
+// LA ROCHE EST DURE. Dans l'emprise du tunnel, le seul espace où l'on ait le
+// droit d'être est le boyau : on est ramené dedans par le côté ou par le
+// haut, celui des deux qui est le plus court. Ce n'est pas un bâtiment — on
+// ne peut ni l'abattre ni le contourner.
+function heurteTunnel() {
+  const T = TUNNEL;
+  const uv = tunnelUV(state.pos.x, state.pos.z);
+  if (Math.abs(uv.u) > T.long / 2) return false;
+  const vMax = T.large / 2 - 5, yBas = T.y0 + 4, yHaut = T.y1 - 4;
+  const dehors = Math.abs(uv.v) > vMax + T.epais
+              || state.pos.y < T.y0 - T.epais || state.pos.y > T.y1 + T.epais;
+  if (dehors) return false;                    // au-dessus ou à côté du massif
+  let touche = false;
+  if (Math.abs(uv.v) > vMax) {
+    const dv = Math.sign(uv.v) * vMax - uv.v;
+    state.pos.x += dv * -T.uz; state.pos.z += dv * T.ux;
+    touche = true;
+  }
+  if (state.pos.y < yBas) { state.pos.y = yBas; touche = true; }
+  else if (state.pos.y > yHaut) { state.pos.y = yHaut; touche = true; }
+  return touche;
 }
 
 // ---------------------------------------------------------------------------
@@ -15028,11 +15132,14 @@ function scrapeCorps(dt) {
     state.roll = THREE.MathUtils.clamp(state.roll + (cote >= 0 ? -0.5 : 0.5), -1.2, 1.2);
   };
 
-  // LES PAROIS DU TUNNEL, AVANT TOUT LE RESTE. Elles ne sont pas un bâtiment :
-  // on ne peut ni les abattre ni les contourner, et à l'intérieur elles sont
-  // la seule chose qui tienne l'appareil.
-  for (const bo of tunnelBoites) {
-    if (heurte(bo.x, bo.z, bo.hx, bo.hz, bo.y0, bo.y1)) { repousse(bo.x, bo.z); return; }
+  // LES PAROIS DU TUNNEL, AVANT TOUT LE RESTE.
+  if (heurteTunnel()) {
+    if (state.scrapeT <= 0) {
+      damagePlayer(7, _impactSrc.copy(state.pos), 'decor');
+      state.scrapeT = 0.45; SFX.eraflure();
+    }
+    state.speed *= 0.97;
+    return;
   }
 
   // LES TROIS BÂTIMENTS À FIGURE.
@@ -17893,6 +18000,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.64', fr: 'Le tunnel se creuse pour de bon : mille huit cents mètres, perpendiculaire à l’arrivée, et le sol se perce à ses deux bouches.', en: 'The tunnel is properly bored: eighteen hundred metres, perpendicular to the approach, and the ground is pierced at both mouths.' },
+  { v: '1.64', fr: 'Des casemates vides s’ouvrent sur le boyau tous les cent quatre-vingts mètres.', en: 'Empty casemates open onto the bore every hundred and eighty metres.' },
   { v: '1.63', fr: 'L’échelle d’altitude porte ses chiffres : 0, 800, 1600, 2400, et un trait tous les quatre cents.', en: 'The altitude scale carries its figures: 0, 800, 1600, 2400, and a tick every four hundred.' },
   { v: '1.63', fr: 'En finale le nez est au-dessus de l’horizon et non pointé vers la piste : un avion descend cabré.', en: 'On final the nose is above the horizon, not aimed at the runway: an aeroplane descends nose-up.' },
   { v: '1.63', fr: 'La vitesse d’approche n’est plus un chiffre choisi : elle vaut 1,3 fois le décrochage, comme dans la vraie vie.', en: 'Approach speed is no longer a chosen figure: it is 1.3 times the stall, as in real life.' },

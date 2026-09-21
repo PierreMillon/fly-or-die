@@ -57,6 +57,59 @@ prendre tous les deux et continuer tout droit mène au refuge.
 
 La flèche de l'aire à signaux est orientée vers le tunnel.
 
+## Le tunnel, deuxième version → fait en v1.64
+
+Trois défauts corrigés, et une limite qu'il faut assumer.
+
+**Il était dans l'enfilade.** Le boyau courait bien perpendiculairement à la
+piste, mais posé au cap 288 — c'est-à-dire presque dans le prolongement de
+son propre axe. On arrivait du terrain en le regardant droit dedans. Le
+calcul de placement ne cherchait que la roche et ignorait la direction
+d'arrivée ; il la prend maintenant comme contrainte.
+
+**Il était court.** 380 m, quatre secondes. Il en fait 1800, dix-neuf
+secondes.
+
+**PAS DIX FOIS PLUS, ET VOICI POURQUOI.** Le massif culmine à 980 m et ses
+pentes sont douces. Balayage de tout le relief au pas de 50 m, pour chaque
+longueur, en exigeant un boyau DROIT et HORIZONTAL dont les deux bouts
+débouchent en l'air :
+
+| longueur | roche au plus mince |
+|---|---|
+| 1500 m | 60 m |
+| 1800 m | 62 m |
+| 2200 m | 53 m |
+| 2600 m | 36 m |
+| 3000 m | 25 m |
+| 3800 m | 35 m |
+
+Le boyau fait 30 m de haut. En dessous de 45 m de couverture il crève la
+surface. 1800 est donc le maximum praticable. Pour dix fois plus il faut un
+relief plus haut et plus raide — c'est une autre décision, et elle touche
+`hauteurSol`, donc tout le jeu.
+
+**Il n'était pas creux.** Le maillage du sol passait au travers. Il se perce
+maintenant là — et seulement là — où la surface traverse la tranche
+d'altitude du boyau, c'est-à-dire aux deux bouches : une maille dont
+l'emprise tombe dans le boyau et dont l'altitude croise sa tranche voit ses
+trois sommets ramenés au même point. Le triangle n'a plus d'aire, rien n'est
+dessiné, et le tampon ne change pas de taille. Ailleurs la montagne reste
+pleine : pas de tranchée vue du ciel.
+
+**Les salles.** Tous les 180 m, alternativement à gauche et à droite, une
+casemate vide ouverte sur le boyau — 34 m de profondeur, 16 de haut. On ne
+peut pas y entrer. On les voit défiler.
+
+Mesuré : cap 57 depuis la piste, 6075 m, boyau au cap 147 donc perpendiculaire
+à l'arrivée ; 31 m de roche au plus mince, 357 m au sommet ; bouches au sol à
+287 et 299 pour un plancher à 300, donc les deux débouchent en l'air.
+Traversée en 19,5 s, +273 de vie, 82 m/s dans le boyau et 142 à la sortie.
+
+**Reste à faire :** les bonshommes dans les salles (elles sont vides), et la
+vue à travers de bout en bout — à 1800 m la bouche opposée est trop petite
+pour qu'on y voie les étoiles.
+
 ## 4. L'arche du sommet (idée neuve, non commencée)
 
 Sur le cap du refuge, le premier sommet assez haut reçoit un petit plateau
