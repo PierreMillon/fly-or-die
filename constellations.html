@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Les huit constellations — Fly or Die</title>
+<style>
+  :root { --bg:#04070a; --line:#46ffa0; --text:#8ffcc4; --dim:#1d4a36; --pale:#0f2a1d;
+          --chaud:#ffc862; --froid:#7fe9ff; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:14px; line-height:1.6; }
+  body { padding:18px 14px 44px; max-width:36rem; margin:0 auto; }
+  h1 { font-size:13px; letter-spacing:.24em; font-weight:500; margin:0 0 4px; }
+  .sous { color:var(--dim); font-size:12px; margin:0 0 18px; }
+  .titre { font-size:11px; letter-spacing:.2em; color:var(--dim); margin:24px 0 8px; }
+  .carte { border:1px solid var(--dim); border-radius:4px; padding:14px 14px 12px;
+    margin:0 0 12px; }
+  .carte.garde { border-color:var(--line); }
+  .haut { display:flex; gap:12px; align-items:flex-start; }
+  canvas { flex:0 0 96px; width:96px; height:96px; border:1px solid var(--pale);
+    border-radius:3px; background:var(--bg); }
+  .nom { font-size:13px; letter-spacing:.14em; color:var(--line); margin:0 0 2px; }
+  .ou { color:var(--dim); font-size:11px; margin:0 0 8px; }
+  .faits { margin:0; font-size:12px; }
+  .faits div { display:flex; gap:8px; }
+  .faits span:first-child { color:var(--dim); flex:0 0 7.4rem; }
+  .donne { margin:10px 0 0; font-size:12.5px; color:var(--text); }
+  .pour, .contre { margin:8px 0 0; font-size:12px; line-height:1.5; }
+  .pour b, .contre b { font-weight:500; letter-spacing:.1em; font-size:11px; }
+  .pour b { color:var(--froid); }
+  .contre b { color:var(--chaud); }
+  .barre { display:flex; gap:8px; margin:12px 0 0; }
+  button { flex:1 1 auto; background:transparent; border:1px solid var(--dim);
+    border-radius:4px; color:var(--text); font-family:inherit; font-size:11px;
+    letter-spacing:.16em; padding:9px 8px; }
+  button.actif { border-color:var(--line); color:var(--line); }
+  .rangee { display:flex; gap:8px; margin:0 0 14px; flex-wrap:wrap; }
+  .rangee button { flex:1 1 auto; min-width:7rem; font-size:12px; padding:11px 8px; }
+  hr { border:0; border-top:1px solid var(--dim); margin:24px 0 16px; }
+  pre { border:1px solid var(--dim); border-radius:4px; padding:12px; font-size:11px;
+    line-height:1.65; overflow-x:auto; color:var(--line); white-space:pre-wrap; margin:0 0 10px; }
+  .etat { color:var(--dim); font-size:11px; min-height:1.4em; margin:8px 0 0; }
+  .avis { border-left:1px solid var(--dim); padding:0 0 0 12px; margin:0 0 18px;
+    color:var(--dim); font-size:12px; line-height:1.6; }
+  .avis b { color:var(--text); font-weight:500; }
+</style>
+</head>
+<body>
+
+<h1>LES HUIT CONSTELLATIONS</h1>
+<p class="sous">Ce qu'elles coûtent à viser, ce qu'elles donnent, et ce que j'en
+pense. Touche GARDER ou RETIRER sur chacune ; le bloc du bas se remplit tout seul.</p>
+
+<div class="rangee">
+  <button id="btnTrois">MA PROPOSITION À TROIS</button>
+  <button id="btnTout">TOUT GARDER</button>
+</div>
+
+<div id="cartes"></div>
+
+<hr>
+
+<p class="titre">CE QUE ÇA DONNE</p>
+<pre id="sortie"></pre>
+<div class="rangee">
+  <button id="btnCopier">COPIER POUR CLAUDE</button>
+</div>
+<p class="etat" id="etat"></p>
+
+<script>
+// ---------------------------------------------------------------------------
+// LES CHIFFRES SONT CEUX DU JEU, RELEVÉS DANS index.html.
+//
+// Le cône est le demi-angle du viseur : dix degrés, c'est large comme le
+// pouce à bout de bras. La tenue est le temps qu'il faut rester dessus. Le
+// coût total est le produit des deux — ce que ça demande de vol tranquille,
+// nez en l'air, pendant qu'on se fait tirer dessus.
+// ---------------------------------------------------------------------------
+const C = [
+  {
+    cle: 'ourse', nom: 'LA GRANDE OURSE', ou: 'plein nord, 46° au-dessus de l’horizon',
+    plan: [[0.00,0.62],[0.00,0.30],[0.36,0.22],[0.40,0.52],[0.74,0.60],[1.02,0.72],[1.34,0.62]],
+    liens: [[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[5,6]],
+    etoiles: 7, cone: 10, tenue: 2, ouvre: 'dès le départ', reprise: 'une fois par partie',
+    prime: 2000,
+    donne: 'Le refuge apparaît sur la boussole, et les trois minutes d’attente sautent.',
+    pour: 'La seule façon de trouver le refuge autrement qu’au hasard. Elle relie les deux secrets du jeu — le ciel et la maison — et c’est exactement ce que fait le vrai chariot : il donne le nord.',
+    contre: 'Quatorze secondes de visée, le plus cher du ciel. Et une fois prise, elle ne sert plus à rien de la partie.'
+  },
+  {
+    cle: 'berger', nom: 'L’ÉTOILE DU BERGER', ou: 'plein ouest, 12° au-dessus de l’horizon',
+    plan: [[0.5,0.5]], liens: [],
+    etoiles: 1, cone: 7, tenue: 1.5, ouvre: 'dans les 6 s qui suivent une figure',
+    reprise: 'une fois par partie', prime: 2000,
+    donne: 'Vingt secondes de jour levé : eux ne voient plus rien, nous si.',
+    pour: 'La seule dont la porte est une manœuvre : il faut sortir d’une figure pour qu’elle s’ouvre. C’est la plus élégante du lot — on ne la prend pas, on la mérite.',
+    contre: 'Son effet est celui de Sirius, mot pour mot. Deux constellations, un seul pouvoir.'
+  },
+  {
+    cle: 'orion', nom: 'ORION', ou: 'plein sud, 34° au-dessus de l’horizon',
+    plan: [[0.00,1.00],[0.86,0.94],[0.66,0.54],[0.50,0.50],[0.34,0.46],[0.14,0.04],[0.92,0.00]],
+    liens: [[0,1],[0,2],[1,4],[2,3],[3,4],[2,5],[4,6],[5,6]],
+    etoiles: 7, cone: 10, tenue: 2, ouvre: 'dès le départ',
+    reprise: 'RENOUVELABLE — 3 s sur Bételgeuse la rallume', prime: 2500,
+    donne: 'Vingt-cinq secondes de canons doublés, et le cône de tir s’ouvre.',
+    pour: 'La seule qu’on UTILISE plusieurs fois dans une partie. Elle récompense de lever le nez en plein combat, ce qui est le geste le plus coûteux du jeu — donc le mieux payé.',
+    contre: 'Sept étoiles à quatorze secondes pour la première fois, ce qui est long quand on se fait chasser.'
+  },
+  {
+    cle: 'polaire', nom: 'L’ÉTOILE POLAIRE', ou: 'plein nord, 45° au-dessus de l’horizon',
+    plan: [[0.5,0.5]], liens: [],
+    etoiles: 1, cone: 9, tenue: 3, ouvre: 'seulement après la Grande Ourse',
+    reprise: 'une fois par partie', prime: 1500,
+    donne: 'L’appareil ne part plus jamais en vrille, pour toute la partie.',
+    pour: 'Elle se trouve en suivant le bord du chariot, exactement comme dans le vrai ciel. C’est la plus juste des huit, du point de vue de l’astronomie.',
+    contre: 'Elle ne donne pas un pouvoir : elle SUPPRIME une façon de perdre. C’est un réglage de difficulté déguisé en étoile — et un joueur qui la prend ne réapprendra jamais à sortir d’une vrille.'
+  },
+  {
+    cle: 'sirius', nom: 'SIRIUS', ou: 'cap 155, 10° au-dessus de l’horizon',
+    plan: [[0.5,0.5]], liens: [],
+    etoiles: 1, cone: 9, tenue: 2.5, ouvre: 'seulement après Orion',
+    reprise: 'RENOUVELABLE', prime: 1800,
+    donne: 'Vingt secondes pendant lesquelles ils te voient comme s’ils avaient le soleil en face.',
+    pour: 'Elle se trouve en prolongeant le Baudrier d’Orion, comme dans le vrai ciel. Et elle est renouvelable, donc elle a une vie après sa découverte.',
+    contre: 'Elle fait la même chose que le Berger. Et elle est le seul pouvoir purement défensif à fenêtre, ce qui la rend molle : on ne sent pas qu’il se passe quelque chose.'
+  },
+  {
+    cle: 'cassio', nom: 'CASSIOPÉE', ou: 'nord-est, 65° — très haut',
+    plan: [[0.00,0.10],[0.25,0.75],[0.50,0.15],[0.75,0.85],[1.00,0.30]],
+    liens: [[0,1],[1,2],[2,3],[3,4]],
+    etoiles: 5, cone: 10, tenue: 2, ouvre: 'dès le départ', reprise: 'une fois par partie',
+    prime: 2200,
+    donne: 'Cinquante points de plafond de vie, définitivement, et l’équipe au sol répare deux fois plus vite.',
+    pour: 'La seule défensive permanente du ciel. Elle fait contrepoids à Orion : l’une frappe, l’autre encaisse, et le joueur choisit son ciel selon sa façon de jouer.',
+    contre: 'Soixante-cinq degrés de hauteur : il faut voler presque sur le dos pour l’avoir dans le viseur. C’est la plus inconfortable à prendre.'
+  },
+  {
+    cle: 'pleiades', nom: 'LES PLÉIADES', ou: 'cap 210, 40° au-dessus de l’horizon',
+    plan: [[0.42,0.60],[0.56,0.66],[0.50,0.46],[0.62,0.52],[0.38,0.44],[0.68,0.62]], liens: [],
+    etoiles: 1, cone: 3, tenue: 4, ouvre: 'dès le départ', reprise: 'une fois par partie',
+    prime: 2600,
+    donne: 'Le viseur et le cône de verrouillage se resserrent pour de bon, et les canons rendent trente pour cent de plus.',
+    pour: 'Trois degrés et quatre secondes : la seule du ciel qui demande vraiment quelque chose à la main. Depuis l’Antiquité, les Pléiades sont le test de la vue — et ici c’est le test de la visée.',
+    contre: 'Elle va dans le même sens qu’Orion : frapper plus fort. Et son cadeau — un viseur plus serré — est aussi une punition pour qui vise mal.'
+  },
+  {
+    cle: 'croix', nom: 'LA CROIX DU SUD', ou: 'plein sud, 9° — et seulement au-delà de la chaîne',
+    plan: [[0.50,1.00],[0.50,0.00],[0.12,0.55],[0.88,0.60]], liens: [[0,1],[2,3]],
+    etoiles: 4, cone: 10, tenue: 2, ouvre: 'seulement hors de la chaîne de montagnes',
+    reprise: 'une fois par partie', prime: 4000,
+    donne: 'L’éditeur de carte, gratuitement et pour toujours.',
+    pour: 'Sa condition est la plus belle du jeu : elle ne se lève que dehors, là où plus rien n’est dessiné. Personne ne tombe dessus par hasard — il faut déjà savoir que le dehors existe.',
+    contre: 'Elle n’existe que pour déverrouiller l’éditeur de carte. Si l’éditeur part, elle n’a plus de raison d’être — elle n’est pas une récompense de vol, c’est une clé.'
+  },
+];
+
+const PROPOSITION = ['ourse', 'orion', 'cassio'];
+const choix = {};
+for (const c of C) choix[c.cle] = true;
+
+function dessine(cv, c) {
+  const x = cv.getContext('2d'), w = cv.width, h = cv.height;
+  x.clearRect(0, 0, w, h);
+  const xs = c.plan.map(p => p[0]), ys = c.plan.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const ex = Math.max(0.35, x1 - x0), ey = Math.max(0.35, y1 - y0);
+  const k = Math.min((w - 26) / ex, (h - 26) / ey);
+  const X = u => w / 2 + (u - (x0 + x1) / 2) * k;
+  const Y = v => h / 2 - (v - (y0 + y1) / 2) * k;
+  x.strokeStyle = '#1d4a36'; x.lineWidth = 1;
+  for (const [a, b] of c.liens) {
+    x.beginPath(); x.moveTo(X(c.plan[a][0]), Y(c.plan[a][1]));
+    x.lineTo(X(c.plan[b][0]), Y(c.plan[b][1])); x.stroke();
+  }
+  x.fillStyle = '#8ffcc4';
+  for (const [u, v] of c.plan) {
+    x.beginPath(); x.arc(X(u), Y(v), c.plan.length > 6 ? 2 : 2.6, 0, 7); x.fill();
+  }
+}
+
+function rend() {
+  const zone = document.getElementById('cartes');
+  zone.innerHTML = '';
+  for (const c of C) {
+    const d = document.createElement('div');
+    d.className = 'carte' + (choix[c.cle] ? ' garde' : '');
+    const cout = (c.etoiles * c.tenue).toFixed(1);
+    d.innerHTML =
+      '<div class="haut"><canvas width="96" height="96"></canvas><div style="flex:1;min-width:0">' +
+      '<p class="nom">' + c.nom + '</p>' +
+      '<p class="ou">' + c.ou + '</p>' +
+      '<div class="faits">' +
+      '<div><span>à viser</span><span>' + c.etoiles + (c.etoiles > 1 ? ' étoiles' : ' étoile') +
+        ', cône de ' + c.cone + '°, ' + c.tenue + ' s chacune</span></div>' +
+      '<div><span>coût total</span><span>' + cout + ' s de visée</span></div>' +
+      '<div><span>s’ouvre</span><span>' + c.ouvre + '</span></div>' +
+      '<div><span>reprise</span><span>' + c.reprise + '</span></div>' +
+      '<div><span>points</span><span>+' + c.prime + '</span></div>' +
+      '</div></div></div>' +
+      '<p class="donne">' + c.donne + '</p>' +
+      '<p class="pour"><b>POUR</b> — ' + c.pour + '</p>' +
+      '<p class="contre"><b>CONTRE</b> — ' + c.contre + '</p>' +
+      '<div class="barre"><button data-g="1">GARDER</button><button data-g="0">RETIRER</button></div>';
+    zone.appendChild(d);
+    dessine(d.querySelector('canvas'), c);
+    const [bg, br] = d.querySelectorAll('.barre button');
+    bg.classList.toggle('actif', choix[c.cle]);
+    br.classList.toggle('actif', !choix[c.cle]);
+    bg.addEventListener('click', () => { choix[c.cle] = true; rend(); });
+    br.addEventListener('click', () => { choix[c.cle] = false; rend(); });
+  }
+  montre();
+}
+
+function montre() {
+  const gardes = C.filter(c => choix[c.cle]);
+  const cout = gardes.reduce((n, c) => n + c.etoiles * c.tenue, 0);
+  document.getElementById('sortie').textContent =
+    'CONSTELLATIONS — choisi sur la page\n' +
+    '  GARDER : ' + (gardes.map(c => c.nom).join(', ') || '(aucune)') + '\n' +
+    '  RETIRER : ' + (C.filter(c => !choix[c.cle]).map(c => c.nom).join(', ') || '(aucune)') + '\n' +
+    '  ' + gardes.length + ' constellations  ·  ' + cout.toFixed(1) + ' s de visée en tout  ·  ' +
+    gardes.reduce((n, c) => n + c.prime, 0) + ' points disponibles';
+}
+
+document.getElementById('btnTrois').addEventListener('click', () => {
+  for (const c of C) choix[c.cle] = PROPOSITION.includes(c.cle);
+  rend();
+  document.getElementById('etat').textContent =
+    'L’Ourse donne le lieu, Orion la fenêtre qu’on rouvre, Cassiopée la coque. Un rôle chacune, aucun doublon.';
+});
+document.getElementById('btnTout').addEventListener('click', () => {
+  for (const c of C) choix[c.cle] = true;
+  rend();
+  document.getElementById('etat').textContent = 'Le ciel tel qu’il est aujourd’hui.';
+});
+document.getElementById('btnCopier').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById('sortie').textContent);
+    document.getElementById('etat').textContent = 'Copié. Colle-le-moi tel quel.';
+  } catch (e) {
+    document.getElementById('etat').textContent = 'Impossible de copier ici : sélectionne le bloc à la main.';
+  }
+});
+
+rend();
+document.getElementById('etat').textContent =
+  'Huit constellations, cinquante-sept secondes de visée en tout si l’on veut tout prendre.';
+</script>
+</body>
+</html>

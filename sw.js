@@ -11,7 +11,7 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v1.45';
+const VERSION = 'v1.46';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
@@ -115,6 +115,15 @@ self.addEventListener('fetch', e => {
   // sérieuses du domaine : au-delà, on sert la version en cache — le joueur
   // joue — et la mise à jour se fera au lancement suivant. Une application
   // installée doit démarrer, même quand le réseau ment.
+  // LES PLANCHES DE RÉGLAGE NE PASSENT PAS PAR ICI DU TOUT.
+  //
+  // decollage.html, platine.html, tonneau.html, guitare.html, montagnes.html :
+  // ce sont des outils, pas le jeu. Elles doivent être la version qu'on vient
+  // de pousser, toujours, sans quoi on règle une page d'hier et l'on se
+  // demande pourquoi la correction n'arrive pas. Elles repartent au navigateur
+  // sans qu'on s'en mêle.
+  if (/\/(decollage|platine|tonneau|guitare|montagnes|carte)\.html($|\?)/.test(r.url)) return;
+
   if (r.mode === 'navigate') {
     e.respondWith((async () => {
       const enCache = caches.match('./index.html', { cacheName: BOITE });
@@ -123,8 +132,15 @@ self.addEventListener('fetch', e => {
           fetch(r),
           new Promise((_, non) => setTimeout(() => non(new Error('trop long')), DELAI_RESEAU))
         ]);
-        const c = await caches.open(BOITE);
-        c.put('./index.html', rep.clone());
+        // ET ON NE RANGE QUE LE JEU SOUS LA CLÉ DU JEU. Toute navigation
+        // écrasait ./index.html avec ce qu'on venait d'ouvrir : aller voir une
+        // planche remplaçait le jeu en cache par cette planche, et le
+        // lancement hors réseau suivant ouvrait la planche à sa place.
+        const chemin = new URL(r.url).pathname;
+        if (chemin.endsWith('/') || chemin.endsWith('/index.html')) {
+          const c = await caches.open(BOITE);
+          c.put('./index.html', rep.clone());
+        }
         return rep;
       } catch (err) {
         return (await enCache) || (await fetch(r).catch(() => Response.error()));

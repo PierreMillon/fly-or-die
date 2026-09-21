@@ -52,6 +52,7 @@ au choix en haut ; en dessous, de quoi régler la suite d'accords et le hasard.<
   <button id="btnJoue">JOUER</button>
   <button id="btnStop">ARRÊTER</button>
 </div>
+<p class="etat" id="diag">son : pas encore démarré</p>
 
 <div class="rangee" id="moteurs"></div>
 
@@ -106,13 +107,44 @@ function regleSessionAudio() {
 }
 function audio() {
   regleSessionAudio();
-  if (actx) return actx;
+  if (actx) { actx.resume(); return actx; }
   actx = new (window.AudioContext || window.webkitAudioContext)();
   master = actx.createGain();
   master.gain.value = 0.9;
   master.connect(actx.destination);
+  // L'AMORCE. Sur iOS, un contexte créé dans un geste ne s'ouvre vraiment que
+  // si quelque chose y joue TOUT DE SUITE, dans le même geste. Un souffle de
+  // trois centièmes de seconde, presque inaudible, suffit à ouvrir le chemin
+  // jusqu'au haut-parleur ; sans lui, tout ce qu'on programme ensuite part
+  // dans le vide sans la moindre erreur.
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = 220;
+    g.gain.setValueAtTime(0.0001, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.02, actx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.05);
+    o.connect(g).connect(master);
+    o.start(); o.stop(actx.currentTime + 0.08);
+  } catch (e) {}
   return actx;
 }
+
+// CE QUE LA PAGE SAIT DE SON PROPRE SON. Sans ça, « pas de son » peut vouloir
+// dire cinq choses, et on en essaie cinq au hasard. La ligne dit l'état du
+// contexte, si son horloge avance, combien de notes ont été programmées, et
+// quelle version de la page on regarde — le cache d'un téléphone est têtu.
+const VERSION_PLANCHE = 'v1.46';
+let notesPosees = 0;
+function diag() {
+  const el = document.getElementById('diag');
+  if (!el) return;
+  if (!actx) { el.textContent = VERSION_PLANCHE + '  ·  son : pas encore démarré'; return; }
+  el.textContent = VERSION_PLANCHE + '  ·  contexte : ' + actx.state
+    + '  ·  horloge : ' + actx.currentTime.toFixed(1) + ' s'
+    + '  ·  notes programmées : ' + notesPosees
+    + '  ·  session : ' + (('audioSession' in navigator) ? navigator.audioSession.type : 'fichier muet');
+}
+setInterval(diag, 400);
 function corde(f, when, dur, v) {
   const o = actx.createOscillator(), g = actx.createGain();
   const lp = actx.createBiquadFilter();
@@ -125,6 +157,7 @@ function corde(f, when, dur, v) {
   lp.frequency.exponentialRampToValueAtTime(700, when + dur);
   o.connect(g).connect(lp).connect(master);
   o.start(when); o.stop(when + dur + 0.05);
+  notesPosees++;
   _sonnantes.push(o);
   if (_sonnantes.length > 200) _sonnantes.splice(0, 100);
 }
@@ -300,6 +333,7 @@ function programme() {
 }
 async function joue() {
   audio();
+  regleSessionAudio();
   // ON ATTEND VRAIMENT. Tant que le contexte est suspendu, son horloge est
   // arrêtée : programmer des notes à « maintenant + un dixième » les pose dans
   // un passé qui n'existe pas encore, et elles tombent toutes ensemble au
@@ -310,6 +344,7 @@ async function joue() {
   histoire = [];
   programme();
   minuteur = setInterval(programme, 700);
+  diag();
   document.getElementById('etat').textContent = actx.state === 'running'
     ? 'Elle joue. Rien ne se répète : tout est tiré à chaque accord.'
     : 'Le son est refusé par le navigateur (' + actx.state + '). Touche encore une fois JOUER.';
