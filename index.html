@@ -1060,6 +1060,50 @@ const PEINE_ANGLE = 72 * Math.PI / 180;
 const PEINE_PLAFOND = 320;    // mètres sous le plafond où la gêne commence // jamais la verticale : au-delà l'orientation devient ambiguë
 const PITCH_TRIM    = 0.95;   // sans consigne, le tangage revient seul à plat — sinon on grimpe indéfiniment
 const ROLL_FACTOR   = 0.68;   // le roulis est décoratif : il suit le lacet, sans effet sur la trajectoire
+// ---------------------------------------------------------------------------
+// LE RAYON NE GRANDIT PLUS AVEC LA VITESSE. L'autorité en lacet est une
+// vitesse angulaire constante : le rayon vaut donc la vitesse divisée par
+// elle, et il grossit sans fin à mesure qu'on va vite. Mesuré : soixante-huit
+// mètres à cent trente, cent soixante-dix-huit à trois cents — le demi-tour
+// balayait trois cent cinquante-six mètres, et retrouver quelqu'un derrière
+// soi devenait un tour de manège.
+//
+// À plein manche, l'appareil tourne maintenant sur un rayon PLAFONNÉ : la
+// vitesse angulaire monte avec la vitesse pour le tenir. En dessous de deux
+// cents mètres par seconde rien ne change, puisque le rayon y est déjà plus
+// court ; au-dessus, c'est la seule manière de garder le combat lisible.
+const RAYON_MINI = 110;       // mètres : le plus petit cercle qu'on puisse décrire
+// ---------------------------------------------------------------------------
+// ET EN FACE, ON MET UN TEMPS À S'APERCEVOIR QU'ON A VIRÉ. L'adversaire
+// corrigeait son cap à chaque image : on faisait demi-tour, il faisait
+// demi-tour à la même seconde, et l'on tournait l'un autour de l'autre sans
+// que personne ne prenne jamais l'avantage. Un pilote voit, comprend, décide,
+// puis agit — et cela prend un temps qui dit son niveau. Deux secondes pour
+// un biplan, une demi-seconde pour le gardien : le demi-tour redevient un
+// geste qui rapporte, et c'est le meilleur qui le rend le moins payant.
+//
+// Le déclenchement n'est pas l'angle lui-même mais son FRANCHISSEMENT : sans
+// cela, un adversaire pris de dos resterait paralysé tant qu'il ne nous a pas
+// rattrapé, ce qui est l'inverse de ce qu'on veut.
+const REFLEXE_ANGLE = 100 * Math.PI / 180;
+const REFLEXE_DEFAUT = 1.2;   // secondes, pour qui n'a rien dit
+// Le compte se fait sur la ligne de visée du joueur, la seule grandeur que
+// toutes les tactiques partagent — poursuite pure, queue, anticipée ou
+// proportionnelle. Un seul endroit, une seule règle.
+const _refv = new THREE.Vector3();
+function reflexeBloque(e, dt) {
+  _refv.subVectors(state.pos, e.pos);
+  const d = _refv.length() || 1;
+  _refv.divideScalar(d);
+  const ecart = Math.acos(THREE.MathUtils.clamp(e.forward.dot(_refv), -1, 1));
+  if (e.reflexeT > 0) e.reflexeT -= dt;
+  else if (ecart > REFLEXE_ANGLE && (e.ecartAvant || 0) <= REFLEXE_ANGLE)
+    e.reflexeT = e.kind.reflexe !== undefined ? e.kind.reflexe : REFLEXE_DEFAUT;
+  e.ecartAvant = ecart;
+  return e.reflexeT > 0;
+}
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Viser, maintenant, veut dire viser. Le cône n'est plus une constante : il
 // vaut la taille apparente de la cible plus une marge fixe. Un chasseur de
 // 11 m à 400 m occupe 0,8 degré ; avec la marge, il faut mettre la croix
@@ -3375,7 +3419,7 @@ const PROP_TRIS = [
 // arrivent dans l'ordre où l'aviation les a inventées.
 const KINDS = [
   {
-    nom: 'BIPLAN', tactique: 'pure', etage: [60, 240],
+    nom: 'BIPLAN', tactique: 'pure', etage: [60, 240], reflexe: 2.0,
     // deux ailes superposées, fuselage plat : la silhouette de 14-18
     verts: [
       -3.0, 0.75, -0.7,   3.0, 0.75, -0.7,   3.0, 0.75, 0.5,  -3.0, 0.75, 0.5,
@@ -3397,7 +3441,7 @@ const KINDS = [
     // c'est AUSSI un appareil du joueur, gagné à la légende, et le chasseur
     // parce qu'une table qu'on vide se remplit mal ensuite — mais aucune
     // vague ne les appelle. Elles ne coûtent rien tant qu'on ne les tire pas.
-    nom: 'CHASSEUR', tactique: 'queue', etage: [110, 430],
+    nom: 'CHASSEUR', tactique: 'queue', etage: [110, 430], reflexe: 1.4,
     // l'aile volante d'origine
     verts: [
        0, 0, -2.7,  -3.9, 0, 1.3,   3.9, 0, 1.3,
@@ -3409,7 +3453,7 @@ const KINDS = [
     cone: Math.cos(15 * Math.PI / 180), portee: 900, rafale: 3
   },
   {
-    nom: 'INTERCEPTEUR', tactique: 'anticipee', etage: [260, 820], roquettes: true, figures: true,
+    nom: 'INTERCEPTEUR', tactique: 'anticipee', etage: [260, 820], roquettes: true, figures: true, reflexe: 0.9,
     // dard fin, long nez : fait pour aller vite en ligne droite
     verts: [
        0, 0, -3.6,  -2.2, 0, 1.5,   2.2, 0, 1.5,
@@ -3427,7 +3471,7 @@ const KINDS = [
     // « WARNING ROCKET » aurait disparu des vagues ordinaires pour n'exister
     // qu'au gardien. Il arrive tard, quand on sait déjà piloter, et c'est ce
     // qui fait qu'on apprend à l'esquiver au lieu de le subir.
-    nom: 'DRONE', tactique: 'proportionnelle', etage: [150, 690], figures: true, roquettesVague: 7,
+    nom: 'DRONE', tactique: 'proportionnelle', etage: [150, 690], figures: true, roquettesVague: 7, reflexe: 1.2,
     // quatre bras en croix : plus un avion, une machine
     verts: [
        0, 0, -0.6,   0.6, 0, 0,    0, 0, 0.6,   -0.6, 0, 0,
@@ -3451,7 +3495,7 @@ const KINDS = [
     // plus gros n'est pas un autre adversaire, c'est un curseur. Le gardien
     // garde donc sa croix, le drone la sienne, le biplan ses deux ailes : des
     // formes, pas des tailles.
-    nom: 'GARDIEN', tactique: 'proportionnelle', etage: [280, 940], roquettes: true, figures: true, leurres: 3,
+    nom: 'GARDIEN', tactique: 'proportionnelle', etage: [280, 940], roquettes: true, figures: true, leurres: 3, reflexe: 0.5,
     // Le seul adversaire qui vient seul. Même croix que le drone, mais bien
     // plus grande et beaucoup plus dure à mettre à terre.
     verts: [
@@ -3486,7 +3530,7 @@ const KINDS = [
     // elles — assez pour qu'il occulte ce qui est derrière, trop peu pour
     // qu'on voie jamais une tranche. À vingt degrés de seuil, EdgesGeometry
     // ne garde que le pourtour : un cercle, et rien d'autre.
-    nom: 'FAUCHEUR', tactique: 'anticipee', etage: [120, 2200],
+    nom: 'FAUCHEUR', tactique: 'anticipee', etage: [120, 2200], reflexe: 0.4,
     roquettes: true, figures: false, secret: true,
     ...(function disquePlat(n, r, e) {
       const verts = [0, e, 0, 0, -e, 0];      // les deux centres
@@ -3535,7 +3579,7 @@ const KINDS = [
     // Elle ne vient jamais seule : deux chenillées ordinaires autour d'elle.
     // On ne peut donc pas lui plonger dessus, il faut traiter l'escorte
     // d'abord — et c'est là qu'on prend les roquettes.
-    nom: 'LOURDE', tactique: 'sol', sol: true, roquettes: true,
+    nom: 'LOURDE', tactique: 'sol', sol: true, roquettes: true, reflexe: 1.5,
     verts: [
       -4.5, 0, -7,   4.5, 0, -7,   4.5, 0, 7,   -4.5, 0, 7,
       -3.6, 2.6, -5, 3.6, 2.6, -5, 3.6, 2.6, 5, -3.6, 2.6, 5,
@@ -10673,6 +10717,7 @@ function lacherFaucheur() {
     quat: new THREE.Quaternion(), forward: new THREE.Vector3(0, 0, -1), los: new THREE.Vector3(), losOk: false,
     speed: 230, hp: 4000, hpMax: 4000, cadence: 0.4, goal: new THREE.Vector3(), cote: 1, frolT: 0, charge: 0,
     evadeT: 0, evadeCd: 0, evadeSide: 1, evadeUp: 1, goalT: 0, reload: 1, roqCd: 2, fig: null, figCd: 0,
+      reflexeT: 0, ecartAvant: 0,
     burst: 0, burstT: 0, visee: 0, faucheur: true, blindage: 1, vireX: 1, vitX: 1 };
   // IL SE MONTRE AVANT DE TUER. Il arrivait dans notre dos, sans un mot :
   // on mourait sans l'avoir vu. Il traverse maintenant notre route PILE
@@ -11008,6 +11053,8 @@ function spawnWave() {
       evadeSide: 1,
       evadeUp: 1,
       goalT: 0,
+      reflexeT: 0,
+      ecartAvant: 0,
       reload: 0.6 + Math.random() * 1.1,
       roqCd: 3 + Math.random() * 4,
       fig: null, figCd: 0, soin: null, soinT: 0,
@@ -11381,8 +11428,9 @@ function updateEnemies(dt) {
       // point, on annule la rotation de la ligne de visée. Tant qu'elle ne
       // tourne plus, la collision est certaine quoi que fasse la cible. Le
       // drone braque N fois plus vite que cette ligne ne pivote.
+      const fige = reflexeBloque(e, dt);
       _los.subVectors(state.pos, e.pos).divideScalar(dist);
-      if (e.losOk) {
+      if (e.losOk && !fige) {
         _pn.crossVectors(e.los, _los);
         const sn = _pn.length();
         if (sn > 1e-6) {
@@ -11395,9 +11443,11 @@ function updateEnemies(dt) {
       e.los.copy(_los);
       e.losOk = true;
       // rappel doux vers la cible, sinon la moindre erreur s'accumule
-      _m4.lookAt(e.pos, state.pos, _up);
-      _q.setFromRotationMatrix(_m4);
-      e.quat.rotateTowards(_q, vir * 0.35 * dt);
+      if (!fige) {
+        _m4.lookAt(e.pos, state.pos, _up);
+        _q.setFromRotationMatrix(_m4);
+        e.quat.rotateTowards(_q, vir * 0.35 * dt);
+      }
 
     } else {
       if (K.tactique === 'pure') {
@@ -11480,7 +11530,9 @@ function updateEnemies(dt) {
       if (K.etage) e.goal.y = Math.min(e.goal.y, K.etage[1]);
       _m4.lookAt(e.pos, e.goal, _up);
       _q.setFromRotationMatrix(_m4);
-      e.quat.rotateTowards(_q, vir * dt);
+      // LE TEMPS DE S'EN APERCEVOIR : il vole droit pendant son temps de
+      // réaction quand la ligne de visée vient de passer derrière son aile.
+      if (!reflexeBloque(e, dt)) e.quat.rotateTowards(_q, vir * dt);
     }
 
     if (e.figCd > 0) e.figCd -= dt;
@@ -12746,7 +12798,10 @@ function simulate(dt) {
   state.piqueT = vite ? (state.piqueT || 0) + dt : 0;
   if (state.piqueT > 4) trouve('pique');
   state.remuant = THREE.MathUtils.damp(state.remuant || 0, Math.min(1, bouge / 2.4), 3.4, dt);
-  const yawRate   = -dx * gain * MAX_YAW * avion().lacet;
+  // l'autorité en lacet du moment : jamais moins que MAX_YAW, et assez pour
+  // tenir RAYON_MINI quand on va trop vite pour lui
+  const autoriteLacet = Math.max(MAX_YAW, state.speed / RAYON_MINI);
+  const yawRate   = -dx * gain * autoriteLacet * avion().lacet;
   const pitchRate = -dy * gain * MAX_PITCH * avion().tangage;
   // LE DOIGT TOUT EN HAUT NE DÉCLENCHE PLUS RIEN. Il partait dès qu'on montait
   // franchement, et la montée rapide — le geste le plus naturel du jeu —
@@ -15827,7 +15882,9 @@ function drawHud() {
   // et combien de temps elle dure encore.
   if (ksec > 0.01) {
     hctx.restore();
-    const cy2 = h * 0.885, lg = Math.min(w, h) * 0.13;
+    // vingt-huit pixels au-dessus de la bande, et jamais plus bas que le
+    // neuf-dixièmes de l'écran : le chevron tient sous le texte, tout entier
+    const cy2 = Math.min(h * 0.86, (hudBasLibre || h) - 28), lg = Math.min(w, h) * 0.13;
     hctx.save();
     hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
     hctx.textAlign = 'center';
@@ -16151,7 +16208,16 @@ function noteDegat(cause, montant) {
   carnet.degats[cause] += montant;
 }
 
+// CE QUI RESTE DE LIBRE AU-DESSUS DE LA BANDE DU BAS. La bande n'a pas la
+// même hauteur d'un téléphone à l'autre : elle porte l'encoche du bas sur
+// les uns et rien du tout sur les autres. Tout ce que le HUD écrit en bas
+// d'écran était placé en pourcentage de la hauteur, donc écrasé par la bande
+// là où elle est haute. On relève sa position réelle, et rarement : à chaque
+// rafraîchissement des chiffres, pas à chaque image.
+let hudBasLibre = 0;
+const bandeBas = document.getElementById('topbar');   // la bande du bas, malgré son nom
 function refreshBars() {
+  if (bandeBas) hudBasLibre = bandeBas.getBoundingClientRect().top;
   waveLbl.textContent  = (state.defi ? (langue === 'en' ? 'CHALLENGE · ' : 'DÉFI · ') : '') + 'WAVE ' + state.wave;
   scoreLbl.textContent = 'SCORE ' + Math.floor(state.score);
   // APPELER LA VAGUE SUIVANTE. Cinq cents points tout de suite, et une vague
@@ -17034,6 +17100,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.53', fr: 'Les adversaires mettent un temps à s’apercevoir qu’on a viré : deux secondes pour un biplan, une demi pour le gardien.', en: 'Opponents take a moment to notice you turned: two seconds for a biplane, half a second for the guardian.' },
+  { v: '1.53', fr: 'Le rayon de virage ne grandit plus avec la vitesse : le demi-tour à trois cents balayait trois cent cinquante-six mètres, il en balaie deux cent soixante-dix-sept.', en: 'Turn radius no longer grows with speed: a 180 at 300 m/s swept 356 metres, it now sweeps 277.' },
+  { v: '1.53', fr: 'La loupe de l’iPhone ne s’ouvre plus sur les panneaux : la sélection se replie d’elle-même.', en: 'The iPhone magnifier no longer opens on panels: any selection collapses on its own.' },
+  { v: '1.53', fr: 'CANONS CHAUDS remonte au-dessus de la bande du bas, quelle que soit sa hauteur.', en: 'HOT GUNS moves above the bottom bar, whatever its height.' },
   { v: '1.53', fr: 'La guillotine : chaque traversée d’un portail divise son ouverture par deux, et la troisième la ferme pour de bon.', en: 'The guillotine: each crossing halves a gate’s opening, and the third closes it for good.' },
   { v: '1.53', fr: 'Un portail n’est noirci que lorsqu’il est clos définitivement — c’est lui qui donnait à la ville ses intensités bâtardes.', en: 'A gate only darkens once it is shut for good — that is what gave the city its mismatched intensities.' },
   { v: '1.53', fr: 'La roquette adverse vise où l’on SERA : elle poursuivait notre queue et n’arrivait jamais.', en: 'The enemy rocket aims where you WILL be: it chased your tail and never arrived.' },
@@ -18066,6 +18136,29 @@ document.addEventListener('dblclick', coupeGeste, { passive: false });
 // le pincement de Safari : il n'a pas d'équivalent ailleurs, et il n'a rien à
 // faire sur un jeu en plein écran
 document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+// ---------------------------------------------------------------------------
+// ET LA LOUPE REVENAIT QUAND MÊME, SUR LES PANNEAUX.
+//
+// Les quatre écouteurs ci-dessus s'effacent devant tout ce qui se lit — sinon
+// la lettre cesserait de défiler. Or c'est précisément sur du texte que l'appui
+// long d'iOS appelle sa loupe : on tenait le pouce sur la lettre d'Émilie pour
+// la pousser, et l'ovale grossissant s'ouvrait dessus.
+//
+// iOS n'envoie pas « selectstart » : il change la sélection, puis il montre la
+// loupe. On écoute donc le changement lui-même et on replie la sélection dans
+// la foulée — il n'y a rien à sélectionner dans ce jeu, sauf dans un champ de
+// saisie, qu'on laisse tranquille. Sans sélection, pas de loupe.
+//
+// Le menu contextuel est coupé partout, panneaux compris : un appui long n'a
+// aucun sens ici, et c'est l'autre porte d'entrée du même geste.
+// ---------------------------------------------------------------------------
+document.addEventListener('contextmenu', e => e.preventDefault(), { passive: false });
+document.addEventListener('selectionchange', () => {
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  const sel = document.getSelection && document.getSelection();
+  if (sel && !sel.isCollapsed) { try { sel.removeAllRanges(); } catch (e) {} }
+});
 
 window.addEventListener('pointerup', releasePointer, { passive: true });
 window.addEventListener('pointercancel', releasePointer, { passive: true });
