@@ -389,7 +389,7 @@
   prendre qu'une fois par vague, mais elles se cumulent — il y en a six.</p>
   <p><b>Les tours percées.</b> Une fenêtre de 45 mètres à 197 mètres de haut :
   il faut monter la chercher, et elle est deux fois plus étroite qu'une arche.
-  25 % de vie.</p>
+  25 % de vie, une fois par vague elle aussi.</p>
   <p><b>La fente à 45°.</b> Le mur fendu en diagonale. Elle est trop étroite
   pour passer à plat : il faut arriver en tonneau, l'aile dans l'axe de la
   fente. 100 points de vie, et le plafond monte d'autant.</p>
@@ -940,16 +940,47 @@ const CAM_ECART_MAX = 130;    // mètres : au-delà, on ne le lâche plus
 // rattrape à moitié et s'installe à cinquante-huit.
 // ---------------------------------------------------------------------------
 const CAM_DECOL_COURBE = [[0, 16], [0.55, 16], [1.20, 38], [2.49, 70], [3.45, 58], [5.00, 58]];
+// ET ELLE SE LIT EN COURBE, PLUS EN SEGMENTS.
+//
+// Ses six points étaient reliés à la règle. Passer d'un segment au suivant
+// change alors la VITESSE de la caméra d'un seul coup : à 2,49 s elle
+// s'éloignait à vingt-cinq mètres par seconde et se remettait à revenir à
+// douze dans la même image. Trente-sept mètres par seconde d'écart, instantanés.
+// C'est ce qu'on sent comme un à-coup — la position est continue, la vitesse
+// ne l'est pas, et l'oeil lit la vitesse.
+//
+// Les mêmes six points, reliés cette fois par une courbe de Catmull-Rom : elle
+// passe EXACTEMENT par chacun d'eux — son tracé n'est pas retouché d'un mètre —
+// mais sa vitesse est continue d'un bout à l'autre. La pente en un point est
+// celle de la corde entre ses deux voisins, ce qui donne un sommet arrondi à
+// 2,49 s au lieu d'un angle, et un accostage en douceur sur les cinquante-huit
+// mètres de croisière.
+//
+// Mesuré sur les cinq secondes, à pas de quatre millièmes : le saut de vitesse
+// d'une image à l'autre tombe de 33,8 m/s à 0,5 m/s, et la courbe passe par
+// les six points à moins d'un millième de mètre. Elle respire de part et
+// d'autre : 1,5 m de moins pendant la demi-seconde d'attente — la caméra se
+// rapproche imperceptiblement juste avant que l'appareil ne parte — et 0,4 m
+// de plus au sommet. C'est le prix d'une vitesse continue, et il se paie en
+// centimètres.
 function camDecolEcart(t) {
-  const C = CAM_DECOL_COURBE;
+  const C = CAM_DECOL_COURBE, n = C.length;
   if (t <= C[0][0]) return C[0][1];
-  for (let i = 1; i < C.length; i++) {
-    if (t <= C[i][0]) {
-      const u = (t - C[i - 1][0]) / (C[i][0] - C[i - 1][0]);
-      return C[i - 1][1] + (C[i][1] - C[i - 1][1]) * u;
-    }
-  }
-  return C[C.length - 1][1];
+  if (t >= C[n - 1][0]) return C[n - 1][1];
+  let i = 1;
+  while (i < n - 1 && t > C[i][0]) i++;
+  const [t0, d0] = C[i - 1], [t1, d1] = C[i];
+  const h = t1 - t0, u = (t - t0) / h;
+  // la pente en un point : la corde entre ses deux voisins. Aux extrémités, la
+  // corde du seul segment disponible — la courbe y part et y arrive droit.
+  const pente = k => {
+    const a = C[Math.max(0, k - 1)], b = C[Math.min(n - 1, k + 1)];
+    return (b[1] - a[1]) / (b[0] - a[0]);
+  };
+  const m0 = pente(i - 1) * h, m1 = pente(i) * h;
+  const u2 = u * u, u3 = u2 * u;
+  return (2 * u3 - 3 * u2 + 1) * d0 + (u3 - 2 * u2 + u) * m0
+       + (-2 * u3 + 3 * u2) * d1 + (u3 - u2) * m1;
 }
 const CAM_SERPENT = 4.0;          // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_LATERAL_MAX = 4.5;      // et le décalage total ne dépasse jamais ceci, sinon l'avion quitte le cadre
@@ -5936,8 +5967,22 @@ const MECANO_PORTEE = 9;
 // cinquième partait se garer en deuxième rang, derrière les autres, invisible
 // de la porte. Dix-huit mètres de plus dans le sens de la piste, et la baie
 // avec : la flotte entière se lit d'un coup d'oeil depuis le bitume.
-const AERO = { x: 78, z: (PISTE.z0 + PISTE.z1) / 2, largeur: 40, prof: 78, haut: 15, baie: 54 };
-const MANCHE_MAT = 14;                    // mètres : deux fois le mât d'avant
+// ET IL S'ALLONGE ENCORE : UN SEUL RANG, NEUF APPAREILS.
+//
+// Cinq de front et les quatre autres derrière, décalés de sept mètres : le
+// sixième se retrouvait collé au premier du rang de devant, on ne savait plus
+// lequel on visait, et pointer le nez dessus prenait l'autre. Ce n'était pas
+// un défaut de placement mais de contenance — la flotte a grandi, le hangar
+// non.
+//
+// Il fait maintenant cent soixante-seize mètres dans le sens de la piste, avec
+// une baie de cent cinquante-six : les neuf appareils sont alignés sur un seul
+// rang, dix-huit mètres entre chaque nez, et on les voit tous depuis le
+// bitume. La portée du choix au nez suit, sans quoi les deux des extrémités
+// seraient hors d'atteinte.
+const AERO = { x: 78, z: (PISTE.z0 + PISTE.z1) / 2, largeur: 46, prof: 176, haut: 15, baie: 156 };
+const AERO_PAS = 18;                      // mètres entre deux nez, dans le rang
+const MANCHE_MAT = 28;                    // mètres : quatre fois le mât d'origine
 const MANCHE_X   = PISTE.demiL + 10;      // dix mètres du bord du bitume, côté hangar
 const matHangar = lineMat(COL_LINE, 0.8);
 const matPale = lineMat(COL_LINE, 0.35);
@@ -6002,8 +6047,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
                        : solidWire(r.geo, r.edges, r.mat);
     m.frustumCulled = false;
     m.scale.setScalar(r.ech);
-    const col = Math.floor(i / 5), k = i % 5;
-    m.position.set(-A.largeur / 2 + 11 + col * 17, 1.2, -A.prof / 2 + 9 + k * 14 + col * 7);
+    m.position.set(-A.largeur / 2 + 13, 1.2, -A.prof / 2 + 16 + i * AERO_PAS);
     m.rotation.y = -Math.PI / 2;      // le nez vers la porte
     g.add(m);
     if (i < CHOIX.length)
@@ -6011,7 +6055,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
                           p: new THREE.Vector3(A.x + m.position.x, 2.2, A.z + m.position.z) });
   });
   // la table et les tabourets, devant la porte, côté sud
-  const table = paroi(1.6, 0.08, 1.0, 0, 0.78, 0); table.position.set(-A.largeur / 2 - 29, 0, A.prof / 2 - 18);
+  const table = paroi(1.6, 0.08, 1.0, 0, 0.78, 0); table.position.set(-A.largeur / 2 - 29, 0, 21);
   g.add(table);
   for (const [tx, tz] of [[-1.3, 0], [1.3, 0], [0, 1.1]]) {
     const tab = paroi(0.42, 0.46, 0.42, 0, 0.23, 0);
@@ -6025,10 +6069,16 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   // on ne pouvait pas lire le vent, ce qui est pourtant la seule chose qu'on
   // lui demande maintenant que le seuil en dépend. Mât de quatorze mètres,
   // cône double, et plantée à dix mètres du bord — dans le cadre, tout du long.
+  // ET ELLE DOUBLE ENCORE, SUR LE COTE. Plantee a dix metres du bitume, dans
+  // l'axe de la baie, elle se superposait a la porte : en roulant vers le
+  // hangar on lisait le cone par-dessus les avions gares, et en sortant on
+  // passait dessous. Elle se plante au bout nord du batiment, a l'ecart de la
+  // porte et de la trajectoire de roulage, et son mat fait vingt-huit metres :
+  // depuis l'approche elle se detache du hangar au lieu de s'y confondre.
   const mat = new THREE.LineSegments(segGeom([0, 0, 0, 0, MANCHE_MAT, 0]), matHangar);
-  mat.position.set(MANCHE_X - A.x, 0, -20);
+  mat.position.set(-A.largeur / 2 - 4, 0, -A.prof / 2 - 14);
   g.add(mat);
-  const cone = [], r0 = 1.2, r1 = 0.44, lc = 6.4;
+  const cone = [], r0 = 2.4, r1 = 0.88, lc = 12.8;
   for (let i = 0; i < 8; i++) {
     const a0 = i / 8 * Math.PI * 2, a1 = (i + 1) / 8 * Math.PI * 2;
     cone.push(Math.cos(a0) * r0, Math.sin(a0) * r0, 0, Math.cos(a1) * r0, Math.sin(a1) * r0, 0);
@@ -6039,7 +6089,7 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   hangar.manche.position.set(mat.position.x, MANCHE_MAT, mat.position.z);
   g.add(hangar.manche);
   // l'aire à signaux : un carré et le T d'atterrissage, à plat au sol
-  const y = PISTE.y + 0.06, sx = -A.largeur / 2 - 16, sz = -A.prof / 2 - 16, c = 5;
+  const y = PISTE.y + 0.06, sx = -A.largeur / 2 - 16, sz = -55, c = 5;
   const sig = [sx - c, y, sz - c, sx + c, y, sz - c, sx + c, y, sz - c, sx + c, y, sz + c,
                sx + c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz - c,
                sx - 2.4, y, sz - 2.6, sx + 2.4, y, sz - 2.6,          // la barre du T, au nord
@@ -6178,8 +6228,8 @@ function nouvelleOccupation(m, i) {
     m.but.copy(hangar.table).add(_mec.set([-1.3, 1.3, 0][i], 0, [0, 0, 1.1][i]));
   } else if (o === 'hangar') {
     // sous l'aile d'un des appareils alignés, dans le hangar
-    m.but.set(AERO.x - AERO.largeur / 2 + 11 + (i % 2) * 17, PISTE.y,
-              AERO.z - AERO.prof / 2 + 9 + i * 14 + 5);
+    m.but.set(AERO.x - AERO.largeur / 2 + 13 - 7, PISTE.y,
+              AERO.z - AERO.prof / 2 + 16 + i * AERO_PAS);
   } else if (o === 'bord') {
     m.but.set(MECANO_BORD + i * 2.4, PISTE.y, AERO.z + (i - 1) * 7);
   } else if (o === 'sieste') {
@@ -9781,35 +9831,56 @@ function updateMission(dt) {
     SFX.alerte();
   }
 }
+// LE RAPPORT DE VOL SE LIT PAR PARAGRAPHES.
+//
+// Vingt et une lignes à la suite, sans respiration : on cherchait l'altitude
+// entre les roquettes et le refuge, et on relisait trois fois. Ce n'est pas
+// une liste, ce sont quatre sujets — le vol, le combat, la vie, le ciel — et
+// chacun tient maintenant son bloc, séparé du suivant par une ligne vide.
+// On n'a rien à lire de plus, on a seulement à chercher moins.
 function texteStats() {
   const S = state.stats; if (!S) return '';
   const fr = langue !== 'en';
-  const l = [
-    [fr ? 'temps de vol' : 'flight time', dureeFine(state.dureeVol)],
-    [fr ? 'abattus' : 'kills', S.abattus],
-    [fr ? 'balles tirées / reçues' : 'bullets fired / taken', S.ballesTirees + ' / ' + S.ballesRecues],
-    [fr ? 'balles ennemies' : 'enemy bullets', S.ballesEnnemies],
-    [fr ? 'roquettes tirées' : 'rockets fired', S.roquettesTirees],
-    [fr ? 'roquettes reçues / esquivées' : 'rockets taken / dodged', S.roquettesRecues + ' / ' + S.roquettesEsquivees],
-    [fr ? 'portails franchis' : 'checkpoints cleared', S.passages],
-    [fr ? 'vie reprise · aux portails' : 'life regained · at gates', Math.round(S.vieGagnee + S.vieReparee) + ' · ' + Math.round(S.vieGagnee)],
-    [fr ? 'vie maximale atteinte' : 'peak life', Math.round(S.vieMax)],
-    [fr ? 'bâtiments abattus' : 'buildings down', S.batiments],
-    [fr ? 'posés · temps au sol' : 'landings · time on ground', S.poses + ' · ' + dureeFine(S.tempsPose)],
-    [fr ? 'mécaniciens : abattus · balles' : 'mechanics: kills · rounds', S.mecanoAbattus + ' · ' + S.mecanoBalles],
-    [fr ? 'altitude max · moyenne' : 'altitude max · mean', Math.round(S.altMax) + ' · ' + Math.round(S.altN ? S.altSomme / S.altN : 0) + ' m'],
-    [fr ? 'distance max de la piste' : 'max distance from runway', Math.round(S.distMax) + ' m'],
-    [fr ? 'refuge trouvé' : 'refuge found', S.refuges ? (fr ? 'oui' : 'yes') : '—'],
-    [fr ? 'secrets du ciel' : 'sky secrets',
-     (S.ourses ? (fr ? 'Grande Ourse' : 'Big Dipper') : '') +
-     (S.ourses && S.bergers ? '  ·  ' : '') +
-     (S.bergers ? (fr ? 'Berger' : 'Evening Star') : '') || '—'],
-    [fr ? 'faucheur lâché' : 'reaper launched', S.faucheurs],
-    [fr ? 'leurres lâchés' : 'flares dropped', S.leurres],
-    [fr ? 'Orion tracée' : 'Orion traced', S.orions],
-    [fr ? 'figures du ciel prises' : 'sky figures taken', S.constellations],
+  const groupes = [
+    // le vol lui-même : où l'on est allé, combien de temps, à quelle hauteur
+    [
+      [fr ? 'temps de vol' : 'flight time', dureeFine(state.dureeVol)],
+      [fr ? 'altitude max · moyenne' : 'altitude max · mean', Math.round(S.altMax) + ' · ' + Math.round(S.altN ? S.altSomme / S.altN : 0) + ' m'],
+      [fr ? 'distance max de la piste' : 'max distance from runway', Math.round(S.distMax) + ' m'],
+      [fr ? 'posés · temps au sol' : 'landings · time on ground', S.poses + ' · ' + dureeFine(S.tempsPose)],
+    ],
+    // le combat : ce qu'on a tiré, ce qu'on a pris, ce qu'on a esquivé
+    [
+      [fr ? 'abattus' : 'kills', S.abattus],
+      [fr ? 'balles tirées / reçues' : 'bullets fired / taken', S.ballesTirees + ' / ' + S.ballesRecues],
+      [fr ? 'balles ennemies' : 'enemy bullets', S.ballesEnnemies],
+      [fr ? 'roquettes tirées' : 'rockets fired', S.roquettesTirees],
+      [fr ? 'roquettes reçues / esquivées' : 'rockets taken / dodged', S.roquettesRecues + ' / ' + S.roquettesEsquivees],
+      [fr ? 'leurres lâchés' : 'flares dropped', S.leurres],
+      [fr ? 'mécaniciens : abattus · balles' : 'mechanics: kills · rounds', S.mecanoAbattus + ' · ' + S.mecanoBalles],
+    ],
+    // la vie : ce qu'on a repris, et ce qu'on a détruit pour la reprendre
+    [
+      [fr ? 'portails franchis' : 'checkpoints cleared', S.passages],
+      [fr ? 'vie reprise · aux portails' : 'life regained · at gates', Math.round(S.vieGagnee + S.vieReparee) + ' · ' + Math.round(S.vieGagnee)],
+      [fr ? 'vie maximale atteinte' : 'peak life', Math.round(S.vieMax)],
+      [fr ? 'bâtiments abattus' : 'buildings down', S.batiments],
+    ],
+    // le ciel et ce qu'on y a trouvé
+    [
+      [fr ? 'refuge trouvé' : 'refuge found', S.refuges ? (fr ? 'oui' : 'yes') : '—'],
+      [fr ? 'secrets du ciel' : 'sky secrets',
+       (S.ourses ? (fr ? 'Grande Ourse' : 'Big Dipper') : '') +
+       (S.ourses && S.bergers ? '  ·  ' : '') +
+       (S.bergers ? (fr ? 'Berger' : 'Evening Star') : '') || '—'],
+      [fr ? 'Orion tracée' : 'Orion traced', S.orions],
+      [fr ? 'figures du ciel prises' : 'sky figures taken', S.constellations],
+      [fr ? 'faucheur lâché' : 'reaper launched', S.faucheurs],
+    ],
   ];
-  return l.map(([k, v]) => k + '  ·  <b>' + v + '</b>').join('<br>');
+  return groupes
+    .map(g => g.map(([k, v]) => k + '  ·  <b>' + v + '</b>').join('<br>'))
+    .join('<br><br>');
 }
 
 // LE DÉFI. On part de la vague 5 — le premier gardien — et chaque point vaut
@@ -11590,6 +11661,35 @@ function step(now) {
     traineeLayer.visible = false;
     traineePts[0].length = 0; traineePts[1].length = 0;
   }
+  // ET LES HALOS ET LES ÉCLATEMENTS AVEC EUX, POUR LA MÊME RAISON.
+  //
+  // Les deux vivent dans simulate(), après les retours anticipés du posé, du
+  // roulage, du refuge, de la marche et de la Jeep. Une fois l'appareil arrêté
+  // plus personne ne les fait vivre : le halo orange des canons restait
+  // suspendu à la dernière position connue, à côté de l'avion et pas dessus,
+  // et le dernier éclatement gardait son rayon de la seconde d'avant. Une
+  // image arrêtée collée sur une scène qui, elle, continue.
+  //
+  // La boucle d'image tourne toujours : les halos s'éteignent ici, et les
+  // éclatements finissent leur vie ici aussi, jusqu'à disparaître.
+  if (!state.running || state.pose || state.roulage || state.refuge ||
+      state.pied || state.jeep) {
+    for (const h of Object.values(HALOS)) { h.sp.visible = false; h.m.opacity = 0; }
+    // les balles et les roquettes en vol, les anneaux de fumée : tout ce qui
+    // est nourri image par image par une simulation qui ne tourne plus
+    for (const l of [playerTracers, enemyTracers, roqTracers, roqEnnemiTracers]) {
+      if (l) l.visible = false;
+    }
+    if (fumeeLayer) { fumeeLayer.visible = false; state.fumees.length = 0; }
+    for (let i = bursts.length - 1; i >= 0; i--) {
+      const b = bursts[i];
+      b.t += dt;
+      const k = b.t / b.life;
+      if (k >= 1) { scene.remove(b.mesh); b.mat.dispose(); bursts.splice(i, 1); continue; }
+      b.mesh.scale.setScalar(b.scale * (0.3 + k * 2.6));
+      b.mat.opacity = 1 - k;
+    }
+  }
   renderer.render(scene, camera);
   drawHud(dt);
 }
@@ -12442,7 +12542,15 @@ function simulate(dt) {
     // TROIS FOIS PLUS DE RETARD. Amortie à 6,5 elle collait encore au nez ;
     // à 2,2 elle traîne vraiment derrière l'assiette, et le décollage se voit
     // passer au lieu d'être subi.
-    state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, 4.6, dt);
+    // ET LA MAIN SE PASSE SANS MARCHE. L'assiette de la caméra traîne à 4,6
+    // pendant toute la séquence, puis le vol libre reprend à 7,2 : la raideur
+    // sautait d'un tiers sur une image, juste au moment où le nez revient à
+    // plat, et ça se voyait comme une secousse. Elle monte maintenant de l'une
+    // à l'autre sur la dernière demi-seconde de la montée — quand la séquence
+    // rend la main, les deux amortissements sont déjà le même.
+    const finu = THREE.MathUtils.clamp((u - 0.82) / 0.18, 0, 1);
+    const raideur = 4.6 + (7.2 - 4.6) * finu * finu * (3 - 2 * finu);
+    state.camPitch = THREE.MathUtils.damp(state.camPitch, state.pitch, raideur, dt);
     poseCam(state.camPitch);
     _cd.subVectors(state.pos, T.prev || state.pos).divideScalar(Math.max(dt, 1e-4));
     if (!T.prev) T.prev = state.pos.clone(); else T.prev.copy(state.pos);
@@ -13138,7 +13246,7 @@ function buteHangar() {
 // appareil garé, on attend, un cercle se remplit autour de lui, et on l'a. Le
 // geste est celui d'un pilote qui désigne — et c'est le seul endroit du jeu où
 // l'on choisit son avion en le regardant plutôt qu'en lisant une liste.
-const CHOIX_PORTEE = 80;                    // mètres : toute la profondeur du hangar
+const CHOIX_PORTEE = 130;                   // mètres : toute la profondeur du hangar, rallongé
 // LE CÔNE ÉTAIT DEUX FOIS TROP LARGE. À onze degrés il attrapait un appareil
 // bien avant qu'on soit dessus, et comme on ne peut pas pivoter sur place — un
 // avion tourne en roulant — le nez balaie le rang par grands pas. On passait du
@@ -13359,13 +13467,20 @@ function scrape(dt) {
   // LES PASSAGES D'ABORD. Un passage pris de biais éraflait un montant, et
   // l'éraflure repoussait l'avion hors du trou avant que le passage ne soit
   // compté : on traversait sans rien gagner. Le passage se teste donc avant
-  // les murs, et il compte à chaque traversée, pas une fois par vague.
+  // les murs.
+  //
+  // ET IL NE SE PREND QU'UNE FOIS PAR VAGUE. La règle est écrite dans l'aide
+  // depuis toujours — « chacune ne se laisse prendre qu'une fois par vague » —
+  // mais le code ne posait qu'un repos de quatre secondes : il suffisait de
+  // tourner autour d'une arche pour refaire le plein de vie indéfiniment. Le
+  // drapeau qui devait tenir la règle existait, `prise`, remis à faux à chaque
+  // vague, et personne ne le mettait jamais à vrai. Il l'est maintenant, et la
+  // boussole cesse du même coup de pointer un portail déjà pris.
   for (const t of tours) {
     if (t.mort) continue;
-    if (t.priseT > 0) t.priseT -= dt;
     const q = t.passage;
-    if (q && !(t.priseT > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
-      t.priseT = PASSAGE_REPOS;
+    if (q && !t.prise && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+      t.prise = true;
       stat('passages');
       gagneVie(defiEst('sansBonus') ? 0 : TOUR_PRIME);
       coupDePied();
@@ -13376,10 +13491,9 @@ function scrape(dt) {
   }
   for (const a of arches) {
     if (a.mort) continue;
-    if (a.priseT > 0) a.priseT -= dt;
     const q = a.passage;
-    if (q && !(a.priseT > 0) && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
-      a.priseT = PASSAGE_REPOS;
+    if (q && !a.prise && heurte(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+      a.prise = true;
       objCompte('arches');
       stat('passages');
       gagneVie(defiEst('sansBonus') ? 0 : ARCHE_PRIME);
@@ -15876,6 +15990,13 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.40', fr: 'Un portail ne rend vie et poussée qu’une fois par vague : la règle était écrite dans l’aide, pas dans le code.', en: 'A gate gives life and thrust only once per wave: the rule was written in the help, not in the code.' },
+  { v: '1.40', fr: 'Plus de halo ni d’éclatement figés autour d’un appareil arrêté : les effets finissent leur vie même quand la simulation s’est tue.', en: 'No more frozen halo or burst around a stopped aircraft: effects finish their life even when the simulation has gone quiet.' },
+  { v: '1.40', fr: 'Le hangar s’allonge et range toute la flotte sur un seul rang : plus un appareil collé à un autre.', en: 'The hangar gets longer and lines up the whole fleet in a single row: no more aircraft stuck against another.' },
+  { v: '1.40', fr: 'La manche à air double encore et se plante au bout du hangar, hors de l’axe de la porte.', en: 'The windsock doubles again and stands at the end of the hangar, off the door axis.' },
+  { v: '1.40', fr: 'Le rapport de vol se lit par paragraphes : le vol, le combat, la vie, le ciel.', en: 'The flight report reads in paragraphs: flight, combat, life, sky.' },
+  { v: '1.40', fr: 'La caméra du décollage suit une courbe et non plus des segments : les à-coups au sommet et à l’arrivée ont disparu.', en: 'The takeoff camera follows a curve instead of segments: the jolts at the peak and on arrival are gone.' },
+  { v: '1.40', fr: 'Une planche de réglage pour le tonneau barrique, comme celle du décollage.', en: 'A tuning bench for the barrel roll, like the takeoff one.' },
   { v: '1.39', fr: 'Le sol se dessine en une seule passe : les montagnes sont pleines et la grille reste tracée, de près comme au loin.', en: 'The ground is drawn in a single pass: the mountains are solid and the grid stays drawn, near and far.' },
   { v: '1.39', fr: 'La jauge de vie traverse tout le haut de l’écran, et les boutons du bas occupent la place libre.', en: 'The health gauge spans the whole top of the screen, and the bottom buttons take up the free space.' },
   { v: '1.38', fr: 'La loupe de l’iPhone ne surgit plus au double appui : la feuille de style ne suffisait pas, il fallait couper le geste.', en: 'The iPhone magnifier no longer pops up on a double tap: the stylesheet was not enough, the gesture had to be cancelled.' },
