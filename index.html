@@ -3908,6 +3908,126 @@ const GRID_SPAN = 8400, GRID_STEP = 160;
 // il reste quinze cents mètres au-dessus du plus haut sommet.
 
 let gridSnapX = 1e9, gridSnapZ = 1e9;
+// ---------------------------------------------------------------------------
+// LE SOL EN UNE SEULE PASSE.
+//
+// Tout ce qui précède part d'une idée simple et fausse : dessiner la surface,
+// puis poser des traits dessus. Deux objets au même endroit, et un arbitre —
+// le tampon de profondeur — qui doit trancher entre eux à chaque pixel.
+// Mesuré, l'arbitre ne peut pas gagner :
+//
+//   · si les traits passent devant, ils traversent la montagne qu'ils bordent
+//     (quatre pour cent de la distance, soit cent vingt mètres à trois km) ;
+//   · s'ils passent derrière, le sol proche devient entièrement noir, parce que
+//     c'est là que la surface file le plus à plat sous le regard.
+//
+// Il n'y a pas de réglage entre les deux : c'est un ou l'autre.
+//
+// La sortie n'est pas un réglage, c'est de supprimer le deuxième objet. Une
+// seule surface, opaque, et c'est SON nuanceur qui peint le vert près des
+// arêtes de chaque maille et le noir au milieu. Il n'y a plus deux
+// profondeurs à départager puisqu'il n'y a plus qu'une seule chose dessinée :
+// l'occultation devient exacte par construction, et le trait ne peut
+// mathématiquement plus traverser la matière qui le porte.
+//
+// COMMENT LE NUANCEUR SAIT OÙ EST LE BORD. Chaque triangle reçoit, à ses trois
+// sommets, les coordonnées barycentriques (1,0,0), (0,1,0), (0,0,1). Entre les
+// deux, le matériel interpole : la valeur lue au pixel dit exactement à quelle
+// distance relative on est de chacune des trois arêtes. `fwidth` donne cette
+// distance en pixels, donc le trait garde la même épaisseur de près comme de
+// loin, sans jamais scintiller.
+//
+// ET LA DIAGONALE NE SE DESSINE PAS. Une maille carrée est faite de deux
+// triangles, donc d'une hypoténuse qui n'est pas un bord de maille. Un second
+// attribut la marque, et le nuanceur l'écarte : on retrouve des carrés, pas
+// des triangles.
+// ---------------------------------------------------------------------------
+const SOL_EPAISSEUR = 1.25;      // pixels de trait, constants à toute distance
+function batisSol(cx, cz) {
+  const R = GRID_SPAN / 2, N = Math.floor(GRID_SPAN / GRID_STEP);
+  const nTri = N * N * 2;
+  const pos = new Float32Array(nTri * 9);
+  const bar = new Float32Array(nTri * 9);
+  const gar = new Float32Array(nTri * 9);
+  let k = 0;
+  // les trois coins d'un triangle portent chacun un sommet de la base
+  const BAR = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const x0 = cx - R + i * GRID_STEP, x1 = x0 + GRID_STEP;
+      const z0 = cz - R + j * GRID_STEP, z1 = z0 + GRID_STEP;
+      const a = [x0, hauteurSol(x0, z0), z0];
+      const b = [x1, hauteurSol(x1, z0), z0];
+      const c = [x0, hauteurSol(x0, z1), z1];
+      const d = [x1, hauteurSol(x1, z1), z1];
+      // triangle a-c-b : l'arête opposée au sommet 1 (soit a-b… non, c'est
+      // c-b) est la diagonale. On garde donc l'arête 0 masquée.
+      const tris = [[a, c, b, [1, 0, 0]], [b, c, d, [0, 0, 1]]];
+      for (const [p0, p1, p2, garde] of tris) {
+        const pts = [p0, p1, p2];
+        for (let v = 0; v < 3; v++) {
+          pos[k] = pts[v][0]; pos[k + 1] = pts[v][1]; pos[k + 2] = pts[v][2];
+          bar[k] = BAR[v * 3]; bar[k + 1] = BAR[v * 3 + 1]; bar[k + 2] = BAR[v * 3 + 2];
+          gar[k] = garde[0]; gar[k + 1] = garde[1]; gar[k + 2] = garde[2];
+          k += 3;
+        }
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('bary', new THREE.BufferAttribute(bar, 3));
+  g.setAttribute('garde', new THREE.BufferAttribute(gar, 3));
+  return g;
+}
+
+const matSol = new THREE.ShaderMaterial({
+  uniforms: THREE.UniformsUtils.merge([
+    THREE.UniformsLib.fog,
+    { uTrait: { value: new THREE.Color(COL_LINE) },
+      uFond:  { value: new THREE.Color(COL_BG) },
+      uEpaisseur: { value: SOL_EPAISSEUR },
+      uForce: { value: 0.62 } }          // ce que valait l'opacité des traits
+  ]),
+  fog: true,
+  side: THREE.DoubleSide,
+  vertexShader: `
+    attribute vec3 bary;
+    attribute vec3 garde;
+    varying vec3 vBary;
+    varying vec3 vGarde;
+    #include <common>
+    #include <fog_pars_vertex>
+    void main() {
+      vBary = bary;
+      vGarde = garde;
+      #include <begin_vertex>
+      #include <project_vertex>
+      #include <fog_vertex>
+    }`,
+  fragmentShader: `
+    uniform vec3 uTrait;
+    uniform vec3 uFond;
+    uniform float uEpaisseur;
+    uniform float uForce;
+    varying vec3 vBary;
+    varying vec3 vGarde;
+    #include <common>
+    #include <fog_pars_fragment>
+    void main() {
+      // la distance à chaque arête ; la diagonale est repoussée si loin
+      // qu'elle ne peut jamais être la plus proche
+      vec3 d = vBary + vGarde * 10.0;
+      // fwidth donne la variation par pixel : le trait garde donc la même
+      // épaisseur à l'écran, de près comme à cinq kilomètres
+      vec3 w = fwidth(vBary) * uEpaisseur;
+      vec3 a = smoothstep(vec3(0.0), max(w, vec3(1e-5)), d);
+      float bord = min(min(a.x, a.y), a.z);    // 0 sur l'arête, 1 au centre
+      gl_FragColor = vec4(mix(uTrait * uForce, uFond, bord), 1.0);
+      #include <fog_fragment>
+    }`
+});
+
 function batisGrille(cx, cz) {
   const pts = [], R = GRID_SPAN / 2;
   for (let i = -R; i <= R; i += GRID_STEP) {
@@ -4142,10 +4262,29 @@ function batisRelief(cx, cz) {
   relief.renderOrder = -0.4;     // après la nappe, avant tous les traits
   relief.name = 'relief';
   scene.add(relief);
+
+  // LE SOL EN UNE PASSE, à côté des deux autres le temps de les comparer.
+  // Les trois existent, un seul se voit : c'est SOL_UNIFIE qui décide.
+  const solUni = new THREE.Mesh(batisSol(0, 0), matSol);
+  solUni.frustumCulled = false;
+  solUni.renderOrder = -0.4;
+  solUni.name = 'solUni';
+  scene.add(solUni);
 })();
 const reliefSol = scene.getObjectByName('relief');
+const solUni = scene.getObjectByName('solUni');
+// ON PEUT REVENIR EN ARRIÈRE D'UNE LIGNE. Tant que le nouveau sol n'est pas
+// jugé, l'ancien reste dans le fichier et se rallume en mettant ceci à faux.
+let SOL_UNIFIE = true;
+function majSolChoisi() {
+  if (solUni) solUni.visible = SOL_UNIFIE;
+  const g = scene.getObjectByName('grid');
+  if (g) g.visible = !SOL_UNIFIE;
+  if (reliefSol) reliefSol.visible = !SOL_UNIFIE;
+}
 const nappeSol = scene.getObjectByName('nappe');
 const grid = scene.getObjectByName('grid');
+majSolChoisi();     // un seul des deux sols se voit
 let etoiles = [];
 let soleilMesh = null, couronneMesh = null, soleilPlein = null;
 let ourseMesh = null, ourseTrait = null, bergerMesh = null, bergerHalo = null;
@@ -13358,6 +13497,7 @@ function updateDecor() {
     grid.geometry.dispose();
     grid.geometry = batisGrille(sx, sz);
     if (reliefSol) { reliefSol.geometry.dispose(); reliefSol.geometry = batisRelief(sx, sz); }
+    if (solUni) { solUni.geometry.dispose(); solUni.geometry = batisSol(sx, sz); }
   }
   grid.position.set(0, 0, 0);
   // la nappe reste sous le point le plus bas du relief et suit l'avion
@@ -15736,6 +15876,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.39', fr: 'Le sol se dessine en une seule passe : les montagnes sont pleines et la grille reste tracée, de près comme au loin.', en: 'The ground is drawn in a single pass: the mountains are solid and the grid stays drawn, near and far.' },
+  { v: '1.39', fr: 'La jauge de vie traverse tout le haut de l’écran, et les boutons du bas occupent la place libre.', en: 'The health gauge spans the whole top of the screen, and the bottom buttons take up the free space.' },
   { v: '1.38', fr: 'La loupe de l’iPhone ne surgit plus au double appui : la feuille de style ne suffisait pas, il fallait couper le geste.', en: 'The iPhone magnifier no longer pops up on a double tap: the stylesheet was not enough, the gesture had to be cancelled.' },
   { v: '1.38', fr: 'NOUVELLE PARTIE repart du terrain, et non du refuge où l’on était allé.', en: 'NEW GAME starts from the airfield again, not from the refuge you had visited.' },
   { v: '1.37', fr: 'Le jeu redémarre avec l’Ancien ou le Faucheur : il refusait de se lancer dès qu’on gardait un appareil qui n’est pas libre.', en: 'The game starts again with the Old One or the Reaper: it refused to launch as soon as you kept an aircraft that is not free.' },

@@ -392,11 +392,23 @@
     flex-shrink: 0;
     margin-left: 4px;
   }
-  /* LE VIDE DU MILIEU. Le ressort poussait le bouton contre le bord opposé et
-     laissait un trou au centre de la bande ; les chiffres, eux, débordaient.
-     La bande se serre à gauche, tout est côte à côte, plus rien ne fuit. */
+  /* LES BOUTONS OCCUPENT LA BANDE. Serrés à gauche, ils laissaient un trou à
+     droite et le pouce visait des pastilles. Ils s'étirent maintenant pour se
+     partager la place libre, à parts égales : la bande est remplie d'un bord
+     à l'autre, sans qu'aucun texte ne rétrécisse. Grandir, oui ; rapetisser,
+     jamais — c'est ce qui faisait lire « SCORE 311 » pour 3110. */
   #topbar .spacer { flex: 0 0 6px; }
   #topbar { justify-content: flex-start; }
+  #topbar button { flex: 1 0 auto; text-align: center; }
+  /* LA JAUGE PREND TOUT LE HAUT. Elle faisait quatre-vingt-douze pixels collés
+     au bord gauche, perdus dans une bande pleine largeur. Elle s'étire
+     maintenant sur toute la colonne : on lit sa vie du coin de l'oeil sans
+     la chercher. */
+  #bottombar > span:first-child { flex: 1 1 auto; min-width: 0; }
+  #bottombar #gauge { display: block; width: 100%; }
+  /* le ressort de fin de bande mangeait la moitié de la place : la jauge
+     s'arrêtait au milieu de l'écran alors qu'elle doit le traverser */
+  #bottombar .spacer { flex: 0 0 0; }
   #vagueBtn[hidden] { display: none; }
   /* À L'ACCUEIL, LES DEUX BOUTONS PRENNENT TOUTE LA LARGEUR. En bas le MENU,
      en haut le défi du jour : ce sont les deux seules choses à toucher sur cet
