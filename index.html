@@ -2217,6 +2217,23 @@ const SFX = {
   bouclier:     () => { ton(880, 1400, 0.12, 'sine', 0.14); souffle(0.14, 3000, 900, 3, 0.09); },
   bouclierOn:   () => { ton(400, 1200, 0.5, 'sine', 0.15); setTimeout(() => ton(600, 1800, 0.45, 'sine', 0.12), 120); },
   bouclierFin:  () => ton(900, 260, 0.5, 'triangle', 0.13),
+  // LE TUNNEL. Une quinte juste tenue, très basse, avec sa quinte à l'octave
+  // au-dessus : c'est l'accord le plus consonant qui existe, et sans tierce
+  // il ne dit ni majeur ni mineur — ni joyeux ni triste, juste ouvert. Le
+  // souffle grave en dessous fait la roche. Rien de tout cela ne bouge : ce
+  // qui rend l'endroit étrange, c'est précisément que rien n'y bouge.
+  tunnelEntree: () => {
+    ton(73.4, 73.4, 2.6, 'sine', 0.17);        // ré grave
+    ton(110, 110, 2.6, 'sine', 0.12);          // sa quinte
+    ton(220, 220, 2.2, 'triangle', 0.05);      // et l'octave de la quinte
+    souffle(2.4, 90, 260, 0.7, 0.10);
+  },
+  // et la résolution en sortant : la quinte monte à l'octave, on respire
+  tunnelSortie: () => {
+    ton(110, 146.8, 0.9, 'sine', 0.14);
+    setTimeout(() => ton(220, 293.7, 0.8, 'triangle', 0.09), 90);
+    souffle(0.5, 2400, 700, 2.4, 0.09);
+  },
   // LE REFUGE. Une nappe très basse, trois notes tenues qui ne bougent presque
   // pas, et rien de rythmique. C'est un lieu où l'on ne fait rien : la musique
   // ne doit pas donner envie de repartir. Elle tiendra la place jusqu'à ce
@@ -7081,6 +7098,98 @@ const TOUR_PRIME = 50;   // pour cent de vie rendus, une fois par tour et par va
 const matTour = matBati;
 const matTourPris = matBatiClos;
 // ---------------------------------------------------------------------------
+// LE TUNNEL.
+//
+// Tout ce qui rend de la vie dans ce jeu se prend en une seconde : on passe,
+// ça rend, on repart. Le tunnel est l'inverse — il rend TANT QU'ON Y EST, et
+// il faut y rester. Trois cent quatre-vingts mètres de roche percée, dans
+// laquelle on entre à cent trente et dont on ressort quand on veut bien : le
+// seul endroit du jeu où l'on gagne quelque chose en ne tirant sur personne.
+//
+// Il est perpendiculaire à la piste et à cinq kilomètres de là, donc invisible
+// au décollage : on ne le trouve qu'en allant se battre dans les montagnes, et
+// c'est exactement ce qu'on veut — une récompense pour avoir regardé ailleurs.
+//
+// Dedans : pas de poussée, rien qu'un son et la vie qui monte. Le coup de
+// fouet est à LA SORTIE, quel que soit le bout par lequel on sort. Entrer ne
+// donne rien ; c'est ce qui oblige à traverser au lieu de faire demi-tour.
+//
+// Le creux est choisi par calcul, pas à l'oeil : on a balayé tout le massif à
+// la recherche de la crête qui laisse le plus de roche au-dessus d'un boyau
+// horizontal dont les deux bouts débouchent en l'air.
+// ---------------------------------------------------------------------------
+const TUNNEL = {
+  x: -5040, z: -1660,   // le centre, et le boyau court selon x
+  long: 380,
+  large: 62,            // la largeur du boyau : cinq fois l'envergure
+  haut: 30,             // et sa hauteur : de quoi passer sans frôler
+  epais: 22,            // l'épaisseur de roche dessinée autour
+  y0: 733               // l'altitude du plancher, à hauteur des deux bouches
+};
+TUNNEL.y1 = TUNNEL.y0 + TUNNEL.haut;
+const TUNNEL_VIE = 50;        // points de vie par seconde passée dedans
+const TUNNEL_MARGE = 14;      // mètres de tolérance pour « on est dedans »
+const TUNNEL_CINTRE = 26;     // mètres entre deux cintres
+const tunnelBoites = [];
+(function creuseLeTunnel() {
+  const T = TUNNEL, L2 = T.long / 2, l2 = T.large / 2, e = T.epais;
+  // la roche : une section rectangulaire percée, extrudée sur la longueur.
+  // Une seule forme, donc uniquement les arêtes vraies — le tour extérieur
+  // et le tour du boyau, rien entre les deux.
+  const forme = new THREE.Shape();
+  forme.moveTo(-l2 - e, T.y0 - e); forme.lineTo(l2 + e, T.y0 - e);
+  forme.lineTo(l2 + e, T.y1 + e); forme.lineTo(-l2 - e, T.y1 + e); forme.closePath();
+  const trou = new THREE.Path();
+  trou.moveTo(-l2, T.y0); trou.lineTo(l2, T.y0);
+  trou.lineTo(l2, T.y1); trou.lineTo(-l2, T.y1); trou.closePath();
+  forme.holes.push(trou);
+  const geo = new THREE.ExtrudeGeometry(forme, { depth: T.long, bevelEnabled: false })
+    .translate(0, 0, -L2);
+  // l'extrusion se fait selon z : on la couche selon x, puisque le boyau doit
+  // être perpendiculaire à la piste
+  geo.rotateY(Math.PI / 2);
+  const g = solidWire(geo, new THREE.EdgesGeometry(geo, 20), matBati);
+  g.position.set(T.x, 0, T.z);
+  g.frustumCulled = false;
+  scene.add(g);
+  TUNNEL.g = g;
+  // LES CINTRES. Un boyau lisse n'a que quatre arêtes, et vues de l'intérieur
+  // elles convergent en un point : on ne sait plus si l'on avance. Toutes les
+  // galeries percées du monde sont pourtant cintrées tous les quelques
+  // mètres, parce que la roche pousse. On en pose donc — et ce sont eux qui
+  // donnent la vitesse, le volume, et l'envie d'y entrer.
+  {
+    const pts = [];
+    const l = l2 - 1, y0 = T.y0 + 1, y1 = T.y1 - 1;
+    for (let u = -L2 + TUNNEL_CINTRE / 2; u <= L2; u += TUNNEL_CINTRE) {
+      const c = [[-l, y0], [l, y0], [l, y1], [-l, y1]];
+      for (let i = 0; i < 4; i++) {
+        const a0 = c[i], a1 = c[(i + 1) % 4];
+        pts.push(u, a0[1], a0[0], u, a1[1], a1[0]);
+      }
+    }
+    const cintres = new THREE.LineSegments(segGeom(pts), matBati);
+    cintres.frustumCulled = false;
+    g.add(cintres);
+  }
+  // les quatre parois, en coordonnées du monde : plancher, plafond, deux côtés
+  const b = (hz, cz, y0, y1) => ({ x: T.x, z: T.z + cz, hx: L2, hz, y0, y1 });
+  tunnelBoites.push(b(l2 + e, 0, T.y0 - e, T.y0),
+                    b(l2 + e, 0, T.y1, T.y1 + e),
+                    b(e / 2, -(l2 + e / 2), T.y0 - e, T.y1 + e),
+                    b(e / 2,  (l2 + e / 2), T.y0 - e, T.y1 + e));
+})();
+
+// DEDANS OU DEHORS. Une seule définition, lue par le plancher invisible, par
+// le coussin d'air, par la vie qui monte et par le coup de fouet de sortie.
+function dansTunnel(p) {
+  const T = TUNNEL, q = p || state.pos;
+  return Math.abs(q.x - T.x) < T.long / 2 + TUNNEL_MARGE
+      && Math.abs(q.z - T.z) < T.large / 2 - 2
+      && q.y > T.y0 + 1 && q.y < T.y1 - 1;
+}
+
+// ---------------------------------------------------------------------------
 // LA GUILLOTINE.
 //
 // Un portail se laissait prendre une fois par vague, et pour que la règle se
@@ -9204,6 +9313,7 @@ const state = {
   boostPortail: 0,    // secondes de poussée offertes par un portail
   viePleineT: 0,      // secondes restantes d'éclat quand la jauge vient de se remplir
   immunCrash: false,  // monté au plafond : plus de crash contre le sol ni les murs
+  tunnel: null,       // dans le tunnel : { t, vie }
   suite: {},          // avancement de chaque figure de CIEL_SUITE
   suiteFaite: {},     // celles qui sont deja tracees
   dehorsDeja: false,  // la chaine a deja ete franchie : la musique ne part qu'une fois
@@ -9487,6 +9597,7 @@ function toucherPiste() {
 
 function resetGame() {
   state.immunCrash = false;
+  state.tunnel = null;
   state.viePleineT = 0;
   _camDecal.val = 0;
   state.dureeVol = 0;
@@ -14122,7 +14233,11 @@ function simulate(dt) {
   // empêchait justement de venir s'y poser. Le pardon s'arrête à l'assiette —
   // arriver en piqué franc reste un crash, ici comme ailleurs.
   const partPiste = (state.forward.y > -0.34 || state.assist) ? partBitume(60) : 0;
-  const plancherEff = FLOOR * (1 - (state.assist ? 1 : partPiste));
+  // DANS LE TUNNEL, LE SOL DU MONDE N'EXISTE PAS. On y vole sept cent trente
+  // mètres au-dessus de la mer et deux cents mètres SOUS la crête : tous les
+  // filets qui empêchent de labourer la plaine nous éjecteraient du boyau.
+  // Ce sont les parois du tunnel qui tiennent, et elles seules.
+  const plancherEff = (state.assist || dansTunnel()) ? 0 : FLOOR * (1 - partPiste);
   if (state.pos.y < plancherEff) {
     state.pos.y = plancherEff;
     if (state.pitch < 0) state.pitch = THREE.MathUtils.damp(state.pitch, 0.12, 9, dt);
@@ -14537,8 +14652,42 @@ function scrape(dt) {
   if (_scrapeDe.distanceToSquared(state.pos) > pasMax * pasMax) _scrapeDe.copy(state.pos);
   try { scrapeCorps(dt); } finally { _scrapePrec.copy(state.pos); }
 }
+// ---------------------------------------------------------------------------
+// CE QUE LE TUNNEL DONNE. La vie monte tant qu'on y est — cinquante points
+// par seconde, soit cent cinquante pour une traversée franche — sans bandeau
+// ni annonce : on la voit monter dans la barre, c'est suffisant et c'est plus
+// beau. Le coup de fouet vient à la sortie, et seulement à la sortie : entrer
+// ne donne rien, ce qui oblige à traverser au lieu de faire demi-tour dedans.
+// ---------------------------------------------------------------------------
+function majTunnel(dt) {
+  const dedans = dansTunnel();
+  if (dedans) {
+    if (!state.tunnel) { state.tunnel = { t: 0, vie: 0 }; SFX.tunnelEntree(); }
+    state.tunnel.t += dt;
+    const avant = state.structure;
+    state.structure = Math.min(VIE_MAX, state.structure + TUNNEL_VIE * dt);
+    if (state.structure > state.vieMax) {
+      state.vieMax = state.structure;
+      if (state.stats) state.stats.vieMax = state.vieMax;
+    }
+    state.tunnel.vie += state.structure - avant;
+    stat('vieGagnee', state.structure - avant);
+  } else if (state.tunnel) {
+    const T = state.tunnel;
+    state.tunnel = null;
+    // LA SORTIE, ET ELLE SEULE. On ne récompense pas d'avoir mis le nez
+    // dedans : on récompense d'être ressorti de l'autre côté — ou du même,
+    // si l'on a eu le courage de faire demi-tour dans un boyau.
+    coupDePied();
+    trouve('tunnel');
+    announce(t('tunnel'), t('tunnelSous') + Math.round(T.vie));
+    SFX.tunnelSortie();
+  }
+}
+
 function scrapeCorps(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
+  majTunnel(dt);
   if (state.viePleineT > 0) state.viePleineT = Math.max(0, state.viePleineT - dt);
   // le repos d'un portail : une traversée dure plusieurs images, et sans lui
   // un seul passage compterait deux ou trois crans de guillotine
@@ -14585,7 +14734,7 @@ function scrapeCorps(dt) {
     // donc à rallumer le coussin en plein milieu du bitume dès que la part
     // valait un — et l'appareil était replaqué au plancher, treize mètres
     // plus haut, mesuré. On sort d'abord, on compare ensuite.
-    const pbC = partBitume(60);
+    const pbC = dansTunnel() ? 1 : partBitume(60);
     if (pbC < 1 && hs < SOL_COUSSIN * (1 - pbC) && !state.assist) {
       if (doux) {
         const k = THREE.MathUtils.clamp(1 - hs / SOL_COUSSIN, 0, 1);
@@ -14626,7 +14775,7 @@ function scrapeCorps(dt) {
     // saut en bout de piste — onze mètres et demi en une image, à cinq mètres
     // du seuil, pour venir poser l'appareil pile à plancher moins six. Il
     // remonte maintenant depuis le sol sur les cent quarante mètres du fondu.
-    const pb = partBitume(60);
+    const pb = dansTunnel() ? 1 : partBitume(60);
     const filet = (plancher - 6) * (1 - pb);
     if (state.pos.y < filet) state.pos.y = filet;
   }
@@ -14686,6 +14835,13 @@ function scrapeCorps(dt) {
     state.yaw += (cote >= 0 ? -1 : 1) * 0.30;
     state.roll = THREE.MathUtils.clamp(state.roll + (cote >= 0 ? -0.5 : 0.5), -1.2, 1.2);
   };
+
+  // LES PAROIS DU TUNNEL, AVANT TOUT LE RESTE. Elles ne sont pas un bâtiment :
+  // on ne peut ni les abattre ni les contourner, et à l'intérieur elles sont
+  // la seule chose qui tienne l'appareil.
+  for (const bo of tunnelBoites) {
+    if (heurte(bo.x, bo.z, bo.hx, bo.hz, bo.y0, bo.y1)) { repousse(bo.x, bo.z); return; }
+  }
 
   // LES TROIS BÂTIMENTS À FIGURE.
   for (const t of speciaux) {
@@ -16644,6 +16800,7 @@ const T = {
     viePleine: 'VIE PLEINE', viePleineSous: 'TU PEUX REPARTIR',
     plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Plus de crash au sol ni contre les murs, jusqu’au prochain posé.',
     portailSol: 'ARRACHÉ DU SOL', portailSolSous: 'Un portail franchi en roulant décolle et catapulte.',
+    tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
     tour: 'TOUR TRAVERSÉE  ·  +', grandeTour: 'LA GRANDE TOUR  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
     fente: 'FENTE PASSÉE  ·  +', puits: 'SORTI PAR LE TOIT  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     doreFin: 'PROTECTION DU SOLEIL TERMINÉE', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
@@ -16773,6 +16930,7 @@ const T = {
     viePleine: 'FULL LIFE', viePleineSous: 'YOU CAN GO',
     plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Immune to crash, ground and walls, until you land again.',
     portailSol: 'TORN OFF THE GROUND', portailSolSous: 'A gate taken while taxiing lifts you off and slingshots you.',
+    tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
     tour: 'TOWER THREADED  ·  +', grandeTour: 'THE GREAT TOWER  ·  +', arche: 'ARCH CLEARED  ·  +',
     fente: 'SLOT THREADED  ·  +', puits: 'OUT THROUGH THE ROOF  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
     doreFin: 'SUN COVER OVER', viseur: 'SIGHT UNLOCKED  ·  ',
@@ -17451,6 +17609,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.58', fr: 'Un tunnel de trois cent quatre-vingts mètres traverse une crête : dedans la vie monte sans arrêt, et le coup de fouet est à la sortie.', en: 'A 380-metre tunnel bores through a ridge: inside, life climbs without pause, and the kick comes at the exit.' },
   { v: '1.57', fr: 'Certains adversaires profitent de ce qu’on est occupé pour monter très haut, en silence, et plonger.', en: 'Some opponents use the moment you are busy to climb very high, silently, and dive.' },
   { v: '1.56', fr: 'Monter jusqu’au plafond donne l’immunité au crash — sol et murs — jusqu’au prochain posé.', en: 'Reaching the ceiling grants immunity to crashes — ground and walls — until you land again.' },
   { v: '1.56', fr: 'Manche au fond tenu, le roulage monte jusqu’à trois fois sa vitesse : quarante-cinq mètres par seconde.', en: 'Stick held forward, taxiing climbs to three times its speed: forty-five metres per second.' },
