@@ -8565,6 +8565,12 @@ function resetGame() {
   state.stats = statsVides();
   state.pied = null; state.jeep = null; state.action = null;
   state.couche = null; state.joue = null;
+  // ET LE REFUGE SE QUITTE. `resetGame` remettait tout à zéro sauf ça : une
+  // fois qu'on y était allé — en s'y posant, ou par la ligne du menu — chaque
+  // NOUVELLE PARTIE repartait de là-bas, à trente-deux kilomètres du terrain,
+  // sans décollage et sans vague. On ne le voyait pas tant que le refuge
+  // demandait trois minutes de vol pour exister.
+  state.refuge = null;
   document.body.classList.remove('lit');
   SFX.ventDoux(false);
   SFX.morceauStop();
@@ -15730,6 +15736,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.38', fr: 'La loupe de l’iPhone ne surgit plus au double appui : la feuille de style ne suffisait pas, il fallait couper le geste.', en: 'The iPhone magnifier no longer pops up on a double tap: the stylesheet was not enough, the gesture had to be cancelled.' },
+  { v: '1.38', fr: 'NOUVELLE PARTIE repart du terrain, et non du refuge où l’on était allé.', en: 'NEW GAME starts from the airfield again, not from the refuge you had visited.' },
   { v: '1.37', fr: 'Le jeu redémarre avec l’Ancien ou le Faucheur : il refusait de se lancer dès qu’on gardait un appareil qui n’est pas libre.', en: 'The game starts again with the Old One or the Reaper: it refused to launch as soon as you kept an aircraft that is not free.' },
   { v: '1.37', fr: 'Tout ce qui vient du stockage est déclaré en tête de fichier : la même panne s’était produite quatre fois.', en: 'Everything read from storage is declared at the top of the file: the same failure had happened four times.' },
   { v: '1.36', fr: 'Le jeu n’accuse plus three.js sur un simple chronomètre : il ne signale une panne que s’il en trouve une, et il dit laquelle.', en: 'The game no longer blames three.js on a mere timer: it reports a failure only when it finds one, and says which.' },
@@ -16670,6 +16678,45 @@ function releasePointer(e) {
   // se coupe pas, il cesse d'être tenu.
   fermeCourant();
 }
+// ---------------------------------------------------------------------------
+// LA LOUPE DE L'IPHONE, POUR DE BON.
+//
+// Deux appuis rapprochés sur la surface de jeu faisaient surgir l'ovale
+// grossissant d'iOS — celui de la sélection de texte — au moment précis où l'on
+// déclenche une figure. J'avais posé « user-select: none » et
+// « -webkit-touch-callout: none » partout, et ça n'a pas suffi.
+//
+// La raison est simple et elle est dans le code : la feuille de style dit au
+// navigateur ce qui est sélectionnable, mais ce qui ARRÊTE la machinerie de
+// geste d'iOS, c'est `preventDefault()` sur `touchstart`. Or tous les
+// écouteurs du jeu sont déclarés `{ passive: true }` — c'est la promesse de ne
+// jamais appeler preventDefault, et le navigateur la tient pour nous. On ne
+// pouvait donc pas l'appeler, et aucune règle de style ne le remplace.
+//
+// On ajoute donc une couche non passive, et seulement là où l'on joue. Elle
+// s'efface devant tout ce qui se lit ou se touche — panneaux, boutons, champs —
+// sinon la lettre cesserait de défiler et les boutons de répondre.
+//
+// Quatre gestes en tout : le début d'un contact, son glissement, le début
+// d'une sélection, et le menu contextuel. Plus le pincement, qui est
+// spécifique à Safari.
+// ---------------------------------------------------------------------------
+const SUR_LE_JEU = (e) => {
+  const el = e.target instanceof Element ? e.target : null;
+  if (!el) return true;
+  return !el.closest(PANNEAUX_LISIBLES +
+    ', button, input, textarea, a, label, summary, details, select');
+};
+const coupeGeste = (e) => { if (SUR_LE_JEU(e)) e.preventDefault(); };
+document.addEventListener('touchstart', coupeGeste, { passive: false });
+document.addEventListener('touchmove', coupeGeste, { passive: false });
+document.addEventListener('selectstart', coupeGeste, { passive: false });
+document.addEventListener('contextmenu', coupeGeste, { passive: false });
+document.addEventListener('dblclick', coupeGeste, { passive: false });
+// le pincement de Safari : il n'a pas d'équivalent ailleurs, et il n'a rien à
+// faire sur un jeu en plein écran
+document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+
 window.addEventListener('pointerup', releasePointer, { passive: true });
 window.addEventListener('pointercancel', releasePointer, { passive: true });
 

@@ -70,6 +70,39 @@ for (const [nom, cles] of ETATS) {
   await ctx.close();
 }
 
+// ---- et NOUVELLE PARTIE repart bien de la base -------------------------------
+//
+// `resetGame` remettait tout à zéro sauf `state.refuge` : une fois qu'on y
+// était allé, chaque nouvelle partie repartait de là-bas.
+{
+  const ctx = await navigateur.newContext({ viewport: { width: 430, height: 600 },
+                                            hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  await page.addInitScript(() => {
+    try { localStorage.setItem('fod_trouve', JSON.stringify({ refuge: true })); } catch (e) {}
+  });
+  await page.goto(URL, { waitUntil: 'load' });
+  await page.waitForFunction('window.__fodReady === true', null, { timeout: 25000 });
+  // on part du refuge…
+  await page.evaluate(() => { document.getElementById('menuBtn').click();
+                              document.getElementById('mRefuge').click(); });
+  await page.waitForTimeout(1200);
+  const auRefuge = await page.evaluate(() => !!window.__fod.refuge);
+  // …puis on demande une partie neuve
+  await page.evaluate(() => { document.getElementById('menuBtn').click();
+                              document.getElementById('mNeuve').click(); });
+  await page.waitForTimeout(1200);
+  const r = await page.evaluate(() => ({
+    refuge: !!window.__fod.refuge,
+    x: Math.round(window.__fod.pos.x)
+  }));
+  const ok = auRefuge && !r.refuge && Math.abs(r.x) < 2000;
+  console.log((ok ? '  ok   ' : '  RATÉ ') + 'NOUVELLE PARTIE repart de la base'.padEnd(44)
+              + 'x = ' + r.x + (r.refuge ? ' — encore au refuge' : ''));
+  if (!ok) rate.push('nouvelle partie au refuge');
+  await ctx.close();
+}
+
 await navigateur.close();
 console.log('');
 if (rate.length) { console.log(rate.length + ' sauvegarde(s) empêchent le jeu de démarrer.'); process.exit(1); }

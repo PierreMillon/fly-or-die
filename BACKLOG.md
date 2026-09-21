@@ -2583,3 +2583,35 @@ non, Jeep ramenée, disque cassé, lettre à moitié effacée.
 
 Aucun essai de chargement ne pouvait l'attraper tant que tous partaient d'un
 stockage vide. C'est la leçon la plus utile de la journée.
+
+## v1.38 — la loupe, pour de bon, et la partie neuve
+
+### La loupe de l'iPhone
+La feuille de style disait déjà `user-select: none` et
+`-webkit-touch-callout: none` **partout** depuis la v1.29, et l'ovale
+grossissant surgissait toujours au double appui.
+
+La raison est dans le code, pas dans le style : ce qui arrête la machinerie de
+geste d'iOS, c'est `preventDefault()` sur `touchstart`. Or **tous** les
+écouteurs du jeu sont déclarés `{ passive: true }` — c'est la promesse de ne
+jamais appeler `preventDefault`, et le navigateur la tient pour nous. Aucune
+règle de style ne remplace ça.
+
+Une couche non passive s'ajoute donc, et seulement sur la surface de jeu :
+`touchstart`, `touchmove`, `selectstart`, `contextmenu`, `dblclick`, plus
+`gesturestart` qui est propre à Safari. Elle s'efface devant les panneaux, les
+boutons et les champs.
+
+La loupe elle-même n'est pas vérifiable sur ce banc — c'est un élément du
+système iOS. Ce qui l'est, et c'est ce qui casse en pratique, c'est la
+non-régression : `essais/gestes.mjs`, 6 vérifications — le geste est coupé sur
+le canvas, il passe sur un bouton, DÉCOLLER répond, la lettre défile.
+
+### NOUVELLE PARTIE repartait du refuge
+`resetGame()` remettait tout à zéro **sauf** `state.refuge`. Une fois qu'on y
+était allé — en s'y posant, ou par la ligne de menu de la v1.36 — chaque
+nouvelle partie repartait de là-bas, à trente-deux kilomètres du terrain, sans
+décollage et sans vague. Le défaut existait avant la v1.36 ; la ligne de menu
+l'a rendu facile à atteindre.
+
+Vérifié : partir du refuge, puis NOUVELLE PARTIE → `x = 0`, sur le terrain.
