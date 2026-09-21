@@ -2504,9 +2504,25 @@ scene.add(camera);
 // rasant : la surface file vers l'horizon presque parallèlement au rayon, et
 // il faut alors quatre pour cent — mesuré, un pour cent laisse encore tout le
 // bitume et toute la plaine en noir.
-const TRAIT_DEVANT = 0.998;
-const TRAIT_SOL    = 0.96;
+// LE BIAIS DE PROFONDEUR N'A PLUS LIEU D'ÊTRE, ET IL FAISAIT DU MAL.
+//
+// Il servait à soulever un trait au-dessus de la surface pleine posée au même
+// endroit. Depuis que le sol (v1.39) et les objets (v1.42) se dessinent en une
+// seule passe, cette surface n'existe plus : il ne reste que des traits qui
+// sont seuls chez eux — la piste, le tube, la clôture, les étoiles.
+//
+// Et le prix était lourd : multiplier la profondeur par 0,998 avance un trait
+// de deux millièmes de sa distance, soit six mètres à trois kilomètres ; par
+// 0,96, de quatre pour cent, soit cent vingt mètres. C'est très exactement par
+// là que les traits passaient AU TRAVERS des montagnes et des bâtiments, et
+// que le défaut changeait avec la distance et l'angle.
+//
+// Un, c'est-à-dire rien. La fonction reste, inerte, pour qu'on voie qu'elle a
+// été retirée volontairement et non oubliée.
+const TRAIT_DEVANT = 1;
+const TRAIT_SOL    = 1;
 function biaiseTrait(m, k) {
+  if (k === 1) return m;
   m.onBeforeCompile = sh => {
     sh.vertexShader = sh.vertexShader.replace(
       '#include <project_vertex>',
@@ -2539,22 +2555,189 @@ function idxGeom(verts, tris) {
 // écrivent dans le tampon de profondeur et masquent les arêtes de derrière.
 // Le décalage de polygone recule les faces d'un cheveu pour que les arêtes
 // posées dessus ne clignotent pas contre elles.
+// IL NE RESTE QUE LES MASQUES. Depuis que les objets se dessinent en une seule
+// passe, plus personne ne pose un trait sur cette surface : elle ne sert plus
+// qu'aux trois volumes qui n'ont pas d'arêtes à eux — la dalle de la piste, le
+// bloc qui bouche le hangar, et la peau des avions dessinés à la main.
+//
+// Son décalage perd son FACTEUR. L'offset vaut facteur x pente-en-profondeur +
+// unités x résolution, et c'est le facteur qui explose à angle rasant, où la
+// pente en profondeur d'une surface vue presque à l'horizontale vaut des
+// dizaines de mètres par pixel. Les unités, elles, sont un nombre de crans du
+// tampon : constant, indépendant de l'angle.
 const solidMat = new THREE.MeshBasicMaterial({
   color: COL_BG,
   side: THREE.DoubleSide,
   fog: true,
   polygonOffset: true,
-  polygonOffsetFactor: 1,
-  polygonOffsetUnits: 1
+  polygonOffsetFactor: 0,
+  polygonOffsetUnits: 4
 });
 
+// ---------------------------------------------------------------------------
+// UN OBJET PLEIN SE DESSINE EN UNE SEULE PASSE, comme le sol depuis la v1.39.
+//
+// Ce qu'on faisait : une surface noire, et par-dessus les arêtes, au même
+// endroit. Le tampon de profondeur doit alors départager deux choses situées
+// au même millimètre, et il tranche d'autant plus mal qu'on est loin — sa
+// résolution vaut un demi-mètre à cinq kilomètres. Les rustines y ajoutaient
+// leur part : un biais de 0,2 % sur la profondeur des traits, ce qui fait six
+// mètres à trois kilomètres, et un polygonOffset dont le FACTEUR explose à
+// angle rasant. D'où le défaut signalé, et il est exactement celui du sol :
+// « en fonction de la distance ou de l'angle ils vont être transparents ou
+// pas ». Un bâtiment est plein, toujours, quel que soit l'angle.
+//
+// Il n'y a donc plus qu'un objet : une surface opaque dont le nuanceur peint
+// lui-même le trait le long des arêtes et le noir ailleurs. Plus rien à
+// départager, et le trait garde la même épaisseur à l'écran à toute distance,
+// puisque fwidth() donne la variation par pixel.
+//
+// ET LES TRAITS EN TROP DISPARAISSENT PAR LA MÊME PORTE. Une face carrée est
+// faite de deux triangles, donc d'une diagonale qui n'est pas une arête de
+// l'objet. EdgesGeometry les écartait en comparant les normales des deux faces
+// voisines au seuil de vingt degrés ; on fait ici le même calcul, une fois, au
+// chargement, et l'attribut `garde` repousse ces arêtes-là si loin que le
+// nuanceur ne peut jamais les trouver. Un seul seuil pour tout le jeu, au lieu
+// d'un par appel.
+const PLEIN_EPAISSEUR = 1.25;     // pixels de trait, constants à toute distance
+const PLEIN_SEUIL = 20;           // degrés : en deçà, deux faces sont le même plan
+
+const _geomPleine = new WeakMap();
+function geomPleine(geo) {
+  let out = _geomPleine.get(geo);
+  if (out) return out;
+  const src = geo.index ? geo.toNonIndexed() : geo;
+  const pos = src.getAttribute('position').array;
+  const nTri = Math.floor(pos.length / 9);
+
+  // la normale de chaque face, pour savoir si l'arête qui les sépare est vive
+  const nrm = new Float32Array(nTri * 3);
+  for (let f = 0; f < nTri; f++) {
+    const o = f * 9;
+    const ux = pos[o + 3] - pos[o], uy = pos[o + 4] - pos[o + 1], uz = pos[o + 5] - pos[o + 2];
+    const vx = pos[o + 6] - pos[o], vy = pos[o + 7] - pos[o + 1], vz = pos[o + 8] - pos[o + 2];
+    let x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx;
+    const n = Math.hypot(x, y, z) || 1;
+    nrm[f * 3] = x / n; nrm[f * 3 + 1] = y / n; nrm[f * 3 + 2] = z / n;
+  }
+
+  // les arêtes, rangées par leurs deux bouts : deux faces qui partagent une
+  // arête l'inscrivent sous la même clé
+  const q = v => Math.round(v * 1e4);
+  const bout = i => q(pos[i * 3]) + ',' + q(pos[i * 3 + 1]) + ',' + q(pos[i * 3 + 2]);
+  const aretes = new Map();
+  for (let f = 0; f < nTri; f++) {
+    for (let a = 0; a < 3; a++) {
+      const b = (a + 1) % 3;
+      const p0 = bout(f * 3 + a), p1 = bout(f * 3 + b);
+      const cle = p0 < p1 ? p0 + '|' + p1 : p1 + '|' + p0;
+      // le coin OPPOSÉ à l'arête : c'est sa coordonnée barycentrique qui
+      // s'annule le long d'elle, donc celle que `garde` doit repousser
+      const oppose = 3 - a - b;
+      let l = aretes.get(cle);
+      if (!l) aretes.set(cle, l = []);
+      l.push(f, oppose);
+    }
+  }
+
+  const bar = new Float32Array(nTri * 9);
+  const gar = new Float32Array(nTri * 9);
+  const BAR = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  for (let f = 0; f < nTri; f++)
+    for (let v = 0; v < 3; v++)
+      for (let c = 0; c < 3; c++) bar[f * 9 + v * 3 + c] = BAR[v * 3 + c];
+
+  const seuil = Math.cos(PLEIN_SEUIL * Math.PI / 180);
+  for (const l of aretes.values()) {
+    // une arête de bord, ou non manifold : on la garde, elle dit la silhouette
+    if (l.length !== 4) continue;
+    const f0 = l[0], c0 = l[1], f1 = l[2], c1 = l[3];
+    const d = nrm[f0 * 3] * nrm[f1 * 3] + nrm[f0 * 3 + 1] * nrm[f1 * 3 + 1]
+            + nrm[f0 * 3 + 2] * nrm[f1 * 3 + 2];
+    if (Math.abs(d) < seuil) continue;              // arête vive : elle se dessine
+    for (let v = 0; v < 3; v++) {                   // arête plate : masquée des deux côtés
+      gar[f0 * 9 + v * 3 + c0] = 1;
+      gar[f1 * 9 + v * 3 + c1] = 1;
+    }
+  }
+
+  out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos.subarray ? pos.subarray(0, nTri * 9) : pos), 3));
+  out.setAttribute('bary', new THREE.BufferAttribute(bar, 3));
+  out.setAttribute('garde', new THREE.BufferAttribute(gar, 3));
+  _geomPleine.set(geo, out);
+  return out;
+}
+
+// Le matériau de surface qui va avec un matériau de trait donné : même couleur,
+// même force. On les apparie une fois pour toutes, si bien que tout le code qui
+// changeait un trait — le verrouillage, par exemple — continue de marcher.
+const _matPleine = new WeakMap();
+function matPlein(mat) {
+  let m = _matPleine.get(mat);
+  if (m) return m;
+  m = new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      { uTrait: { value: new THREE.Color(mat.color.getHex()) },
+        uFond:  { value: new THREE.Color(COL_BG) },
+        uEpaisseur: { value: PLEIN_EPAISSEUR },
+        uForce: { value: mat.opacity === undefined ? 1 : mat.opacity } }
+    ]),
+    fog: true,
+    side: THREE.DoubleSide,
+    vertexShader: `
+      attribute vec3 bary;
+      attribute vec3 garde;
+      varying vec3 vBary;
+      varying vec3 vGarde;
+      #include <common>
+      #include <fog_pars_vertex>
+      void main() {
+        vBary = bary;
+        vGarde = garde;
+        #include <begin_vertex>
+        #include <project_vertex>
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform vec3 uTrait;
+      uniform vec3 uFond;
+      uniform float uEpaisseur;
+      uniform float uForce;
+      varying vec3 vBary;
+      varying vec3 vGarde;
+      #include <common>
+      #include <fog_pars_fragment>
+      void main() {
+        vec3 d = vBary + vGarde * 10.0;
+        vec3 w = fwidth(vBary) * uEpaisseur;
+        vec3 a = smoothstep(vec3(0.0), max(w, vec3(1e-5)), d);
+        float bord = min(min(a.x, a.y), a.z);
+        gl_FragColor = vec4(mix(uTrait * uForce, uFond, bord), 1.0);
+        #include <fog_fragment>
+      }`
+  });
+  _matPleine.set(mat, m);
+  return m;
+}
+
+// `edges` n'est plus lu : les arêtes ne sont plus un objet à part, elles sont
+// peintes par la surface elle-même. Le paramètre reste pour ne pas toucher aux
+// dix-huit appels, et parce que certains lui passent une géométrie d'arêtes
+// déjà calculée qu'on pourra supprimer d'un coup, plus tard.
 function solidWire(geo, edges, mat) {
   const g = new THREE.Group();
-  const face = new THREE.Mesh(geo, solidMat);
-  const line = new THREE.LineSegments(edges, mat);
-  g.add(face, line);
-  g.frustumCulled = face.frustumCulled = line.frustumCulled = false;
-  g.line = line; // pour changer la couleur du trait au verrouillage
+  const face = new THREE.Mesh(geomPleine(geo), matPlein(mat));
+  g.add(face);
+  g.frustumCulled = face.frustumCulled = false;
+  // Le verrouillage écrit `mesh.line.material = matLocked`. Il n'y a plus de
+  // ligne, mais la phrase garde son sens : on apparie le trait demandé à sa
+  // surface. Cinq endroits continuent de fonctionner sans être touchés.
+  Object.defineProperty(g, 'line', { value: {
+    get material() { return face.material; },
+    set material(m) { face.material = matPlein(m); }
+  } });
   return g;
 }
 
@@ -14427,6 +14610,11 @@ function drawHud() {
     window.__hautBande = hautBarre;
     const by = Math.max(h * 0.115, hautBarre + 26), demi = Math.min(w * 0.36, 155), ech = demi / 60;
     const L_ENN = by + 20, L_VIE = by + 32;
+    // LE BAS RÉEL DE LA BOUSSOLE. Les nouvelles du portail partaient de la
+    // hauteur du bandeau plus trente-quatre pixels et retombaient en plein
+    // milieu du ruban de cap : deux textes superposés, aucun des deux lisible.
+    // Elles partent maintenant de SOUS la dernière ligne de repères.
+    window.__basBoussole = L_VIE + 16;
     hctx.save();
     hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
     hctx.textAlign = 'center';
@@ -15149,16 +15337,18 @@ function updateNouvelles(dt) {
 function dessineNouvelles(hctx, w, h) {
   if (!nouvelles.length) return;
   const fr = langue !== 'en';
-  const y0 = (window.__hautBande || 0) + 34;
+  // sous la boussole, et plus grandes : la place est libre, et un texte de dix
+  // pixels à moitié transparent sur un fond étoilé ne se lit pas
+  const y0 = window.__basBoussole || ((window.__hautBande || 0) + 76);
   hctx.save();
-  hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+  hctx.font = '13px "IBM Plex Mono", ui-monospace, monospace';
   hctx.textAlign = 'left';
   for (let i = 0; i < nouvelles.length; i++) {
     const n = nouvelles[i];
-    const a = Math.min(1, n.t / 0.8) * 0.5;
+    const a = Math.min(1, n.t / 0.8) * 0.72;
     hctx.fillStyle = 'rgba(143,252,196,' + a.toFixed(2) + ')';
     hctx.fillText(n.qui + '  ' + (fr ? 'au portail' : 'at a gate') + '  +' + n.pv,
-                  12, y0 + i * 14);
+                  12, y0 + i * 18);
   }
   hctx.restore();
 }
@@ -16047,6 +16237,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.42', fr: 'Les bâtiments et les appareils se dessinent comme le sol, en une seule passe : plus rien ne devient transparent selon la distance ou l’angle.', en: 'Buildings and aircraft are drawn like the ground, in a single pass: nothing turns transparent with distance or angle any more.' },
+  { v: '1.42', fr: 'Les traits en trop ont disparu : la diagonale d’une face carrée n’est plus dessinée nulle part.', en: 'The extra lines are gone: the diagonal of a square face is no longer drawn anywhere.' },
+  { v: '1.42', fr: 'Les nouvelles du portail passent sous la boussole et se lisent en plus gros.', en: 'Gate news moves below the compass and reads larger.' },
   { v: '1.41', fr: 'Le tonneau barrique est réglé sur ta planche : 145 mètres de pas de côté, plus d’embardée qui revient, et deux fois moins de hauteur prise.', en: 'The barrel roll is set from your bench: 145 metres of sidestep, no more swerve that comes back, and half the height gained.' },
   { v: '1.41', fr: 'La rotation au décollage ne claque plus : le nez se lève avec quatre fois moins d’accélération de départ, pour exactement la même courbe.', en: 'The takeoff rotation no longer snaps: the nose lifts with four times less initial acceleration, for exactly the same curve.' },
   { v: '1.41', fr: 'La caméra du décollage garde toujours un peu de retard au lieu d’être vissée sur sa courbe.', en: 'The takeoff camera always keeps a little lag instead of being bolted to its curve.' },
