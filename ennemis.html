@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Les sept adversaires — Fly or Die</title>
+<style>
+  :root { --bg:#04070a; --line:#46ffa0; --text:#8ffcc4; --dim:#1d4a36; --pale:#0f2a1d;
+          --chaud:#ffc862; --froid:#7fe9ff; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:14px; line-height:1.6; }
+  body { padding:18px 14px 44px; max-width:36rem; margin:0 auto; }
+  h1 { font-size:13px; letter-spacing:.24em; font-weight:500; margin:0 0 4px; }
+  .sous { color:var(--dim); font-size:12px; margin:0 0 18px; }
+  .titre { font-size:11px; letter-spacing:.2em; color:var(--dim); margin:24px 0 8px; }
+  .carte { border:1px solid var(--dim); border-radius:4px; padding:14px 14px 12px; margin:0 0 12px; }
+  .carte.garde { border-color:var(--line); }
+  .nom { font-size:13px; letter-spacing:.14em; color:var(--line); margin:0 0 2px; }
+  .ou { color:var(--dim); font-size:11px; margin:0 0 10px; }
+  canvas { display:block; width:100%; height:104px; margin:0 0 4px; }
+  .faits { margin:6px 0 0; font-size:12px; }
+  .faits div { display:flex; gap:8px; }
+  .faits span:first-child { color:var(--dim); flex:0 0 7.6rem; }
+  .pour, .contre { margin:8px 0 0; font-size:12px; line-height:1.5; }
+  .pour b, .contre b { font-weight:500; letter-spacing:.1em; font-size:11px; }
+  .pour b { color:var(--froid); }
+  .contre b { color:var(--chaud); }
+  .barre { display:flex; gap:8px; margin:12px 0 0; }
+  button { flex:1 1 auto; background:transparent; border:1px solid var(--dim);
+    border-radius:4px; color:var(--text); font-family:inherit; font-size:11px;
+    letter-spacing:.16em; padding:9px 8px; }
+  button.actif { border-color:var(--line); color:var(--line); }
+  .rangee { display:flex; gap:8px; margin:0 0 14px; flex-wrap:wrap; }
+  .rangee button { flex:1 1 auto; min-width:8rem; font-size:12px; padding:11px 8px; }
+  hr { border:0; border-top:1px solid var(--dim); margin:24px 0 16px; }
+  pre { border:1px solid var(--dim); border-radius:4px; padding:12px; font-size:11px;
+    line-height:1.65; overflow-x:auto; color:var(--line); white-space:pre-wrap; margin:0 0 10px; }
+  .etat { color:var(--dim); font-size:11px; min-height:1.4em; margin:8px 0 0; }
+</style>
+</head>
+<body>
+
+<h1>LES SEPT ADVERSAIRES</h1>
+<p class="sous">Ce qu'ils sont, ce qu'ils font ressentir, et ce que je retirerais.
+Les quatre barres se lisent toutes dans le même sens : plus la barre est longue,
+plus il est dangereux sur ce point. Chaque barre est rapportée au plus fort des
+sept — c'est la seule façon de comparer des mètres par seconde, des radians par
+seconde, des points de vie et des secondes sur un même dessin.</p>
+
+<div class="rangee">
+  <button id="btnA">PROPOSITION A · BIPLAN, DRONE, GARDIEN</button>
+  <button id="btnB">PROPOSITION B · BIPLAN, CHASSEUR, GARDIEN</button>
+  <button id="btnTout">TOUT GARDER</button>
+</div>
+
+<div id="cartes"></div>
+
+<hr>
+
+<p class="titre">CE QUE ÇA DONNE</p>
+<pre id="sortie"></pre>
+<div class="rangee">
+  <button id="btnCopier">COPIER POUR CLAUDE</button>
+</div>
+<p class="etat" id="etat"></p>
+
+<script>
+// ---------------------------------------------------------------------------
+// LES CHIFFRES SONT CEUX DU JEU, RELEVÉS DANS LA TABLE KINDS DE index.html.
+//
+// `virage` est en radians par seconde : c'est la vitesse à laquelle il peut
+// faire pivoter son nez, donc sa capacité à ne pas se laisser semer.
+// `cadence` est l'inverse du délai entre deux rafales : plus c'est haut, plus
+// il tire souvent. Les quatre vont toutes dans le même sens — long = dangereux.
+// ---------------------------------------------------------------------------
+const E = [
+  {
+    cle: 'biplan', nom: 'LE BIPLAN', ou: 'vagues 1 à 6  ·  de 60 à 240 m d’altitude',
+    tactique: 'poursuite pure — il vise où l’on EST',
+    vitesse: 80, virage: 0.40, vie: 70, recharge: 2.3, portee: 520, rafale: 2, envergure: 8.5,
+    pour: 'C’est le maître d’école. Lent, fragile, et il met deux secondes et demie entre deux rafales : c’est sur lui qu’on apprend à viser sans mourir. Le premier adversaire d’un jeu doit se laisser abattre, et celui-là se laisse abattre.',
+    contre: 'Passé la sixième vague il ne sert plus à rien, et il reste dans la liste.'
+  },
+  {
+    cle: 'chasseur', nom: 'LE CHASSEUR', ou: 'vagues 4 à 9  ·  de 110 à 430 m',
+    tactique: 'la queue — il cherche à se mettre derrière',
+    vitesse: 75, virage: 0.62, vie: 100, recharge: 0.9, portee: 900, rafale: 3, envergure: 11.2,
+    pour: 'La seule tactique des quatre qu’on RECONNAÎT en vol : il passe derrière, et on le sent. C’est celui qui apprend à ne pas voler droit.',
+    contre: 'Entre lui, l’intercepteur et le drone, on ne distingue rien depuis la cabine : trois silhouettes différentes pour trois façons de venir qui se ressemblent toutes à deux cents mètres par seconde.'
+  },
+  {
+    cle: 'intercepteur', nom: 'L’INTERCEPTEUR', ou: 'vagues 6 à 9  ·  de 260 à 820 m',
+    tactique: 'poursuite anticipée — il vise où l’on SERA',
+    vitesse: 80, virage: 0.48, vie: 90, recharge: 1.0, portee: 1050, rafale: 3, envergure: 7.5,
+    roquettes: true, figures: true,
+    pour: 'Il a des roquettes et il fait des figures : c’est lui qui oblige à apprendre le tonneau d’esquive.',
+    contre: 'Sa tactique est invisible, et ses deux vraies particularités — roquettes, figures — le gardien les a aussi. On peut les lui laisser et n’en garder qu’un.'
+  },
+  {
+    cle: 'drone', nom: 'LE DRONE', ou: 'vagues 7 à 9  ·  de 150 à 690 m',
+    tactique: 'navigation proportionnelle — la loi des missiles',
+    vitesse: 82, virage: 0.88, vie: 80, recharge: 0.7, portee: 1100, rafale: 4, envergure: 6.0,
+    figures: true,
+    pour: 'Il braque deux fois plus serré que le biplan, et sa loi de poursuite est celle des missiles : tant que la ligne de visée ne tourne plus, la collision est acquise quoi qu’on fasse. C’est LE contraire du biplan, et c’est celui qu’on ne sème pas.',
+    contre: 'Six mètres d’envergure : minuscule, donc difficile à lire dans le noir, et on se fait toucher sans jamais bien voir par quoi.'
+  },
+  {
+    cle: 'gardien', nom: 'LE GARDIEN', ou: 'toutes les cinq vagues  ·  de 280 à 940 m',
+    tactique: 'navigation proportionnelle, avec escorte',
+    vitesse: 86, virage: 0.55, vie: 620, recharge: 0.55, portee: 1250, rafale: 6, envergure: 17,
+    roquettes: true, figures: true, leurres: 3,
+    pour: 'Six cent vingt points de vie, six balles par rafale, des roquettes, des leurres, dix-sept mètres d’envergure. On le voit arriver et on sait ce que ça veut dire. Un jeu de vagues a besoin d’un rythme, et c’est lui qui le donne.',
+    contre: 'Aucun. C’est la pièce la mieux réglée du lot.'
+  },
+  {
+    cle: 'faucheur', nom: 'LE FAUCHEUR', ou: 'à la dixième vague  ·  jusqu’à 2 200 m',
+    tactique: 'poursuite anticipée, et il ne lâche pas',
+    vitesse: 120, virage: 0.42, vie: 4000, recharge: 0.55, portee: 1500, rafale: 4, envergure: 16,
+    roquettes: true,
+    pour: 'Quatre mille points de vie et cent vingt mètres par seconde : ce n’est pas un adversaire, c’est un événement. Il traverse la route pile devant avant de se placer derrière — trois secondes de frayeur, puis la partie change de nature.',
+    contre: 'Il ne fait pas partie des vagues : c’est une histoire à part, avec ses propres règles, sa nappe, son oubli, sa seconde vie. À lui seul il pèse autant en code que les quatre chasseurs réunis.'
+  },
+  {
+    cle: 'tank', nom: 'LA CHENILLÉE', ou: 'au sol, à côté de la piste',
+    tactique: 'elle ne vole pas — elle tourne sa tourelle',
+    vitesse: 0, virage: 0, vie: 150, recharge: 1.5, portee: 950, rafale: 3, envergure: 9,
+    sol: true,
+    pour: 'Le seul adversaire qui ne se combat pas en volant. Et le seul qui tue quand on est à pied — c’est le seul endroit du jeu où l’on meurt sans pouvoir se battre, et c’est juste puisqu’on a choisi de descendre.',
+    contre: 'Elle demande un magasin de code à elle seule : visée au sol, tourelle, mécanicien lance-roquettes, mort du piéton.'
+  },
+];
+
+const PROP_A = ['biplan', 'drone', 'gardien', 'faucheur', 'tank'];
+const PROP_B = ['biplan', 'chasseur', 'gardien', 'faucheur', 'tank'];
+const choix = {};
+for (const e of E) choix[e.cle] = true;
+
+// LES QUATRE TRAITS, rapportés au plus fort des sept. Des unités différentes ne
+// se superposent pas sur un même axe : on les indexe donc sur un socle commun,
+// et la vraie valeur reste écrite à côté de chaque barre.
+const TRAITS = [
+  { cle: 'vitesse', nom: 'vitesse',  unite: ' m/s',  val: e => e.vitesse },
+  { cle: 'virage',  nom: 'virage',   unite: ' rad/s', val: e => e.virage },
+  { cle: 'vie',     nom: 'vie',      unite: ' pv',   val: e => e.vie },
+  { cle: 'cadence', nom: 'cadence',  unite: ' raf/s', val: e => 1 / e.recharge },
+];
+const MAX = {};
+for (const t of TRAITS) MAX[t.cle] = Math.max(...E.map(t.val));
+
+function dessine(cv, e) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = 104;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const x = cv.getContext('2d');
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.clearRect(0, 0, w, h);
+  const G = 74;                       // la gouttière des étiquettes
+  const L = w - G - 66;               // la longueur utile d'une barre
+  const hb = 9, pas = 24;
+  x.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+  x.textBaseline = 'middle';
+  TRAITS.forEach((t, i) => {
+    const y = 14 + i * pas;
+    // l'étiquette, en encre éteinte : elle ne doit pas concurrencer la barre
+    x.fillStyle = '#1d4a36'; x.textAlign = 'left';
+    x.fillText(t.nom, 0, y);
+    // le socle : jusqu'où irait le plus fort des sept
+    x.fillStyle = '#0f2a1d';
+    x.fillRect(G, y - hb / 2, L, hb);
+    // la barre, avec son bout arrondi
+    const v = t.val(e), k = MAX[t.cle] ? v / MAX[t.cle] : 0;
+    const l = Math.max(k > 0 ? 3 : 0, L * k);
+    if (l > 0) {
+      x.fillStyle = '#46ffa0';
+      x.beginPath();
+      if (x.roundRect) x.roundRect(G, y - hb / 2, l, hb, [0, 4, 4, 0]);
+      else x.rect(G, y - hb / 2, l, hb);
+      x.fill();
+    }
+    // la vraie valeur, à droite : la barre compare, le chiffre dit
+    x.fillStyle = '#8ffcc4'; x.textAlign = 'right';
+    const txt = t.cle === 'virage' ? v.toFixed(2)
+              : t.cle === 'cadence' ? v.toFixed(2)
+              : String(Math.round(v));
+    x.fillText(txt + t.unite, w, y);
+  });
+}
+
+function rend() {
+  const zone = document.getElementById('cartes');
+  zone.innerHTML = '';
+  for (const e of E) {
+    const d = document.createElement('div');
+    d.className = 'carte' + (choix[e.cle] ? ' garde' : '');
+    const armes = [e.roquettes ? 'roquettes' : null, e.figures ? 'figures' : null,
+                   e.leurres ? e.leurres + ' leurres' : null].filter(Boolean).join(', ') || '—';
+    d.innerHTML =
+      '<p class="nom">' + e.nom + '</p>' +
+      '<p class="ou">' + e.ou + '</p>' +
+      '<canvas></canvas>' +
+      '<div class="faits">' +
+      '<div><span>tactique</span><span>' + e.tactique + '</span></div>' +
+      '<div><span>envergure</span><span>' + e.envergure + ' m</span></div>' +
+      '<div><span>portée</span><span>' + e.portee + ' m, par rafales de ' + e.rafale + '</span></div>' +
+      '<div><span>en plus</span><span>' + armes + '</span></div>' +
+      '</div>' +
+      '<p class="pour"><b>POUR</b> — ' + e.pour + '</p>' +
+      '<p class="contre"><b>CONTRE</b> — ' + e.contre + '</p>' +
+      '<div class="barre"><button data-g="1">GARDER</button><button data-g="0">RETIRER</button></div>';
+    zone.appendChild(d);
+    dessine(d.querySelector('canvas'), e);
+    const [bg, br] = d.querySelectorAll('.barre button');
+    bg.classList.toggle('actif', choix[e.cle]);
+    br.classList.toggle('actif', !choix[e.cle]);
+    bg.addEventListener('click', () => { choix[e.cle] = true; rend(); });
+    br.addEventListener('click', () => { choix[e.cle] = false; rend(); });
+  }
+  montre();
+}
+
+function montre() {
+  const g = E.filter(e => choix[e.cle]);
+  const volants = g.filter(e => !e.sol && e.cle !== 'faucheur').length;
+  document.getElementById('sortie').textContent =
+    'ADVERSAIRES — choisi sur la page\n' +
+    '  GARDER : ' + (g.map(e => e.nom).join(', ') || '(aucun)') + '\n' +
+    '  RETIRER : ' + (E.filter(e => !choix[e.cle]).map(e => e.nom).join(', ') || '(aucun)') + '\n' +
+    '  ' + g.length + ' adversaires, dont ' + volants + ' en vagues';
+}
+
+const poser = (liste, mot) => () => {
+  for (const e of E) choix[e.cle] = liste.includes(e.cle);
+  rend();
+  document.getElementById('etat').textContent = mot;
+};
+document.getElementById('btnA').addEventListener('click', poser(PROP_A,
+  'Le biplan apprend, le drone ne se sème pas, le gardien rythme. Deux extrêmes et un patron : trois façons de mourir qui ne se ressemblent pas.'));
+document.getElementById('btnB').addEventListener('click', poser(PROP_B,
+  'Le biplan apprend, le chasseur passe derrière, le gardien rythme. Plus lisible que A, mais on perd celui qu’on ne peut pas semer.'));
+document.getElementById('btnTout').addEventListener('click', poser(E.map(e => e.cle),
+  'Les sept tels qu’ils sont aujourd’hui.'));
+document.getElementById('btnCopier').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(document.getElementById('sortie').textContent);
+    document.getElementById('etat').textContent = 'Copié. Colle-le-moi tel quel.';
+  } catch (e) {
+    document.getElementById('etat').textContent = 'Impossible de copier ici : sélectionne le bloc à la main.';
+  }
+});
+window.addEventListener('resize', rend);
+
+rend();
+document.getElementById('etat').textContent =
+  'Quatre tactiques de poursuite pour quatre chasseurs, et trois d’entre elles ne se voient pas depuis la cabine.';
+</script>
+</body>
+</html>

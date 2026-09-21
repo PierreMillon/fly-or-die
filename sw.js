@@ -11,7 +11,7 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v1.47';
+const VERSION = 'v1.48';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
@@ -122,7 +122,7 @@ self.addEventListener('fetch', e => {
   // de pousser, toujours, sans quoi on règle une page d'hier et l'on se
   // demande pourquoi la correction n'arrive pas. Elles repartent au navigateur
   // sans qu'on s'en mêle.
-  if (/\/(decollage|platine|tonneau|guitare|montagnes|carte)\.html($|\?)/.test(r.url)) return;
+  if (/\/(decollage|platine|tonneau|guitare|montagnes|carte|constellations|ennemis)\.html($|\?)/.test(r.url)) return;
 
   if (r.mode === 'navigate') {
     e.respondWith((async () => {

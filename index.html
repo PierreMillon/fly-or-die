@@ -10340,6 +10340,14 @@ function texteStats() {
 // qui n'a plus rien à apprendre des quatre premières vagues.
 const DEFI_VAGUE = 5, DEFI_FACTEUR = 1.5;
 const FUITE_DIST = 3500, FUITE_ALERTE = 40, FUITE_DUREE = 60;
+// IL VIENT À LA DIXIÈME, QU'ON L'AIT CHERCHÉ OU NON.
+//
+// Il ne se détachait que sur une faute : fuir le combat une minute, ou monter
+// au-dessus de sa nappe hors de la zone. Un joueur qui joue bien ne le
+// rencontrait donc jamais — le morceau le plus tendu du jeu était réservé à
+// ceux qui jouaient mal. À la dixième vague il vient de lui-même, et la partie
+// change de nature à un moment qu'on peut attendre.
+const FAUCHEUR_VAGUE = 10;
 // LE VENT EST UN, ET IL SOUFFLE PARTOUT PAREIL.
 //
 // Chaque terrain avait le sien, tiré au hasard dans son coin : deux manches à
@@ -10739,6 +10747,8 @@ function spawnWave() {
   announce(boss ? t('vague') + state.wave + '  ·  ' + t('gardien')
                 : t('vague') + state.wave + '  ·  ' + [...vus].join(' + '));
   SFX.vague();
+  // et à la dixième, il se détache tout seul
+  if (state.wave >= FAUCHEUR_VAGUE && !state.faucheur) lacherFaucheur();
   jalonVague(state.wave);
 }
 
@@ -16550,6 +16560,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.48', fr: 'Le faucheur vient de lui-même à la dixième vague : on ne le rencontrait qu’en jouant mal.', en: 'The reaper comes on its own at wave ten: you only met it by playing badly.' },
+  { v: '1.48', fr: 'Une planche pour comparer les sept adversaires.', en: 'A board to compare the seven opponents.' },
   { v: '1.47', fr: 'Le ciel passe de huit figures à cinq : Orion, Sirius et Cassiopée sont retirées.', en: 'The sky goes from eight figures to five: Orion, Sirius and Cassiopeia are removed.' },
   { v: '1.47', fr: 'La planche de la guitare s’ouvre au premier doigt posé, où qu’il tombe sur la page.', en: 'The guitar bench opens its sound on the first touch, wherever it lands on the page.' },
   { v: '1.46', fr: 'Une planche pour comparer les huit constellations, et une pour régler la guitare.', en: 'A board to compare the eight constellations, and one to tune the guitar.' },
