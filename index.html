@@ -871,6 +871,20 @@ const CRUISE        = 78;     // vitesse d'équilibre en palier
 const DECRO_ANGLE   = 80 * Math.PI / 180;   // le nez doit être quasi vertical
 const SPEED_MIN     = 46;     // sous cette valeur l'aile ne porte plus vraiment
 const SPEED_MAX     = 320;    // le piqué et la poursuite s'ajoutent : il faut de la place au-dessus
+// ---------------------------------------------------------------------------
+// ET PLUS AUCUN MUR AU-DESSUS. La vitesse était bornée à SPEED_MAX × 1,35,
+// soit 432 : un piqué du plafond y arrivait tout seul, et le portail franchi
+// juste après RALENTISSAIT l'appareil de cent mètres par seconde, puisqu'il
+// ramenait à 320. Le geste le plus beau du jeu — piquer de tout en haut, puis
+// enchaîner la chaîne de portails — était donc puni.
+//
+// La borne qui reste n'est plus un réglage, c'est un garde-fou : au-delà, un
+// pas de simulation traverserait un mur entre deux images. Ce qui arrête
+// vraiment l'appareil, c'est le rappel du moteur, qui grandit avec l'écart à
+// la croisière : il existe une vitesse d'équilibre en piqué, et elle est
+// trouvée par la physique, pas décrétée.
+// ---------------------------------------------------------------------------
+const SPEED_DUR     = 900;    // garde-fou de simulation, pas un plafond de jeu
 const GRAV          = 48;     // ce que la pesanteur donne ou reprend selon l'assiette
 const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
@@ -6248,8 +6262,34 @@ const MECANO_PORTEE = 9;
 const AERO = { x: 78, z: (PISTE.z0 + PISTE.z1) / 2, largeur: 46, prof: 176, haut: 15, baie: 156 };
 const AERO_PAS = 18;                      // mètres entre deux nez, dans le rang
 const MANCHE_MAT = 28;                    // mètres : quatre fois le mât d'origine
-const MANCHE_X   = PISTE.demiL + 10;      // dix mètres du bord du bitume, côté hangar
-const matHangar = lineMat(COL_LINE, 0.8);
+// ELLE SORT DE L'OMBRE DU HANGAR. Plantée à quatre mètres du mur ouest et
+// quatorze mètres du pignon sud, elle était dans le champ libre pour le code
+// et devant le bâtiment pour l'oeil : depuis la piste, le seul angle d'où on
+// la regarde, le cône se détachait sur la tôle du hangar. Et une manche à air
+// collée à un mur ne mesure plus le vent, elle mesure le remous du mur — ce
+// qui est faux deux fois, puisque c'est sur elle qu'on choisit le seuil.
+//
+// Elle se plante donc au large : dix-sept mètres à l'est du bitume, donc hors
+// piste et hors roulage, et quatre-vingts mètres au nord du pignon du hangar.
+// De l'approche elle se lit sur le ciel, et le vent qu'elle prend est le vent.
+const MANCHE_X   = PISTE.demiL + 17;      // mètres à l'est du bord du bitume
+const MANCHE_DEGAGE = 82;                 // mètres de champ libre avant le hangar
+// ---------------------------------------------------------------------------
+// UN SEUL VERT POUR TOUS LES BÂTIMENTS. Chaque famille avait choisi son
+// opacité dans son coin : 0,72 pour les pylônes, 0,80 pour le hangar, 0,85
+// pour les arches, 0,90 pour les tours et les spéciaux. À l'écran, une ville
+// censée être d'un seul trait se retrouvait en quatre intensités, et l'oeil
+// lisait une profondeur qui n'existe pas. Le fil de fer ne vaut que si le
+// trait est le même partout : c'est lui, et lui seul, qui dit la forme.
+// Une seule valeur, donc, et une seule exception — le portail déjà pris, qui
+// s'éteint exprès pour se faire comprendre.
+// ---------------------------------------------------------------------------
+const BATI_TRAIT = 0.85;
+const BATI_PRIS = 0.30;
+const matBati = lineMat(COL_LINE, BATI_TRAIT);
+const matBatiPris = lineMat(COL_LINE, BATI_PRIS);
+
+const matHangar = matBati;
 const matPale = lineMat(COL_LINE, 0.35);
 const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0.6, ventCible: 0.6, choix: [] };
 (function poserAerodrome() {
@@ -6286,27 +6326,28 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   // les appareils dedans : le nôtre, et les cinq à débloquer, alignés
   // les trois avions du joueur d'abord — brillants s'ils sont à lui, pâles
   // sinon — puis les silhouettes ennemies, pâles
-  const rang = [{ geo: planeGeom, edges: planeEdges, mat: matPlayer, ech: PLANE_SCALE * 0.9 },
-                { geo: KINDS[2].geom, edges: KINDS[2].edges, mat: legendesN > 0 ? matPlayer : matPale, ech: KINDS[2].echelle * 12 / 7.5 * 0.9 },
-                { lignes: PIONNIER_SHAPE, mat: matPlayer, ech: 12 / 7 * 0.75 }];
+  const rang = [{ id: 'bimoteur', geo: planeGeom, edges: planeEdges, mat: matPlayer, ech: PLANE_SCALE * 0.9 },
+                { id: 'intercepteur', geo: KINDS[2].geom, edges: KINDS[2].edges, mat: legendesN > 0 ? matPlayer : matPale, ech: KINDS[2].echelle * 12 / 7.5 * 0.9 },
+                { id: 'pionnier', lignes: PIONNIER_SHAPE, mat: matPlayer, ech: 12 / 7 * 0.75 }];
   for (const k of KINDS) if (!k.sol && !k.secret && k !== KINDS[2]) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
   // quatre devant, le reste derriere : tout le monde est visible depuis la
   // piste des que les vantaux sont effaces
-  // ON RETIENT OÙ SONT LES NÔTRES. Pointer le nez sur un appareil garé pour
-  // en changer suppose de savoir lequel est où : les trois premiers du rang
-  // sont le biplan, l'intercepteur et le pionnier, dans cet ordre, et l'ancien
-  // vient s'ajouter quand on l'a trouvé.
-  const CHOIX = ['bimoteur', 'intercepteur', 'pionnier'];
-  rang.push({ lignes: ANCIEN_ENTIER, peau: ANCIEN_PEAU, mat: matPlayer, ech: 12 / 7.2 * 0.75 });
-  CHOIX.push('ancien');
+  // ON RETIENT OÙ SONT LES NÔTRES — ET ON S'ÉTAIT TROMPÉ DE RANG. Le nom
+  // voyageait dans un tableau à part, lu par le même indice que le rang :
+  // les trois premiers tombaient juste, puis les silhouettes ennemies
+  // s'intercalaient, et « l'ancien » comme « le faucheur » se retrouvaient
+  // collés sur deux carcasses adverses. Résultat : on pointait le nez sur
+  // l'Ancien pendant des secondes sans que rien ne s'allume, parce que
+  // l'Ancien, pour le code, était quatre places plus loin. Chaque appareil
+  // porte maintenant son nom avec lui, et l'ordre du rang n'a plus d'avis.
+  rang.push({ id: 'ancien', lignes: ANCIEN_ENTIER, peau: ANCIEN_PEAU, mat: matPlayer, ech: 12 / 7.2 * 0.75 });
   // ET LE DISQUE EST GARÉ AVEC EUX, du premier jour. On le voit dans le rang
   // bien avant de pouvoir y monter — c'est le même ressort que l'Ancien : on
   // regarde un appareil pendant des parties entières, et c'est ce qui donne
   // envie de faire ce qu'il faut pour l'avoir.
-  rang.push({ geo: KIND_FAUCHEUR.geom, edges: KIND_FAUCHEUR.edges,
+  rang.push({ id: 'faucheur', geo: KIND_FAUCHEUR.geom, edges: KIND_FAUCHEUR.edges,
               mat: cielComplet() ? matPlayer : matPale,
               ech: KIND_FAUCHEUR.echelle * 0.9 });
-  CHOIX.push('faucheur');
   rang.forEach((r, i) => {
     const m = r.lignes ? avionEnFil(r.lignes, r.peau || [], r.mat)
                        : solidWire(r.geo, r.edges, r.mat);
@@ -6315,8 +6356,8 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
     m.position.set(-A.largeur / 2 + 13, 1.2, -A.prof / 2 + 16 + i * AERO_PAS);
     m.rotation.y = -Math.PI / 2;      // le nez vers la porte
     g.add(m);
-    if (i < CHOIX.length)
-      hangar.choix.push({ id: CHOIX[i], mesh: m,
+    if (r.id)
+      hangar.choix.push({ id: r.id, mesh: m,
                           p: new THREE.Vector3(A.x + m.position.x, 2.2, A.z + m.position.z) });
   });
   // la table et les tabourets, devant la porte, côté sud
@@ -6332,16 +6373,13 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   // DEUX FOIS PLUS GROSSE, ET AU BORD DU BITUME. Elle vivait à trente mètres
   // du bord de piste, haute de sept : en approche elle tenait quatre pixels et
   // on ne pouvait pas lire le vent, ce qui est pourtant la seule chose qu'on
-  // lui demande maintenant que le seuil en dépend. Mât de quatorze mètres,
-  // cône double, et plantée à dix mètres du bord — dans le cadre, tout du long.
-  // ET ELLE DOUBLE ENCORE, SUR LE COTE. Plantee a dix metres du bitume, dans
-  // l'axe de la baie, elle se superposait a la porte : en roulant vers le
-  // hangar on lisait le cone par-dessus les avions gares, et en sortant on
-  // passait dessous. Elle se plante au bout nord du batiment, a l'ecart de la
-  // porte et de la trajectoire de roulage, et son mat fait vingt-huit metres :
-  // depuis l'approche elle se detache du hangar au lieu de s'y confondre.
+  // lui demande maintenant que le seuil en dépend. Mât de vingt-huit mètres et
+  // cône double — dans le cadre, tout du long.
+  // ET AU LARGE, MAINTENANT : voir MANCHE_X et MANCHE_DEGAGE plus haut. Elle
+  // est posée en coordonnées du monde, puis ramenée dans le repère du hangar,
+  // pour que son champ libre reste vrai même si le bâtiment bouge.
   const mat = new THREE.LineSegments(segGeom([0, 0, 0, 0, MANCHE_MAT, 0]), matHangar);
-  mat.position.set(-A.largeur / 2 - 4, 0, -A.prof / 2 - 14);
+  mat.position.set(MANCHE_X - A.x, 0, (A.z + A.prof / 2 + MANCHE_DEGAGE) - A.z);
   g.add(mat);
   const cone = [], r0 = 2.4, r1 = 0.88, lc = 12.8;
   for (let i = 0; i < 8; i++) {
@@ -6576,6 +6614,36 @@ function majMotMecano(m, dt) {
   }
 }
 // ---------------------------------------------------------------------------
+// CE QUE LA RÉPARATION COÛTE, CHIFFRE PAR CHIFFRE. La vie remontait, le score
+// baissait, et rien ne reliait les deux : on découvrait la note à la fin de la
+// partie. Chaque homme au travail fait maintenant monter au-dessus de sa tête
+// ce qu'il vient de prendre, par paliers — assez espacés pour ne pas
+// clignoter, assez fréquents pour qu'on voie l'addition grossir tant qu'on
+// reste posé. C'est sa part à lui : à trois hommes, trois colonnes de
+// chiffres, et l'on comprend d'un coup d'oeil pourquoi le score fond.
+// ---------------------------------------------------------------------------
+const MECANO_PTS_PAS = 25;      // points de score par chiffre affiché
+const MECANO_PTS_DUREE = 1.3;   // secondes de vie du chiffre
+const MECANO_PTS_MONTEE = 1.6;  // mètres parcourus vers le haut
+function noteMecanoPoints(m, part) {
+  if (!(part > 0)) return;
+  m.ptsCumul = (m.ptsCumul || 0) + part;
+  while (m.ptsCumul >= MECANO_PTS_PAS) {
+    m.ptsCumul -= MECANO_PTS_PAS;
+    if (!m.pts) m.pts = [];
+    m.pts.push({ n: MECANO_PTS_PAS, t: MECANO_PTS_DUREE,
+                 dx: (Math.random() - 0.5) * 0.8 });
+  }
+}
+function majPointsMecanos(dt) {
+  for (const m of mecanos) {
+    if (!m.pts || !m.pts.length) continue;
+    for (const c of m.pts) c.t -= dt;
+    if (m.pts.some(c => c.t <= 0)) m.pts = m.pts.filter(c => c.t > 0);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // LE LANCE-ROQUETTES DU TERRAIN.
 //
 // Un char s'arrêtait au bord de la piste et arrosait l'appareil pendant toute
@@ -6618,6 +6686,7 @@ function mecanoRoquette(m, dt, cible) {
   return true;
 }
 function updateMecanos(dt) {
+  majPointsMecanos(dt);
   const char = charDansLaBulle();
   let tireur = true;      // un seul homme au tube : le premier valide
   for (const m of mecanos) {
@@ -6732,7 +6801,7 @@ function updateMecanos(dt) {
 const TOWER_H = 150;
 const towerGeom = new THREE.BoxGeometry(18, TOWER_H, 18).translate(0, TOWER_H / 2, 0);
 const towerEdges = new THREE.EdgesGeometry(towerGeom, 20);
-const matTower = lineMat(COL_LINE, 0.72);
+const matTower = matBati;
 const towers = [];
 
 // ARCHE. Un bâtiment en U renversé, à la manière de la Grande Arche : deux
@@ -6750,13 +6819,13 @@ const ARCHE = {
 ARCHE.largeur = ARCHE.ouvertureL + 2 * ARCHE.pile;
 ARCHE.hauteur = ARCHE.ouvertureH + ARCHE.poutre;
 
-const matArche = lineMat(COL_LINE, 0.85);
+const matArche = matBati;
 // ON VOIT QU'IL EST PRIS. L'aide dit depuis toujours qu'un portail ne se laisse
 // prendre qu'une fois par vague, et depuis la v1.40 le code le tient enfin —
 // mais rien ne le montrait : on repassait dessous, il ne se passait rien, et on
 // croyait à une panne. Un portail déjà pris s'éteint de moitié jusqu'à la vague
 // suivante. La règle se voit, donc elle se comprend.
-const matArchePris = lineMat(COL_LINE, 0.30);
+const matArchePris = matBatiPris;
 // la silhouette en Pi, décrite d'un trait : deux pieds, deux faces intérieures,
 // le dessous de la poutre, et le rectangle extérieur
 const CONTOUR_ARCHE = (() => {
@@ -6770,6 +6839,17 @@ const arches = [];
 const ARCHE_PRIME = 20;   // pour cent de vie rendus a chaque passage
 const FENTE_PRIME = 100;  // la fente à 45° est le passage le plus dur : elle rend le plus
 const VIE_MAX = 1e9;      // au-dela de cent, c'est de la vie de bonus, sans plafond pour l'instant
+// ---------------------------------------------------------------------------
+// LA JAUGE PART À MOITIÉ. Elle était pleine dès le premier décollage, et une
+// barre pleine ne raconte rien : on ne pouvait que la voir baisser. Tout le
+// jeu pousse pourtant à aller CHERCHER de la vie — les portails, les tours,
+// bientôt les tunnels — et cet effort n'avait aucune trace à l'écran, sauf un
+// chiffre. La barre est donc graduée sur le double de la vie de départ : on
+// commence à la moitié, la moitié droite est à conquérir, et l'on peut jouer
+// une partie entière sans se battre, juste pour la remplir.
+// ---------------------------------------------------------------------------
+const VIE_DEPART = 100;             // la vie du premier décollage
+const JAUGE_ECHELLE = VIE_DEPART * 2;   // et la barre en vaut deux fois plus
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
 for (let i = 0; i < CARTE.arches.length; i++) {
   const g = new THREE.Group();
@@ -6837,8 +6917,8 @@ TOUR.y1 = TOUR.y0 + TOUR.trou;                    // 242,5 m
 TOUR.montant = (TOUR.largeur - TOUR.trou) / 2;    // 32,5 m de chaque côté
 const TOUR_PRIME = 50;   // pour cent de vie rendus, une fois par tour et par vague
 
-const matTour = lineMat(COL_LINE, 0.9);
-const matTourPris = lineMat(COL_LINE, 0.30);
+const matTour = matBati;
+const matTourPris = matBatiPris;
 // le dernier enfant du groupe est le trait de l'ouvrage : c'est lui qui pâlit
 function marqueTrouPris(b, pris, vif, pale) {
   if (!b || !b.g) return;
@@ -9288,7 +9368,11 @@ function coupDePied() {
   // vitesse, on lève les yeux.
   state.figSortie = BERGER_FENETRE;
   state.boostPortail = 2 * cran;
-  state.speed = Math.min(SPEED_MAX, state.speed + CATAPULTE * cran);
+  // IL AJOUTE, IL NE FIXE PAS. Le Math.min(SPEED_MAX, ...) faisait du portail
+  // une consigne absolue : arriver plus vite que 320 et le franchir coûtait la
+  // différence. On ajoute, point — et une chaîne prise en piqué monte aussi
+  // haut que le pilote a su aller la chercher.
+  state.speed = Math.min(SPEED_DUR, state.speed + CATAPULTE * cran);
   state.secousse = 0.55 * Math.min(1.6, cran);
   // ON PASSE LA PORTE, ILS PERDENT LA MAIN. Traverser un portail au ras du
   // béton est le geste le plus exposé du jeu : on vole droit, lentement par
@@ -12711,8 +12795,7 @@ function simulate(dt) {
   state.speed += dv * dt;
   // Le plafond lui-même monte avec la poussée : sans cela le piqué seul
   // atteignait déjà la limite et la poursuite n'ajoutait plus rien.
-  const plafond = SPEED_MAX * (1 + 0.35 * state.boost);
-  state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, plafond);
+  state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_DUR);
 
   // ET LE TUBE A LE DERNIER MOT SUR LA VITESSE.
   //
@@ -13008,8 +13091,9 @@ function simulate(dt) {
     // ILS DOIVENT Y ÊTRE. Compter les hommes valides ne suffisait pas : la
     // vie remontait pendant qu'ils traversaient encore le terrain. On ne
     // compte plus que ceux qui sont à portée de bras de la cellule.
-    const debout = mecanos.filter(m => !m.mort && !m.tire
-                     && m.p.distanceTo(state.pos) < MECANO_PORTEE).length;
+    const auTravail = mecanos.filter(m => !m.mort && !m.tire
+                     && m.p.distanceTo(state.pos) < MECANO_PORTEE);
+    const debout = auTravail.length;
     const valides = mecanos.filter(m => !m.mort).length;
     const avant = state.structure;
     state.structure = Math.min(state.vieMax,
@@ -13017,7 +13101,15 @@ function simulate(dt) {
     stat('vieReparee', state.structure - avant);
     // ET ELLE SE PAIE. Cinq points de score par point de structure rendu :
     // aller se poser reste toujours possible, mais ce n'est plus gratuit.
+    const avantScore = state.score;
     state.score = Math.max(0, state.score - (state.structure - avant) * REPARE_COUT);
+    // ET ON VOIT LA NOTE. Ce qui a VRAIMENT été pris — pas ce qu'on aurait
+    // voulu prendre : à score nul la réparation devient gratuite, et alors
+    // aucun chiffre ne monte, ce qui est la vérité.
+    if (debout) {
+      const part = (avantScore - state.score) / debout;
+      for (const m of auTravail) noteMecanoPoints(m, part);
+    }
     tourneHelice(3.4 * dt);
     playerMesh.position.copy(state.pos);
     // LE DÉCALAGE DE CAMÉRA DOIT TOURNER AVEC LE CAP. Il était ajouté tel quel,
@@ -13315,7 +13407,9 @@ function simulate(dt) {
     state.forward.set(0, 0, -1).applyQuaternion(state.quat);
     state.pos.addScaledVector(state.forward, state.speed * dt);
     state.speed += (-state.forward.y * GRAV + (CRUISE - state.speed) * THRUST) * dt;
-    state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_MAX);
+    // même garde-fou qu'en vol libre : entrer dans la figure à cinq cents ne
+    // doit pas être puni d'un coup de frein à trois cent vingt
+    state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_DUR);
 
     playerMesh.position.copy(state.pos);
     playerMesh.quaternion.copy(state.quat);
@@ -14326,7 +14420,7 @@ function fovPourEcran(fovDessin, aspect) {
   return (2 * Math.atan(Math.tan(FOV_H_MAX / 2) / aspect)) / rad;
 }
 function majFov(dt) {
-  const dessin = 66 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 12;
+  const dessin = 66 + THREE.MathUtils.clamp((state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN), 0, 1) * 12;
   const cible = fovPourEcran(dessin, camera.aspect);
   const f = THREE.MathUtils.damp(camera.fov, cible, 3.5, dt);
   if (Math.abs(camera.fov - f) > 0.005) {
@@ -14830,6 +14924,36 @@ function drawHud() {
       hctx.font = taille.toFixed(1) + 'px "IBM Plex Mono", ui-monospace, monospace';
       hctx.fillStyle = 'rgba(190,255,220,' + (0.85 * f).toFixed(3) + ')';
       hctx.fillText(m.mot, q.x, q.y);
+    }
+    hctx.restore();
+  }
+
+  // ET CE QU'ILS PRENNENT, EN CHIFFRES. Même endroit, même règle de distance,
+  // mais un cran plus bas que les mots pour ne pas se marcher dessus : le
+  // chiffre naît à hauteur d'épaule, monte d'un mètre et demi et s'efface.
+  // Il est en rouge d'alerte, parce qu'il part du score et qu'on doit le
+  // regretter un peu.
+  {
+    const _mp = new THREE.Vector3();
+    hctx.save();
+    hctx.textAlign = 'center';
+    hctx.textBaseline = 'alphabetic';
+    for (const m of mecanos) {
+      if (!m.pts || !m.pts.length || !m.g.visible || m.mort) continue;
+      const d = m.p.distanceTo(camera.position);
+      if (d > 110) continue;
+      for (const c of m.pts) {
+        const u = 1 - c.t / MECANO_PTS_DUREE;        // 0 a la naissance, 1 a la fin
+        _mp.set(m.p.x + c.dx, m.p.y + MECANO_H * 0.75 + MECANO_PTS_MONTEE * u, m.p.z);
+        const q = project(_mp);
+        if (!q.front) continue;
+        const f = Math.min(1, (1 - u) * 3.2) * Math.min(1, u * 7) * (1 - d / 110);
+        if (f <= 0.02) continue;
+        const taille = THREE.MathUtils.clamp(190 / Math.max(6, d), 8, 14);
+        hctx.font = taille.toFixed(1) + 'px "IBM Plex Mono", ui-monospace, monospace';
+        hctx.fillStyle = 'rgba(255,120,110,' + (0.9 * f).toFixed(3) + ')';
+        hctx.fillText('-' + c.n, q.x, q.y);
+      }
     }
     hctx.restore();
   }
@@ -15787,8 +15911,10 @@ function refreshBars() {
   const st = Math.max(0, Math.ceil(state.structure));
   // la jauge est graduée sur le plafond de la partie, pas sur cent : le
   // potentiel gagné se voit, et ce qu'il en reste aussi
-  gaugeFill.style.width = Math.min(100, st / Math.max(100, state.vieMax) * 100) + '%';
-  gaugeFill.classList.toggle('bonus', state.vieMax > 100);
+  gaugeFill.style.width = Math.min(100, st / Math.max(JAUGE_ECHELLE, state.vieMax) * 100) + '%';
+  // et le doré dit « au-delà du départ », pas « le plafond a bougé » : c'est
+  // la vie de bonus elle-même qu'on regarde se remplir
+  gaugeFill.classList.toggle('bonus', st > VIE_DEPART);
   // PLUS DE SIGNE POUR CENT. La vie n'est pas une proportion de quoi que ce
   // soit depuis que le plafond monte : c'est un nombre de points, et le
   // symbole ne faisait qu'encombrer une bande deja chargee.
@@ -16648,6 +16774,13 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.52', fr: 'Tous les bâtiments ont le même trait : la ville se lisait en quatre intensités.', en: 'Every building has the same line: the city used to read in four intensities.' },
+  { v: '1.52', fr: 'Un portail ajoute sa poussée à la vitesse qu’on a : le franchir après un gros piqué freinait.', en: 'A gate adds its kick to the speed you have: taking one after a big dive used to brake you.' },
+  { v: '1.52', fr: 'Plus de mur de vitesse au-dessus : c’est le moteur qui fixe la limite, pas un réglage.', en: 'No more speed wall above: the engine sets the limit, not a setting.' },
+  { v: '1.52', fr: 'La barre de vie part à moitié : la moitié droite est de la vie de bonus, à aller chercher.', en: 'The life bar starts half full: the right half is bonus life, to be earned.' },
+  { v: '1.52', fr: 'Les mécaniciens font monter au-dessus d’eux ce que la réparation coûte.', en: 'Mechanics float the cost of the repair above their heads.' },
+  { v: '1.52', fr: 'L’Ancien et le faucheur répondent enfin au nez : leur nom était collé sur deux carcasses adverses.', en: 'The Elder and the reaper finally answer the nose: their names were stuck on two enemy hulks.' },
+  { v: '1.52', fr: 'La manche à air se plante au large : collée au hangar, elle mesurait le remous du mur.', en: 'The windsock is planted in the open: up against the hangar it measured the wall’s eddy.' },
   { v: '1.51', fr: 'Le chasseur et l’intercepteur fusionnent dans le gardien : trois adversaires qui se ressemblaient n’en font plus qu’un.', en: 'The fighter and the interceptor merge into the guardian: three opponents that looked alike are now one.' },
   { v: '1.51', fr: 'Une chenillée lourde ferme la neuvième vague, escortée de deux chars.', en: 'A heavy tracked machine closes the ninth wave, escorted by two tanks.' },
   { v: '1.51', fr: 'La dixième vague lance vingt biplans d’un coup, et le faucheur arrive dessus.', en: 'The tenth wave sends twenty biplanes at once, and the reaper arrives on top of them.' },
@@ -17714,7 +17847,7 @@ function resize() {
   // ON RECALE LE CHAMP TOUT DE SUITE. Déplier un téléphone change la forme de
   // l'écran d'un coup ; laisser l'amortissement rattraper ça donnerait un
   // zoom mou de deux secondes au moment le plus visible.
-  camera.fov = fovPourEcran(66 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 12,
+  camera.fov = fovPourEcran(66 + THREE.MathUtils.clamp((state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN), 0, 1) * 12,
                             camera.aspect);
   camera.updateProjectionMatrix();
   hud.width = Math.round(w * dpr);
