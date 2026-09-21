@@ -160,6 +160,12 @@
   <details class="groupe">
     <summary data-en="PLAY">JOUER</summary>
     <button class="ligne" id="mDefi" hidden></button>
+    <!-- ON N'Y RETOURNE PAS À LA NAGE. Le refuge est à trente-deux kilomètres :
+         trois minutes de vol tout droit, sans rien à faire, et il faut d'abord
+         l'avoir trouvé. Le trouver EST le jeu ; le retrouver ne l'est pas. Une
+         fois qu'on y est allé, on y repart directement — et la ligne n'existe
+         pas avant, donc elle ne dévoile rien à personne. -->
+    <button class="ligne" id="mRefuge" hidden data-en="GO STRAIGHT TO THE REFUGE">PARTIR DU REFUGE</button>
     <button class="ligne" id="mCoop" data-en="CO-OP · UP TO TEN">COOP · JUSQU'À DIX</button>
     <button class="ligne" id="mAvance" data-en="ADVANCED MODE · TROPHIES">MODE AVANCÉ · TROPHÉES</button>
     <p class="aide" id="menuAilier"></p>
@@ -669,16 +675,141 @@
 </div>
 
 <script>
-  // si le module ci-dessous ne s'exécute pas (three.js injoignable), le bouton
-  // DÉCOLLER resterait muet sans rien expliquer — d'où ce filet
-  window.__fodTimer = setTimeout(function () {
-    if (window.__fodReady) return;
-    var t = document.getElementById('overlayText');
-    var b = document.getElementById('startBtn');
-    if (t) t.innerHTML = "Le moteur 3D (three.js) n'a pas pu être chargé.<br>V\u00e9rifie la connexion, puis recharge la page.";
-    if (b) b.textContent = 'RECHARGER';
-    if (b) b.onclick = function () { location.reload(); };
-  }, 9000);
+  // -------------------------------------------------------------------------
+  // LE SURVEILLANT DE DÉMARRAGE.
+  //
+  // Il y avait ici un chronomètre de neuf secondes : passé ce délai, l'écran
+  // annonçait « le moteur 3D n'a pas pu être chargé, vérifie la connexion » et
+  // le bouton DÉCOLLER devenait RECHARGER.
+  //
+  // C'était un devin, pas un diagnostic, et il se trompait. Mesuré sur banc,
+  // sans la moindre panne :
+  //
+  //     lien            prêt à      le message tombait à
+  //     4G correcte      6,8 s      jamais
+  //     3G honnête      32,0 s      10,5 s
+  //     3G lente        63,6 s      11,7 s
+  //
+  // Sur un lien moyen, il accusait donc three.js pendant que tout descendait
+  // normalement — et le joueur, à qui l'on venait de proposer RECHARGER,
+  // relançait les trois mégaoctets depuis zéro. Le remède aggravait le mal.
+  //
+  // Ce qui le remplace suit ce que fait la profession pour une application
+  // web : on n'annonce une panne que sur une VRAIE erreur, captée, avec son
+  // message et le fichier fautif ; le reste du temps on montre ce qui descend,
+  // et l'on attend. Le bouton de rechargement n'apparaît qu'une fois qu'il n'y
+  // a vraiment plus rien qui arrive.
+  // -------------------------------------------------------------------------
+  (function () {
+    var DEBUT = Date.now();
+    var CRITIQUES = ['jeu.css', 'math.js', 'three.module.js', 'three.core.js'];
+    var boot = window.__boot = { erreurs: [], arrives: {}, dernier: Date.now() };
+    var PATIENCE = 20000;     // avant de dire « ça descend encore »
+    var ABANDON  = 75000;     // avant de proposer de recharger
+
+    function ecran(html, bouton) {
+      var t = document.getElementById('overlayText');
+      var b = document.getElementById('startBtn');
+      if (t) t.innerHTML = html;
+      if (b && bouton) { b.textContent = bouton; b.onclick = function () { location.reload(); }; }
+    }
+    function combien() {
+      var n = 0;
+      for (var i = 0; i < CRITIQUES.length; i++) if (boot.arrives[CRITIQUES[i]]) n++;
+      return n;
+    }
+    // ---- 1. LES VRAIES PANNES. Une ressource qui ne répond pas lève un
+    // « error » sur SA balise ; une exception dans le module en lève un sur la
+    // fenêtre. On prend les deux, et on répète ce qu'elles disent.
+    addEventListener('error', function (e) {
+      if (window.__fodReady) return;
+      var cible = e.target;
+      if (cible && cible !== window && (cible.src || cible.href)) {
+        boot.erreurs.push('fichier injoignable : ' + String(cible.src || cible.href).split('/').pop());
+      } else if (e.message) {
+        boot.erreurs.push(e.message + (e.filename ? ' — ' + String(e.filename).split('/').pop()
+                                                  + ' ligne ' + e.lineno : ''));
+      } else if (cible && cible.tagName === 'SCRIPT') {
+        // UN MODULE EN LIGNE QUI ÉCHOUE NE DIT RIEN. Son import rate, le
+        // navigateur lève un « error » sur la balise — qui n'a ni src, ni
+        // message, ni fichier. On sait donc qu'il s'est passé quelque chose,
+        // et rien de plus : c'est la sonde ci-dessous qui va chercher quoi.
+        boot.erreurs.push('le module du jeu n\u2019a pas pu d\u00e9marrer');
+      }
+      sonde();
+      dis();
+    }, true);
+    addEventListener('unhandledrejection', function (e) {
+      if (window.__fodReady) return;
+      var r = e.reason;
+      boot.erreurs.push('interrompu : ' + ((r && r.message) || r));
+      dis();
+    });
+    // ---- 2. CE QUI DESCEND VRAIMENT. L'API de performance dit quelle
+    // ressource est arrivée et quand : on ne devine pas l'avancement, on le lit.
+    try {
+      new PerformanceObserver(function (l) {
+        var e = l.getEntries();
+        for (var i = 0; i < e.length; i++) {
+          boot.dernier = Date.now();
+          for (var k = 0; k < CRITIQUES.length; k++)
+            if (e[i].name.indexOf(CRITIQUES[k]) >= 0) boot.arrives[CRITIQUES[k]] = true;
+        }
+      }).observe({ type: 'resource', buffered: true });
+    } catch (err) {}
+    // ---- 3. LA SONDE. On ne devine pas quel fichier manque : on le demande.
+    //
+    // Quatre requêtes de vérification, sans cache, et celle qui échoue donne le
+    // nom du coupable. C'est la différence entre « vérifie ta connexion » et
+    // « three.core.js ne répond pas » — la première fait recharger dans le
+    // vide, la seconde se corrige.
+    var sondeFaite = false;
+    function sonde() {
+      if (sondeFaite) return;
+      sondeFaite = true;
+      var cibles = ['jeu.css', 'math.js', 'vendor/three/three.module.js',
+                    'vendor/three/three.core.js'];
+      var manquants = [];
+      var restant = cibles.length;
+      cibles.forEach(function (u) {
+        fetch(u, { cache: 'no-store' })
+          .then(function (r) { if (!r.ok) manquants.push(u.split('/').pop() + ' : ' + r.status); })
+          .catch(function () { manquants.push(u.split('/').pop() + ' : aucune réponse'); })
+          .then(function () {
+            if (--restant) return;
+            if (manquants.length) boot.erreurs = manquants;
+            else if (!boot.erreurs.length) boot.erreurs.push('tous les fichiers r\u00e9pondent — le d\u00e9faut est dans le jeu');
+            dis();
+          });
+      });
+    }
+
+    // ---- 4. CE QU'ON AFFICHE
+    function dis() {
+      if (window.__fodReady) return;
+      if (boot.erreurs.length) {
+        ecran('Le jeu n\u2019a pas pu d\u00e9marrer.<br><span style="opacity:.75;font-size:.82em">'
+              + boot.erreurs.slice(0, 2).join('<br>') + '</span>', 'RECHARGER');
+        return;
+      }
+      var age = Date.now() - DEBUT;
+      var depuis = Date.now() - boot.dernier;
+      if (age > ABANDON && depuis > 20000) {
+        sonde();
+        ecran('Plus rien n\u2019arrive depuis vingt secondes.<br>'
+              + '<span style="opacity:.75;font-size:.82em">' + combien() + ' fichier(s) sur '
+              + CRITIQUES.length + ' re\u00e7u(s)</span>', 'RECHARGER');
+      } else if (age > PATIENCE) {
+        // ON NE PROPOSE PAS DE RECHARGER : recharger relance tout depuis zéro.
+        ecran('\u00c7a descend\u2026 <span style="opacity:.75">' + combien() + ' / '
+              + CRITIQUES.length + '</span>');
+      }
+    }
+    window.__fodTimer = setInterval(function () {
+      if (window.__fodReady) { clearInterval(window.__fodTimer); return; }
+      dis();
+    }, 1000);
+  })();
 </script>
 
 <script type="importmap">
@@ -8571,8 +8702,13 @@ function compteMission(cle, n) {
 function updateRefuge(dt) {
   if (!refugeG) return;
   // le chariot tracé vaut les trois minutes de vol : on a mérité le chemin
+  // ET UNE FOIS QU'ON Y EST ALLÉ, IL EXISTE. La condition des trois minutes de
+  // vol sert à ne pas dévoiler l'endroit à quelqu'un qui ne l'a pas cherché.
+  // Elle n'a plus de sens pour qui s'y est déjà posé : on ne remérite pas un
+  // lieu qu'on a trouvé, et sans cette ligne la ligne du menu menait à une
+  // plaine vide.
   const trouvable = state.running
-    && (state.ourseFaite || state.dureeVol >= REFUGE_TEMPS);
+    && (decouvertes.refuge || state.ourseFaite || state.dureeVol >= REFUGE_TEMPS);
   const d = Math.hypot(state.pos.x - REFUGE.x, state.pos.z - REFUGE.z);
   refugeG.visible = trouvable && d < REFUGE_VUE;
   if (state.refuge) { updateRefugePose(dt); return; }
@@ -13224,8 +13360,48 @@ function updateDecor() {
 // gardait les 70 degrés d'origine et le vol libre en réclamait 73 dès sa
 // première image. Trois degrés de champ d'un coup, une fois l'avion stabilisé,
 // et c'était là le dernier saut de caméra du décollage.
+// ---------------------------------------------------------------------------
+// LE CHAMP DE VISION S'ADAPTE À LA FORME DE L'ÉCRAN.
+//
+// Le champ d'une caméra three.js est VERTICAL. Tant que le jeu ne tournait que
+// sur des téléphones tenus debout, c'était sans conséquence : tous ont la même
+// forme à peu près. Un pliant n'a pas une forme, il en a trois.
+//
+//   écran                     proportion   champ HORIZONTAL obtenu
+//   téléphone debout (repère)    0,46        33°
+//   pliant ouvert                1,25        79°
+//   écran de couverture          0,39        28°
+//
+// Déplié, on voyait donc deux fois plus large — et le jeu, qui se joue au nez,
+// devenait un autre jeu. Replié, on regardait par une meurtrière.
+//
+// La règle retenue est celle des jeux 3D depuis toujours, dite « Hor+ » : un
+// écran plus étroit que le repère GARDE le champ horizontal et gagne en
+// hauteur ; un écran plus large garde le champ vertical, mais son champ
+// horizontal est borné pour que la déformation des bords reste supportable.
+// Personne ne voit plus ni moins que ce pour quoi le jeu est réglé.
+// ---------------------------------------------------------------------------
+const ASPECT_REPERE = 430 / 932;          // le téléphone sur lequel tout est réglé
+const FOV_H_MAX = 100 * Math.PI / 180;    // au-delà, les bords s'étirent trop
+const FOV_V_MAX = 108 * Math.PI / 180;
+function fovPourEcran(fovDessin, aspect) {
+  const rad = Math.PI / 180;
+  const vRef = fovDessin * rad;
+  if (!(aspect > 0.05)) return fovDessin;
+  if (aspect < ASPECT_REPERE) {
+    // plus étroit que le repère : on garde le champ horizontal du repère
+    const hRef = 2 * Math.atan(Math.tan(vRef / 2) * ASPECT_REPERE);
+    const v = 2 * Math.atan(Math.tan(hRef / 2) / aspect);
+    return Math.min(v, FOV_V_MAX) / rad;
+  }
+  // plus large : on garde le champ vertical, sauf si l'horizontal déborde
+  const h = 2 * Math.atan(Math.tan(vRef / 2) * aspect);
+  if (h <= FOV_H_MAX) return fovDessin;
+  return (2 * Math.atan(Math.tan(FOV_H_MAX / 2) / aspect)) / rad;
+}
 function majFov(dt) {
-  const cible = 66 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 12;
+  const dessin = 66 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 12;
+  const cible = fovPourEcran(dessin, camera.aspect);
   const f = THREE.MathUtils.damp(camera.fov, cible, 3.5, dt);
   if (Math.abs(camera.fov - f) > 0.005) {
     camera.fov = f;
@@ -15347,6 +15523,11 @@ function majMenu() {
     + (fr ? '   (1 pour 250 points)' : '   (1 per 250 points)');
   document.getElementById('mMaj').textContent = fr ? 'METTRE À JOUR MAINTENANT' : 'UPDATE NOW';
   document.getElementById('mNeuve').textContent = fr ? 'NOUVELLE PARTIE' : 'NEW GAME';
+  {
+    const b = document.getElementById('mRefuge');
+    b.textContent = fr ? 'PARTIR DU REFUGE' : 'GO STRAIGHT TO THE REFUGE';
+    b.hidden = !decouvertes.refuge;
+  }
   document.getElementById('mAxeY').textContent = (fr ? 'AXE Y  ·  ' : 'Y AXIS  ·  ')
     + (axeInverse ? (fr ? 'INVERSÉ  ·  SIMU' : 'INVERTED  ·  SIM')
                   : (fr ? 'NORMAL' : 'NORMAL'));
@@ -15475,6 +15656,9 @@ document.getElementById('mVersion').addEventListener('click', e => { e.stopPropa
 document.getElementById('mNeuve').addEventListener('click', e => {
   e.stopPropagation(); fermeMenu(); decolle(null);
 });
+document.getElementById('mRefuge').addEventListener('click', e => {
+  e.stopPropagation(); fermeMenu(); decolle(null, true);
+});
 document.getElementById('mInstall').addEventListener('click', e => { e.stopPropagation(); fermeMenu(); installBtn.click(); });
 
 const timbreBtn = document.getElementById('timbreBtn');
@@ -15530,6 +15714,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.36', fr: 'Le jeu n’accuse plus three.js sur un simple chronomètre : il ne signale une panne que s’il en trouve une, et il dit laquelle.', en: 'The game no longer blames three.js on a mere timer: it reports a failure only when it finds one, and says which.' },
+  { v: '1.36', fr: 'Un réseau muet n’empêche plus un jeu installé de démarrer : passé trois secondes et demie, il se lance depuis le cache.', en: 'A silent network no longer stops an installed game from starting: after three and a half seconds it launches from cache.' },
+  { v: '1.36', fr: 'Une fois le refuge trouvé, on en repart directement depuis le menu.', en: 'Once the refuge is found, you can start straight from it in the menu.' },
+  { v: '1.36', fr: 'Le champ de vision suit la forme de l’écran : plus de meurtrière sur un écran de couverture, plus de grand-angle déplié.', en: 'The field of view follows the screen shape: no more tunnel vision on a cover screen, no more wide angle unfolded.' },
+  { v: '1.36', fr: 'Sur un écran large, l’interface tient dans une colonne centrée au lieu de s’étaler d’un bord à l’autre.', en: 'On a wide screen the interface sits in a centred column instead of spreading edge to edge.' },
   { v: '1.35', fr: 'La police est dans le dépôt : le jeu ne demande plus rien à personne, et a la même tête sans réseau.', en: 'The typeface lives in the repository: the game asks nothing of anyone, and looks the same with no network.' },
   { v: '1.34', fr: 'La feuille de style et les calculs purs sortent du fichier : huit cent soixante-dix lignes et vingt-deux vérifications de moins à porter.', en: 'The stylesheet and the pure maths move out of the file: eight hundred and seventy lines and twenty-two checks lifted off it.' },
   { v: '1.34', fr: 'Le dépôt a enfin ses essais : le jeu démarre-t-il, et les calculs sont-ils justes.', en: 'The repository finally has its tests: does the game start, and is the maths right.' },
@@ -16093,7 +16282,10 @@ videoBtn.addEventListener('click', async () => {
   }
 });
 
-function decolle(defi) {
+// PARTIR DU REFUGE. La partie commence exactement où elle s'arrêtait quand on
+// s'y posait : appareil immobile au milieu de la bande, nez vers la cabane,
+// moteur coupé, vie pleine. On ne rejoue pas l'atterrissage — on est arrivé.
+function decolle(defi, auRefuge) {
   audioDemarre();
   overlay.hidden = true;
   videoBtn.hidden = true;
@@ -16120,7 +16312,42 @@ function decolle(defi) {
   state.running = true;
   last = performance.now();
   carnet.parties++;
+  // ON Y EST DÉJÀ. Le décollage est annulé, l'appareil est posé au milieu de la
+  // bande du refuge, nez vers la cabane, moteur coupé — exactement l'état dans
+  // lequel `entreAuRefuge` laisse les choses une fois le roulage fini. On ne
+  // rejoue pas une arrivée qu'on a déjà méritée une fois.
+  if (auRefuge && decouvertes.refuge) poseAuRefugeDirect();
   proposeApresCoup();
+}
+
+// L'ÉTAT D'ARRIVÉE, SANS L'ARRIVÉE. Le même que celui de `entreAuRefuge` après
+// REFUGE_ARRET secondes de roulage : c'est le seul endroit du jeu qu'on peut
+// rejoindre sans y voler, et seulement après y avoir volé une fois.
+function poseAuRefugeDirect() {
+  const A = REFUGE_PLAN.arret;          // le point où le roulage s'achève
+  state.takeoff = null; state.pose = null; state.roulage = null; state.assist = false;
+  state.pos.set(REFUGE.x + A.x, SOL_Y, REFUGE.z + A.z);
+  state.yaw = REFUGE_CAP; state.pitch = 0; state.roll = 0;
+  state.speed = 0; state.regime = 0;
+  state.quat.setFromEuler(new THREE.Euler(0, state.yaw, 0));
+  state.forward.set(0, 0, -1).applyQuaternion(state.quat);
+  state.refuge = { t: REFUGE_ARRET + REFUGE_SORTIE + 0.1, angle: 0,
+                   x0: state.pos.x, z0: state.pos.z, cap0: REFUGE_CAP, dCap: 0 };
+  state.waveTimer = 1e9;                 // il n'y a pas de vague au refuge
+  state.enemies.forEach(e => e.mesh.parent && e.mesh.parent.remove(e.mesh));
+  state.enemies.length = 0;
+  state.bullets.length = 0;
+  state.roqEnnemies.length = 0;
+  state.structure = state.vieMax;
+  traineePts[0].length = 0; traineePts[1].length = 0;
+  traineeLayer.visible = false;
+  if (refugeG) refugeG.visible = true;
+  majPanneauRefuge();
+  // ON N'ANNONCE PAS UN DÉCOLLAGE QUI N'A PAS EU LIEU. Le mot est posé par la
+  // séquence de départ, qu'on vient d'annuler : il restait affiché en grand
+  // au-dessus d'un appareil à l'arrêt, moteur coupé.
+  state.announceT = 0;
+  redecoBtn.hidden = false;
 }
 const defiBtn = document.getElementById('defiBtn');
 startBtn.addEventListener('click', () => decolle(false));
@@ -16470,6 +16697,11 @@ function resize() {
   renderer.setPixelRatio(dpr);
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
+  // ON RECALE LE CHAMP TOUT DE SUITE. Déplier un téléphone change la forme de
+  // l'écran d'un coup ; laisser l'amortissement rattraper ça donnerait un
+  // zoom mou de deux secondes au moment le plus visible.
+  camera.fov = fovPourEcran(66 + (state.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN) * 12,
+                            camera.aspect);
   camera.updateProjectionMatrix();
   hud.width = Math.round(w * dpr);
   hud.height = Math.round(h * dpr);
@@ -16900,7 +17132,7 @@ requestAnimationFrame(step);
 appliqueLangue();
 rendJournal();
 window.__fodReady = true;
-clearTimeout(window.__fodTimer);
+clearInterval(window.__fodTimer);
 </script>
 </body>
 </html>

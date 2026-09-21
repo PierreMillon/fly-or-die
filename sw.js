@@ -11,7 +11,7 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v1.35';
+const VERSION = 'v1.36';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
@@ -19,6 +19,11 @@ const BOITE = 'fly-or-die-' + VERSION;
 // un CDN, donc plus rien qui puisse tomber. La police non plus ne vient plus
 // d'ailleurs (v1.35) : elle est dans le socle, et une première ouverture sans
 // réseau a désormais exactement la même tête qu'une autre.
+// Au-delà de ce délai, on sert la page en cache et l'on met à jour au
+// lancement suivant. Un lien muet ne doit pas empêcher un jeu installé de
+// démarrer.
+const DELAI_RESEAU = 3500;
+
 const SOCLE = [
   './',
   './index.html',
@@ -98,16 +103,31 @@ self.addEventListener('fetch', e => {
   // y est entré.
   if (r.headers.has('range') || r.destination === 'audio' || r.destination === 'video') return;
 
-  // LA PAGE : le réseau d'abord.
+  // LA PAGE : LE RÉSEAU D'ABORD, MAIS PAS INDÉFINIMENT.
+  //
+  // « Le réseau d'abord » sans limite de temps, c'est la pire des deux
+  // stratégies sur un téléphone : un lien qui ne répond pas ne rend pas une
+  // erreur, il PEND. Le jeu était installé, la page était dans le cache à
+  // quelques millisecondes de là, et l'on regardait un écran vide en attendant
+  // qu'un réseau muet veuille bien se décider.
+  //
+  // Trois secondes et demie, c'est la limite retenue par les bibliothèques
+  // sérieuses du domaine : au-delà, on sert la version en cache — le joueur
+  // joue — et la mise à jour se fera au lancement suivant. Une application
+  // installée doit démarrer, même quand le réseau ment.
   if (r.mode === 'navigate') {
     e.respondWith((async () => {
+      const enCache = caches.match('./index.html', { cacheName: BOITE });
       try {
-        const rep = await fetch(r);
+        const rep = await Promise.race([
+          fetch(r),
+          new Promise((_, non) => setTimeout(() => non(new Error('trop long')), DELAI_RESEAU))
+        ]);
         const c = await caches.open(BOITE);
         c.put('./index.html', rep.clone());
         return rep;
       } catch (err) {
-        return (await caches.match('./index.html')) || Response.error();
+        return (await enCache) || (await fetch(r).catch(() => Response.error()));
       }
     })());
     return;
@@ -116,7 +136,12 @@ self.addEventListener('fetch', e => {
   // TOUT LE RESTE : le cache d'abord. Une bibliothèque figée sur sa version ne
   // change jamais, et une police non plus.
   e.respondWith((async () => {
-    const trouve = await caches.match(r);
+    // ON NE CHERCHE QUE DANS SA PROPRE BOÎTE. `caches.match(r)` fouille TOUTES
+    // les boîtes, y compris celles des versions précédentes : une page toute
+    // neuve pouvait donc recevoir le fichier d'une génération d'avant, et les
+    // deux ne se connaissent pas. C'est la panne la plus difficile à
+    // reproduire qu'un service worker sache produire.
+    const trouve = await caches.match(r, { cacheName: BOITE });
     if (trouve) return trouve;
     try {
       const rep = await fetch(r);

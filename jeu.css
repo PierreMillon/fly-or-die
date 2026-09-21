@@ -209,6 +209,7 @@
   #topbar, #bottombar { pointer-events: none; }
   #topbar button { pointer-events: auto; }
 
+
   /* LA VIE EN HAUT, LES BOUTONS EN BAS. On lit une jauge du coin de l'oeil en
      haut de l'écran ; on touche un bouton avec le pouce en bas. Les deux
      bandes ont donc échangé leur place : #bottombar porte la vie et se colle
@@ -537,7 +538,12 @@
     right: 8px;
     left: 8px;
     max-width: 460px;
+    /* CENTRÉS, PAS COLLÉS À DROITE. « margin-left: auto » seul poussait le
+       panneau contre le bord droit : invisible sur un téléphone, où les huit
+       pixels de marge font toute la largeur ; franchement bizarre dès que
+       l'écran s'élargit. */
     margin-left: auto;
+    margin-right: auto;
     max-height: 62vh;
     overflow-y: auto;
     z-index: 45;
@@ -954,3 +960,78 @@
   /* à l'accueil et à la fin, ni vie ni chiffres : ils n'apparaissent qu'en vol */
   body.accueil #bottombar, body.accueil #topbar .chiffre { visibility: hidden; }
   /* la barre de vie, désormais en haut, laisse la place au titre */
+
+  /* -------------------------------------------------------------------------
+     UNE COLONNE, ET PAS TOUTE LA LARGEUR.
+ 
+     Tout est réglé pour un téléphone tenu debout, quatre cent trente pixels de
+     large : les deux bandes s'étirent d'un bord à l'autre et leurs boutons se
+     rangent aux extrémités. C'est juste là, et faux partout ailleurs. Mesuré
+     sur un pliant déplié, 2208 pixels de large : le bouton le plus éloigné se
+     retrouvait à 2033 pixels du bord opposé — hors d'atteinte d'un pouce, et
+     hors du regard.
+ 
+     Le fond des bandes garde toute la largeur, parce qu'une bande coupée au
+     milieu d'un écran ne ressemble à rien. Ce qu'elles CONTIENNENT tient dans
+     une colonne centrée. C'est ce que fait n'importe quelle interface qui
+     accepte de changer de forme, et ça ne coûte que deux marges.
+     ---------------------------------------------------------------------- */
+  /* LA LISTE EST LONGUE PARCE QUE LA SPÉCIFICITÉ COMPTE. `body.accueil #topbar`
+     vaut (1,1,0) et l'emportait sur (1,0,0) : la colonne s'appliquait partout
+     SAUF sur l'écran de titre, c'est-à-dire précisément là où l'on regarde.
+     On reprend donc le même poids. */
+  #topbar, #bottombar, #overlay,
+  body.accueil #topbar, body.accueil #bottombar, body.accueil #overlay {
+    /* LA VALEUR EST ÉCRITE EN TOUTES LETTRES. Avec `var(--colonne)` à
+       l'intérieur du `max()`, Chromium laisse tomber la déclaration et
+       retombe sur les dix pixels du raccourci — mesuré : 10 px depuis la
+       feuille, 824 px avec la même expression posée à la main sur l'élément.
+       Une variable qui ne se substitue pas est pire qu'une valeur en dur. */
+    padding-left: max(10px, calc((100% - 560px) / 2));
+    padding-right: max(10px, calc((100% - 560px) / 2));
+  }
+  /* les panneaux, l'écran de titre et les bandes partagent la même colonne */
+  #overlay > *, #topbar > *, #bottombar > * { max-width: 100%; }
+
+  /* -------------------------------------------------------------------------
+     LA CHARNIÈRE.
+ 
+     Un pliant posé en tente, ou tenu ouvert comme un livre, ne présente pas
+     une surface : il en présente deux, séparées par un pli où rien ne doit se
+     trouver. Le navigateur les décrit par `viewport-segment` — la proportion
+     seule ne suffit pas à les deviner.
+ 
+     Ces deux règles ne sont PAS vérifiées : aucun navigateur de ce banc
+     n'expose de segments, et je n'ai pas de pliant sous la main. Elles sont
+     écrites d'après la spécification, elles n'ont aucun effet sur un écran
+     ordinaire — la requête ne s'applique jamais — et elles attendent d'être
+     démenties par un vrai appareil.
+     ---------------------------------------------------------------------- */
+
+  /* OUVERT COMME UN LIVRE : le pli est vertical, au milieu. On range tout ce
+     qui se lit dans le segment de gauche plutôt qu'à cheval sur la pliure. */
+  @media (horizontal-viewport-segments: 2) {
+    #changelog, #aide, #viseurs, #coop, #install, #menu, #infos,
+    #lettre .feuille, #carteMur .papier, #guitare .papier {
+      max-width: min(460px, env(viewport-segment-width 0 0, 460px));
+      margin-left: 0;
+      margin-right: auto;
+    }
+    #topbar, #bottombar, #overlay,
+    body.accueil #topbar, body.accueil #bottombar, body.accueil #overlay {
+      padding-left: 10px;
+      padding-right: max(10px, calc(100% - env(viewport-segment-right 0 0, 100%) + 10px));
+    }
+  }
+
+  /* POSÉ EN TENTE : le pli est horizontal. Le segment du bas devient le
+     pupitre — c'est là que le pouce arrive — et le haut reste l'image. */
+  @media (vertical-viewport-segments: 2) {
+    #lettre .feuille, #carteMur .papier, #guitare .papier {
+      max-height: env(viewport-segment-height 0 1, 62vh);
+      align-self: flex-end;
+    }
+    #redecoBtn, #actionBtn {
+      bottom: calc(env(viewport-segment-top 0 1, 0px) + 18px);
+    }
+  }

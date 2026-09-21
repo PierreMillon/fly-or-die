@@ -2455,3 +2455,86 @@ socle du service worker, avec `font-display: block` et un `preload` des deux
 latins. Les `preconnect` sont retirés.
 
 `essais/police.mjs` — 6 vérifications, dont trois qui coupent le réseau.
+
+## v1.36 — le faux diagnostic, le refuge au menu, les écrans pliants
+
+### « Le moteur 3D n'a pas pu être chargé » était un devin, pas un diagnostic
+
+Le filet de démarrage déclarait la panne sur un **chronomètre de neuf
+secondes**, sans jamais regarder s'il s'était passé quelque chose. Mesuré sur
+banc, sans la moindre panne :
+
+| lien | jeu réellement prêt | message affiché | vraies erreurs |
+|---|---|---|---|
+| 4G correcte | 6,8 s | jamais | 0 |
+| 3G honnête | **32,0 s** | **10,5 s** | 0 |
+| 3G lente | **63,6 s** | **11,7 s** | 0 |
+
+Il accusait donc three.js pendant que tout descendait normalement, et il
+remplaçait DÉCOLLER par RECHARGER — donc on rechargeait, et on relançait les
+trois mégaoctets depuis zéro. Le remède aggravait le mal.
+
+Écarté en chemin : le déploiement GitHub Pages est bien passé pour la v1.35, et
+le chemin de mise à jour v1.34 → v1.35 a été rejoué en entier sans défaut.
+
+**Ce qui le remplace**, et c'est la pratique courante pour une application web :
+
+- on écoute `error` (en capture) et `unhandledrejection` : les vraies pannes ;
+- un module en ligne qui échoue ne dit rien — ni `src`, ni message — alors une
+  **sonde** va interroger les quatre fichiers critiques et nomme celui qui ne
+  répond pas ;
+- tant que rien n'a échoué, on affiche l'avancement (`3 / 4`) et on attend ;
+- le bouton de rechargement n'apparaît qu'après 75 s **sans** progrès.
+
+Vérifié dans les deux sens : aucune fausse panne à 32 s et 63,7 s de
+chargement sain, et sur une vraie coupure le message dit
+« three.core.js : aucune réponse ».
+
+### Le service worker
+- Navigation réseau-d'abord **avec une limite de 3,5 s** : un lien muet ne doit
+  pas empêcher un jeu installé de démarrer. Sans limite, `fetch` ne rend pas une
+  erreur — il pend.
+- `caches.match(r, { cacheName: BOITE })` : la recherche fouillait TOUTES les
+  boîtes, y compris celles des versions précédentes. Une page neuve pouvait
+  recevoir le fichier d'une génération d'avant.
+
+### Partir du refuge
+Ligne de menu qui n'existe pas avant de l'avoir trouvé, et qui place l'appareil
+exactement où le roulage d'arrivée le laisse (`REFUGE_PLAN.arret`), moteur
+coupé, vie pleine, sans vague. Deux défauts corrigés au passage : le refuge
+restait invisible faute des trois minutes de vol, et le mot DÉCOLLAGE s'affichait
+au-dessus d'un appareil immobile.
+
+### Les écrans qui ne sont pas des téléphones debout
+
+Champ de vision : il est VERTICAL dans three.js, donc fixe en hauteur et
+variable en largeur. Règle « Hor+ » — plus étroit que le repère, on garde le
+champ horizontal ; plus large, on garde le vertical mais on borne l'horizontal
+à 100°.
+
+| écran | proportion | champ horizontal avant | après |
+|---|---|---|---|
+| iPhone debout | 0,46 | 33° | 33° |
+| Fold couverture | 0,39 | 28° | **33°** |
+| Fold ouvert | 0,80 | 55° | 55° |
+| ordinateur | 1,60 | 92° | 92° |
+
+Disposition : l'interface s'étalait d'un bord à l'autre. Sur un Fold déplié le
+bouton le plus éloigné était à **2033 px** du bord opposé. Elle tient maintenant
+dans une colonne de **560 px centrée**, sur les six formats mesurés, sans que
+rien ne dépasse et sans toucher à la 3D, qui garde tout l'écran.
+
+Deux pièges rencontrés, tous deux mesurés :
+- `var(--colonne)` à l'intérieur d'un `max()` : Chromium laisse tomber la
+  déclaration et retombe sur le raccourci. 10 px depuis la feuille, 824 px avec
+  la même expression posée à la main. Valeur écrite en toutes lettres.
+- `body.accueil #topbar` vaut (1,1,0) et l'emportait sur (1,0,0) : la colonne
+  s'appliquait partout **sauf** sur l'écran de titre.
+
+La charnière (`viewport-segment`) est écrite d'après la spécification et
+**n'est pas vérifiée** : aucun navigateur du banc n'expose de segments. Elle
+n'a aucun effet sur un écran ordinaire.
+
+### Les essais
+`essais/demarrage.mjs` (5 vérifications) et `essais/pliants.mjs` (24
+vérifications sur six formats) rejoignent le dépôt.
