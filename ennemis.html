@@ -49,6 +49,21 @@ plus il est dangereux sur ce point. Chaque barre est rapportée au plus fort des
 sept — c'est la seule façon de comparer des mètres par seconde, des radians par
 seconde, des points de vie et des secondes sur un même dessin.</p>
 
+<p class="titre">LES SILHOUETTES, VUES DE DESSUS</p>
+<p class="sous">Les vrais sommets du jeu, projetés à plat, à l'échelle les uns
+des autres. C'est ce qu'on voit passer dans le noir — et c'est là que se décide
+si trois adversaires sont trois choses ou une seule.</p>
+<div class="carte">
+  <p class="nom" style="font-size:11px">AUJOURD'HUI — TROIS SILHOUETTES</p>
+  <p class="ou">chasseur 11,2 m  ·  intercepteur 7,5 m  ·  gardien 17 m</p>
+  <canvas id="silA" style="height:150px"></canvas>
+</div>
+<div class="carte">
+  <p class="nom" style="font-size:11px">LA FAMILLE — UNE SILHOUETTE, DEUX TAILLES</p>
+  <p class="ou">le chasseur, et le même grossi de moitié : le gardien</p>
+  <canvas id="silB" style="height:150px"></canvas>
+</div>
+
 <div class="rangee">
   <button id="btnA">PROPOSITION A · BIPLAN, DRONE, GARDIEN</button>
   <button id="btnB">PROPOSITION B · BIPLAN, CHASSEUR, GARDIEN</button>
@@ -67,6 +82,56 @@ seconde, des points de vie et des secondes sur un même dessin.</p>
 <p class="etat" id="etat"></p>
 
 <script>
+const FORMES = {
+  biplan: { v: [-3.0,0.75,-0.7,3.0,0.75,-0.7,3.0,0.75,0.5,-3.0,0.75,0.5,-2.7,-0.35,-0.5,2.7,-0.35,-0.5,2.7,-0.35,0.7,-2.7,-0.35,0.7,0.0,0.35,-2.2,0.0,0.35,2.4,0.0,-0.25,2.4,0.0,-0.25,-2.2,-1.2,0.2,2.0,1.2,0.2,2.0,0.0,0.2,2.5,0.0,1.0,2.2], t: [0,1,2,0,2,3,4,5,6,4,6,7,8,9,10,8,10,11,12,13,14,9,15,10] },
+  chasseur: { v: [0.0,0.0,-2.7,-3.9,0.0,1.3,3.9,0.0,1.3,0.0,0.0,0.5,-3.6,0.95,1.7,3.6,0.95,1.7], t: [0,1,3,0,3,2,1,4,3,2,3,5] },
+  intercepteur: { v: [0.0,0.0,-3.6,-2.2,0.0,1.5,2.2,0.0,1.5,0.0,0.0,0.6,0.0,0.95,1.9,0.0,0.0,2.3,-0.9,0.0,2.2,0.9,0.0,2.2], t: [0,1,3,0,3,2,3,4,5,6,3,7] },
+  drone: { v: [0.0,0.0,-0.6,0.6,0.0,0.0,0.0,0.0,0.6,-0.6,0.0,0.0,-2.6,0.0,-2.6,2.6,0.0,-2.6,2.6,0.0,2.6,-2.6,0.0,2.6,0.0,0.8,0.2], t: [0,1,2,0,2,3,3,0,4,0,1,5,1,2,6,2,3,7,0,8,2] },
+  gardien: { v: [0.0,0.0,-0.9,0.9,0.0,0.0,0.0,0.0,0.9,-0.9,0.0,0.0,-3.4,0.0,-3.4,3.4,0.0,-3.4,3.4,0.0,3.4,-3.4,0.0,3.4,0.0,1.5,0.3,0.0,-1.1,0.3], t: [0,1,2,0,2,3,3,0,4,0,1,5,1,2,6,2,3,7,0,8,2,0,9,2] },
+  tank: { v: [-4.5,0.0,-7.0,4.5,0.0,-7.0,4.5,0.0,7.0,-4.5,0.0,7.0,-3.6,2.6,-5.0,3.6,2.6,-5.0,3.6,2.6,5.0,-3.6,2.6,5.0,-1.8,2.6,-1.6,1.8,2.6,-1.6,1.8,4.4,1.6,-1.8,4.4,1.6,0.0,4.0,-9.0], t: [0,1,5,0,5,4,1,2,6,1,6,5,2,3,7,2,7,6,3,0,4,3,4,7,4,5,6,4,6,7,8,9,10,8,10,11,8,9,12,10,11,12] },
+};
+
+// LES SILHOUETTES VUES DE DESSUS. On prend les vrais sommets et on jette la
+// hauteur : il reste le plan de l'appareil, c'est-à-dire ce qu'on en voit
+// quand il passe. Les triangles donnent les arêtes ; on les dessine toutes.
+function silhouette(cv, items) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = 150;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const x = cv.getContext('2d');
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.clearRect(0, 0, w, h);
+  // l'échelle commune : le plus large de tous, avec sa marge
+  let large = 0;
+  for (const it of items) {
+    const f = FORMES[it.forme];
+    for (let i = 0; i < f.v.length; i += 3)
+      large = Math.max(large, Math.abs(f.v[i]) * (it.ech || 1));
+  }
+  const N = items.length;
+  const cell = w / N;
+  const k = Math.min((cell * 0.42) / large, (h * 0.40) / large);
+  x.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  items.forEach((it, i) => {
+    const f = FORMES[it.forme], e = it.ech || 1;
+    const cx = cell * (i + 0.5), cy = h / 2 - 8;
+    x.strokeStyle = it.pale ? '#1d4a36' : '#46ffa0';
+    x.lineWidth = 1;
+    x.beginPath();
+    for (let t = 0; t < f.t.length; t += 3) {
+      const a = f.t[t], b = f.t[t+1], c = f.t[t+2];
+      for (const [p, q] of [[a,b],[b,c],[c,a]]) {
+        x.moveTo(cx + f.v[p*3] * e * k, cy + f.v[p*3+2] * e * k);
+        x.lineTo(cx + f.v[q*3] * e * k, cy + f.v[q*3+2] * e * k);
+      }
+    }
+    x.stroke();
+    x.fillStyle = it.pale ? '#1d4a36' : '#8ffcc4';
+    x.fillText(it.nom, cx, h - 10);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // LES CHIFFRES SONT CEUX DU JEU, RELEVÉS DANS LA TABLE KINDS DE index.html.
 //
@@ -88,7 +153,7 @@ const E = [
     tactique: 'la queue — il cherche à se mettre derrière',
     vitesse: 75, virage: 0.62, vie: 100, recharge: 0.9, portee: 900, rafale: 3, envergure: 11.2,
     pour: 'La seule tactique des quatre qu’on RECONNAÎT en vol : il passe derrière, et on le sent. C’est celui qui apprend à ne pas voler droit.',
-    contre: 'Entre lui, l’intercepteur et le drone, on ne distingue rien depuis la cabine : trois silhouettes différentes pour trois façons de venir qui se ressemblent toutes à deux cents mètres par seconde.'
+    contre: 'Sa silhouette est bien à lui — le dessin du haut le montre — mais sa FAÇON DE VENIR ne se distingue pas de celle de l’intercepteur ni du gardien. Trois lois de poursuite différentes, et aucune des trois ne se lit à deux cents mètres par seconde.'
   },
   {
     cle: 'intercepteur', nom: 'L’INTERCEPTEUR', ou: 'vagues 6 à 9  ·  de 260 à 820 m',
@@ -249,11 +314,23 @@ document.getElementById('btnCopier').addEventListener('click', async () => {
     document.getElementById('etat').textContent = 'Impossible de copier ici : sélectionne le bloc à la main.';
   }
 });
-window.addEventListener('resize', rend);
+function silhouettes() {
+  silhouette(document.getElementById('silA'), [
+    { forme: 'chasseur', nom: 'CHASSEUR' },
+    { forme: 'intercepteur', nom: 'INTERCEPTEUR' },
+    { forme: 'gardien', nom: 'GARDIEN' },
+  ]);
+  silhouette(document.getElementById('silB'), [
+    { forme: 'chasseur', nom: 'CHASSEUR' },
+    { forme: 'chasseur', nom: 'GARDIEN', ech: 1.52 },
+  ]);
+}
+window.addEventListener('resize', () => { rend(); silhouettes(); });
 
 rend();
+silhouettes();
 document.getElementById('etat').textContent =
-  'Quatre tactiques de poursuite pour quatre chasseurs, et trois d’entre elles ne se voient pas depuis la cabine.';
+  'Les silhouettes, elles, sont bien distinctes : c’est la FAÇON DE VENIR qui ne se lit pas.';
 </script>
 </body>
 </html>
