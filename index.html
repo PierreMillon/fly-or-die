@@ -1085,6 +1085,16 @@ const RAYON_MINI = 110;       // mètres : le plus petit cercle qu'on puisse dé
 // Le déclenchement n'est pas l'angle lui-même mais son FRANCHISSEMENT : sans
 // cela, un adversaire pris de dos resterait paralysé tant qu'il ne nous a pas
 // rattrapé, ce qui est l'inverse de ce qu'on veut.
+const EMBUSCADE_N = 2;          // adversaires plus proches de nous que lui
+const EMBUSCADE_DIST = 900;     // mètres : il ne part en embuscade que de loin
+const EMBUSCADE_HAUT = 650;     // mètres au-dessus de nous avant de plonger
+const EMBUSCADE_MINI = 420;     // il faut que son plafond soit au moins si haut au-dessus
+const EMBUSCADE_LARGE = 520;    // il s'écarte de la ligne de visée
+const EMBUSCADE_ARRIERE = 420;  // et il passe derrière nous
+const EMBUSCADE_CHANCE = 0.22;  // par seconde, quand les conditions sont réunies
+const EMBUSCADE_LIMITE = 26;    // secondes de montée au maximum
+const EMBUSCADE_PLONGEE = 12;   // secondes de piqué avant de redevenir ordinaire
+const EMBUSCADE_REPOS = 30;     // secondes avant qu'il puisse recommencer
 const REFLEXE_ANGLE = 100 * Math.PI / 180;
 const REFLEXE_DEFAUT = 1.2;   // secondes, pour qui n'a rien dit
 // Le compte se fait sur la ligne de visée du joueur, la seule grandeur que
@@ -11148,6 +11158,8 @@ function spawnWave() {
       goalT: 0,
       reflexeT: 0,
       ecartAvant: 0,
+      embuscade: null,
+      embusCd: EMBUSCADE_REPOS * Math.random(),
       reload: 0.6 + Math.random() * 1.1,
       roqCd: 3 + Math.random() * 4,
       fig: null, figCd: 0, soin: null, soinT: 0,
@@ -11494,6 +11506,58 @@ function updateEnemies(dt) {
     }
     if (K.figures && state.lock === e && e.charge > 0.45 && e.figCd <= 0
         && lanceFigEnnemi(e, figureQuiConvient(e, dist))) continue;
+    // -------------------------------------------------------------------
+    // L'EMBUSCADE PAR LE HAUT.
+    //
+    // Tous arrivaient par le même chemin : le plus court. On apprenait donc à
+    // regarder devant, et le ciel au-dessus ne servait qu'à nous. Certains
+    // prennent maintenant le parti inverse — ils profitent de ce qu'on est
+    // occupé ailleurs pour monter, tranquillement, très haut, hors du cône
+    // où l'on regarde. Puis ils tombent.
+    //
+    // Trois conditions, toutes nécessaires : qu'on soit déjà tenu par au
+    // moins deux autres — sans quoi on le verrait partir —, qu'il soit loin,
+    // et qu'il ne l'ait pas déjà fait récemment. La montée est lente et muette,
+    // le piqué ne l'est pas.
+    // -------------------------------------------------------------------
+    if (!K.sol && !e.entree && !e.fig) {
+      if (e.embuscade) {
+        const E = e.embuscade;
+        E.t += dt;
+        // il plonge quand il est arrivé à son perchoir, ou quand il a assez
+        // attendu : un adversaire qui monte indéfiniment a quitté la partie
+        if (E.phase === 'monte' && (e.pos.y >= E.cible - 45 || E.t > EMBUSCADE_LIMITE))
+          { E.phase = 'plonge'; E.t = 0; }
+        // le piqué ne dure qu'un temps : après, il redevient un adversaire
+        if (E.phase === 'plonge' && (E.t > EMBUSCADE_PLONGEE || dist < 260)) {
+          e.embuscade = null;
+          e.embusCd = EMBUSCADE_REPOS;
+        }
+      } else {
+        if (e.embusCd === undefined) e.embusCd = EMBUSCADE_REPOS * Math.random();
+        if (e.embusCd > 0) e.embusCd -= dt;
+        // ni le gardien ni le faucheur : ils ont déjà leur propre entrée, et
+        // un boss qui disparaît trois quarts de minute n'est plus un boss
+        // ET IL FAUT QU'IL PUISSE MONTER. Le biplan plafonne à deux cent
+        // quarante mètres : lui demander de nous tomber dessus depuis le
+        // haut, c'est lui demander de disparaître une demi-minute pour
+        // revenir par en dessous. Seuls ceux dont l'aile porte assez haut
+        // tentent le coup — et c'est une raison de plus de prendre de
+        // l'altitude soi-même quand on ne voit que des biplans.
+        else if (dist > EMBUSCADE_DIST && K.nom !== 'GARDIEN' && K !== KIND_FAUCHEUR
+                 && K.etage && K.etage[1] - state.pos.y > EMBUSCADE_MINI) {
+          // combien d'autres sont plus près de nous que lui ? c'est la mesure
+          // de « le joueur est occupé »
+          let devant = 0;
+          for (const o of state.enemies)
+            if (o !== e && o.hp > 0 && !o.kind.sol && o.pos.distanceTo(state.pos) < dist) devant++;
+          if (devant >= EMBUSCADE_N && Math.random() < EMBUSCADE_CHANCE * dt)
+            e.embuscade = { phase: 'monte', t: 0,
+              cible: Math.min(CEILING, K.etage[1], state.pos.y + EMBUSCADE_HAUT + 120) };
+        }
+      }
+    }
+
     if (e.evadeT > 0) {
       e.evadeT -= dt;
     } else if (state.lock === e && e.charge > 0.3 && e.evadeCd <= 0) {
@@ -11515,6 +11579,19 @@ function updateEnemies(dt) {
       _m4.lookAt(e.pos, e.goal, _up);
       _q.setFromRotationMatrix(_m4);
       e.quat.rotateTowards(_q, vir * (e.rompSecu ? EVITE_SERRE : 1.6) * dt);   // rupture franche
+
+    // ---- EN EMBUSCADE, il ne poursuit pas : il monte, et il se tient au
+    // large, derrière nous, là où le regard ne va pas.
+    } else if (e.embuscade && e.embuscade.phase === 'monte') {
+      _los.subVectors(e.pos, state.pos).normalize();
+      e.goal.copy(state.pos)
+        .addScaledVector(_los, EMBUSCADE_LARGE)
+        .addScaledVector(state.forward, -EMBUSCADE_ARRIERE);
+      e.goal.y = e.embuscade.cible;
+      _m4.lookAt(e.pos, e.goal, _up);
+      _q.setFromRotationMatrix(_m4);
+      e.quat.rotateTowards(_q, vir * 0.8 * dt);
+      e.visee = 0;                       // il ne vise pas pendant qu'il monte
 
     // ---- le point visé dépend de la tactique, et c'est là que tout se joue
     } else if (K.tactique === 'proportionnelle') {
@@ -11630,7 +11707,11 @@ function updateEnemies(dt) {
     }
 
     if (e.figCd > 0) e.figCd -= dt;
-    if (e.rattrape) {
+    // ET CELUI QUI MONTE EN EMBUSCADE NE SE FAIT PAS RAPPELER. Ce rattrapage
+    // remet le cap sur nous APRÈS la tactique : il annulait la montée à
+    // chaque image, et l'embuscade ne gagnait que trente mètres avant de
+    // renoncer. Monter loin et haut, c'est justement s'éloigner.
+    if (e.rattrape && !(e.embuscade && e.embuscade.phase === 'monte')) {
       // il revient : cap sur nous, plus vite que d'habitude
       _m4.lookAt(e.pos, state.pos, _up);
       _q.setFromRotationMatrix(_m4);
@@ -17370,6 +17451,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.57', fr: 'Certains adversaires profitent de ce qu’on est occupé pour monter très haut, en silence, et plonger.', en: 'Some opponents use the moment you are busy to climb very high, silently, and dive.' },
   { v: '1.56', fr: 'Monter jusqu’au plafond donne l’immunité au crash — sol et murs — jusqu’au prochain posé.', en: 'Reaching the ceiling grants immunity to crashes — ground and walls — until you land again.' },
   { v: '1.56', fr: 'Manche au fond tenu, le roulage monte jusqu’à trois fois sa vitesse : quarante-cinq mètres par seconde.', en: 'Stick held forward, taxiing climbs to three times its speed: forty-five metres per second.' },
   { v: '1.56', fr: 'Franchir un portail en roulant arrache l’appareil du sol et le catapulte.', en: 'Taking a gate while taxiing tears the aircraft off the ground and slingshots it.' },
