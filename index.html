@@ -939,6 +939,10 @@ const SPEED_MAX     = 320;    // le piqué et la poursuite s'ajoutent : il faut 
 // trouvée par la physique, pas décrétée.
 // ---------------------------------------------------------------------------
 const SPEED_DUR     = 1500;   // garde-fou de simulation, pas un plafond de jeu
+// LE RALENTI DE HAUTE VITESSE. Voir step().
+const RALENTI_SEUIL = 400;    // m/s : en dessous, le temps est le temps
+const RALENTI_PLAGE = 200;    // et l'effet est plein deux cents mètres plus haut
+const RALENTI_FORCE = 0.17;   // un sixième de moins, pas davantage
 const GRAV          = 48;     // ce que la pesanteur donne ou reprend selon l'assiette
 const THRUST        = 0.6;    // rappel du moteur vers la vitesse de croisière
 const STALL         = 58;     // en dessous, le nez retombe malgré la consigne
@@ -7883,6 +7887,45 @@ const tunnelBoites = [];
       // les quatre arêtes qui relient
       seg(c(u0, y0, v0), c(u0, y0, v1)); seg(c(u1, y0, v0), c(u1, y0, v1));
       seg(c(u0, y1, v0), c(u0, y1, v1)); seg(c(u1, y1, v0), c(u1, y1, v1));
+      // ---------------------------------------------------------------------
+      // ET IL Y A QUELQU'UN DEDANS.
+      //
+      // Les casemates étaient vides. Une pièce vide dans un boyau de mille
+      // huit cents mètres, c'est un renfoncement ; trois silhouettes debout au
+      // fond, c'est un poste — et l'on comprend d'un coup qu'on ne traverse
+      // pas un trou, on traverse quelque chose que des gens ont tenu.
+      //
+      // Ils ne bougent pas, ils ne tirent pas, ils ne comptent pas. On passe à
+      // deux cents mètres par seconde : ils durent un dixième de seconde dans
+      // le champ, et c'est exactement ce qu'il faut.
+      //
+      // La silhouette est celle du refuge, en plus petit et sans écharpe :
+      // deux jambes, un tronc, une tête. Il n'en faut pas plus pour que ce
+      // soit quelqu'un.
+      // ---------------------------------------------------------------------
+      {
+        const n = 2 + (Math.abs(Math.round(u / TUNNEL_SALLE)) % 2);
+        for (let k = 0; k < n; k++) {
+          const hu = u - D / 4 + (k / Math.max(1, n - 1)) * (D / 2);
+          const hv = v1 - cote * (5 + (k % 2) * 3);
+          const y = y0;
+          const dv = cote * 0.5;
+          // les deux jambes, écartées en travers du boyau
+          for (const e of [-0.9, 0.9]) {
+            seg(c(hu + e, y, hv), c(hu + e * 0.4, y + 3.2, hv));
+          }
+          // le tronc, la tête, et les deux bras
+          seg(c(hu, y + 3.2, hv), c(hu, y + 6.4, hv));
+          seg(c(hu - 1.5, y + 5.6, hv), c(hu + 1.5, y + 5.6, hv));
+          seg(c(hu - 0.7, y + 6.4, hv), c(hu + 0.7, y + 6.4, hv));
+          seg(c(hu - 0.7, y + 6.4, hv), c(hu - 0.7, y + 7.8, hv));
+          seg(c(hu + 0.7, y + 6.4, hv), c(hu + 0.7, y + 7.8, hv));
+          seg(c(hu - 0.7, y + 7.8, hv), c(hu + 0.7, y + 7.8, hv));
+          // et une épaisseur, pour qu'ils ne soient pas des cartes à jouer
+          seg(c(hu, y + 3.2, hv), c(hu, y + 3.2, hv + dv));
+          seg(c(hu, y + 6.4, hv), c(hu, y + 6.4, hv + dv));
+        }
+      }
       cote = -cote;
     }
     const salles = new THREE.LineSegments(segGeom(pts), matBati);
@@ -13665,8 +13708,26 @@ let last = performance.now();
 
 function step(now) {
   requestAnimationFrame(step);
-  const dt = Math.min((now - last) / 1000, 0.05); // un onglet en arrière-plan ne doit pas téléporter l'avion
+  let dt = Math.min((now - last) / 1000, 0.05); // un onglet en arrière-plan ne doit pas téléporter l'avion
   last = now;
+  // -------------------------------------------------------------------------
+  // LE TEMPS S'ÉPAISSIT AU-DELÀ DE QUATRE CENTS.
+  //
+  // Il n'y a plus de plafond de vitesse : on sort d'une chaîne de portails à
+  // cinq cents mètres par seconde, et à cette allure le monde arrive plus vite
+  // que le doigt. Ce n'est pas un problème de pilotage, c'est un problème de
+  // temps — on n'a matériellement pas le temps de décider.
+  //
+  // Le jeu ralentit donc, très peu, et seulement là-haut : rien jusqu'à quatre
+  // cents, un sixième de moins à six cents. On garde toute la vitesse — la
+  // distance parcourue par seconde DE JEU ne change pas — mais chaque seconde
+  // de jeu dure un peu plus longtemps pour le joueur. C'est le prix que le
+  // monde paie pour qu'on ait le droit d'aller aussi vite.
+  // -------------------------------------------------------------------------
+  if (state.running && state.speed > RALENTI_SEUIL) {
+    const k = THREE.MathUtils.clamp((state.speed - RALENTI_SEUIL) / RALENTI_PLAGE, 0, 1);
+    dt *= 1 - RALENTI_FORCE * k;
+  }
 
   // panneau ouvert : le vol s'arrête. Lire l'aide ne doit pas coûter la partie.
   if (state.running && !state.paused) simulate(dt);
@@ -18903,6 +18964,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.71', fr: 'Il y a quelqu’un dans les casemates du tunnel : vingt-deux silhouettes debout, réparties dans neuf salles.', en: 'Someone is in the tunnel casemates: twenty-two standing figures across nine rooms.' },
+  { v: '1.71', fr: 'Au-delà de quatre cents mètres par seconde, le temps s’épaissit — un sixième de moins à six cents.', en: 'Past four hundred metres per second time thickens — a sixth slower at six hundred.' },
   { v: '1.70', fr: 'L’approche se pose enfin : un trim intégral annule l’incidence que l’assiette commandée ignorait.', en: 'The approach finally lands: an integral trim cancels the angle of attack that commanded pitch ignored.' },
   { v: '1.70', fr: 'L’arrondi se mesure en hauteur sol — onze mètres — et non plus en distance à la piste.', en: 'The flare is measured in height above ground — eleven metres — not in distance to the runway.' },
   { v: '1.70', fr: 'La porte des cinq cents pieds dit ce qui cloche : taux de chute, vitesse, ou écart au plan.', en: 'The five-hundred-foot gate says what is wrong: sink rate, speed, or deviation from path.' },

@@ -7,9 +7,9 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] L'approche stabilisée, d'après les vrais atterrissages → v1.70 (2 posés sur 3)
 - [x] Le passage sous la piste → v1.70
 - [ ] L'approche : le cas « arrivé haut et vite » n'est toujours pas capturé par le tube
-- [ ] Des bonshommes dans les casemates du tunnel, aujourd'hui vides
-- [ ] Voir le tunnel de bout en bout : les étoiles au travers
-- [ ] Un léger ralenti au-delà de 400 m/s (choisi, jamais fait)
+- [x] Des bonshommes dans les casemates du tunnel → v1.71 (9 salles, 22 silhouettes)
+- [x] Voir le tunnel de bout en bout → déjà vrai, mesuré : zéro segment au centre
+- [x] Un léger ralenti au-delà de 400 m/s → v1.71
 
 ---
 
@@ -123,6 +123,36 @@ L'autre choix possible était : le bouclier protège aussi de l'aveuglement, et
 la règle ne s'applique qu'entre 0,55 et 0,98 d'alignement — c'est-à-dire
 qu'on meurt en visant À PEU PRÈS la lune et qu'on survit en la visant
 parfaitement. À dire si c'est ce qui est voulu.
+
+## Les casemates habitées → fait en v1.71
+
+Neuf salles, vingt-deux silhouettes debout — deux ou trois par casemate,
+alternées. Vérifié numériquement : 328 segments dans le maillage des salles,
+soit 9 × 12 pour les pièces et 22 × 10 pour les hommes, aux hauteurs y0+1 à
+y0+17 et dans la profondeur des salles (65 m = 31 de boyau + 34 de casemate).
+
+Ils ne bougent pas, ne tirent pas, ne comptent pas. À deux cents mètres par
+seconde ils durent un dixième de seconde dans le champ.
+
+## Voir le tunnel de bout en bout → déjà vrai, mesuré
+
+Le boyau est creux et le sol est percé aux deux bouches. Mesuré depuis
+l'entrée, dans l'axe : **zéro segment de décor ne traverse la boîte centrale
+de 60 × 60 pixels**, sur 3 398 segments visibles. Ce qui paraissait plein au
+fond, ce sont les soixante cintres qui convergent AUTOUR de l'ouverture.
+
+## Le ralenti de haute vitesse → fait en v1.71
+
+Rien jusqu'à 400 m/s, un sixième de moins à 600. Mesuré, mètres parcourus par
+seconde réelle :
+
+| vitesse | m/s réels | rapport |
+|---|---|---|
+| 200 | 201 | 1,004 |
+| 400 | 400 | 0,999 |
+| 500 | 456 | 0,912 |
+| 600 | 497 | 0,828 |
+| 700 | 579 | 0,828 |
 
 ## 0. L'approche stabilisée → fait en v1.70
 
