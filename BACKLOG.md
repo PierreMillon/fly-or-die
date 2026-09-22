@@ -1,3 +1,17 @@
+## LA FILE
+
+Les cases vides se lisent avec `grep -c "^- \[ \]" BACKLOG.md`. Tant que le
+compte est supérieur à zéro, le tour ne se termine pas — voir `CLAUDE.md`
+règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
+
+- [ ] L'approche stabilisée, d'après les vrais atterrissages (depuis v1.42)
+- [ ] Le passage sous la piste : deux hangars, des trous cachés, même règle que le tunnel
+- [ ] Des bonshommes dans les casemates du tunnel, aujourd'hui vides
+- [ ] Voir le tunnel de bout en bout : les étoiles au travers
+- [ ] Un léger ralenti au-delà de 400 m/s (choisi, jamais fait)
+
+---
+
 # Fly or Die — idées en attente
 
 Ce fichier existe pour qu'aucune idée dite en passant ne se perde. Dès qu'une
@@ -10,7 +24,7 @@ retiré quand une idée est implémentée — noter "→ fait en vX.Y" à la pla
 # EN RETARD — à faire avant toute nouvelle idée
 
 La lune (v1.65), le jeu de piste (v1.66) et l'arche du sommet (v1.69) sont
-sortis. **Reste en tête : l'approche stabilisée**, et le passage sous la piste.
+sortis.
 
 ### Demandes traitées en v1.67 et v1.68
 

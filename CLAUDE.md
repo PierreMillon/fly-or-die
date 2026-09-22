@@ -5,16 +5,53 @@ Les consignes écrites ici priment sur tout réflexe par défaut.
 
 ## 1. On ne rend pas la main tant qu'il reste une tâche
 
-`BACKLOG.md` porte une section **« À FAIRE »** en cases à cocher. Tant qu'une
-case y est vide, le tour ne se termine pas.
+### La file
 
-Une publication — version poussée, journal écrit, mesures rapportées — est un
-**point de sauvegarde**, jamais une fin. Après un `git push` : une ligne de
-rapport, on coche la case, et on enchaîne sur la tâche suivante **dans le même
-tour**.
+**Les toutes premières lignes de `BACKLOG.md`** portent la file, en cases à
+cocher `- [ ]`. Pas ailleurs dans le fichier : en tête, avant tout le reste.
 
-Rendre la main se fait dans un seul cas : la section « À FAIRE » est vide, ou
-une question bloquante empêche d'avancer sur *toutes* les tâches restantes.
+### Le contrôle de fin de tour
+
+Avant d'écrire la moindre phrase de conclusion, exécuter :
+
+```sh
+grep -c "^- \[ \]" BACKLOG.md
+```
+
+- **Résultat > 0** → il reste du travail. On n'écrit pas de conclusion, on
+  prend la première case vide et on continue **dans le même tour**.
+- **Résultat = 0** → vérifier que la file existe vraiment (`grep -n "^## LA FILE"`).
+  Si elle a disparu ou n'a jamais été remplie, **c'est un défaut à réparer**,
+  pas une autorisation de s'arrêter : on la reconstruit à partir de la
+  conversation et on reprend.
+
+### Pourquoi ce contrôle existe
+
+Il a été ajouté en v1.70 après constat : la règle disait déjà « tant qu'une
+case est vide, le tour ne se termine pas », et `BACKLOG.md` ne contenait
+**aucune case à cocher**. Zéro case vide, donc condition jamais vraie, donc
+règle auto-désactivée. Elle a été relue des dizaines de fois sans jamais rien
+déclencher. Une règle dont on n'a pas mesuré le déclenchement ne vaut rien —
+c'est la règle 3 appliquée aux règles elles-mêmes.
+
+### Un push n'est pas une fin
+
+Version poussée, journal écrit, mesures rapportées : c'est un **point de
+sauvegarde**. Après un `git push` — deux lignes de rapport maximum, on coche,
+on enchaîne. Le livrable est le jeu, pas le compte rendu.
+
+### Les nouvelles demandes ne vident pas la file
+
+Une demande qui arrive en cours de tour s'ajoute à la file et se fait. Elle ne
+remplace jamais ce qui y était déjà, et l'avoir traitée n'autorise pas à
+rendre la main : on retourne à la file. C'est la faute constatée aux v1.53 et
+v1.69 — dix demandes courtes d'affilée, et les deux gros chantiers reculaient
+d'un cran à chaque fois.
+
+### Le seul cas où l'on rend la main
+
+La file est vide ET le contrôle ci-dessus a été exécuté. Ou bien une question
+bloque *toutes* les tâches restantes, ce qui n'est jamais arrivé.
 
 ## 2. Les questions se posent en quiz
 
