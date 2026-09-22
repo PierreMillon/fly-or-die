@@ -1249,6 +1249,8 @@ const ROQ_E_ESQUIVE = 300;    // en deçà, un tonneau la fait décrocher
 // tôt — la roquette a le temps de se recaler ; après, c'est trop tard.
 const ESQUIVE_FENETRE = 1.0;  // secondes avant l'impact où le mot s'affiche
 const ESQUIVE_REMUE = 0.6;    // un coup de manche franc suffit, pas qu'un tonneau
+const ESQUIVE_DEVANT = 1.25;  // de combien elle nous devance : elle croise DEVANT le nez
+const MORT_DELAI = 1.1;       // secondes de nuage avant l'écran de fin, au combat
 // ELLE N'ARRIVAIT JAMAIS. Mesuré : huit tirs plein arrière, aucun tonneau,
 // huit disparitions sans le moindre dégât. L'alerte hurlait WARNING ROCKET ·
 // ROLL ! et il ne se passait rien, quoi qu'on fasse — ce qui est pire qu'une
@@ -7405,6 +7407,24 @@ const ARCHES_REFUGE = [
 ];
 const ARCHES_CARTE = [...CARTE.arches, ...ARCHES_REFUGE];
 
+// ---------------------------------------------------------------------------
+// CE QU'ON VOIT EST CE QU'ON PASSE.
+//
+// Les volumes de collision étaient gonflés de sept mètres sur chaque côté —
+// la demi-envergure, plus une marge. Contre une façade c'est juste : on ne
+// rase pas un mur avec le bout de l'aile. Mais appliqué aux MONTANTS D'UN
+// TROU, ça rétrécit le passage de quatorze mètres sans que rien ne le montre.
+// Mesuré sur une arche : ouverture dessinée 96 m, ouverture réelle 82 m. On
+// entre donc dans le trou, on le voit tout autour de soi, et on est repoussé.
+//
+// Deux marges, donc. Celle des murs reste à sept. Celle de ce qui borde un
+// passage — montants et linteau d'arche, encadrement d'une fenêtre de tour —
+// tombe à un mètre : le trou qu'on voit est le trou qui passe. L'aile frôle,
+// et c'est exactement ce qu'on veut sentir en traversant.
+// ---------------------------------------------------------------------------
+const MARGE_MUR = 7;     // façades, pylônes : on ne rase pas avec le bout de l'aile
+const MARGE_TROU = 1;    // ce qui borde une ouverture : on passe ce qu'on voit
+
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
 for (let i = 0; i < ARCHES_CARTE.length; i++) {
   const g = new THREE.Group();
@@ -9622,6 +9642,19 @@ function majHalo(h, force, t) {
 }
 
 const bursts = [];
+// LES EXPLOSIONS VIVENT AUSSI QUAND LA PARTIE EST FINIE. La boucle de jeu
+// s'arrête avec elle, et le nuage de l'épave restait figé : on voulait le
+// voir s'ouvrir avant l'écran de fin, il ne s'ouvrait pas du tout.
+function majExplosions(dt) {
+  for (let i = bursts.length - 1; i >= 0; i--) {
+    const b = bursts[i];
+    b.t += dt;
+    const k = b.t / b.life;
+    if (k >= 1) { scene.remove(b.mesh); b.mat.dispose(); bursts.splice(i, 1); continue; }
+    b.mesh.scale.setScalar(b.scale * (0.3 + k * 2.6));
+    b.mat.opacity = 1 - k;
+  }
+}
 function spawnBurst(pos, scale) {
   const mat = lineMat(COL_LOCK);
   const m = new THREE.LineSegments(burstGeom, mat);
@@ -9799,6 +9832,9 @@ const state = {
   viePleineT: 0,      // secondes restantes d'éclat quand la jauge vient de se remplir
   pleineLune: 0,      // secondes de pleine lune offertes par le Berger
   luneT: 0,           // secondes de nez dans la lune, sous la chenillée lourde
+  finEcran: 0,        // secondes de nuage avant l'écran de fin
+  causeMort: null,    // ce qui a eu le dernier mot
+  nappeVu: 0,         // secondes de repère du faucheur sur la bande d'altitude
   immunCrash: false,  // monté au plafond : plus de crash contre le sol ni les murs
   tunnel: null,       // dans le tunnel : { t, vie }
   suite: {},          // avancement de chaque figure de CIEL_SUITE
@@ -10081,6 +10117,9 @@ function toucherPiste() {
 }
 
 function resetGame() {
+  state.finEcran = 0;
+  state.causeMort = null;
+  state.nappeVu = 0;
   state.immunCrash = false;
   state.pleineLune = 0;
   state.luneT = 0;
@@ -12495,7 +12534,7 @@ function abattre(e) {
   // et le plafond de vie qui monte de cent pour le reste de la partie.
   if (e.faucheur) {
     state.faucheur = false;
-    state.fuiteT = 0; state.nappeT = 0;
+    state.fuiteT = 0; state.nappeT = 0; state.nappeVu = 0;
     marque(FAUCHEUR_PRIME);
     state.vieMax += 100;
     state.structure = state.vieMax;
@@ -12831,7 +12870,20 @@ function updateRoqEnnemies(dt) {
       // occupions à cet instant précis : elle traverse l'endroit où nous
       // étions, et on la voit passer. C'est ce passage-là qui fait l'esquive ;
       // sans lui, elle disparaît et il ne s'est rien passé.
-      r.dir.subVectors(state.pos, r.pos).normalize();
+      // ET ELLE PASSE DEVANT LE NEZ, PAS DERRIÈRE LA DÉRIVE. Visée sur le
+      // point qu'on occupait à l'instant du geste, elle y arrivait une demi-
+      // seconde plus tard, c'est-à-dire cinquante à cent mètres derrière
+      // nous : hors du champ de la caméra, donc invisible. On ne voyait rien
+      // passer, et une esquive qu'on ne voit pas n'a pas eu lieu.
+      //
+      // Elle vise donc le point où nous SERONS quand elle arrivera, majoré
+      // d'un quart : elle croise notre trajectoire juste devant le nez, et
+      // l'on regarde la fumée filer en travers du pare-brise.
+      {
+        const tVol = d / Math.max(1, Math.max(ROQ_E_VITESSE, state.speed + ROQ_E_GAIN));
+        _segA.copy(state.pos).addScaledVector(state.forward, state.speed * tVol * ESQUIVE_DEVANT);
+        r.dir.subVectors(_segA, r.pos).normalize();
+      }
       stat('roquettesEsquivees');
       announce(t('esquivee'));
       SFX.vagueNette();
@@ -13017,6 +13069,7 @@ function damagePlayer(amount, source, cause) {
   // arrondit toujours vers le haut.
   if (state.structure < 1) {
     state.structure = 0;
+    state.causeMort = cause || null;
     gameOver();
   }
 }
@@ -13309,6 +13362,12 @@ function step(now) {
   // panneau ouvert : le vol s'arrête. Lire l'aide ne doit pas coûter la partie.
   if (state.running && !state.paused) simulate(dt);
   else if (!state.running) auRalenti(dt);
+  // l'épave finit de s'ouvrir, puis l'écran arrive. Voir MORT_DELAI.
+  if (state.finEcran > 0) {
+    majExplosions(dt);
+    state.finEcran -= dt;
+    if (state.finEcran <= 0) { state.finEcran = 0; if (overlay) overlay.hidden = false; }
+  }
   if (moteurG && moteur) {
     // le moteur tourne aussi au sol, plus bas et plus doux
     // l'appareil peut imposer son timbre : l'ancien est un planeur, quel que
@@ -13519,8 +13578,19 @@ function simulate(dt) {
     // sur son écran, et on a le temps de redescendre : la nappe n'est pas un
     // piège, c'est une règle qu'on peut jouer.
     const vu = vuParLeFaucheur();
-    state.nappeT = vu ? (state.nappeT || 0) + dt : 0;
+    const avant = state.nappeT || 0;
+    state.nappeT = vu ? avant + dt : 0;
     if (vu && state.nappeT - dt <= 0.05) { announce(t('surSonEcran'), t('surSonEcranSous')); SFX.alerte(); }
+    // ON A REDESCENDU À TEMPS, ET ON LE SAIT. L'alerte disait qu'on entrait
+    // sur son écran ; rien ne disait qu'on en était ressorti. On redescendait
+    // en espérant, ce qui n'est pas jouer une règle, c'est la subir.
+    if (!vu && avant > 0.3 && !state.faucheur) {
+      announce(t('sousSaNappe'), t('sousSaNappeSous'));
+      SFX.vagueNette();
+    }
+    // le repère sur la bande d'altitude vit tant qu'il regarde, et trois
+    // secondes de plus : le temps de vérifier qu'on est bien passé dessous
+    state.nappeVu = vu ? 3 : Math.max(0, (state.nappeVu || 0) - dt);
     if (state.nappeT > FAUCHEUR_VEILLE) lacherFaucheur();
   }
   // IL ROMPT QUAND IL PERD LE CONTACT, PAS QUAND ON FRANCHIT UNE LIGNE.
@@ -14994,20 +15064,7 @@ function simulate(dt) {
     }
   }
 
-  // --- explosions
-  for (let i = bursts.length - 1; i >= 0; i--) {
-    const b = bursts[i];
-    b.t += dt;
-    const k = b.t / b.life;
-    if (k >= 1) {
-      scene.remove(b.mesh);
-      b.mat.dispose();
-      bursts.splice(i, 1);
-      continue;
-    }
-    b.mesh.scale.setScalar(b.scale * (0.3 + k * 2.6));
-    b.mat.opacity = 1 - k;
-  }
+  majExplosions(dt);
 
   state.hitFlash = Math.max(0, state.hitFlash - dt * 2.2);
   state.announceT = Math.max(0, state.announceT - dt);
@@ -15447,7 +15504,7 @@ function scrapeCorps(dt) {
       }
     }
     for (const b of t.boites) {
-      if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) { repousse(b.x, b.z); return; }
+      if (heurte(b.x, b.z, b.hx + MARGE_TROU, b.hz + MARGE_TROU, b.y0 - 1, b.y1 + MARGE_TROU)) { repousse(b.x, b.z); return; }
     }
   }
 
@@ -15500,8 +15557,8 @@ function scrapeCorps(dt) {
   for (const p of pylones) {
     if (p.mort) continue;
     const t = p.g;
-    if (heurte(t.position.x, t.position.z, 9 * t.scale.x + 8, 9 * t.scale.z + 8,
-               -1, TOWER_H * t.scale.y + 6)) {
+    if (heurte(t.position.x, t.position.z, 9 * t.scale.x + MARGE_MUR + 1, 9 * t.scale.z + MARGE_MUR + 1,
+               -1, TOWER_H * t.scale.y + MARGE_MUR - 1)) {
       repousse(t.position.x, t.position.z);
       return;
     }
@@ -15511,7 +15568,7 @@ function scrapeCorps(dt) {
   for (const t of tours) {
     if (t.mort) continue;
     for (const b of t.boites) {
-      if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) {
+      if (heurte(b.x, b.z, b.hx + MARGE_TROU, b.hz + MARGE_TROU, b.y0 - 1, b.y1 + MARGE_TROU)) {
         repousse(b.x, b.z);
         return;
       }
@@ -15520,7 +15577,7 @@ function scrapeCorps(dt) {
   for (const a of arches) {
     if (a.mort) continue;
     for (const b of a.boites) {
-      if (heurte(b.x, b.z, b.hx + 7, b.hz + 7, b.y0 - 1, b.y1 + 6)) {
+      if (heurte(b.x, b.z, b.hx + MARGE_TROU, b.hz + MARGE_TROU, b.y0 - 1, b.y1 + MARGE_TROU)) {
         repousse(b.x, b.z);
         return;
       }
@@ -16524,7 +16581,22 @@ function drawHud() {
                               -(cosY * ce - sinY * se) * ct)
                          .multiplyScalar(HUD_LOIN).add(camera.position));
       };
-      for (let d = -80; d <= 80; d += 10) {
+      for (let d = -90; d <= 90; d += 10) {
+        // LES DEUX PÔLES. À la verticale il n'y a plus de barreau à tracer —
+        // les deux bouts se confondent — mais c'est justement là qu'on perd
+        // tout repère. Un cercle au zénith, une croix au nadir, comme sur un
+        // collimateur de chasse.
+        if (Math.abs(d) === 90) {
+          const q = bout(d, 0);
+          if (!q.front || q.y < -40 || q.y > h + 40) continue;
+          hctx.strokeStyle = 'rgba(70,255,160,' + (aide * 0.7).toFixed(3) + ')';
+          hctx.beginPath();
+          if (d > 0) hctx.arc(q.x, q.y, 6, 0, Math.PI * 2);
+          else { hctx.moveTo(q.x - 6, q.y - 6); hctx.lineTo(q.x + 6, q.y + 6);
+                 hctx.moveTo(q.x + 6, q.y - 6); hctx.lineTo(q.x - 6, q.y + 6); }
+          hctx.stroke();
+          continue;
+        }
         const demi = d === 0 ? HUD_LARGE * 1.9 : HUD_LARGE * (d % 30 === 0 ? 1 : 0.62);
         const g = bout(d, demi), dr = bout(d, -demi);
         if (!g.front || !dr.front) continue;
@@ -16904,6 +16976,83 @@ function drawHud() {
     edgeArrow(e.pos, w, h, e.pos.distanceTo(state.pos));
   }
 
+  // ---------------------------------------------------------------------------
+  // L'HORIZON FANTÔME.
+  //
+  // « Faut afficher l'horizon artificiel au-delà de 80° ? 90 ? » — ni l'un ni
+  // l'autre : ce n'est pas un angle, c'est une condition. Le HUD du F-16 porte
+  // un ghost horizon, une ligne parallèle à l'horizon réel affichée dans le
+  // champ, qui passe en TIRETÉ dès que l'horizon réel en sort. C'est ce qu'on
+  // fait ici : tant que l'horizon est à l'écran on le voit, il n'y a rien à
+  // ajouter ; dès qu'il est sorti, une ligne tiretée se pose contre le bord
+  // par lequel il est parti, avec exactement son inclinaison.
+  //
+  // Elle donne donc deux choses d'un coup d'oeil : de quel côté est le bas, et
+  // de combien on est incliné. C'est tout ce qui manque quand il n'y a plus
+  // que du ciel ou plus que du sol dans le cadre.
+  //
+  // Source : F-16.net, forum HUD Pitch Ladder — le ghost horizon a volé pour
+  // la première fois sur le HUD grand angle.
+  // ---------------------------------------------------------------------------
+  {
+    // LA LIGNE DE FUITE DU PLAN HORIZONTAL, ET NON DEUX POINTS PROJETÉS.
+    //
+    // Premier jet : on échantillonnait le cercle d'horizon et l'on gardait les
+    // deux points extrêmes en x. Mesuré : à 80° et 90° d'assiette le cercle
+    // est presque entièrement DERRIÈRE la caméra, les deux points survivants
+    // se confondent, et le fantôme ne s'affichait pas — précisément à
+    // l'assiette où il est seul à dire quelque chose.
+    //
+    // La droite se calcule donc. Une direction d de l'horizon vérifie d·U = 0,
+    // où U est la verticale du monde vue dans le repère de la caméra. En
+    // divisant par -d.z on obtient, en coordonnées normalisées :
+    //
+    //     ndc.x · (aspect·tan(fov/2)·U.x) + ndc.y · (tan(fov/2)·U.y) = U.z
+    //
+    // C'est une droite, valable que l'horizon soit devant ou derrière, et qui
+    // ne dépend d'aucun échantillon.
+    const T = Math.tan(camera.fov * Math.PI / 360);
+    _v.set(0, 1, 0).applyQuaternion(_qh.copy(camera.quaternion).invert());
+    const A = camera.aspect * T * _v.x, B = T * _v.y, C = _v.z;
+    // B nul, c'est un tonneau à quatre-vingt-dix degrés : la droite est
+    // verticale à l'écran et ne se pose contre aucun bord.
+    if (Math.abs(B) > 1e-4 && !state.pose && !state.roulage) {
+      const yEn = (px) => h / 2 * (1 - (C - (2 * px / w - 1) * A) / B);
+      const yMid = yEn(w / 2);
+      const hors = yMid < 4 ? -1 : yMid > h - 4 ? 1 : 0;
+      if (hors) {
+        // la direction de la droite : perpendiculaire à (A, B) en normalisé,
+        // remise à l'échelle des pixels
+        let ux = B * w / 2, uy = A * h / 2;
+        const L = Math.hypot(ux, uy) || 1;
+        ux /= L; uy /= L;
+        // il se pose DANS le cadre utile : sous le ruban de cap en haut,
+        // au-dessus de la bande du bas en bas. Posé à trente pixels du bord
+        // brut, il passait derrière la bande et ne se voyait pas.
+        const mx = w / 2;
+        const yC = hors < 0 ? Math.max(HORIZ_MARGE, h * 0.155)
+                            : Math.min(h - HORIZ_MARGE, (hudBasLibre || h) - 26);
+        const demi = w * 0.30;
+        hctx.save();
+        hctx.lineWidth = 1.6;
+        hctx.setLineDash([7, 6]);
+        hctx.strokeStyle = 'rgba(70,255,160,0.55)';
+        hctx.beginPath();
+        hctx.moveTo(mx - ux * demi, yC - uy * demi);
+        hctx.lineTo(mx + ux * demi, yC + uy * demi);
+        hctx.stroke();
+        hctx.setLineDash([]);
+        // et un chevron au milieu, qui montre par quel bord il est sorti
+        hctx.beginPath();
+        hctx.moveTo(mx - 7, yC + hors * 9);
+        hctx.lineTo(mx, yC + hors * 2);
+        hctx.lineTo(mx + 7, yC + hors * 9);
+        hctx.stroke();
+        hctx.restore();
+      }
+    }
+  }
+
   // bande d'altitude : un curseur entre plancher et plafond dit tout de suite
   // où l'on se situe dans la couche d'air. Un nombre absolu ne dit rien.
   {
@@ -16918,9 +17067,15 @@ function drawHud() {
     // adversaire, pour la fenêtre d'une tour, pour la bouche du tunnel — il
     // faut des nombres. Tous les quatre cents mètres, arrondis à la centaine,
     // du sol au plafond.
+    // DEUX CHIFFRES, ET À DROITE DU TRAIT. « 1600 » et « 2400 » écrits en
+    // entier à gauche de la bande mordaient sur le champ de vol, et quatre
+    // chiffres pour une graduation de quatre cents mètres, c'est trois de
+    // trop. La bande se lit en CENTAINES, comme un niveau de vol : 00, 08,
+    // 16, 24. Deux caractères tiennent à droite du trait sans jamais toucher
+    // le bord — à neuf pixels, onze de large pour dix-sept disponibles.
     const ALT_PAS = 400;
     hctx.save();
-    hctx.textAlign = 'right';
+    hctx.textAlign = 'left';
     hctx.textBaseline = 'middle';
     hctx.font = '9px "IBM Plex Mono", ui-monospace, monospace';
     for (let alt = 0; alt <= CEILING; alt += ALT_PAS) {
@@ -16929,12 +17084,35 @@ function drawHud() {
       const gros = alt % 800 === 0;
       hctx.strokeStyle = 'rgba(70,255,160,' + (gros ? 0.42 : 0.24) + ')';
       hctx.beginPath();
-      hctx.moveTo(tx - (gros ? 4 : 2), yy); hctx.lineTo(tx + (gros ? 4 : 2), yy);
+      hctx.moveTo(tx - (gros ? 4 : 2), yy); hctx.lineTo(tx + (gros ? 2 : 1), yy);
       hctx.stroke();
       if (gros) {
         hctx.fillStyle = 'rgba(143,252,196,0.55)';
-        hctx.fillText(String(alt), tx - 7, yy);
+        hctx.fillText(String(Math.round(alt / 100)).padStart(2, '0'), tx + 6, yy);
       }
+    }
+    // -------------------------------------------------------------------------
+    // ET LE PLANCHER DU FAUCHEUR, TANT QU'IL REGARDE.
+    //
+    // Dehors, c'est la hauteur qui décide : au-dessus de sa nappe on est sur
+    // son écran, dessous on a disparu. On était prévenu qu'on y entrait, et
+    // ensuite plus rien — ni l'altitude à laquelle redescendre, ni le moment
+    // où l'on en était sorti. Une règle qu'on peut jouer suppose qu'on puisse
+    // la lire : un repère glisse sur la bande à la hauteur qu'il faut passer,
+    // et il s'efface trois secondes après.
+    // -------------------------------------------------------------------------
+    if (state.nappeVu > 0 && state.running) {
+      const altSure = hauteurSol(state.pos.x, state.pos.z) + FAUCHEUR_NAPPE;
+      const u = THREE.MathUtils.clamp((altSure - FLOOR) / (CEILING - FLOOR), 0, 1);
+      const yy = ty1 - (ty1 - ty0) * u;
+      const a = Math.min(1, state.nappeVu) * (0.5 + 0.5 * Math.abs(Math.sin(performance.now() / 260)));
+      hctx.strokeStyle = 'rgba(255,214,102,' + a.toFixed(2) + ')';
+      hctx.lineWidth = 2;
+      hctx.beginPath();
+      hctx.moveTo(tx - 9, yy); hctx.lineTo(tx + 3, yy);
+      hctx.moveTo(tx - 9, yy); hctx.lineTo(tx - 5, yy + 4);   // la pointe vers le bas : il faut descendre
+      hctx.stroke();
+      hctx.lineWidth = 1.5;
     }
     hctx.restore();
     // un simple trait qui glisse le long de la bande : le triangle d'avant se
@@ -17073,6 +17251,8 @@ const ARROW_NEAR = 120, ARROW_FAR = 1300;
 // rester dans le volume de vue.
 const HUD_LOIN = 3000;
 const HUD_LARGE = 0.155;   // demi-largeur d'un barreau, en radians de cap
+const HORIZ_MARGE = 30;    // pixels du bord où se pose l'horizon fantôme
+const _qh = new THREE.Quaternion();   // pour la verticale vue de la caméra
 
 // Angle de référence du rayon minimal. Ce n'est PAS un seuil d'affichage :
 // c'en fut un, et c'était un bug. Un écran de téléphone tenu debout n'ouvre
@@ -17490,6 +17670,7 @@ const T = {
     luneMort: 'AVEUGLÉ', luneMortSous: 'La chenillée attendait que tu regardes la lune.',
     luneDetourne: 'DÉTOURNE-TOI',
     esquive: 'ESQUIVE', tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
+    sousSaNappe: 'SOUS SA NAPPE', sousSaNappeSous: 'Tu as disparu de son écran. Reste bas.',
     avionPrise: 'PRISE DE GUERRE',
     acces_prise: 'Elle ne revolera pas. Elle est là pour qu’on la regarde.',
     poseColonel: 'ATTERRISSAGE DE COLONEL',
@@ -17630,6 +17811,7 @@ const T = {
     luneMort: 'BLINDED', luneMortSous: 'The tracked gun was waiting for you to look at the moon.',
     luneDetourne: 'LOOK AWAY',
     esquive: 'BREAK', tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
+    sousSaNappe: 'BELOW HIS SCAN', sousSaNappeSous: 'You are off his screen. Stay low.',
     avionPrise: 'WAR PRIZE',
     acces_prise: 'It will not fly again. It is here to be looked at.',
     poseColonel: 'A COLONEL’S LANDING',
@@ -18316,6 +18498,14 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.68', fr: 'Ce qu’on voit est ce qu’on passe : les montants d’un trou ne gonflent plus de sept mètres de chaque côté.', en: 'What you see is what you fly through: the sides of a hole no longer swell by seven metres each.' },
+  { v: '1.68', fr: 'L’arche passe de 82 à 94 mètres utiles pour 96 dessinés, la fenêtre de tour de 31,5 à 43,5 pour 45,5.', en: 'The arch goes from 82 to 94 usable metres against 96 drawn, the tower window from 31.5 to 43.5 against 45.5.' },
+  { v: '1.68', fr: 'La roquette esquivée croise devant le nez et non derrière la dérive : on la voit enfin passer.', en: 'The dodged rocket now crosses in front of the nose instead of behind the fin: you finally see it go by.' },
+  { v: '1.68', fr: 'Abattu en vol, l’épave s’ouvre une seconde avant que l’écran de fin arrive.', en: 'Shot down in the air, the wreck opens for a second before the end screen arrives.' },
+  { v: '1.68', fr: 'L’horizon fantôme : dès que l’horizon quitte l’écran, une ligne tiretée se pose contre le bord par lequel il est parti, avec son inclinaison.', en: 'The ghost horizon: as soon as the horizon leaves the screen, a dashed line sits against the edge it left by, at its own bank angle.' },
+  { v: '1.68', fr: 'Un cercle au zénith, une croix au nadir : l’échelle de tangage va jusqu’aux pôles.', en: 'A circle at the zenith, a cross at the nadir: the pitch ladder runs to the poles.' },
+  { v: '1.68', fr: 'L’altimètre se lit en centaines, deux chiffres, à droite du trait.', en: 'The altimeter reads in hundreds, two digits, to the right of the line.' },
+  { v: '1.68', fr: 'Redescendre sous la nappe du faucheur le dit, et un repère montre la hauteur à passer.', en: 'Dropping below the reaper’s scan says so, and a marker shows the height to clear.' },
   { v: '1.67', fr: 'Les neuf appareils du hangar répondent au nez : quatre carcasses adverses n’avaient aucun identifiant et ne disaient rien du tout.', en: 'All nine aircraft in the hangar answer the nose: four enemy wrecks had no identifier at all and said nothing.' },
   { v: '1.67', fr: 'Une carcasse porte son nom et une phrase : elle ne revolera pas, elle est là pour qu’on la regarde.', en: 'A wreck carries its name and a line: it will not fly again, it is there to be looked at.' },
   { v: '1.67', fr: 'Dépasser le hangar au roulage coûte une seconde de retour au lieu de cinq, et un mot : ATTERRISSAGE DE COLONEL.', en: 'Overshooting the hangar costs one second of rolling back instead of five, and a line: A COLONEL’S LANDING.' },
@@ -19177,7 +19367,32 @@ function gameOver(victoire) {
   videoBtn.textContent = t('videoReprendre') + '  ·  ' + (state.reprises + 1) + ' / ' + REPRISES_MAX;
   expliqueBtn.hidden = aideMuette;
   plusJamais.hidden = aideMuette;
-  overlay.hidden = false;
+  // -------------------------------------------------------------------------
+  // D'ABORD LE NUAGE, ENSUITE L'ÉCRAN.
+  //
+  // Abattu en vol, l'écran de fin tombait sur l'image même de l'impact : on
+  // lisait son score par-dessus l'explosion qu'on n'avait pas vue. C'est un
+  // cheveu sur la soupe — la mort d'un avion est un événement, et un événement
+  // a le droit de durer une seconde.
+  //
+  // L'épave s'ouvre en cinq éclats, la caméra les regarde, et l'écran arrive
+  // après. Seulement pour une mort au combat : un crash au sol se voit déjà,
+  // et une fin de partie au sol n'a rien à montrer.
+  // -------------------------------------------------------------------------
+  const auCombat = !victoire && (state.causeMort === 'roquette' || state.causeMort === 'balle');
+  if (auCombat) {
+    for (let i = 0; i < 5; i++) {
+      _b1.copy(state.pos).set(state.pos.x + (Math.random() - 0.5) * 16,
+                              state.pos.y + (Math.random() - 0.5) * 12,
+                              state.pos.z + (Math.random() - 0.5) * 16);
+      spawnBurst(_b1, 9 + Math.random() * 11);
+    }
+    state.finEcran = MORT_DELAI;
+  } else {
+    state.finEcran = 0;
+    overlay.hidden = false;
+  }
+  state.causeMort = null;
   feedTracers(playerTracers, []);
   feedTracers(enemyTracers, []);
 }
