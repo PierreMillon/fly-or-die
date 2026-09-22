@@ -356,8 +356,8 @@
   <h2>CE QUI NE S'ÉCRIT PAS</h2>
   <p>Le ciel et le sol cachent des choses que l'aide ne détaillera pas. Trois
   indications, et rien de plus.</p>
-  <p><b>Le soleil.</b> Il se regarde, il se tient, il se traverse. Trois choses
-  différentes arrivent selon ce qu'on en fait.</p>
+  <p><b>La lune.</b> Elle se regarde, elle se tient, elle se traverse. Trois
+  choses différentes arrivent selon ce qu'on en fait.</p>
   <p><b>Deux figures dans le ciel.</b> Elles sont là où elles doivent être :
   le chariot au nord, Vénus à l'ouest, basse sur l'horizon, comme dans
   n'importe quel ciel du soir. Une étoile s'allume dès qu'elle entre dans le
@@ -374,14 +374,21 @@
   kilomètres. On y arrive en volant longtemps et bas, ou en ayant tracé le
   chariot.</p>
 
-  <h2>LE SOLEIL</h2>
-  <p>Le regarder en face rend la cible plus dure à tenir et le tir plus
-  faible. <b>L'avoir dans le dos</b> gêne celui qui te cherche : il tire de
-  moins loin et doit être bien mieux aligné. C'est la plus vieille manœuvre du
+  <h2>LA LUNE</h2>
+  <p><b>L'avoir dans le dos</b> gêne celui qui te cherche : il tire de moins
+  loin et doit être bien mieux aligné. C'est la plus vieille manœuvre du
   combat aérien.</p>
   <p>Quand c'est le cas, un halo s'allume autour de toi, un bandeau le dit, et
   un anneau bat autour de chaque adversaire en train de te chercher dans la
   lumière.</p>
+  <p><b>Sa phase est l'horloge de la partie.</b> Pleine à la première vague,
+  elle se creuse à chaque vague suivante et n'est plus qu'un fil à la fin. Ce
+  n'est pas un décor : c'est ce qui éclaire. Les dernières vagues se jouent
+  dans le noir.</p>
+  <p><b>Et à la neuvième vague, elle tue.</b> Tant que la chenillée lourde est
+  là, foncer vers la lune plus de cinq secondes détruit l'appareil — tu ne
+  vois pas ce qui arrive. Un décompte s'affiche. La seule défense est celle de
+  1915 : l'astre dans le dos.</p>
 
   <h2>REPRENDRE DE LA VIE</h2>
   <p>Quatre façons, toutes payantes en risque. Il n'y a plus de bouclier :
@@ -561,7 +568,7 @@
   <h2>WHAT IS NOT WRITTEN DOWN</h2>
   <p>The sky and the ground hide things this help will not spell out. Three
   hints, and nothing more.</p>
-  <p><b>The sun.</b> It can be looked at, held, and flown through. Three
+  <p><b>The moon.</b> It can be looked at, held, and flown through. Three
   different things happen depending on what you do with it.</p>
   <p><b>Two figures in the sky.</b> The Big Dipper and the Evening Star are
   where they should be. One points the way, as it always has. The other
@@ -569,13 +576,19 @@
   <p><b>Somewhere west.</b> There is an airfield on no map. You get there by
   flying long and low.</p>
 
-  <h2>THE SUN</h2>
-  <p>Looking at it makes the target harder to hold and the fire weaker.
-  <b>Having it behind you</b> hampers whoever is looking for you: they fire
+  <h2>THE MOON</h2>
+  <p><b>Having it behind you</b> hampers whoever is looking for you: they fire
   from less far and must be far better lined up. It is the oldest manoeuvre in
   air combat.</p>
   <p>When that happens a halo lights around you, a banner says so, and a ring
   beats around every opponent searching for you in the light.</p>
+  <p><b>Its phase is the clock of the run.</b> Full on wave one, it thins with
+  every wave and is barely a thread by the end. This is not scenery: it is
+  what gives light. The last waves are flown in the dark.</p>
+  <p><b>And on wave nine it kills.</b> While the heavy tracked gun is out
+  there, diving at the moon for more than five seconds destroys the aircraft —
+  you cannot see what is coming. A countdown shows. The only defence is the
+  1915 one: the moon at your back.</p>
 
   <h2>GETTING LIFE BACK</h2>
   <p>Four ways, all paid for in risk. There is no shield any more: life is the
@@ -3667,39 +3680,139 @@ const VAGUE_LOURDE = 9;      // celle qui se termine au sol
 const VAGUE_FAUCHEUR = 10;   // les vingt biplans, puis lui
 const PN_GAIN = 3.2;
 
-// LE SOLEIL. Une direction fixe dans le ciel, comme les étoiles. Le regarder
-// éblouit : la cible devient plus difficile à tenir. L'avoir dans le dos
-// protège : celui qui vous vise l'a alors en pleine figure et tire moins bien.
-// C'est la manœuvre la plus vieille du combat aérien, et elle tient en un
-// produit scalaire de plus.
-const SOLEIL = new THREE.Vector3(0.669, 0.215, -0.712).normalize();   // 12,4° de hauteur : deux fois plus bas qu'avant
-// LE SOLEIL SUIT LA PARTIE. Il se lève à la première vague, culmine vers la
-// huitième et se couche de l'autre côté vers la quinzième : une partie est une
-// journée. Bas sur l'horizon il éblouit en palier, haut il ne gêne qu'en
-// montée. Il glisse d'un cran à chaque vague, lentement, jamais d'un bloc.
-const SOLEIL_AZ0 = Math.atan2(0.62, 0.66);
-const _solCible = SOLEIL.clone();
-function soleilCible(vague, out) {
-  const s = THREE.MathUtils.clamp((vague - 1) / 14, 0, 1);
-  const az = SOLEIL_AZ0 - Math.PI / 3 + (2 * Math.PI / 3) * s;
-  const el = (5 + 55 * Math.sin(Math.PI * s)) * Math.PI / 180;
-  return out.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+// LA LUNE. Une direction fixe dans le ciel, comme les étoiles — et elle ne
+// bouge plus de la partie : ce n'est pas sa hauteur qui dit l'heure, c'est sa
+// phase. L'avoir dans le dos protège : celui qui vous vise l'a alors en pleine
+// figure et tire moins bien. C'est la manœuvre la plus vieille du combat
+// aérien, et elle tient en un produit scalaire de plus.
+const LUNE = new THREE.Vector3(0.669, 0.215, -0.712).normalize();   // 12,4° au-dessus de l'horizon
+// ---------------------------------------------------------------------------
+// CE N'EST PLUS UN SOLEIL, C'EST LA LUNE.
+//
+// Un jeu qui se joue de nuit, sur un écran de vieux moniteur, sous un ciel
+// d'étoiles nommées — et un soleil en plein milieu. Il n'y avait qu'à le
+// regarder pour voir qu'il n'avait rien à faire là.
+//
+// LA PHASE EST L'HORLOGE. Elle remplace la course du soleil dans le ciel :
+// pleine à la première vague, elle se creuse à chaque vague et n'est plus
+// qu'un fil à la fin. Ce n'est pas décoratif — c'est ce qui ÉCLAIRE. Les
+// premières vagues se jouent sous une lumière franche, les dernières dans le
+// noir, et l'on n'a rien à lire pour le comprendre : il suffit de lever les
+// yeux. Une partie est une lunaison, comme elle était une journée.
+//
+// L'ÉCLIPSE DISPARAÎT. Éteindre la lune vingt secondes dans un jeu qui
+// s'assombrit déjà tout seul, c'était doubler la même idée en moins bien.
+// ---------------------------------------------------------------------------
+const LUNE_PLEINE = 20;          // secondes de pleine lune offertes par le Berger
+// ---------------------------------------------------------------------------
+// ET LA LUNE DEVIENT L'AFFAIRE DE LA CHENILLÉE LOURDE.
+//
+// L'éblouissement était partout et ne coûtait presque rien : un viseur un peu
+// plus large, un voile sur l'écran, à chaque seconde de chaque partie. Une
+// règle qui s'applique toujours cesse d'être une règle et devient une texture.
+//
+// Elle s'applique maintenant une seule fois dans la partie, à la neuvième
+// vague, et elle tue. Tant que la chenillée est là, foncer vers la lune plus
+// de quelques secondes détruit l'appareil : le pilote est aveuglé, il ne voit
+// pas ce qui arrive, et la pièce en profite. La seule défense est celle de
+// tous les combats aériens depuis 1915 — l'astre dans le dos.
+//
+// Le décompte se voit. On ne meurt pas d'une règle qu'on ne pouvait pas lire.
+// ---------------------------------------------------------------------------
+const LUNE_MORT = 5;             // secondes de nez dans la lune avant le coup
+const LUNE_SEUIL = 0.55;         // au-delà de quoi on « fonce vers la lune »
+function lunePhase(vague) {
+  // 1 = pleine, 0 = nouvelle. UNE PARTIE EST UNE LUNAISON : la lune est pleine
+  // à la première vague et n'est plus qu'un fil à la dernière — et la dernière,
+  // c'est CHAPITRE, pas une vague imaginaire. Calée sur quinze, elle en était
+  // encore aux deux tiers quand le faucheur sortait, et tout ce travail ne se
+  // voyait pas.
+  // Elle ne tombe jamais tout à fait à zéro : une lune invisible, c'est une
+  // nuit noire, et une nuit noire n'est pas jouable.
+  return THREE.MathUtils.clamp(1 - (vague - 1) / (CHAPITRE - 1), 0.15, 1);
 }
-function majSoleil(dt) {
+// ce qu'elle éclaire en ce moment, Berger compris
+function luneClarte() {
+  return state.pleineLune > 0 ? 1 : lunePhase(state.wave);
+}
+// ---------------------------------------------------------------------------
+// LE TRACÉ DU CROISSANT. Tout tient dans une seule valeur : c, la demi-largeur
+// du terminateur, comptée en fractions du rayon.
+//
+//   pleine lune   f = 1    c = -1   le terminateur se confond avec le limbe opposé
+//   quartier      f = 0.5  c =  0   c'est une droite verticale
+//   nouvelle lune f = 0    c = +1   il rejoint le limbe éclairé, il ne reste rien
+//
+// On en déduit tout : le contour clair, c'est le demi-limbe éclairé suivi du
+// terminateur ; les cordes horizontales du dedans vont de l'un à l'autre et
+// se raccourcissent toutes seules quand la lune se creuse.
+// ---------------------------------------------------------------------------
+const LUNE_RAY = 210;
+const LUNE_ARC = 44;                        // segments par demi-contour
+const LUNE_PENCHE = -38 * Math.PI / 180;    // penchée, les cornes en haut à gauche
+// LES CRATÈRES, ET PAS DES HACHURES. Un disque hachuré, c'est un camembert :
+// à pleine lune on ne voyait qu'un rond rayé. Quatre cercles posés à demeure
+// disent « lune » d'un coup d'œil, et ils disparaissent un par un dans
+// l'ombre à mesure que la phase se creuse — c'est la phase qui les efface,
+// on n'a rien à calculer de plus.
+const LUNE_CRATERES = [
+  [ 0.30,  0.34, 0.20], [-0.26,  0.08, 0.27],
+  [ 0.16, -0.44, 0.14], [-0.44, -0.40, 0.11],
+];
+function traceLune(f) {
+  const c = 1 - 2 * f;
+  const clair = [], sombre = [];
+  const co = Math.cos(LUNE_PENCHE), si = Math.sin(LUNE_PENCHE);
+  const met = (t, x, y) => t.push(x * co - y * si, x * si + y * co, 0);
+  const arc = (t, a0, a1, kx) => {
+    let px = 0, py = 0;
+    for (let i = 0; i <= LUNE_ARC; i++) {
+      const a = a0 + (a1 - a0) * i / LUNE_ARC;
+      const x = Math.cos(a) * LUNE_RAY * kx, y = Math.sin(a) * LUNE_RAY;
+      if (i) { met(t, px, py); met(t, x, y); }
+      px = x; py = y;
+    }
+  };
+  arc(clair, -Math.PI / 2, Math.PI / 2, 1);       // le limbe éclairé
+  arc(clair, Math.PI / 2, -Math.PI / 2, c);       // le terminateur
+  arc(sombre, Math.PI / 2, 3 * Math.PI / 2, 1);   // le reste du disque, en cendre
+  // un cratère n'est tracé que s'il tient TOUT ENTIER dans la partie éclairée
+  for (const [cx, cy, cr] of LUNE_CRATERES) {
+    const x = cx * LUNE_RAY, y = cy * LUNE_RAY, r = cr * LUNE_RAY;
+    const limbe = Math.sqrt(Math.max(0, LUNE_RAY * LUNE_RAY - y * y));
+    if (x - r < c * limbe || x + r > limbe) continue;
+    let px = 0, py = 0;
+    for (let i = 0; i <= 18; i++) {
+      const a = i / 18 * Math.PI * 2;
+      const qx = x + Math.cos(a) * r, qy = y + Math.sin(a) * r;
+      if (i) { met(clair, px, py); met(clair, qx, qy); }
+      px = qx; py = qy;
+    }
+  }
+  return { clair, sombre };
+}
+// ON NE REFAIT LA GÉOMÉTRIE QUE QUAND LA PHASE BOUGE — une fois par vague, et
+// aux deux bouts des vingt secondes du Berger. Le reste du temps, c'est un
+// maillage figé qu'on se contente de tourner vers la caméra.
+let _lunePhaseVue = -1;
+function refaitLune(f) {
+  if (!luneMesh || Math.abs(f - _lunePhaseVue) < 0.003) return;
+  _lunePhaseVue = f;
+  const tr = traceLune(f);
+  luneMesh.geometry.dispose(); luneMesh.geometry = segGeom(tr.clair);
+  luneSombre.geometry.dispose(); luneSombre.geometry = segGeom(tr.sombre);
+}
+function majLune(dt) {
   // LA VOÛTE SUIT LA CAMÉRA. Centrée sur l'origine du monde, elle se décalait
   // dès qu'on s'éloignait de la piste : les étoiles ont une parallaxe nulle,
   // il faut donc que la sphère se déplace avec nous.
   for (const e of etoiles) if (e) e.position.copy(camera.position);
-  if (SOLEIL.distanceToSquared(_solCible) < 1e-8) return;
-  SOLEIL.lerp(_solCible, 1 - Math.exp(-0.45 * dt)).normalize();
 }
-// LES SECRETS DU SOLEIL. Rien n'est écrit dans l'aide : on les trouve en
-// jouant avec lui. Tirer dix secondes en plein éblouissement l'éteint vingt
-// secondes — l'ÉCLIPSE, et plus personne n'y voit. Le tenir en plein centre
-// deux secondes et demie, c'est le TRAVERSER : un bouclier doré, une fois par
-// vague. Un tonneau le nez dans le soleil décroche une ÉTOILE FILANTE.
-const ECLIPSE_SEUIL = 10, ECLIPSE_DUREE = 20;
-// TENIR LE SOLEIL EN PLEIN CENTRE DEUX SECONDES ET DEMIE REND INVINCIBLE
+// LES SECRETS DE LA LUNE. Rien n'est écrit dans l'aide : on les trouve en
+// jouant avec elle. La tenir en plein centre deux secondes et demie, c'est la
+// TRAVERSER : un bouclier doré. Un tonneau le nez dans la lune décroche une
+// ÉTOILE FILANTE.
+// TENIR LA LUNE EN PLEIN CENTRE DEUX SECONDES ET DEMIE REND INVINCIBLE
 // DIX SECONDES, autant de fois qu'on y arrive. C'etait une fois par partie :
 // personne ne cherchait un secret qu'on ne pouvait plus retrouver. Rendu
 // renouvelable, il devient une manoeuvre — monter cote soleil, le fixer,
@@ -3710,13 +3823,7 @@ const ETOILE_PRIME = 500, ETOILE_REPOS = 30;
 // traînée font neuf degrés et demi, soit un bon quart de la hauteur de l'écran.
 const ETOILE_DUREE = 1.7, ETOILE_TRAINE = 700;
 let etoile = null;
-function declencheEclipse() {
-  state.eclipse = ECLIPSE_DUREE;
-  state.solTir = 0;
-  announce(t('eclipse'));
-  SFX.bouclierOn();
-}
-function tonneauSoleil() {
+function tonneauLune() {
   objCompte('tonneaux');          // appelée à chaque départ de tonneau : on compte ici
   if (state.etoileT > 0 || eblouissement() <= 0.5) return;
   state.etoileT = ETOILE_REPOS;
@@ -3725,27 +3832,43 @@ function tonneauSoleil() {
   announce(t('etoile') + ETOILE_PRIME);
   SFX.vagueNette();
   // elle part du soleil et file en travers du ciel pendant deux secondes
-  _v.set(-SOLEIL.z, 0, SOLEIL.x).normalize();
-  etoile = { t: 0, dir: SOLEIL.clone(), perp: _v.clone().multiplyScalar(Math.random() < 0.5 ? -1 : 1) };
+  _v.set(-LUNE.z, 0, LUNE.x).normalize();
+  etoile = { t: 0, dir: LUNE.clone(), perp: _v.clone().multiplyScalar(Math.random() < 0.5 ? -1 : 1) };
 }
-function secretsSoleil(dt) {
-  if (state.eclipse > 0) state.eclipse = Math.max(0, state.eclipse - dt);
+function secretsLune(dt) {
   if (state.etoileT > 0) state.etoileT -= dt;
   if (state.dore > 0) {
     state.dore -= dt;
     if (state.dore <= 0) { state.dore = 0; announce(t('doreFin')); SFX.bouclierFin(); }
   }
   const enVol = !state.pose && !state.auSol && !state.takeoff && !state.roulage;
-  if (enVol && state.eclipse <= 0 && eblouissement() >= 0.98) {
-    state.solDans += dt;
-    if (state.solDans >= DORE_TENUE && state.dore <= 0) {
+  // LA RÈGLE DE LA CHENILLÉE. Elle ne vit que tant qu'elle est là.
+  // ET TANT QU'ELLE EST LÀ, LA LUNE NE PROTÈGE PLUS. Les deux règles se
+  // contredisaient : tenir la lune en plein centre armait le bouclier doré à
+  // deux secondes et demie, ce qui ÉTEIGNAIT le décompte — foncer dessus à
+  // fond était donc le seul moyen de ne pas mourir de foncer dessus. Le
+  // bouclier est une armure contre le plomb, pas contre l'aveuglement ; et
+  // « la seule défense est l'astre dans le dos » ne souffre pas d'exception.
+  // Pendant la neuvième vague, la traversée ne se prend pas.
+  const lourdeLa = state.enemies.some(e => e.hp > 0 && e.kind.nom === 'LOURDE');
+  if (enVol && lourdeLa && eblouissement() > LUNE_SEUIL) {
+    state.luneT = (state.luneT || 0) + dt;
+    if (state.luneT >= LUNE_MORT) {
+      state.luneT = 0;
+      damagePlayer(state.vieMax * 2, null, 'sol');
+      announce(t('luneMort'), t('luneMortSous'));
+    }
+  } else state.luneT = Math.max(0, (state.luneT || 0) - dt * 2);
+  if (enVol && !lourdeLa && eblouissement() >= 0.98) {
+    state.luneDans += dt;
+    if (state.luneDans >= DORE_TENUE && state.dore <= 0) {
       state.doreVague = state.wave;
       state.dore = DORE_DUREE;
-      state.solDans = 0;
+      state.luneDans = 0;
       announce(t('dore'));
       SFX.bouclierOn();
     }
-  } else state.solDans = 0;
+  } else state.luneDans = 0;
   secretsCiel(dt);
 }
 
@@ -3764,7 +3887,7 @@ function secretsSoleil(dt) {
 // adversaires ne voient plus rien et nous si. C'est l'exact contraire de
 // l'eclipse.
 function secretsCiel(dt) {
-  if (state.aube > 0) state.aube = Math.max(0, state.aube - dt);
+  if (state.pleineLune > 0) state.pleineLune = Math.max(0, state.pleineLune - dt);
   // elle se lève quand on franchit la chaîne, et se couche quand on rentre
   const dehors = Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R3;
   if (croixMesh) croixMesh.visible = dehors;
@@ -3912,8 +4035,11 @@ function secretsCiel(dt) {
       state.bergerPris = true;
       trouve('berger');
       state.bergerT = 0;
-      state.aube = AUBE_DUREE;
-      state.eclipse = 0;
+      // LE BERGER LÈVE LA PLEINE LUNE. Il levait le jour — dans un jeu de
+      // nuit, sous un ciel d'étoiles nommées, c'était la seule chose qui
+      // contredisait tout le reste. Vingt secondes de pleine lune : la nuit
+      // reste la nuit, et l'on y voit.
+      state.pleineLune = LUNE_PLEINE;
       marque(BERGER_PRIME);
       stat('bergers');
       debloqueViseur('berger');
@@ -3974,8 +4100,8 @@ function majTraitOurse() {
   ourseTrait.geometry = segGeom(pts.length ? pts : [0,0,0, 0,0,0]);
   ourseTrait.material.opacity = pts.length ? 0.55 : 0;
 }
-const SOL_CONE = Math.cos(24 * Math.PI / 180);   // au-delà, on est ébloui
-const SOL_CONE_E = Math.cos(20 * Math.PI / 180); // et l'adversaire aussi
+const LUNE_CONE = Math.cos(24 * Math.PI / 180);   // au-delà, on est ébloui
+const LUNE_CONE_E = Math.cos(20 * Math.PI / 180); // et l'adversaire aussi
 const ESQUIVE_DUREE = [1.0, 1.6];  // secondes de dégagement quand on est visé
 const ESQUIVE_REPOS  = 0.8;        // avant de pouvoir recommencer
 const CHARGE_DECROIT = 0.8;        // la montée en puissance retombe, elle ne s'efface pas
@@ -4852,7 +4978,7 @@ const nappeSol = scene.getObjectByName('nappe');
 const grid = scene.getObjectByName('grid');
 majSolChoisi();     // un seul des deux sols se voit
 let etoiles = [];
-let soleilMesh = null, couronneMesh = null, soleilPlein = null;
+let luneMesh = null, luneSombre = null, lunePlein = null;
 let ourseMesh = null, ourseTrait = null, bergerMesh = null, bergerHalo = null;
 let croixMesh = null;
 // L'ÉTOILE FILANTE. Un seul trait de 320 mètres, en couleur de texte, à 4 200 m
@@ -5088,7 +5214,6 @@ const OURSE_TENUE = 2;            // secondes sur chaque etoile
 const BERGER_CONE = Math.cos(7 * Math.PI / 180);
 const BERGER_TENUE = 1.5;
 const BERGER_FENETRE = 6;     // secondes ouvertes par une figure pour aller la chercher
-const AUBE_DUREE = 20;            // secondes de jour leve : l'inverse de l'eclipse
 const OURSE_PRIME = 2000, BERGER_PRIME = 2000;
 
 // ---------------------------------------------------------------------------
@@ -5343,67 +5468,51 @@ const PLEIADE_DEGATS = 1.3;
   // et la voute est centree sur NOUS, pas sur l'origine du monde : a trois
   // kilometres de la piste, le ciel se decalait comme un decor de theatre.
 
-  // LE SOLEIL. C'était un disque plat posé perpendiculairement à sa propre
-  // direction : vu de biais il s'écrasait en ellipse, ce qu'un astre ne fait
-  // jamais. C'est maintenant une vraie sphère filaire — méridiens et
-  // parallèles — dont le contour est un cercle sous tous les angles, quelle
-  // que soit la position du joueur.
-  const RAY = 210;
-  const pts = [];
-  const NM = 8, NP = 5, NS = 40;
-  for (let m = 0; m < NM; m++) {                  // les méridiens
-    const lo = m / NM * Math.PI;
-    for (let i = 0; i < NS; i++) {
-      const a0 = i / NS * Math.PI * 2, a1 = (i + 1) / NS * Math.PI * 2;
-      for (const a of [a0, a1]) {
-        pts.push(Math.cos(a) * Math.cos(lo) * RAY, Math.sin(a) * RAY,
-                 Math.cos(a) * Math.sin(lo) * RAY);
-      }
-    }
-  }
-  for (let p = 1; p < NP; p++) {                  // les parallèles
-    const la = (p / NP - 0.5) * Math.PI;
-    const r = Math.cos(la) * RAY, y = Math.sin(la) * RAY;
-    for (let i = 0; i < NS; i++) {
-      const a0 = i / NS * Math.PI * 2, a1 = (i + 1) / NS * Math.PI * 2;
-      for (const a of [a0, a1]) pts.push(Math.cos(a) * r, y, Math.sin(a) * r);
-    }
-  }
-  // IL EST PLEIN. Les méridiens et les parallèles sont posés dans le repère
-  // du monde — l'axe des pôles est vertical, donc les parallèles sont bien
-  // horizontaux et ne tournent pas avec nous. Ce qui donnait l'impression que
-  // l'astre pivotait, c'est qu'on voyait sa FACE ARRIÈRE par transparence :
-  // les deux moitiés se superposaient et le réseau semblait bouger. Une
-  // sphère pleine, de la couleur du fond, glissée juste sous le filaire,
-  // cache l'arrière. Il ne reste que l'hémisphère qui nous fait face.
-  soleilPlein = new THREE.Mesh(
-    new THREE.SphereGeometry(RAY * 0.985, 24, 16),
+  // -------------------------------------------------------------------------
+  // LA LUNE, ET SA PHASE POUR HORLOGE.
+  //
+  // C'était un soleil, et c'était faux : on joue sous un ciel d'étoiles, la
+  // Grande Ourse au nord, le Berger à l'ouest. Un astre plein au milieu de
+  // tout ça, c'était midi au beau milieu de la nuit.
+  //
+  // UNE LUNE NE SE DESSINE PAS COMME UNE SPHÈRE. Un croissant vu de la Terre
+  // est une figure PLATE : le limbe éclairé d'un côté, et de l'autre le
+  // terminateur, qui est l'ombre de la sphère sur elle-même projetée sur le
+  // ciel. On la construit donc à plat et on la tourne vers la caméra à chaque
+  // image, comme l'ancienne couronne : le contour reste un cercle sous tous
+  // les angles, et le croissant garde sa forme d'où qu'on le regarde.
+  //
+  // LA COURONNE DISPARAÎT. Des rayons autour d'une lune, c'est un soleil qui
+  // n'ose pas dire son nom.
+  //
+  // LE DISQUE PLEIN RESTE, ET IL EST ENTIER. La partie éteinte de la lune
+  // cache les étoiles exactement comme la partie éclairée — c'est un caillou,
+  // pas un trou. Le disque de couleur du fond couvre donc tout le cercle, et
+  // pas seulement le croissant.
+  // -------------------------------------------------------------------------
+  lunePlein = new THREE.Mesh(
+    new THREE.CircleGeometry(LUNE_RAY * 1.004, 48),
     new THREE.MeshBasicMaterial({ color: COL_FOND, fog: false })
   );
-  soleilPlein.frustumCulled = false;
-  soleilPlein.renderOrder = -1;
-  scene.add(soleilPlein);
+  lunePlein.frustumCulled = false;
+  lunePlein.renderOrder = -2;
+  scene.add(lunePlein);
 
-  soleilMesh = new THREE.LineSegments(segGeom(pts),
+  const tr0 = traceLune(1);
+  luneMesh = new THREE.LineSegments(segGeom(tr0.clair),
     new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.6, fog: false }));
-  soleilMesh.frustumCulled = false;
-  soleilMesh.renderOrder = -1;
-  scene.add(soleilMesh);
+  luneMesh.frustumCulled = false;
+  luneMesh.renderOrder = -1;
+  scene.add(luneMesh);
 
-  // La couronne, elle, doit rester face au regard : des rayons vus de profil
-  // disparaîtraient. Elle est construite à plat dans son propre repère et
-  // tournée vers la caméra à chaque image.
-  const cp = [];
-  for (let i = 0; i < 20; i++) {
-    const a = i / 20 * Math.PI * 2;
-    const r0 = RAY * 1.22, r1 = RAY * (i % 2 ? 1.55 : 2.05);
-    cp.push(Math.cos(a) * r0, Math.sin(a) * r0, 0, Math.cos(a) * r1, Math.sin(a) * r1, 0);
-  }
-  couronneMesh = new THREE.LineSegments(segGeom(cp),
-    new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.75, fog: false }));
-  couronneMesh.frustumCulled = false;
-  couronneMesh.renderOrder = -1;
-  scene.add(couronneMesh);
+  // LE LIMBE ÉTEINT, PRESQUE RIEN. C'est la lumière cendrée : le reste du
+  // disque se devine sans s'allumer. Sans lui, un croissant fin n'est plus
+  // une lune, c'est une virgule.
+  luneSombre = new THREE.LineSegments(segGeom(tr0.sombre),
+    new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.11, fog: false }));
+  luneSombre.frustumCulled = false;
+  luneSombre.renderOrder = -1;
+  scene.add(luneSombre);
 })();
 
 // ARÊTES D'UN PRISME. Un bâtiment troué se construit en volumes pleins
@@ -9451,10 +9560,9 @@ function spawnBurst(pos, scale) {
  * @property {any} recordBattu
  * @property {Array<any>} impacts
  * @property {number} eclipse   secondes d'éclipse restantes
- * @property {number} solTir   secondes de tir cumulées en plein éblouissement
  * @property {number} dore   secondes de bouclier doré restantes
  * @property {number} doreVague   la vague où le bouclier doré a déjà été pris
- * @property {number} solDans   secondes tenues le nez dans le disque
+ * @property {number} luneDans   secondes tenues le nez dans le disque
  * @property {number} etoileT   repos avant la prochaine étoile filante
  * @property {number} forme   -1 en difficulté, +1 en pleine forme : la courbe s'y adapte
  * @property {?Object} stats   les compteurs de la partie, pour l'écran de fin
@@ -9503,7 +9611,6 @@ function spawnBurst(pos, scale) {
  * @property {number} bergerT   secondes passées sur Vénus
  * @property {boolean} bergerPris   une fois par partie
  * @property {number} figSortie   secondes depuis la fin d'une figure : la fenêtre de Vénus
- * @property {number} aube   secondes de jour levé : les adversaires n'y voient plus
  * @property {?Object} mission   { cle, but, chrono, n, t, fini } quand le défi en est une
  * @property {?Object} refuge   { t, angle } quand on s'est posé au terrain secret
  * @property {number} remuant   combien le manche bouge : ça casse la visée adverse
@@ -9559,6 +9666,8 @@ const state = {
   boostFin: 0,
   boostPortail: 0,    // secondes de poussée offertes par un portail
   viePleineT: 0,      // secondes restantes d'éclat quand la jauge vient de se remplir
+  pleineLune: 0,      // secondes de pleine lune offertes par le Berger
+  luneT: 0,           // secondes de nez dans la lune, sous la chenillée lourde
   immunCrash: false,  // monté au plafond : plus de crash contre le sol ni les murs
   tunnel: null,       // dans le tunnel : { t, vie }
   suite: {},          // avancement de chaque figure de CIEL_SUITE
@@ -9575,10 +9684,9 @@ const state = {
   recordBattu: null,
   impacts: [],
   eclipse: 0,         // secondes d'éclipse restantes
-  solTir: 0,          // secondes de tir cumulées en plein éblouissement
   dore: 0,            // secondes de bouclier doré restantes
   doreVague: -1,      // la vague où le bouclier doré a déjà été pris
-  solDans: 0,         // secondes tenues le nez dans le disque
+  luneDans: 0,         // secondes tenues le nez dans le disque
   etoileT: 0,         // repos avant la prochaine étoile filante
   forme: 0,           // -1 en difficulté, +1 en pleine forme : la courbe s'y adapte
   stats: null,        // les compteurs de la partie, pour l'écran de fin
@@ -9627,7 +9735,6 @@ const state = {
   bergerT: 0,          // secondes passées sur Vénus
   bergerPris: false,   // une fois par partie
   figSortie: 0,        // secondes depuis la fin d'une figure : la fenêtre de Vénus
-  aube: 0,             // secondes de jour levé : les adversaires n'y voient plus
   mission: null,       // { cle, but, chrono, n, t, fini } quand le défi en est une
   refuge: null,        // { t, angle } quand on s'est posé au terrain secret
   remuant: 0,          // combien le manche bouge : ça casse la visée adverse
@@ -9844,6 +9951,8 @@ function toucherPiste() {
 
 function resetGame() {
   state.immunCrash = false;
+  state.pleineLune = 0;
+  state.luneT = 0;
   state.tunnel = null;
   state.viePleineT = 0;
   _camDecal.val = 0;
@@ -9879,7 +9988,7 @@ function resetGame() {
   // reprenait les mêmes. La guillotine les use pour la partie entière, et
   // c'est elle qui décide — voir majGuillotine().
   for (const b of BATIMENTS) rebatir(b);
-  state.eclipse = 0; state.solTir = 0; state.dore = 0; state.doreVague = -1; state.solDans = 0;
+  state.pleineLune = 0; state.dore = 0; state.doreVague = -1; state.luneDans = 0;
   state.etoileT = 0;
   state.forme = 0; state.objN = 0; state.defi = false;
   state.stats = statsVides();
@@ -9915,7 +10024,7 @@ function resetGame() {
     traitsSuite[cle].geometry.dispose();
     traitsSuite[cle].geometry = segGeom([0,0,0, 0,0,0]);
   }
-  state.aube = 0; state.figSortie = 0; state.dernierTireur = null; state.mission = null;
+  state.figSortie = 0; state.dernierTireur = null; state.mission = null;
   nouvelles.length = 0;
   if (typeof majTraitOurse === 'function') majTraitOurse();
   state.leurres = avion().leurres; state.leurresActifs = []; state.leurresPleins = false;
@@ -9930,8 +10039,8 @@ function resetGame() {
   state.triche = null;
   if (avance.vie50) state.structure = 50;
   if (tricheEnAttente.legende) { state.wave = 8; tricheEnAttente.legende = false; state.triche = Object.assign(state.triche || {}, { legende: true }); }
-  SOLEIL.set(0.669, 0.215, -0.712).normalize();   // le soleil ne bouge plus, et il est bas
-  _solCible.copy(SOLEIL);
+  LUNE.set(0.669, 0.215, -0.712).normalize();   // elle ne bouge pas : c'est sa phase qui dit l'heure
+  _lunePhaseVue = -1;                            // et le croissant se retaille à la première image
   state.paused = false;
   state.enemies.forEach(e => scene.remove(e.mesh));
   state.enemies.length = 0;
@@ -11240,7 +11349,7 @@ const CODES = {
   2263863777: { cle: 'fantome',    fr: 'Le revêtement furtif vous efface de leurs lunettes.', en: 'The stealth coating erases you from their sights.' },
   3386668481: { cle: 'munitions',  fr: 'Les soutes ne se vident plus : roquettes à volonté.', en: 'The bays never empty: rockets at will.' },
   2445673907: { cle: 'legende',    fr: 'On vous croit déjà en vague 9. Prouvez-le.', en: 'They already think you are on wave 9. Prove it.' },
-  1455989737: { cle: 'eclipse',    fr: 'Le soleil s’éteint une minute. Personne n’y voit.', en: 'The sun goes out for a minute. Nobody can see.' },
+  1455989737: { cle: 'eclipse',    fr: 'La pleine lune se lève une minute. Eux n’y voient plus.', en: 'A full moon rises for a minute. They cannot see a thing.' },
 };
 const tricheEnAttente = { legende: false };
 function essaieCode(txt) {
@@ -11248,7 +11357,7 @@ function essaieCode(txt) {
   if (!c) return false;
   state.triche = Object.assign(state.triche || {}, { [c.cle]: true });
   if (c.cle === 'legende') tricheEnAttente.legende = true;
-  if (c.cle === 'eclipse') state.eclipse = 60;
+  if (c.cle === 'eclipse') state.pleineLune = 60;
   announce('HACKER TIME');
   SFX.bouclierOn();
   return langue === 'en' ? c.en : c.fr;
@@ -11727,8 +11836,8 @@ function updateEnemies(dt) {
       e.mesh.quaternion.copy(e.quat);
       e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
       _v.multiplyScalar(-1 / dist);
-      const geneSol = e.gene = (state.eclipse > 0 || state.aube > 0) ? 1
-        : Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
+      const geneSol = e.gene = (state.pleineLune > 0) ? 1
+        : Math.max(0, (_v.dot(LUNE) - LUNE_CONE_E) / (1 - LUNE_CONE_E));
       e.reload -= dt;
       if (e.burst > 0) {
         e.burstT -= dt;
@@ -11988,7 +12097,7 @@ function updateEnemies(dt) {
         // Se placer dans les six heures et y rester. Il ne vise pas l'avion,
         // il vise un point derrière lui — et, tant qu'il est loin, il passe
         // par le soleil : il arrive de là où on ne le voit pas.
-        if (dist > 650) e.goal.copy(state.pos).addScaledVector(SOLEIL, 520);
+        if (dist > 650) e.goal.copy(state.pos).addScaledVector(LUNE, 520);
         else e.goal.copy(state.pos).addScaledVector(state.forward, -190);
         e.goal.y = Math.max(70, e.goal.y);
 
@@ -12114,7 +12223,7 @@ function updateEnemies(dt) {
       const lead = state.forward.clone().multiplyScalar(state.speed * (dist / BULLET_SPEED) * 0.8);
       const dir = _v.clone().multiplyScalar(dist).add(lead).normalize();
       // dans le noir de l'éclipse, il tire au jugé
-      if (state.eclipse > 0) {
+      if (false) {
         dir.x += (Math.random() - 0.5) * 0.14; dir.y += (Math.random() - 0.5) * 0.14;
         dir.z += (Math.random() - 0.5) * 0.14; dir.normalize();
       }
@@ -12124,8 +12233,8 @@ function updateEnemies(dt) {
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
     // être bien mieux aligné : c'est tout l'intérêt d'attaquer avec le soleil
     // dans le dos, la plus vieille manœuvre du combat aérien.
-    const gene = e.gene = (state.eclipse > 0 || state.aube > 0) ? 1
-      : Math.max(0, (_v.dot(SOLEIL) - SOL_CONE_E) / (1 - SOL_CONE_E));
+    const gene = e.gene = (state.pleineLune > 0) ? 1
+      : Math.max(0, (_v.dot(LUNE) - LUNE_CONE_E) / (1 - LUNE_CONE_E));
     e.reload -= dt;
     // Lui aussi doit prendre le temps de viser. Depuis que le joueur attend
     // une demi-seconde que son viseur se referme, un face-à-face était perdu
@@ -12844,7 +12953,12 @@ const _vise = new THREE.Vector3();
 function seuilLock(e, d) {
   // pendant un tonneau le viseur s'élargit : la cible ne se perd pas parce
   // qu'on s'est déporté de soixante mètres en une demi-seconde
-  return (Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE * (1 - 0.55 * eblouissement()))
+  // L'ÉBLOUISSEMENT NE PÉNALISE PLUS LE VISEUR. Une lune n'éblouit pas : ce
+  // qui pénalisait ici était la règle du soleil, et elle s'appliquait à
+  // chaque seconde de chaque partie. Elle ne disparaît pas du jeu — elle
+  // devient la règle d'UN adversaire, la chenillée lourde, qui punit celui
+  // qui fonce trop longtemps vers la lune. Voir LUNE_MORT.
+  return (Math.atan2(e.kind.envergure * 0.5, d) + LOCK_MARGE)
        * (state.spinT > 0 ? 2 : 1)
        * (state.pleiades ? PLEIADE_VISEUR : 1);
 }
@@ -12855,16 +12969,15 @@ function seuilLock(e, d) {
 // c'est exactement la même formule que celle qui gêne l'adversaire, lue à
 // l'envers. Elle ne dit pas que le soleil est derrière vous, elle dit que
 // celui d'en face vous cherche dedans.
-function dosSoleil() {
-  const dp = -state.forward.dot(SOLEIL);
-  return dp <= SOL_CONE_E ? 0 : (dp - SOL_CONE_E) / (1 - SOL_CONE_E);
+function dosLune() {
+  const dp = -state.forward.dot(LUNE);
+  return dp <= LUNE_CONE_E ? 0 : (dp - LUNE_CONE_E) / (1 - LUNE_CONE_E);
 }
 
 // 0 quand le soleil n'est pas dans l'axe, 1 quand on le regarde en face
 function eblouissement() {
-  if (state.eclipse > 0) return 0;
-  const dp = state.forward.dot(SOLEIL);
-  return dp <= SOL_CONE ? 0 : (dp - SOL_CONE) / (1 - SOL_CONE);
+  const dp = state.forward.dot(LUNE);
+  return dp <= LUNE_CONE ? 0 : (dp - LUNE_CONE) / (1 - LUNE_CONE);
 }
 
 function updateLock(dt) {
@@ -12930,7 +13043,7 @@ function updateLock(dt) {
   const dps = (DPS_MIN + (DPS_MAX - DPS_MIN) * charge)
             * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1)
             * (state.pleiades ? PLEIADE_DEGATS : 1)
-            * (1 - 0.6 * eblouissement());
+            * 1;   // l'éblouissement ne gêne plus la visée ordinaire
   // DERRIÈRE UN BÂTIMENT. Le viseur tient, la charge monte, mais les balles
   // s'arrêtent sur le mur : c'est lui qui encaisse, jusqu'à tomber.
   const mur = obstacleEntre(state.pos, best.pos);
@@ -12940,12 +13053,6 @@ function updateLock(dt) {
     toucheBat(mur.bat, _b1, dps * dt);
   } else {
     blesse(best, dps * dt);
-    // TIRER SUR LE SOLEIL. Tenir le feu en plein éblouissement, dix secondes
-    // en tout : le soleil finit par s'éteindre.
-    if (state.eclipse <= 0 && eblouissement() > 0.5) {
-      state.solTir += dt;
-      if (state.solTir >= ECLIPSE_SEUIL) declencheEclipse();
-    }
   }
 
   // deux roquettes après une seconde de verrouillage tenu
@@ -13188,7 +13295,7 @@ function simulate(dt) {
     updateJeep(dt);
     updatePoste(dt);
     updateDecor(dt);
-    majSoleil(dt);
+    majLune(dt);
     refreshBars();
     return;
   }
@@ -13214,7 +13321,7 @@ function simulate(dt) {
     }
     if (state.couche) {
       updateCouche(dt);
-      secretsSoleil(dt);
+      secretsLune(dt);
       updatePoste(dt);
       updateDecor(dt);
       state.announceT = Math.max(0, state.announceT - dt);
@@ -13223,7 +13330,7 @@ function simulate(dt) {
     updateAPied(dt);
     updatePoste(dt);
     updateDecor(dt);
-    majSoleil(dt);
+    majLune(dt);
     refreshBars();
     return;
   }
@@ -13232,7 +13339,7 @@ function simulate(dt) {
     updatePoste(dt);
     updateDecor(dt);
     updateAerodrome(dt);
-    majSoleil(dt);
+    majLune(dt);
     refreshBars();
     return;
   }
@@ -14560,7 +14667,7 @@ function simulate(dt) {
     const t = performance.now() / 1000;
     majHalo(HALOS.bouclier, state.dore > 0 ? 0.3 + 0.7 * (state.dore / DORE_DUREE) : 0, t);
     majHalo(HALOS.dore, state.dore > 0 ? Math.min(1, state.dore / 1.5) : 0, t);
-    majHalo(HALOS.soleil, dosSoleil(), t);
+    majHalo(HALOS.soleil, dosLune(), t);
     majHalo(HALOS.canons,
             state.chauffe > 0 ? Math.min(1, state.chauffe / CHAUFFE_PAR) : 0, t);
   }
@@ -14690,8 +14797,8 @@ function simulate(dt) {
   updateRefuge(dt);
   updateTrainee(dt);
   updateBatiments(dt);
-  majSoleil(dt);
-  secretsSoleil(dt);
+  majLune(dt);
+  secretsLune(dt);
 
   // --- combat. L'invité ne simule ni les adversaires ni les vagues : il les
   // reçoit de l'hôte. Il garde en revanche ses balles, ses roquettes et son
@@ -15282,18 +15389,25 @@ function updateDecor() {
   // la sphère se translate avec la caméra mais ne tourne jamais : les
   // étoiles restent donc à leur place dans le ciel
   for (const e of etoiles) e.position.copy(camera.position);
-  if (soleilMesh) {
-    soleilMesh.position.copy(camera.position).addScaledVector(SOLEIL, 4500);
-    if (soleilPlein) soleilPlein.position.copy(soleilMesh.position);
-    couronneMesh.position.copy(soleilMesh.position);
-    couronneMesh.lookAt(camera.position);
-    // l'éclipse : le disque s'éteint, la couronne seule reste et s'élargit
-    const noir = state.eclipse > 0 ? 1 : 0;
-    soleilMesh.material.opacity += (0.6 - 0.54 * noir - soleilMesh.material.opacity) * 0.08;
-    couronneMesh.material.opacity += (0.75 + 0.25 * noir - couronneMesh.material.opacity) * 0.08;
-    const ech = 1 + 0.5 * noir;
-    couronneMesh.scale.x += (ech - couronneMesh.scale.x) * 0.08;
-    couronneMesh.scale.y = couronneMesh.scale.x;
+  if (luneMesh) {
+    // LA PHASE EST L'HORLOGE : pleine à la première vague, un fil à la
+    // quinzième. Le Berger la rallume vingt secondes, et la géométrie suit.
+    const f = luneClarte();
+    refaitLune(f);
+    luneMesh.position.copy(camera.position).addScaledVector(LUNE, 4500);
+    luneMesh.lookAt(camera.position);
+    luneSombre.position.copy(luneMesh.position);
+    luneSombre.quaternion.copy(luneMesh.quaternion);
+    // le disque de fond passe DERRIÈRE le tracé, sinon les deux se disputent
+    // le même plan de profondeur et le contour clignote
+    lunePlein.position.copy(luneMesh.position).addScaledVector(LUNE, 8);
+    lunePlein.quaternion.copy(luneMesh.quaternion);
+    // ET ELLE ÉCLAIRE DE MOINS EN MOINS. Le trait s'éteint avec la phase :
+    // les premières vagues se jouent sous une lumière franche, les dernières
+    // dans le noir, et personne n'a rien à lire pour le comprendre.
+    const vise = 0.26 + 0.44 * f;
+    luneMesh.material.opacity += (vise - luneMesh.material.opacity) * 0.08;
+    luneSombre.material.opacity += (0.05 + 0.08 * f - luneSombre.material.opacity) * 0.08;
   }
   if (etoile) {
     etoile.t += 1 / 60;
@@ -15895,12 +16009,12 @@ function drawHud() {
   // nombreux et longs. Un seul langage pour la vitesse, et le centre de
   // l'ecran reste libre.
 
-  // SOLEIL DANS LE DOS. Tant que la condition tient, un halo doux s'allume
+  // LUNE DANS LE DOS. Tant que la condition tient, un halo doux s'allume
   // autour de l'avion et un bandeau le dit en clair. Ce n'est pas un effet :
   // c'est l'affichage d'un état qui existait déjà dans le calcul depuis la
   // v0.32 sans que rien à l'écran ne le signale — on en profitait sans
   // pouvoir le chercher.
-  const dos = dosSoleil();
+  const dos = dosLune();
   if (dos > 0.02) {
     // La condition est franche : soit l'adversaire vous cherche dans le soleil,
     // soit non. Le halo est donc déjà lisible dès qu'elle s'ouvre, et se
@@ -16109,6 +16223,35 @@ function drawHud() {
       }
       hctx.restore();
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // LE DÉCOMPTE DE LA LUNE. On ne meurt pas d'une règle qu'on ne pouvait pas
+  // lire. Tant que la chenillée lourde est là, foncer vers la lune use un
+  // compte à rebours : il s'affiche SOUS l'appareil — le décompte de la
+  // roquette occupe le dessus — et la dernière seconde dit le geste plutôt que
+  // le chiffre, comme pour l'esquive. Détourner le nez le remonte deux fois
+  // plus vite qu'il ne descend : la faute se répare.
+  // ---------------------------------------------------------------------------
+  if (state.luneT > 0.05 && state.running && !state.pose && !state.roulage) {
+    const reste = Math.max(0, LUNE_MORT - state.luneT);
+    const q = project(_viseurPt.copy(state.pos).addScaledVector(_up, -22));
+    const cx = q.front ? THREE.MathUtils.clamp(q.x, 60, w - 60) : w / 2;
+    const cy = q.front ? THREE.MathUtils.clamp(q.y, h * 0.30, h * 0.74) : h * 0.52;
+    const _tl = performance.now() / 1000;
+    const bat = reste < 2 ? 0.55 + 0.45 * Math.abs(Math.sin(_tl * (reste < 1 ? 14 : 7))) : 0.9;
+    hctx.save();
+    hctx.textAlign = 'center';
+    hctx.textBaseline = 'middle';
+    hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.fillStyle = 'rgba(143,252,196,' + bat.toFixed(2) + ')';
+    hctx.fillText((langue === 'en' ? 'MOON  ' : 'LUNE  ') + reste.toFixed(1) + 's', cx, cy);
+    if (reste < 1) {
+      hctx.font = '600 15px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillStyle = 'rgba(190,255,220,' + Math.min(1, bat + 0.2).toFixed(2) + ')';
+      hctx.fillText(t('luneDetourne'), cx, cy + 17);
+    }
+    hctx.restore();
   }
 
   // La croix de visée, seule à l'écran désormais : elle marque l'axe des canons,
@@ -17133,7 +17276,7 @@ function refreshBars() {
   const bl = document.getElementById('bouclierLbl');
   // LES ROQUETTES SE COMPTENT DANS LA BANDE, plus sous les ailes : deux
   // petits chiffres collés à l'avion se lisaient mal et salissaient l'image.
-  bl.textContent = (state.dore > 0 ? (langue === 'en' ? 'SUN ' : 'SOLEIL ') + Math.ceil(state.dore) + 's' : '')
+  bl.textContent = (state.dore > 0 ? (langue === 'en' ? 'MOON ' : 'LUNE ') + Math.ceil(state.dore) + 's' : '')
                  + (avance.roquettesReelles && avion().roquettes > 0 && state.running ? '  ROCKETS ×' + state.roquettesN : '')
                  + (avion().leurres > 0 && state.running ? '  FLARES ×' + state.leurres : '');
 
@@ -17183,6 +17326,8 @@ const T = {
     viePleine: 'VIE PLEINE', viePleineSous: 'TU PEUX REPARTIR',
     plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Plus de crash au sol ni contre les murs, jusqu’au prochain posé.',
     portailSol: 'ARRACHÉ DU SOL', portailSolSous: 'Un portail franchi en roulant décolle et catapulte.',
+    luneMort: 'AVEUGLÉ', luneMortSous: 'La chenillée attendait que tu regardes la lune.',
+    luneDetourne: 'DÉTOURNE-TOI',
     esquive: 'ESQUIVE', tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
     acces_legende: 'Entre dans la légende pour l’ouvrir',
     acces_refuge: 'Il attend au refuge, loin à l’ouest',
@@ -17190,7 +17335,7 @@ const T = {
     acces_libre: 'Il est déjà à toi',
     tour: 'TOUR TRAVERSÉE  ·  +', grandeTour: 'LA GRANDE TOUR  ·  +', arche: 'ARCHE FRANCHIE  ·  +',
     fente: 'FENTE PASSÉE  ·  +', puits: 'SORTI PAR LE TOIT  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
-    doreFin: 'PROTECTION DU SOLEIL TERMINÉE', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
+    doreFin: 'PROTECTION DE LA LUNE TERMINÉE', viseur: 'VISEUR DÉBLOQUÉ  ·  ',
     sansFaute: 'SANS FAUTE  ·  VIE PLEINE  ·  PLAFOND +25',
     dansTemps: 'DANS LES TEMPS  ·  VIE PLEINE',
     egratignure: 'PAS UNE ÉGRATIGNURE  ·  PLAFOND +25',
@@ -17198,7 +17343,7 @@ const T = {
     coop: 'COOP  ·  ', appareils: ' APPAREILS', releve: 'RELEVÉ PAR UN ÉQUIPIER',
     vague: 'VAGUE ', gardien: 'GARDIEN', abattu: 'ABATTU',
     canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
-    dos: 'SOLEIL DANS LE DOS  ·  ILS SONT ÉBLOUIS',
+    dos: 'LUNE DANS LE DOS  ·  ILS N’Y VOIENT PLUS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
     ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
     plafond: 'CELLULE RENFORCÉE  ·  PLAFOND ', affaisse: 'PORTAIL AFFAISSÉ  ·  IL PASSE AU RAS DU SOL', ilSeSoigne: 'IL S’EST SOIGNÉ AU PORTAIL', repit: 'RÉPIT  ·  LA VAGUE SUIVANTE ARRIVE',
@@ -17280,7 +17425,7 @@ const T = {
     chaineSous: 'ils ont perdu la main  ·  coup de pied',
     faucheur2: 'LE FAUCHEUR SE DÉCOUVRE',
     faucheur2Sous: 'blindage ×8, vitesse ×3, virage ×2, cadence ×3  ·  NE T’ARRÊTE PLUS DE BOUGER',
-    dore: 'SOLEIL TRAVERSÉ  ·  INVINCIBLE 10 s', etoile: 'ÉTOILE FILANTE  ·  +',
+    dore: 'LUNE TRAVERSÉE  ·  INVINCIBLE 10 s', etoile: 'ÉTOILE FILANTE  ·  +',
     complet: 'partie complète', illisible: 'code illisible.',
     prepare: 'préparation du code...', pret: 'code prêt. Envoie-le, puis colle la réponse.',
     ajoute: 'joueur ajouté. Recommence pour le suivant.',
@@ -17317,6 +17462,8 @@ const T = {
     viePleine: 'FULL LIFE', viePleineSous: 'YOU CAN GO',
     plafondPris: 'SKY IS THE LIMIT', plafondPrisSous: 'Immune to crash, ground and walls, until you land again.',
     portailSol: 'TORN OFF THE GROUND', portailSolSous: 'A gate taken while taxiing lifts you off and slingshots you.',
+    luneMort: 'BLINDED', luneMortSous: 'The tracked gun was waiting for you to look at the moon.',
+    luneDetourne: 'LOOK AWAY',
     esquive: 'BREAK', tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
     acces_legende: 'Enter the legend to unlock it',
     acces_refuge: 'It waits at the refuge, far west',
@@ -17324,7 +17471,7 @@ const T = {
     acces_libre: 'It is already yours',
     tour: 'TOWER THREADED  ·  +', grandeTour: 'THE GREAT TOWER  ·  +', arche: 'ARCH CLEARED  ·  +',
     fente: 'SLOT THREADED  ·  +', puits: 'OUT THROUGH THE ROOF  ·  +', combo: 'DOUBLE  ·  COMBO ×2  ·  +',
-    doreFin: 'SUN COVER OVER', viseur: 'SIGHT UNLOCKED  ·  ',
+    doreFin: 'MOON COVER OVER', viseur: 'SIGHT UNLOCKED  ·  ',
     sansFaute: 'FLAWLESS  ·  FULL LIFE  ·  CAP +25',
     dansTemps: 'ON TIME  ·  FULL LIFE',
     egratignure: 'NOT A SCRATCH  ·  CAP +25',
@@ -17332,7 +17479,7 @@ const T = {
     coop: 'CO-OP  ·  ', appareils: ' AIRCRAFT', releve: 'PICKED UP BY A WINGMAN',
     vague: 'WAVE ', gardien: 'GUARDIAN', abattu: 'SHOT DOWN',
     canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
-    dos: 'SUN AT YOUR BACK  ·  THEY ARE DAZZLED',
+    dos: 'MOON AT YOUR BACK  ·  THEY CANNOT SEE',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
     ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
     plafond: 'AIRFRAME REINFORCED  ·  CEILING ', affaisse: 'GATE CAVED IN  ·  IT PASSES AT GROUND LEVEL NOW', ilSeSoigne: 'HE PATCHED UP AT A GATE', repit: 'BREATHE  ·  NEXT WAVE INBOUND',
@@ -17412,7 +17559,7 @@ const T = {
     chaineSous: 'they lost their aim  ·  kick',
     faucheur2: 'THE REAPER SHOWS ITSELF',
     faucheur2Sous: 'armour x8, speed x3, turn x2, fire rate x3  ·  NEVER STOP MOVING',
-    dore: 'THROUGH THE SUN  ·  INVINCIBLE 10 s', etoile: 'SHOOTING STAR  ·  +',
+    dore: 'THROUGH THE MOON  ·  INVINCIBLE 10 s', etoile: 'SHOOTING STAR  ·  +',
     complet: 'game full', illisible: 'unreadable code.',
     prepare: 'preparing the code...', pret: 'code ready. Send it, then paste the answer.',
     ajoute: 'player added. Do it again for the next one.',
@@ -18000,6 +18147,13 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.65', fr: 'Le soleil devient la lune : un croissant, ses cratères, et le reste du disque en lumière cendrée.', en: 'The sun becomes the moon: a crescent, its craters, and the rest of the disc in earthshine.' },
+  { v: '1.65', fr: 'Sa phase est l’horloge de la partie : pleine à la première vague, un fil à la dernière.', en: 'Its phase is the clock of the run: full on wave one, a thread on the last.' },
+  { v: '1.65', fr: 'Elle éclaire de moins en moins : les dernières vagues se jouent dans le noir.', en: 'It gives less and less light: the last waves are flown in the dark.' },
+  { v: '1.65', fr: 'L’éclipse disparaît, et l’aube du Berger devient vingt secondes de pleine lune.', en: 'The eclipse is gone, and the Evening Star now raises a full moon for twenty seconds.' },
+  { v: '1.65', fr: 'L’éblouissement quitte le jeu ordinaire : il ne coûtait rien et se voyait partout.', en: 'Dazzle leaves ordinary play: it cost nothing and was everywhere.' },
+  { v: '1.65', fr: 'À la neuvième vague, foncer cinq secondes vers la lune détruit l’appareil, décompte à l’appui.', en: 'On wave nine, diving at the moon for five seconds destroys the aircraft, countdown and all.' },
+  { v: '1.65', fr: 'Tant que la chenillée lourde est là, traverser la lune ne donne plus de bouclier.', en: 'While the heavy tracked gun is out there, flying through the moon no longer grants a shield.' },
   { v: '1.64', fr: 'Le tunnel se creuse pour de bon : mille huit cents mètres, perpendiculaire à l’arrivée, et le sol se perce à ses deux bouches.', en: 'The tunnel is properly bored: eighteen hundred metres, perpendicular to the approach, and the ground is pierced at both mouths.' },
   { v: '1.64', fr: 'Des casemates vides s’ouvrent sur le boyau tous les cent quatre-vingts mètres.', en: 'Empty casemates open onto the bore every hundred and eighty metres.' },
   { v: '1.63', fr: 'L’échelle d’altitude porte ses chiffres : 0, 800, 1600, 2400, et un trait tous les quatre cents.', en: 'The altitude scale carries its figures: 0, 800, 1600, 2400, and a tick every four hundred.' },
@@ -18482,8 +18636,8 @@ const FINS = {
       en: 'The barrel roll shifts you two and a half wingspans: that is the manoeuvre that takes you past a wall.' },
     { fr: "Appeler la vague suivante rapporte cinq cents points, et amène du monde.",
       en: 'Calling the next wave pays five hundred points, and brings company.' },
-    { fr: "Le soleil se regarde, se tient et se traverse. Trois choses différentes arrivent.",
-      en: 'The sun can be looked at, held, and flown through. Three different things happen.' },
+    { fr: "La lune se regarde, se tient et se traverse. Trois choses différentes arrivent.",
+      en: 'The moon can be looked at, held, and flown through. Three different things happen.' },
     { fr: "Dix vagues tenues font entrer dans la légende, et débloquent le deuxième appareil.",
       en: 'Ten waves held take you into the legend, and unlock the second aircraft.' }
   ]
@@ -18524,8 +18678,8 @@ const INDICES = [
     en: 'Past the range, the plain goes on. Three minutes, and someone lived out there.' },
   { cle: 'soleil',
     su: () => decouvertes.soleil,
-    fr: 'Un tonneau, le nez dans le soleil. Ce qui tombe du ciel ensuite ne tombe qu’une fois par demi-minute.',
-    en: 'A roll, nose into the sun. What falls from the sky next only falls twice a minute.' },
+    fr: 'Un tonneau, le nez dans la lune. Ce qui tombe du ciel ensuite ne tombe qu’une fois par demi-minute.',
+    en: 'A roll, nose into the moon. What falls from the sky next only falls twice a minute.' },
   { cle: 'pique',
     su: () => decouvertes.pique,
     fr: 'Pique un peu, relâche sans rien toucher, et garde la vitesse. Recommence autant que tu veux.',
@@ -18939,7 +19093,7 @@ window.addEventListener('pointerdown', e => {
       state.spinT = SPIN_TIME;
       state.spinSide = side;
       SFX.tonneau();
-      tonneauSoleil();
+      tonneauLune();
     }
     lastTapT = 0;
   } else {
@@ -19005,7 +19159,7 @@ function coupDeManche(e) {
     state.spinT = SPIN_TIME;
     state.spinSide = vx > 0 ? 1 : -1;
     SFX.tonneau();
-    tonneauSoleil();
+    tonneauLune();
     return true;
   }
   if (Math.abs(vy) > 0.6 && Math.abs(vy) > 1.6 * Math.abs(vx) && Math.abs(b.y - a.y) > 120
@@ -19313,7 +19467,7 @@ window.addEventListener('keydown', e => {
   if (c === 'Space') {
     state.spinT = SPIN_TIME;
     state.spinSide = clavier.x > 0.05 ? 1 : clavier.x < -0.05 ? -1 : (Math.random() < 0.5 ? -1 : 1);
-    SFX.tonneau(); tonneauSoleil();
+    SFX.tonneau(); tonneauLune();
   } else if (e.shiftKey && (CLAV_HAUT.has(c) || CLAV_BAS.has(c))) {
     state.fig = { t: 0, side: Math.random() < 0.5 ? -1 : 1,
                   type: CLAV_HAUT.has(c) ? 'imm' : 'split',
@@ -19393,8 +19547,8 @@ function litManette() {
   if (state.running && !figuresPossibles()) {
     if (b[4] || b[5] || b[6] || b[7]) ouvreCourant(); else fermeCourant();
   } else if (libre) {
-    if (neuf(4) || neuf(6)) { state.spinT = SPIN_TIME; state.spinSide = -1; SFX.tonneau(); tonneauSoleil(); }
-    else if (neuf(5) || neuf(7)) { state.spinT = SPIN_TIME; state.spinSide = 1; SFX.tonneau(); tonneauSoleil(); }
+    if (neuf(4) || neuf(6)) { state.spinT = SPIN_TIME; state.spinSide = -1; SFX.tonneau(); tonneauLune(); }
+    else if (neuf(5) || neuf(7)) { state.spinT = SPIN_TIME; state.spinSide = 1; SFX.tonneau(); tonneauLune(); }
     else if (neuf(3)) {          // triangle / Y : renversement par le haut
       state.fig = { t: 0, side: 1, type: 'imm', base: state.quat.clone(), yaw0: state.yaw };
       SFX.renversement();

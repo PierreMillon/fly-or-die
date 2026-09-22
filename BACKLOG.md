@@ -9,7 +9,10 @@ retiré quand une idée est implémentée — noter "→ fait en vX.Y" à la pla
 
 # EN RETARD — à faire avant toute nouvelle idée
 
-Ces deux-là ont été demandées, écrites, et repoussées onze versions de suite
+La lune est sortie en v1.65. Restent l'approche stabilisée, le jeu de piste
+et l'arche du sommet.
+
+Ces demandes ont été écrites, puis repoussées onze versions de suite
 parce que chaque nouvelle demande arrivait plus courte et passait devant.
 Elles sont ici, en tête du fichier, pour qu'aucun arbitrage ne puisse plus
 les faire perdre.
@@ -30,19 +33,59 @@ main possible d'un coup de manche franc.
 État : rien n'est fait. Le tube tient l'axe, la pente et la vitesse, mais
 c'est un rail, pas une approche.
 
-## 2. La lune remplace le soleil
+## 2. La lune remplace le soleil → fait en v1.65
 
-Quatre questions tranchées en conversation, rien en production :
+Ce qui était décidé, et qui est maintenant en production :
 
-— Croissant à la place du soleil.
-— On garde la traversée (bouclier) et l'étoile filante.
+— Croissant à la place du soleil. **Fait** : figure plate tournée vers la
+  caméra, limbe éclairé + terminateur, quatre cratères qui disparaissent un à
+  un dans l'ombre, et le reste du disque en lumière cendrée. La couronne du
+  soleil a sauté.
+— On garde la traversée (bouclier) et l'étoile filante. **Fait**, avec une
+  exception mesurée plus bas.
 — L'éblouissement quitte le jeu ordinaire et devient la règle de la
-  chenillée lourde : elle détruit si l'on fonce vers elle trop longtemps, et
-  la seule défense est la lune dans le dos.
-— L'éclipse disparaît.
-— La phase est l'horloge et éclaire de MOINS EN MOINS : pleine à la première
-  vague, presque rien à la fin.
-— Le Berger lève la pleine lune vingt secondes au lieu du lever du jour.
+  chenillée lourde. **Fait**, avec décompte à l'écran.
+— L'éclipse disparaît. **Fait** — le code de triche ECLIPSE lève désormais la
+  pleine lune une minute au lieu d'éteindre l'astre.
+— La phase est l'horloge et éclaire de MOINS EN MOINS. **Fait**.
+— Le Berger lève la pleine lune vingt secondes. **Fait** — et c'est elle qui
+  aveugle les adversaires, exactement comme le faisait le lever du jour.
+
+### Mesuré en navigateur
+
+Phase : vague 1 → 1,000 · vague 5 → 0,556 · vague 9 → 0,150 (plancher).
+Elle est calée sur `CHAPITRE` (10), pas sur quinze : une partie s'arrête à la
+dixième vague, et calée sur quinze la lune en était encore aux deux tiers
+quand le faucheur sortait.
+
+Opacité du trait : 0,700 à la vague 1, 0,504 à la 5, 0,326 à la 9. Le Berger
+la ramène à 0,700 depuis 0,326.
+
+Règle de la chenillée, quatre cas :
+
+| situation | décompte max | vie | issue |
+|---|---|---|---|
+| chenillée, nez dans la lune 7 s | 5,00 s | 100 → 0 | détruit |
+| chenillée, 4 s puis on détourne | 4,07 s | 100 | rien |
+| chenillée, lune dans le dos 7 s | 0 | 100 | rien |
+| pas de chenillée, nez dedans 7 s | 0 | 100 | bouclier doré |
+
+### UNE DÉCISION PRISE SEUL, À CONFIRMER
+
+Les deux règles se contredisaient en production. Tenir la lune en plein
+centre arme le bouclier doré à 2,5 s, et le bouclier éteignait le décompte :
+foncer dessus À FOND était donc le seul moyen de ne pas mourir de foncer
+dessus. Mesuré : le décompte plafonnait à 2,52 s et ne tuait jamais.
+
+Tranché ainsi : **tant que la chenillée lourde est là, la lune ne donne plus
+de bouclier.** « La seule défense est l'astre dans le dos » ne souffre pas
+d'exception, et un bouclier est une armure contre le plomb, pas contre
+l'aveuglement. Hors vague 9, la traversée est inchangée.
+
+L'autre choix possible était : le bouclier protège aussi de l'aveuglement, et
+la règle ne s'applique qu'entre 0,55 et 0,98 d'alignement — c'est-à-dire
+qu'on meurt en visant À PEU PRÈS la lune et qu'on survit en la visant
+parfaitement. À dire si c'est ce qui est voulu.
 
 ## 3. Le jeu de piste (validé, non commencé)
 
