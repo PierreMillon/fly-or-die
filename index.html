@@ -851,7 +851,7 @@ import * as THREE from 'three';
 import {
   borne, hauteurSol, PISTE, PENTE_CIBLE, viseDe, capPiste, tubeRayon, tubeHaut,
   TERRAIN_R0, TERRAIN_R1, TERRAIN_R2, TERRAIN_R3, TERRAIN_H,
-  TOUCHER_APRES, TUBE_DIST, TUBE_R0, TUBE_R1
+  TOUCHER_APRES, TUBE_DIST, TUBE_R0, TUBE_R1, SOMMET
 } from './math.js';
 
 // ---------------------------------------------------------------------------
@@ -7424,6 +7424,92 @@ const ARCHES_CARTE = [...CARTE.arches, ...ARCHES_REFUGE];
 // ---------------------------------------------------------------------------
 const MARGE_MUR = 7;     // façades, pylônes : on ne rase pas avec le bout de l'aile
 const MARGE_TROU = 1;    // ce qui borde une ouverture : on passe ce qu'on voit
+
+// ---------------------------------------------------------------------------
+// LA PORTE DU SOMMET.
+//
+// Sur le cap du refuge, à six kilomètres sept cent cinquante, le plus haut
+// point de la chaîne — huit cent quatre-vingt-quinze mètres, à un demi-degré
+// de l'axe exact. Le relief y est arasé en plateau (voir SOMMET dans math.js),
+// et sur le plateau il y a une porte : deux monolithes et un linteau, plus
+// vieux que tout le reste, plantés là par des gens dont il ne reste que ça.
+//
+// ELLE NE DONNE PAS DE VIE, ELLE DONNE DE LA ROUTE. Dix kilomètres de plaine
+// séparent la chaîne du refuge, et ce qui manque sur ce trajet n'est pas de la
+// structure : c'est du temps. La franchir multiplie la vitesse par 1,7 et
+// ajoute cent trente — elle relance la traversée au lieu de la récompenser.
+//
+// Elle est en travers du cap du refuge : on la franchit en allant là-bas, et
+// pas autrement. Monter à neuf cents mètres pour la prendre est une décision,
+// puisque c'est aussi l'altitude où le faucheur vous voit.
+// ---------------------------------------------------------------------------
+const PORTE_OUV_L = 74;      // largeur du passage entre les deux monolithes
+const PORTE_OUV_H = 46;      // et sa hauteur sous linteau
+const PORTE_MONO  = 17;      // épaisseur d'un monolithe
+const PORTE_PROF  = 15;      // leur profondeur
+const PORTE_LINT  = 14;      // l'épaisseur du linteau
+const PORTE_GAIN  = 1.7;     // ce qu'elle fait de la vitesse d'entrée
+const PORTE_PLUS  = 130;     // et ce qu'elle ajoute par-dessus
+const PORTE_CERCLE = 9;      // les pierres levées autour, sur le plateau
+const PORTE = { boites: [], passage: null, repos: 0, g: null };
+
+// LA PORTE SE BÂTIT. Elle est en travers du cap du refuge, donc son ouverture
+// s'étend selon z et l'on passe selon x — comme les deux portails alignés de
+// la plaine. Les pierres sont volontairement grossières : un monolithe n'est
+// pas une pile d'arche, et on doit voir au premier coup d'oeil que ce n'est
+// pas le même monde qui l'a posé.
+(function batisPorte() {
+  const g = new THREE.Group();
+  g.position.set(SOMMET.x, SOMMET.y, SOMMET.z);
+  const demi = (PORTE_OUV_L + PORTE_MONO) / 2;
+  const pierres = [];
+  const pose = (lx, ly, lz, cx, cy, cz) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(lx, ly, lz), solidMat);
+    m.position.set(cx, cy, cz);
+    m.frustumCulled = false;
+    g.add(m);
+    pierres.push({ lx, ly, lz, cx, cy, cz });
+  };
+  // les deux monolithes, en travers du cap : l'ouverture s'étend selon z
+  pose(PORTE_PROF, PORTE_OUV_H, PORTE_MONO, 0, PORTE_OUV_H / 2, -demi);
+  pose(PORTE_PROF, PORTE_OUV_H, PORTE_MONO, 0, PORTE_OUV_H / 2,  demi);
+  // et le linteau posé dessus
+  pose(PORTE_PROF, PORTE_LINT, PORTE_OUV_L + 2 * PORTE_MONO,
+       0, PORTE_OUV_H + PORTE_LINT / 2, 0);
+  // les pierres levées du cercle : plus petites, penchées, tout autour
+  for (let i = 0; i < PORTE_CERCLE; i++) {
+    const a2 = i / PORTE_CERCLE * Math.PI * 2 + 0.3;
+    const R = 96;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(6, 15 + (i % 3) * 5, 9), solidMat);
+    m.position.set(Math.cos(a2) * R, (15 + (i % 3) * 5) / 2, Math.sin(a2) * R);
+    m.rotation.set(Math.sin(i * 2.1) * 0.09, a2, Math.cos(i * 1.7) * 0.07);
+    m.frustumCulled = false;
+    g.add(m);
+  }
+  // les arêtes, d'un seul tenant, dans le vert de tout le reste
+  const ar = [];
+  for (const p of pierres) {
+    const X = p.lx / 2, Y = p.ly / 2, Z = p.lz / 2;
+    const s8 = [[-X,-Y,-Z],[X,-Y,-Z],[X,Y,-Z],[-X,Y,-Z],[-X,-Y,Z],[X,-Y,Z],[X,Y,Z],[-X,Y,Z]];
+    for (const [i0, i1] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]) {
+      const A = s8[i0], B = s8[i1];
+      ar.push(p.cx + A[0], p.cy + A[1], p.cz + A[2], p.cx + B[0], p.cy + B[1], p.cz + B[2]);
+    }
+  }
+  g.add(new THREE.LineSegments(segGeom(ar), matBati));
+  g.frustumCulled = false;
+  scene.add(g);
+  PORTE.g = g;
+  // et les volumes, en coordonnées du monde
+  const b = (cz, hz, y0, y1) => ({ x: SOMMET.x, z: SOMMET.z + cz,
+                                   hx: PORTE_PROF / 2, hz, y0: SOMMET.y + y0, y1: SOMMET.y + y1 });
+  PORTE.boites = [
+    b(-demi, PORTE_MONO / 2, 0, PORTE_OUV_H),
+    b( demi, PORTE_MONO / 2, 0, PORTE_OUV_H),
+    b(0, (PORTE_OUV_L + 2 * PORTE_MONO) / 2, PORTE_OUV_H, PORTE_OUV_H + PORTE_LINT)
+  ];
+  PORTE.passage = b(0, PORTE_OUV_L / 2, 3, PORTE_OUV_H);
+})();
 
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
 for (let i = 0; i < ARCHES_CARTE.length; i++) {
@@ -15292,6 +15378,7 @@ function majTunnel(dt) {
 
 function scrapeCorps(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
+  PORTE.repos = Math.max(0, PORTE.repos - dt);
   majTunnel(dt);
   if (state.viePleineT > 0) state.viePleineT = Math.max(0, state.viePleineT - dt);
   // le repos d'un portail : une traversée dure plusieurs images, et sans lui
@@ -15552,6 +15639,28 @@ function scrapeCorps(dt) {
       coopReanime();
       marque(150);
       announce(t('arche') + ARCHE_PRIME);
+    }
+  }
+  // LA PORTE DU SOMMET, TRAVERSÉE. Voir PORTE plus haut.
+  if (PORTE.passage && PORTE.repos <= 0) {
+    const q = PORTE.passage;
+    if (traverse(q.x, q.z, q.hx, q.hz + 4, q.y0 - 2, q.y1 + 2)) {
+      PORTE.repos = 3;
+      trouve('sommet');
+      stat('passages');
+      // ELLE NE DONNE PAS DE VIE, ELLE DONNE DE LA ROUTE. Dix kilomètres de
+      // plaine séparent la chaîne du refuge : ce qui manque là-bas n'est pas
+      // de la structure, c'est du temps.
+      state.speed = Math.min(SPEED_DUR, state.speed * PORTE_GAIN + PORTE_PLUS);
+      state.boostT = Math.max(state.boostT || 0, 1.2);
+      marque(1200);
+      SFX.tunnelSortie();
+      announce(t('porte'), t('porteSous'));
+    }
+  }
+  for (const b of PORTE.boites) {
+    if (heurte(b.x, b.z, b.hx + MARGE_TROU, b.hz + MARGE_TROU, b.y0 - 1, b.y1 + MARGE_TROU)) {
+      repousse(b.x, b.z); return;
     }
   }
   for (const p of pylones) {
@@ -17670,6 +17779,7 @@ const T = {
     luneMort: 'AVEUGLÉ', luneMortSous: 'La chenillée attendait que tu regardes la lune.',
     luneDetourne: 'DÉTOURNE-TOI',
     esquive: 'ESQUIVE', tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
+    porte: 'LA PORTE DU SOMMET', porteSous: 'Ils ont posé ça ici, et puis ils sont partis.',
     sousSaNappe: 'SOUS SA NAPPE', sousSaNappeSous: 'Tu as disparu de son écran. Reste bas.',
     avionPrise: 'PRISE DE GUERRE',
     acces_prise: 'Elle ne revolera pas. Elle est là pour qu’on la regarde.',
@@ -17811,6 +17921,7 @@ const T = {
     luneMort: 'BLINDED', luneMortSous: 'The tracked gun was waiting for you to look at the moon.',
     luneDetourne: 'LOOK AWAY',
     esquive: 'BREAK', tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
+    porte: 'THE SUMMIT GATE', porteSous: 'They set this here, and then they left.',
     sousSaNappe: 'BELOW HIS SCAN', sousSaNappeSous: 'You are off his screen. Stay low.',
     avionPrise: 'WAR PRIZE',
     acces_prise: 'It will not fly again. It is here to be looked at.',
@@ -18498,6 +18609,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.69', fr: 'Le plus haut sommet sur le cap du refuge est arasé en plateau : 895 mètres, 240 de large.', en: 'The highest summit on the refuge bearing is levelled into a plateau: 895 metres up, 240 across.' },
+  { v: '1.69', fr: 'Dessus, une porte de pierre en travers du cap : la franchir multiplie la vitesse par 1,7 et ajoute 130.', en: 'On it, a stone gate across the bearing: going through multiplies speed by 1.7 and adds 130.' },
+  { v: '1.69', fr: 'Neuf pierres levées en cercle autour d’elle. Ils ont posé ça ici, et puis ils sont partis.', en: 'Nine standing stones in a ring around it. They set this here, and then they left.' },
   { v: '1.68', fr: 'Ce qu’on voit est ce qu’on passe : les montants d’un trou ne gonflent plus de sept mètres de chaque côté.', en: 'What you see is what you fly through: the sides of a hole no longer swell by seven metres each.' },
   { v: '1.68', fr: 'L’arche passe de 82 à 94 mètres utiles pour 96 dessinés, la fenêtre de tour de 31,5 à 43,5 pour 45,5.', en: 'The arch goes from 82 to 94 usable metres against 96 drawn, the tower window from 31.5 to 43.5 against 45.5.' },
   { v: '1.68', fr: 'La roquette esquivée croise devant le nez et non derrière la dérive : on la voit enfin passer.', en: 'The dodged rocket now crosses in front of the nose instead of behind the fin: you finally see it go by.' },

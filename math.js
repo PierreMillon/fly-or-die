@@ -27,6 +27,23 @@ export const TERRAIN_R2 = 7200;      // fin du plateau montagneux
 export const TERRAIN_R3 = 8800;      // au-delà, plat de nouveau : la plaine du dehors
 export const TERRAIN_H  = 980;       // mètres de dénivelé au plus fort
 
+// ---------------------------------------------------------------------------
+// LE PLATEAU DU SOMMET.
+//
+// Sur le cap du refuge, à six kilomètres sept cent cinquante, le relief monte
+// à huit cent quatre-vingt-quinze mètres : c'est le plus haut point de la
+// chaîne dans cette direction, et il est à un demi-degré de l'axe exact. On y
+// arase un disque de cent vingt mètres, raccordé au relief par une jupe de
+// soixante-dix : de loin c'est une table posée sur la montagne, et de près
+// c'est un endroit où l'on peut vraiment passer à ras.
+//
+// Ce n'est pas de la décoration. Le sol du jeu est une fonction, une seule :
+// la grille des traits, le remplissage noir, le plancher des adversaires et
+// la collision la lisent tous. Aplatir ICI aplatit partout à la fois, et rien
+// ne peut se désaccorder.
+// ---------------------------------------------------------------------------
+export const SOMMET = { x: -6755, z: 60, y: 895, r: 120, jupe: 70 };
+
 /** L'altitude du sol en un point du monde. Déterministe : deux appels au même
  *  endroit rendent le même nombre, et c'est ce qui permet à la grille des
  *  traits et au remplissage noir d'être exactement la même surface.
@@ -48,7 +65,14 @@ export function hauteurSol(x, z) {
           + 0.28 * Math.sin((x + z) / 149 + 2.6);
   // ramené dans 0..1 puis creusé : des vallées larges et des crêtes franches
   const u = (n / 1.83 + 1) / 2;
-  return k * TERRAIN_H * u * u;
+  let h = k * TERRAIN_H * u * u;
+  // et le plateau, arasé net puis raccordé
+  const dd = Math.hypot(x - SOMMET.x, z - SOMMET.z);
+  if (dd < SOMMET.r + SOMMET.jupe) {
+    const t = borne((SOMMET.r + SOMMET.jupe - dd) / SOMMET.jupe, 0, 1);
+    h += (SOMMET.y - h) * (t * t * (3 - 2 * t));
+  }
+  return h;
 }
 
 // ---------------------------------------------------------------------------

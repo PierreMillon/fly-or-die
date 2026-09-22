@@ -9,8 +9,30 @@ retiré quand une idée est implémentée — noter "→ fait en vX.Y" à la pla
 
 # EN RETARD — à faire avant toute nouvelle idée
 
-La lune est sortie en v1.65. Restent l'approche stabilisée, le jeu de piste
-et l'arche du sommet.
+La lune (v1.65), le jeu de piste (v1.66) et l'arche du sommet (v1.69) sont
+sortis. **Reste en tête : l'approche stabilisée**, et le passage sous la piste.
+
+### Demandes traitées en v1.67 et v1.68
+
+— Les neuf appareils du hangar répondent au nez. Quatre carcasses adverses
+  n'avaient aucun identifiant : le nez passait dessus et il ne se passait
+  rien.
+— Le T de l'aire à signaux est tourné vers la bouche du tunnel, et la flèche
+  du quatrième carré est retirée. Écart mesuré : 0°.
+— Dépasser le hangar au roulage : 1,01 s de retour au lieu de quatre à cinq,
+  avec ATTERRISSAGE DE COLONEL.
+— La barre de vie vaut le plafond : pleine au départ, elle s'allonge de 92 à
+  168 pixels. Plus de zone vide à droite.
+— Ce qu'on voit est ce qu'on passe : MARGE_TROU 1 au lieu de 7 pour ce qui
+  borde une ouverture. Arche 82 → 94 m utiles pour 96 dessinés ; fenêtre de
+  tour 31,5 → 43,5 pour 45,5.
+— La roquette esquivée croise devant le nez.
+— L'épave s'ouvre 1,1 s avant l'écran de fin.
+— Horizon fantôme, d'après le HUD du F-16 : pas un seuil d'angle, une
+  condition — dès que l'horizon quitte l'écran. Mesuré sur 430×932 : il sort
+  par le bas vers 47° de caméra, par le haut vers 22°.
+— Zénith et nadir marqués, altimètre en centaines sur deux chiffres à droite
+  du trait, et le plancher du faucheur repéré sur la bande.
 
 Ces demandes ont été écrites, puis repoussées onze versions de suite
 parce que chaque nouvelle demande arrivait plus courte et passait devant.
@@ -86,6 +108,27 @@ L'autre choix possible était : le bouclier protège aussi de l'aveuglement, et
 la règle ne s'applique qu'entre 0,55 et 0,98 d'alignement — c'est-à-dire
 qu'on meurt en visant À PEU PRÈS la lune et qu'on survit en la visant
 parfaitement. À dire si c'est ce qui est voulu.
+
+## 4. L'arche du sommet → fait en v1.69
+
+Le plus haut point de la chaîne sur le cap du refuge : **(−6755, 60), 895 m**,
+à 6 755 m du terrain, cap 269,5° — un demi-degré de l'axe exact.
+
+Le relief y est arasé dans `math.js` même, pas décoré par-dessus : le sol du
+jeu est UNE fonction, et la grille, le remplissage noir, le plancher des
+adversaires et la collision la lisent tous. Disque plat de 120 m de rayon,
+jupe de 70 m. Mesuré : 895,0 m au centre et jusqu'à 119 m, 890 à 130, 816 à
+160, 722 à 189, 656 à 230.
+
+Dessus, une porte de pierre en travers du cap : deux monolithes de 17 m, un
+linteau de 14, ouverture 74 × 46. Et neuf pierres levées en cercle à 96 m.
+
+Elle ne donne pas de vie, elle donne de la route : `vitesse × 1,7 + 130`.
+Mesuré, nez dans l'ouverture à 150 m/s → 335 ; à 260 m/s → 500. En plein
+monolithe (45 m d'écart) → buté. À côté de la porte (70 m) → ni mur ni boost.
+
+Monter à neuf cents mètres pour la prendre est une décision, puisque c'est
+aussi l'altitude où le faucheur voit.
 
 ## 3. Le jeu de piste → fait en v1.66
 
