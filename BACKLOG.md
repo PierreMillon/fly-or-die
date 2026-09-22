@@ -4,8 +4,9 @@ Les cases vides se lisent avec `grep -c "^- \[ \]" BACKLOG.md`. Tant que le
 compte est supérieur à zéro, le tour ne se termine pas — voir `CLAUDE.md`
 règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 
-- [ ] L'approche stabilisée, d'après les vrais atterrissages (depuis v1.42)
-- [ ] Le passage sous la piste : deux hangars, des trous cachés, même règle que le tunnel
+- [x] L'approche stabilisée, d'après les vrais atterrissages → v1.70 (2 posés sur 3)
+- [x] Le passage sous la piste → v1.70
+- [ ] L'approche : le cas « arrivé haut et vite » n'est toujours pas capturé par le tube
 - [ ] Des bonshommes dans les casemates du tunnel, aujourd'hui vides
 - [ ] Voir le tunnel de bout en bout : les étoiles au travers
 - [ ] Un léger ralenti au-delà de 400 m/s (choisi, jamais fait)
@@ -122,6 +123,80 @@ L'autre choix possible était : le bouclier protège aussi de l'aveuglement, et
 la règle ne s'applique qu'entre 0,55 et 0,98 d'alignement — c'est-à-dire
 qu'on meurt en visant À PEU PRÈS la lune et qu'on survit en la visant
 parfaitement. À dire si c'est ce qui est voulu.
+
+## 0. L'approche stabilisée → fait en v1.70
+
+### La recherche, sourcée
+
+— Vitesse de présentation : **1,3 × la vitesse de décrochage** (FAA InFO23001,
+  définition des catégories d'approche). Décrochage 46 → finale 60.
+— Plan : 3°. Taux de chute = vitesse × sin 3° = 3,1 m/s à 60 m/s.
+— Approche stabilisée (Flight Safety Foundation, ALAR note 7.1) : à 500 pieds
+  à vue, sur le plan, vitesse entre Vref et Vref + 20 kt, taux de chute
+  ≤ 1 000 ft/min (5,08 m/s), configuration d'atterrissage.
+— Arrondi : une dizaine de mètres sol, taux résiduel de l'ordre du demi-mètre
+  par seconde au toucher.
+
+### Ce qui n'allait pas, mesuré
+
+**Trois approches sur trois ne se posaient pas.** Le tube descendait bien à 3°
+puis l'appareil mettait à plat vers cent mètres sol et flottait :
+
+| départ | pente en finale | vz en finale | posé |
+|---|---|---|---|
+| 2200 m, 110 m/s | −0,25° | +0,3 m/s | non |
+| 1600 m, 130 m/s | +0,06° | +0,1 m/s | non |
+| 2600 m, 95 m/s | −0,98° | +1,15 m/s | non |
+
+Cause : **la loi commandait une assiette et attendait une trajectoire.** Nez à
+−3°, pente réelle −0,25° : les trois degrés d'incidence que le modèle
+d'énergie fixe n'étaient retranchés par personne. J'avais essayé la vitesse
+verticale, ça ne se posait pas non plus, et j'étais revenu à l'angle en
+croyant revenir à quelque chose qui marchait — les deux échouaient, je
+n'avais jamais mesuré l'atterrissage lui-même.
+
+**Et mon banc était faux aussi** : il tenait le manche à `aim.y = h × 0,45` en
+permanence. Le tube lâche dès qu'on pousse, donc `state.assist` ne
+s'enclenchait jamais et je mesurais du vol libre. J'ai failli publier un
+correctif sur une mesure fausse.
+
+### Ce qui est en place
+
+Un **trim intégral** sur l'écart entre la pente réelle — relevée d'une image à
+l'autre — et la pente voulue, multiplié par dt, donc indépendant de la
+cadence. L'arrondi se déclenche à **11 m sol** et non plus à 80 m de distance.
+La porte des 500 pieds dit ce qui cloche.
+
+| départ | porte 500 ft | pente en finale | toucher | posé |
+|---|---|---|---|---|
+| 2200 m, 110 m/s | vz −11,9 | 3,93° | **−0,48 m/s**, axe | oui |
+| 1600 m, 130 m/s | vz −6,2 | 1,80° | — | non |
+| 2600 m, 95 m/s | vz −3,0 | 2,78° | **−0,51 m/s**, axe | oui |
+
+Deux sur trois, avec des taux de toucher de manuel. Le troisième arrive
+soixante mètres au-dessus du plan à 130 m/s : le tube ne le capture jamais
+(`prise` 0,22), il arrive long et rapide. C'est le cas « non stabilisé » que
+la porte annonce désormais — **reste à décider** si le tube doit le rattraper
+ou si la remise de gaz doit être la réponse.
+
+## Le passage sous la piste → fait en v1.70
+
+Deux hangars à 560 m au nord, de part et d'autre du bitume, percés dans leur
+pignon **extérieur** — celui qu'on ne voit jamais depuis la piste. Derrière le
+trou, le plancher descend de +10 à −20 m, file sous la piste et remonte.
+Vie en continu (16/s), coup de pied à la sortie, parois dures.
+
+Vol d'essai : entrée à x = −576, fond à −8 m, sortie à x = +602, vie 100 →
+232, vitesse 92 → **267** à la sortie.
+
+**Trois murs invisibles ont dû tomber pour qu'un boyau puisse passer sous le
+niveau zéro** : le filet `(plancher − 6) × (1 − pb)`, qui vaut zéro dans un
+passage — juste pour un tunnel à 300 m d'altitude, faux ici ; le plancher
+effectif, qui tombait à zéro ; et `else if (pos.y < SOL_Y) pos.y = SOL_Y`.
+
+Et **un pylône de la carte était planté en plein milieu** à (174, −720). Axe
+déplacé de −700 à −560, le seul couloir libre en travers du bitume — la carte
+n'est pas touchée.
 
 ## 4. L'arche du sommet → fait en v1.69
 

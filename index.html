@@ -438,6 +438,23 @@
   <p class="src">Sources : OACI annexe 14 (aire à signaux, T d'atterrissage,
   PAPI). Le T de ce terrain-ci n'en vient plus.</p>
 
+  <h2>L'APPROCHE</h2>
+  <p>Le tube d'approche ne fait pas semblant : il vole ce que vole un vrai
+  appareil, avec les mêmes chiffres.</p>
+  <p><b>La vitesse.</b> On se présente à <b>1,3 fois la vitesse de
+  décrochage</b> — c'est la règle qui définit les catégories d'approche, et
+  c'est pour ça qu'elle est ici aussi. Décrochage 46, donc finale à 60.</p>
+  <p><b>Le plan.</b> Trois degrés, comme partout. À 60 mètres par seconde,
+  ça fait 3,1 mètres par seconde de descente.</p>
+  <p><b>Stabilisé à 150 mètres.</b> La Flight Safety Foundation demande qu'à
+  500 pieds à vue tout soit en place : sur le plan, à la bonne vitesse,
+  descente inférieure à 1 000 pieds par minute, soit 5 mètres par seconde. Le
+  jeu le mesure aux mêmes seuils.</p>
+  <p><b>L'arrondi.</b> Onze mètres sol, la pente s'efface et le nez remonte.
+  On pose les roues, on ne plante pas le train.</p>
+  <p class="src">Sources : FAA InFO23001 (1,3 Vso), Flight Safety Foundation
+  ALAR note 7.1 (approche stabilisée).</p>
+
   <h2>EN FACE</h2>
   <p>Quatre adversaires, quatre silhouettes, quatre manières de poursuivre.
   Les vagues traversent le siècle : les anciens ne disparaissent pas, ils
@@ -627,6 +644,23 @@
   too low — and too low is the ground.</p>
   <p class="src">Sources: ICAO Annex 14 (signals area, landing T, PAPI). This
   field's T no longer comes from it.</p>
+
+  <h2>THE APPROACH</h2>
+  <p>The approach tube does not pretend: it flies what a real aircraft flies,
+  with the same figures.</p>
+  <p><b>Speed.</b> You come in at <b>1.3 times the stall speed</b> — the rule
+  that defines approach categories, which is why it is here too. Stall 46, so
+  final at 60.</p>
+  <p><b>The path.</b> Three degrees, as everywhere. At 60 metres per second
+  that is 3.1 metres per second of descent.</p>
+  <p><b>Stabilised by 150 metres.</b> The Flight Safety Foundation asks that
+  everything be in place by 500 feet in visual conditions: on path, on speed,
+  sink rate under 1,000 feet per minute — 5 metres per second. The game
+  measures against the same thresholds.</p>
+  <p><b>The flare.</b> Eleven metres above the ground the path fades and the
+  nose comes up. You set the wheels down, you do not plant the gear.</p>
+  <p class="src">Sources: FAA InFO23001 (1.3 Vso), Flight Safety Foundation
+  ALAR note 7.1 (stabilised approach).</p>
 
   <h2>WHO YOU FACE</h2>
   <p>Four opponents, four silhouettes, four ways of pursuing. The waves cross
@@ -4611,6 +4645,90 @@ TUNNEL.ux = 0.544639; TUNNEL.uz = 0.838671;     // le vecteur unitaire du boyau
 // LE REFUGE, DÉCLARÉ ICI. Les deux chiffres peints sur la piste sont les caps
 // du tunnel et du refuge : il faut donc les deux avant de peindre le bitume.
 const REFUGE = { x: -32000, z: 0, demiL: 14, demiZ: 180 };
+// ---------------------------------------------------------------------------
+// LE PASSAGE SOUS LA PISTE.
+//
+// Deux hangars se font face de part et d'autre du bitume, à sept cents mètres
+// au nord du terrain. Ils ont l'air de deux hangars. Chacun est percé d'un
+// trou dans son pignon EXTÉRIEUR — celui qu'on ne voit pas depuis la piste,
+// donc celui devant lequel on ne passe jamais — et derrière le trou le sol
+// s'ouvre : le plancher descend, file sous la piste, et remonte de l'autre
+// côté.
+//
+// On le trouve en fouillant, pas en jouant. C'était la demande : « les trous
+// sont cachés, il faut vraiment fouiller. »
+//
+// La règle est celle du tunnel de la montagne : de la vie en continu tant
+// qu'on est dedans, rien à l'entrée, et un coup de pied à la sortie. Ce n'est
+// pas un raccourci, c'est un endroit où l'on va exprès.
+// ---------------------------------------------------------------------------
+const SOUS = {
+  z: -560,          // l'axe du passage : le seul couloir libre en travers du bitume
+  bout: 380,        // |x| des deux bouches, dans les pignons extérieurs
+  hangar: 200,      // |x| où le hangar s'arrête et où le sol se referme dessus
+  plat: 40,         // |x| jusqu'où le fond est horizontal, sous le bitume
+  large: 44,        // largeur du boyau : trois fois et demie l'envergure
+  haut: 24,         // et sa hauteur
+  yBouche: 10,      // le plancher à la bouche, au ras du pignon
+  yFond: -20        // et au plus bas, vingt mètres sous la piste
+};
+const SOUS_VIE = 16;      // points de vie par seconde passée dedans
+const SOUS_MARGE = 9;     // mètres de tolérance pour « on est dedans »
+// le plancher du boyau, le long de l'axe : palier, rampe, palier
+function sousY(x) {
+  const a = Math.abs(x);
+  if (a >= SOUS.hangar) return SOUS.yBouche;
+  if (a <= SOUS.plat) return SOUS.yFond;
+  const t = (a - SOUS.plat) / (SOUS.hangar - SOUS.plat);
+  return SOUS.yFond + (SOUS.yBouche - SOUS.yFond) * (t * t * (3 - 2 * t));
+}
+function dansSous(p) {
+  const q = p || state.pos;
+  if (Math.abs(q.x) > SOUS.bout) return false;
+  if (Math.abs(q.z - SOUS.z) > SOUS.large / 2 - 2) return false;
+  const y0 = sousY(q.x);
+  return q.y > y0 + 1 && q.y < y0 + SOUS.haut - 1;
+}
+// LE SOL EST DUR AUTOUR DU BOYAU, comme la roche autour du tunnel : dans son
+// emprise, le seul endroit où l'on ait le droit d'être est le boyau.
+function heurteSous() {
+  if (Math.abs(state.pos.x) > SOUS.bout) return false;
+  const dv = state.pos.z - SOUS.z;
+  const y0 = sousY(state.pos.x), y1 = y0 + SOUS.haut;
+  const vMax = SOUS.large / 2 - 4;
+  // hors de l'emprise verticale, ce n'est pas notre affaire : au-dessus c'est
+  // le terrain, et le terrain a ses propres règles
+  if (state.pos.y > y1 + SOUS_MARGE || state.pos.y < y0 - SOUS_MARGE) return false;
+  if (Math.abs(dv) > vMax + SOUS_MARGE) return false;
+  let touche = false;
+  if (Math.abs(dv) > vMax) { state.pos.z = SOUS.z + Math.sign(dv) * vMax; touche = true; }
+  if (state.pos.y < y0 + 3) { state.pos.y = y0 + 3; touche = true; }
+  else if (state.pos.y > y1 - 3) { state.pos.y = y1 - 3; touche = true; }
+  return touche;
+}
+function majSous(dt) {
+  const dedans = dansSous();
+  if (dedans) {
+    if (!state.sous) { state.sous = { t: 0, vie: 0 }; SFX.tunnelEntree(); }
+    state.sous.t += dt;
+    const avant = state.structure;
+    state.structure = Math.min(VIE_MAX, state.structure + SOUS_VIE * dt);
+    if (state.structure > state.vieMax) {
+      state.vieMax = state.structure;
+      if (state.stats) state.stats.vieMax = state.vieMax;
+    }
+    state.sous.vie += state.structure - avant;
+    stat('vieGagnee', state.structure - avant);
+  } else if (state.sous) {
+    const S = state.sous;
+    state.sous = null;
+    coupDePied();
+    trouve('sous');
+    announce(t('sous'), t('sousSous') + Math.round(S.vie));
+    SFX.tunnelSortie();
+  }
+}
+
 const TUNNEL_VIE = 14;        // points de vie par seconde passée dedans
 const TUNNEL_MARGE = 14;      // mètres de tolérance pour « on est dedans »
 const TUNNEL_CINTRE = 30;     // mètres entre deux cintres
@@ -6255,6 +6373,28 @@ const TUBE_LACHE = 0.78;      // au-delà de cette poussée au manche, il lâche
 // ---------------------------------------------------------------------------
 const APPROCHE_INCIDENCE = 5.5 * Math.PI / 180;  // l'aile porte, le nez est haut
 const APPROCHE_VIT = Math.round(SPEED_MIN * 1.3);
+// L'ARRONDI, ET LE TRIM QUI FAIT DESCENDRE POUR DE BON.
+//
+// Un pilote arrondit vers une dizaine de mètres sol et vise un taux de chute
+// résiduel de l'ordre d'un demi-mètre par seconde au toucher. Le trim, lui,
+// est l'intégrateur qui annule l'écart entre l'assiette commandée et la pente
+// obtenue — sans lui, la consigne de trois degrés donnait zéro.
+const FINALE_ARRONDI = 11;                     // mètres sol où l'arrondi du tube commence
+const ARRONDI_PENTE = 0.7 * Math.PI / 180;     // la pente résiduelle du toucher
+const TRIM_GAIN = 0.55;                        // radians par radian d'écart et par seconde
+const TRIM_MAX = 0.16;                         // et on ne compense jamais plus de 9 degrés
+// ---------------------------------------------------------------------------
+// LA PORTE DES CINQ CENTS PIEDS.
+//
+// La Flight Safety Foundation demande qu'à cinq cents pieds à vue — cent
+// cinquante-deux mètres — tout soit en place : sur le plan, à la bonne
+// vitesse, et moins de mille pieds par minute de taux de chute. Au-delà, on
+// remet les gaz. Ici on ne force pas la remise de gaz : on le DIT, une fois,
+// avec ce qui cloche. Le joueur décide.
+// ---------------------------------------------------------------------------
+const PORTE_STAB = 152;                        // mètres sol : les cinq cents pieds
+const STAB_CHUTE = 5.08;                       // m/s : mille pieds par minute
+const STAB_VITESSE = 10;                       // m/s au-dessus de Vref : les vingt noeuds
 
 // le rayon du tube à une distance donnée du point visé
 // la hauteur de l'axe du tube à cette distance
@@ -6348,7 +6488,8 @@ let tubeMesh = null, tubePiste = null, tubeSens = 0;
 
 // OÙ L'ON EST DANS LE TUBE. Renvoie la distance au point visé, l'écart à
 // l'axe, et la prise — de zéro dehors à un au centre.
-const TUBE = { dedans: false, tient: false, d: 0, ecart: 0, prise: 0, sens: -1, cx: 0, cy: 0 };
+const TUBE = { dedans: false, tient: false, d: 0, ecart: 0, prise: 0, sens: -1, cx: 0, cy: 0,
+               trim: 0, vue: false, ditStab: false, xPrec: 0, yPrec: 0, zPrec: 0 };
 // ON SE POSE FACE AU VENT, ET LA MANCHE À AIR LE DIT.
 //
 // Le sens d'atterrissage se lisait sur NOTRE cap : on arrivait par où l'on
@@ -6400,7 +6541,13 @@ function majTube() {
   TUBE.dedans = false;
   TUBE.prise = 0;
   if (d < -40 || d > TUBE_DIST || defiEst('sansPiste') || avance.sansAtterrir
-      || state.pose || state.roulage || state.refuge) { TUBE.tient = false; return; }
+      || state.pose || state.roulage || state.refuge) {
+    TUBE.tient = false;
+    // le trim appartient à l'approche en cours : il repart de zéro à la
+    // suivante, sinon on hérite de la compensation d'une arrivée ratée
+    TUBE.trim = 0; TUBE.vue = false; TUBE.ditStab = false;
+    return;
+  }
   const r = tubeRayon(Math.max(0, d));
   // le centre du couloir à cette distance, et l'écart perpendiculaire à l'axe
   _tubC.copy(_tubA).addScaledVector(_tubD, -Math.max(0, d));
@@ -7509,6 +7656,80 @@ const PORTE = { boites: [], passage: null, repos: 0, g: null };
     b(0, (PORTE_OUV_L + 2 * PORTE_MONO) / 2, PORTE_OUV_H, PORTE_OUV_H + PORTE_LINT)
   ];
   PORTE.passage = b(0, PORTE_OUV_L / 2, 3, PORTE_OUV_H);
+})();
+
+// LES DEUX HANGARS ET LEUR BOYAU. Les hangars ont l'air de hangars : quatre
+// murs, un toit, et un trou dans le pignon EXTÉRIEUR. Le boyau, lui, est
+// invisible d'en haut — c'est un trou dans le sol, et le sol n'est pas percé
+// ailleurs qu'à l'intérieur des hangars.
+(function batisSousPiste() {
+  const g = new THREE.Group();
+  const L = SOUS.large / 2, H = SOUS.haut;
+  const p = [];
+  const seg = (a1, b1, c1, a2, b2, c2) => p.push(a1, b1, c1, a2, b2, c2);
+  // les cintres du boyau, tous les vingt mètres : quatre traits par cadre
+  for (let x = -SOUS.bout; x <= SOUS.bout + 0.1; x += 20) {
+    const y0 = sousY(x), y1 = y0 + H;
+    seg(x, y0, SOUS.z - L, x, y1, SOUS.z - L);
+    seg(x, y1, SOUS.z - L, x, y1, SOUS.z + L);
+    seg(x, y1, SOUS.z + L, x, y0, SOUS.z + L);
+    seg(x, y0, SOUS.z + L, x, y0, SOUS.z - L);
+  }
+  // et les quatre arêtes qui courent d'un bout à l'autre
+  for (const cz of [SOUS.z - L, SOUS.z + L]) {
+    for (const dh of [0, H]) {
+      let px = -SOUS.bout, py = sousY(px) + dh;
+      for (let x = -SOUS.bout + 20; x <= SOUS.bout + 0.1; x += 20) {
+        const y = sousY(x) + dh;
+        seg(px, py, cz, x, y, cz);
+        px = x; py = y;
+      }
+    }
+  }
+  g.add(new THREE.LineSegments(segGeom(p), matBati));
+  // les deux hangars, posés sur le sol, de part et d'autre
+  const HH = 26, HL = 46;
+  for (const sens of [-1, 1]) {
+    const x0 = sens * SOUS.hangar, x1 = sens * SOUS.bout;
+    const cx = (x0 + x1) / 2, lx = Math.abs(x1 - x0);
+    const murs = [
+      [lx, 1.2, HL, cx, HH, SOUS.z],                    // le toit
+      [lx, HH, 1.2, cx, HH / 2, SOUS.z - HL / 2],       // les deux longs pans
+      [lx, HH, 1.2, cx, HH / 2, SOUS.z + HL / 2],
+      [1.2, HH, HL, x0, HH / 2, SOUS.z]                 // le pignon côté piste, plein
+    ];
+    for (const [sx, sy, sz, ox, oy, oz] of murs) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), solidMat);
+      m.position.set(ox, oy, oz); m.frustumCulled = false; g.add(m);
+    }
+    // le pignon extérieur, percé : deux jambages et un linteau, le trou au ras
+    const tL = SOUS.large / 2, tH = SOUS.haut;
+    const yT = SOUS.yBouche;
+    const cote = (HL / 2 - tL) / 2;
+    for (const s2 of [-1, 1]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1.2, HH, HL / 2 - tL), solidMat);
+      m.position.set(x1, HH / 2, SOUS.z + s2 * (tL + (HL / 2 - tL) / 2));
+      m.frustumCulled = false; g.add(m);
+    }
+    const lint = new THREE.Mesh(new THREE.BoxGeometry(1.2, HH - (yT + tH), 2 * tL), solidMat);
+    lint.position.set(x1, (yT + tH + HH) / 2, SOUS.z); lint.frustumCulled = false; g.add(lint);
+    // les arêtes du hangar
+    const ar = [];
+    const boite = (sx, sy, sz, ox, oy, oz) => {
+      const X = sx / 2, Y = sy / 2, Z = sz / 2;
+      const s8 = [[-X,-Y,-Z],[X,-Y,-Z],[X,Y,-Z],[-X,Y,-Z],[-X,-Y,Z],[X,-Y,Z],[X,Y,Z],[-X,Y,Z]];
+      for (const [i0, i1] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]) {
+        const A = s8[i0], B = s8[i1];
+        ar.push(ox + A[0], oy + A[1], oz + A[2], ox + B[0], oy + B[1], oz + B[2]);
+      }
+    };
+    for (const m of murs) boite(...m);
+    boite(1.2, HH - (yT + tH), 2 * tL, x1, (yT + tH + HH) / 2, SOUS.z);
+    for (const s2 of [-1, 1]) boite(1.2, HH, HL / 2 - tL, x1, HH / 2, SOUS.z + s2 * (tL + (HL / 2 - tL) / 2));
+    g.add(new THREE.LineSegments(segGeom(ar), matBati));
+  }
+  g.frustumCulled = false;
+  scene.add(g);
 })();
 
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
@@ -9923,6 +10144,7 @@ const state = {
   nappeVu: 0,         // secondes de repère du faucheur sur la bande d'altitude
   immunCrash: false,  // monté au plafond : plus de crash contre le sol ni les murs
   tunnel: null,       // dans le tunnel : { t, vie }
+  sous: null,         // sous la piste : { t, vie }
   suite: {},          // avancement de chaque figure de CIEL_SUITE
   suiteFaite: {},     // celles qui sont deja tracees
   dehorsDeja: false,  // la chaine a deja ete franchie : la musique ne part qu'une fois
@@ -10203,6 +10425,7 @@ function toucherPiste() {
 }
 
 function resetGame() {
+  state.sous = null;
   state.finEcran = 0;
   state.causeMort = null;
   state.nappeVu = 0;
@@ -13875,23 +14098,64 @@ function simulate(dt) {
       // nominale en proportion : trop haut, ça pique un peu plus ; trop bas,
       // ça redresse ; sur l'axe, ça tient les trois degrés. C'est ce que fait
       // n'importe quel pilote qui suit un plan.
-      // J'AI ESSAYÉ DE COMMANDER UNE VITESSE VERTICALE PLUTÔT QU'UN ANGLE —
-      // c'est ce qu'un pilote tient sur un plan, et c'est ce qui annule la
-      // dépendance à la vitesse. Mesuré : trois approches sur trois ne se
-      // posaient plus du tout. La loi est juste, l'intégration du jeu ne la
-      // suit pas telle quelle, et une approche qui ne se termine pas est pire
-      // qu'une approche d'un degré trop raide. On revient donc à l'angle, et
-      // la vitesse verticale reste à faire, proprement, avec un banc qui ne
-      // dépende pas de la cadence d'images.
+      // -----------------------------------------------------------------
+      // L'ASSIETTE N'EST PAS LA TRAJECTOIRE, ET C'EST TOUT LE PROBLÈME.
+      //
+      // Cette loi commandait une assiette en espérant une pente. Mesuré en
+      // vol : nez à trois degrés sous l'horizon, pente réelle −0,25°. Entre
+      // les deux il y a l'INCIDENCE, que le modèle d'énergie fixe tout seul
+      // et que personne ne retranchait. Résultat : l'appareil suivait
+      // proprement les trois degrés tant qu'il était vite, puis mettait à
+      // plat vers cent mètres sol et flottait — trois approches sur trois ne
+      // se posaient pas.
+      //
+      // J'avais essayé de commander directement une vitesse verticale ; ça ne
+      // se posait pas non plus, et j'étais revenu à l'angle en croyant
+      // revenir à quelque chose qui marchait. C'était faux : les deux
+      // échouaient, je n'avais jamais mesuré l'atterrissage lui-même.
+      //
+      // LA CORRECTION EST UN TRIM. On mesure la pente RÉELLE — la vitesse
+      // verticale sur la vitesse horizontale, relevées d'une image à l'autre
+      // —, on intègre lentement l'écart à la consigne, et on le retranche de
+      // l'assiette visée. C'est exactement ce que fait une roulette de
+      // compensation, c'est indépendant de la cadence d'images puisque tout
+      // est multiplié par dt, et ça converge sur n'importe quelle incidence
+      // sans avoir à la connaître.
+      // -----------------------------------------------------------------
       const err = state.pos.y - tubeHaut(Math.max(0, TUBE.d));
       const corr = THREE.MathUtils.clamp(err / 260, -0.035, 0.055);
-      let vise = -(PENTE_CIBLE + corr);
-      // L'ARRONDI. Les quatre-vingts derniers mètres, la pente s'efface et le
-      // nez vient à plat : c'est le geste qui fait qu'on pose les roues au lieu
-      // de planter le train. Sans lui, le tube menait l'appareil au sol sur
-      // trois degrés constants, ce qui est un impact, pas un atterrissage.
-      const kArr = THREE.MathUtils.clamp(1 - Math.max(0, TUBE.d) / 80, 0, 1);
-      vise += (SOL_ASSIETTE - vise) * kArr * kArr;
+      const hSolT = state.pos.y - SOL_Y;
+      // L'ARRONDI SE MESURE EN HAUTEUR, PAS EN DISTANCE. Il se déclenchait aux
+      // quatre-vingts derniers mètres d'axe : arrivé haut, on arrondissait en
+      // l'air ; arrivé bas, jamais. Un pilote arrondit à une hauteur — une
+      // dizaine de mètres — et pas à une abscisse.
+      const kArr = THREE.MathUtils.clamp(1 - hSolT / FINALE_ARRONDI, 0, 1);
+      // la pente voulue : trois degrés, adoucie à presque rien dans l'arrondi
+      const penteVoulue = -(PENTE_CIBLE + corr) * (1 - kArr * kArr) - ARRONDI_PENTE * kArr * kArr;
+      // la pente réelle, relevée entre deux images
+      const vhT = Math.max(1, Math.hypot(state.pos.x - TUBE.xPrec, state.pos.z - TUBE.zPrec) / Math.max(dt, 1e-3));
+      const vzT = (state.pos.y - TUBE.yPrec) / Math.max(dt, 1e-3);
+      const penteReelle = Math.atan2(vzT, vhT);
+      TUBE.xPrec = state.pos.x; TUBE.yPrec = state.pos.y; TUBE.zPrec = state.pos.z;
+      if (TUBE.vue) {
+        TUBE.trim = THREE.MathUtils.clamp(
+          TUBE.trim + (penteReelle - penteVoulue) * TRIM_GAIN * dt, -TRIM_MAX, TRIM_MAX);
+      }
+      TUBE.vue = true;
+      // LA PORTE DES CINQ CENTS PIEDS, franchie une seule fois par approche
+      if (!TUBE.ditStab && hSolT < PORTE_STAB && hSolT > PORTE_STAB - 40) {
+        TUBE.ditStab = true;
+        const trop = [];
+        if (-vzT > STAB_CHUTE) trop.push(t('stabChute'));
+        if (state.speed > APPROCHE_VIT + STAB_VITESSE) trop.push(t('stabVite'));
+        if (state.speed < APPROCHE_VIT - 4) trop.push(t('stabLent'));
+        if (Math.abs(err) > 45) trop.push(err > 0 ? t('stabHaut') : t('stabBas'));
+        if (trop.length) nouvelle(null, 0, t('stabNon') + trop.join('  ·  '));
+      }
+      let vise = penteVoulue - TUBE.trim;
+      // et dans l'arrondi le nez vient au-dessus de l'horizon : on pose les
+      // roues principales, on ne plante pas le train avant
+      vise += (SOL_ASSIETTE - vise) * kArr * kArr * 0.5;
       state.pitch = THREE.MathUtils.damp(state.pitch, vise, TUBE_PRISE * tenu, dt);
     }
     // ILS SORTENT DÈS QUE LE TUBE NOUS TIENT : le temps qu'on descende, ils
@@ -14939,11 +15203,19 @@ function simulate(dt) {
   // mètres au-dessus de la mer et deux cents mètres SOUS la crête : tous les
   // filets qui empêchent de labourer la plaine nous éjecteraient du boyau.
   // Ce sont les parois du tunnel qui tiennent, et elles seules.
-  const plancherEff = (state.assist || dansTunnel()) ? 0 : FLOOR * (1 - partPiste);
+  // LE PLANCHER DU MONDE EST À ZÉRO, ET LE BOYAU PASSE DESSOUS. Deux lignes
+  // interdisaient toute altitude négative : le plancher tombait bien à zéro
+  // dans un passage, mais zéro reste zéro, et un boyau creusé vingt mètres
+  // sous le bitume n'existait donc pas. Mesuré : l'appareil restait collé à
+  // y = 0 sur toute la traversée. Sous la piste, le plancher, c'est le sol du
+  // boyau.
+  const sousP = dansSous() ? sousY(state.pos.x) + 2 : null;
+  const plancherEff = sousP !== null ? sousP
+                    : (state.assist || dansTunnel()) ? 0 : FLOOR * (1 - partPiste);
   if (state.pos.y < plancherEff) {
     state.pos.y = plancherEff;
     if (state.pitch < 0) state.pitch = THREE.MathUtils.damp(state.pitch, 0.12, 9, dt);
-  } else if (state.pos.y < SOL_Y) {
+  } else if (sousP === null && state.pos.y < SOL_Y) {
     state.pos.y = SOL_Y;
   }
   if (state.pos.y > CEILING) {
@@ -15380,6 +15652,7 @@ function scrapeCorps(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
   PORTE.repos = Math.max(0, PORTE.repos - dt);
   majTunnel(dt);
+  majSous(dt);
   if (state.viePleineT > 0) state.viePleineT = Math.max(0, state.viePleineT - dt);
   // le repos d'un portail : une traversée dure plusieurs images, et sans lui
   // un seul passage compterait deux ou trois crans de guillotine
@@ -15428,7 +15701,7 @@ function scrapeCorps(dt) {
     // donc à rallumer le coussin en plein milieu du bitume dès que la part
     // valait un — et l'appareil était replaqué au plancher, treize mètres
     // plus haut, mesuré. On sort d'abord, on compare ensuite.
-    const pbC = dansTunnel() ? 1 : partBitume(60);
+    const pbC = (dansTunnel() || dansSous()) ? 1 : partBitume(60);
     if (pbC < 1 && hs < SOL_COUSSIN * (1 - pbC) && !state.assist) {
       if (doux) {
         const k = THREE.MathUtils.clamp(1 - hs / SOL_COUSSIN, 0, 1);
@@ -15469,8 +15742,13 @@ function scrapeCorps(dt) {
     // saut en bout de piste — onze mètres et demi en une image, à cinq mètres
     // du seuil, pour venir poser l'appareil pile à plancher moins six. Il
     // remonte maintenant depuis le sol sur les cent quarante mètres du fondu.
-    const pb = dansTunnel() ? 1 : partBitume(60);
-    const filet = (plancher - 6) * (1 - pb);
+    // ET LE FILET SUIT LE PLANCHER DU BOYAU. Écrit « (plancher − 6) × (1 − pb) »,
+    // il vaut zéro dès qu'on est dans un passage : parfait pour le tunnel de la
+    // montagne, dont le sol est à trois cents mètres, faux pour un boyau qui
+    // passe SOUS le niveau de la mer. Mesuré : l'appareil était collé à y = 0
+    // et n'atteignait jamais les vingt mètres sous la piste.
+    const pb = (dansTunnel() || dansSous()) ? 1 : partBitume(60);
+    const filet = dansSous() ? sousY(state.pos.x) + 2 : (plancher - 6) * (1 - pb);
     if (state.pos.y < filet) state.pos.y = filet;
   }
 
@@ -15529,6 +15807,16 @@ function scrapeCorps(dt) {
     state.yaw += (cote >= 0 ? -1 : 1) * 0.30;
     state.roll = THREE.MathUtils.clamp(state.roll + (cote >= 0 ? -0.5 : 0.5), -1.2, 1.2);
   };
+
+  // LE BOYAU SOUS LA PISTE : ses parois sont dures, comme la roche du tunnel.
+  if (heurteSous()) {
+    if (state.scrapeT <= 0) {
+      damagePlayer(7, _impactSrc.copy(state.pos), 'decor');
+      state.scrapeT = 0.45; SFX.eraflure();
+    }
+    state.speed *= 0.97;
+    return;
+  }
 
   // LES PAROIS DU TUNNEL, AVANT TOUT LE RESTE.
   if (heurteTunnel()) {
@@ -17780,6 +18068,9 @@ const T = {
     luneDetourne: 'DÉTOURNE-TOI',
     esquive: 'ESQUIVE', tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
     porte: 'LA PORTE DU SOMMET', porteSous: 'Ils ont posé ça ici, et puis ils sont partis.',
+    stabNon: 'NON STABILISÉ  ·  ', stabChute: 'ÇA DESCEND TROP VITE',
+    stabVite: 'TROP RAPIDE', stabLent: 'TROP LENT', stabHaut: 'AU-DESSUS DU PLAN', stabBas: 'SOUS LE PLAN',
+    sous: 'SORTI DE SOUS LA PISTE', sousSous: 'Vie gagnée sous le bitume  ·  +',
     sousSaNappe: 'SOUS SA NAPPE', sousSaNappeSous: 'Tu as disparu de son écran. Reste bas.',
     avionPrise: 'PRISE DE GUERRE',
     acces_prise: 'Elle ne revolera pas. Elle est là pour qu’on la regarde.',
@@ -17922,6 +18213,9 @@ const T = {
     luneDetourne: 'LOOK AWAY',
     esquive: 'BREAK', tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
     porte: 'THE SUMMIT GATE', porteSous: 'They set this here, and then they left.',
+    stabNon: 'NOT STABILISED  ·  ', stabChute: 'SINK RATE',
+    stabVite: 'TOO FAST', stabLent: 'TOO SLOW', stabHaut: 'ABOVE PATH', stabBas: 'BELOW PATH',
+    sous: 'OUT FROM UNDER THE RUNWAY', sousSous: 'Life gained under the tarmac  ·  +',
     sousSaNappe: 'BELOW HIS SCAN', sousSaNappeSous: 'You are off his screen. Stay low.',
     avionPrise: 'WAR PRIZE',
     acces_prise: 'It will not fly again. It is here to be looked at.',
@@ -18609,6 +18903,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.70', fr: 'L’approche se pose enfin : un trim intégral annule l’incidence que l’assiette commandée ignorait.', en: 'The approach finally lands: an integral trim cancels the angle of attack that commanded pitch ignored.' },
+  { v: '1.70', fr: 'L’arrondi se mesure en hauteur sol — onze mètres — et non plus en distance à la piste.', en: 'The flare is measured in height above ground — eleven metres — not in distance to the runway.' },
+  { v: '1.70', fr: 'La porte des cinq cents pieds dit ce qui cloche : taux de chute, vitesse, ou écart au plan.', en: 'The five-hundred-foot gate says what is wrong: sink rate, speed, or deviation from path.' },
+  { v: '1.70', fr: 'Le passage sous la piste : deux hangars percés dans leur pignon extérieur, un boyau à vingt mètres sous le bitume.', en: 'The passage under the runway: two hangars pierced in their outer gable, a bore twenty metres under the tarmac.' },
+  { v: '1.70', fr: 'De la vie en continu sous la piste, et un coup de pied à la sortie, comme au tunnel de la montagne.', en: 'Life flows under the runway, and a kick on the way out, as in the mountain tunnel.' },
   { v: '1.69', fr: 'Le plus haut sommet sur le cap du refuge est arasé en plateau : 895 mètres, 240 de large.', en: 'The highest summit on the refuge bearing is levelled into a plateau: 895 metres up, 240 across.' },
   { v: '1.69', fr: 'Dessus, une porte de pierre en travers du cap : la franchir multiplie la vitesse par 1,7 et ajoute 130.', en: 'On it, a stone gate across the bearing: going through multiplies speed by 1.7 and adds 130.' },
   { v: '1.69', fr: 'Neuf pierres levées en cercle autour d’elle. Ils ont posé ça ici, et puis ils sont partis.', en: 'Nine standing stones in a ring around it. They set this here, and then they left.' },
