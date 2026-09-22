@@ -87,18 +87,60 @@ la règle ne s'applique qu'entre 0,55 et 0,98 d'alignement — c'est-à-dire
 qu'on meurt en visant À PEU PRÈS la lune et qu'on survit en la visant
 parfaitement. À dire si c'est ce qui est voulu.
 
-## 3. Le jeu de piste (validé, non commencé)
+## 3. Le jeu de piste → fait en v1.66
 
-Les deux chiffres de piste sont repeints en **29** et **27** : le cap du
-tunnel de la montagne (288) et le cap du refuge de la Grande Ourse (270).
-Pierre sait que c'est faux au sens de l'aviation — deux bouts d'une même
-piste sont opposés à 180° — et le veut quand même : ce sont des caps, pas des
-numéros, et c'est l'énigme.
+Les deux chiffres de piste sont repeints avec les caps du tunnel et du
+refuge. C'est faux au sens de l'aviation — deux bouts d'une même piste sont
+opposés à 180° — et c'est l'énigme : deux nombres qui ne collent pas à la
+piste sont deux nombres qui parlent d'ailleurs.
 
-Deux portails alignés, à 1,5 et 3 km du terrain, sur le cap du refuge : les
-prendre tous les deux et continuer tout droit mène au refuge.
+### Ce qui est peint, et mesuré
 
-La flèche de l'aire à signaux est orientée vers le tunnel.
+| | cap réel | chiffre |
+|---|---|---|
+| bouche du tunnel, depuis le terrain | 48,7° | **05** au seuil de départ |
+| refuge de la Grande Ourse | 270,0° | **27** au seuil avant |
+
+Ce n'est plus 29 et 27 : le tunnel a déménagé en v1.64 et son cap a suivi.
+Les deux chiffres se CALCULENT maintenant à partir de la carte, et le jeu
+complet des dix chiffres a été dessiné — il n'y avait que 1, 3, 6 et 8, de
+quoi peindre 36 et 18 et rien d'autre.
+
+### Les deux portails
+
+À 1 500 et 2 300 mètres plein ouest, sur z = 0, donc exactement sur le cap
+du refuge. Pas à 3 km : à trois kilomètres la roche est déjà à soixante-dix
+mètres et enterrerait la seconde arche jusqu'à la poutre. 2 300 m est le
+dernier endroit plat.
+
+Ils ne sont PAS dans `CARTE` : la carte se remplace par l'éditeur, et une
+énigme qui disparaît quand on dessine son propre terrain n'est pas une
+énigme. Ils sont ajoutés à la liste (`ARCHES_CARTE`), comme la grande tour.
+
+Vol d'essai, cap 270 tenu à la main, sans corriger :
+
+| | x | vie | vitesse |
+|---|---|---|---|
+| entrée | −600 | 100 | 150 |
+| premier portail | −1 487 | +20 | 169 |
+| second portail | −2 286 | +20 | 340 |
+
+### Le pylône qui barrait
+
+Un pylône de 327 mètres de haut se trouvait à **4 mètres** de l'axe du
+couloir, pile entre les deux portails, avec une emprise de 26 mètres dans un
+passage qui en fait 96. Décalé à 130 mètres de l'axe — c'était le seul objet
+du couloir, et il n'est pas supprimé, il est écarté.
+
+### La flèche
+
+Un QUATRIÈME carré, vingt-six mètres au nord du T, avec une flèche. Le T
+n'est pas détourné : il est réglementaire, il est juste, et il sert.
+
+Mesuré : cap de la flèche 51,36°, cap réel vers la bouche du tunnel depuis ce
+carré 51,36°, écart 0°. Elle se calcule elle aussi. Premier jet : elle était
+calculée dans le repère LOCAL du groupe de l'aérodrome, décalé de (78, −320),
+et pointait 1,5° à côté.
 
 ## Le tunnel, deuxième version → fait en v1.64
 

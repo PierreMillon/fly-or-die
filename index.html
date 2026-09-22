@@ -369,6 +369,9 @@
   qu'on a déjà tracée — dans le vrai ciel, le bord du chariot pointe droit
   dessus. Une deuxième demande de viser vraiment, pas de viser large. Une
   troisième ne se lève que très loin d'ici. On ne t'en dira pas plus.</p>
+  <p><b>Les deux chiffres de la piste.</b> Deux bouts d'une même piste sont
+  opposés à cent quatre-vingts degrés. Ceux-là ne le sont pas. Et le deuxième
+  carré, à côté du T, dit la même chose autrement.</p>
   <p><b>Loin à l'ouest.</b> Il y a un terrain qui n'est sur aucune carte, bien
   au-delà des montagnes, sur la plaine qui recommence derrière elles. Dix
   kilomètres. On y arrive en volant longtemps et bas, ou en ayant tracé le
@@ -432,8 +435,10 @@
   <p><b>Le PAPI.</b> Les quatre feux de chaque côté de la piste donnent ta pente.
   Quatre blancs, tu es trop haut. Deux blancs deux rouges, tu es pile sur les
   3 degrés. Quatre rouges, tu es trop bas — et trop bas, c'est le sol.</p>
+  <p><b>Et un quatrième carré, qui n'est pas réglementaire.</b> Vingt-six
+  mètres plus au nord, une flèche. Elle ne dit rien de l'atterrissage.</p>
   <p class="src">Sources : OACI annexe 14 (aire à signaux, T d'atterrissage,
-  PAPI).</p>
+  PAPI). La flèche n'en vient pas.</p>
 
   <h2>EN FACE</h2>
   <p>Quatre adversaires, quatre silhouettes, quatre manières de poursuivre.
@@ -573,6 +578,9 @@
   <p><b>Two figures in the sky.</b> The Big Dipper and the Evening Star are
   where they should be. One points the way, as it always has. The other
   announces the day, and it only yields on the way out of a figure.</p>
+  <p><b>The two runway figures.</b> Two ends of one runway are a hundred and
+  eighty degrees apart. These are not. And the second square, beside the T,
+  says the same thing another way.</p>
   <p><b>Somewhere west.</b> There is an airfield on no map. You get there by
   flying long and low.</p>
 
@@ -619,7 +627,10 @@
   <p><b>The PAPI.</b> The four lights on each side of the runway give your slope.
   Four white, too high. Two white two red, dead on the 3 degrees. Four red,
   too low — and too low is the ground.</p>
-  <p class="src">Sources: ICAO Annex 14 (signals area, landing T, PAPI).</p>
+  <p><b>And a fourth square, which is not regulation.</b> Twenty-six metres
+  further north, an arrow. It says nothing about landing.</p>
+  <p class="src">Sources: ICAO Annex 14 (signals area, landing T, PAPI). The
+  arrow is not from it.</p>
 
   <h2>WHO YOU FACE</h2>
   <p>Four opponents, four silhouettes, four ways of pursuing. The waves cross
@@ -4599,6 +4610,9 @@ const TUNNEL = {
 };
 TUNNEL.y1 = TUNNEL.y0 + TUNNEL.haut;
 TUNNEL.ux = 0.544639; TUNNEL.uz = 0.838671;     // le vecteur unitaire du boyau
+// LE REFUGE, DÉCLARÉ ICI. Les deux chiffres peints sur la piste sont les caps
+// du tunnel et du refuge : il faut donc les deux avant de peindre le bitume.
+const REFUGE = { x: -32000, z: 0, demiL: 14, demiZ: 180 };
 const TUNNEL_VIE = 14;        // points de vie par seconde passée dedans
 const TUNNEL_MARGE = 14;      // mètres de tolérance pour « on est dedans »
 const TUNNEL_CINTRE = 30;     // mètres entre deux cintres
@@ -5824,7 +5838,7 @@ const PISTE_GARDE_Z1 = -1150;
 // se dessine sur la page d'édition et se colle ici telle quelle. L'origine est
 // le milieu de la piste ; x vers l'est, z vers le sud (le nord est en -z).
 // ---------------------------------------------------------------------------
-const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":4,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":6,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":110,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
+const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":130,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":6,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":110,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
 // ---------------------------------------------------------------------------
 // LES DEUX BÂTIMENTS À FIGURE SORTENT DE LA CARTE.
 //
@@ -5874,8 +5888,57 @@ const CHIFFRES = {
   '8': [[[0,2.6],[2.6,0],[7.4,0],[10,2.6],[10,7.4],[8.4,10],[10,12.6],[10,17.4],
          [7.4,20],[2.6,20],[0,17.4],[0,12.6],[1.6,10],[0,7.4]],
         [[2.6,2.6],[7.4,2.6],[7.4,7.4],[2.6,7.4]],
-        [[2.6,12.6],[7.4,12.6],[7.4,17.4],[2.6,17.4]]]
+        [[2.6,12.6],[7.4,12.6],[7.4,17.4],[2.6,17.4]]],
+  // LE JEU EST COMPLET. Il n'y avait que 1, 3, 6 et 8 — de quoi peindre 36 et
+  // 18 et rien d'autre. Les chiffres se calculent maintenant à partir de la
+  // carte : il faut les dix.
+  '0': [[[0,2.6],[2.6,0],[7.4,0],[10,2.6],[10,17.4],[7.4,20],[2.6,20],[0,17.4]],
+        [[2.6,2.6],[7.4,2.6],[7.4,17.4],[2.6,17.4]]],
+  '2': [[[0,0],[10,0],[10,2.6],[3.2,2.6],[10,10.5],[10,17.4],[7.4,20],[2.6,20],
+         [0,17.4],[0,15],[2.6,15],[2.6,17.4],[7.4,17.4],[7.4,11.5],[0,3.6]]],
+  '4': [[[6.0,0],[8.6,0],[8.6,20],[4.9,20],[0,6.4],[0,4.0],[6.0,4.0]],
+        [[3.1,6.4],[6.0,6.4],[6.0,14.5]]],
+  '5': [[[0,20],[10,20],[10,17.4],[2.6,17.4],[2.6,10],[7.4,10],[10,7.4],[10,2.6],
+         [7.4,0],[2.6,0],[0,2.6],[0,5],[2.6,5],[2.6,2.6],[7.4,2.6],[7.4,7.4],
+         [0,7.4]]],
+  '7': [[[0,20],[10,20],[10,17.4],[4.6,0],[1.6,0],[7.0,17.4],[0,17.4]]],
+  '9': [[[10,17.4],[7.4,20],[2.6,20],[0,17.4],[0,12.6],[2.6,10],[7.4,10],
+         [7.4,2.6],[0,2.6],[0,0],[7.4,0],[10,2.6]],
+        [[7.4,17.4],[2.6,17.4],[2.6,12.6],[7.4,12.6]]]
 };
+
+// ---------------------------------------------------------------------------
+// LES DEUX CHIFFRES DE PISTE NE SONT PLUS DES NUMÉROS DE PISTE.
+//
+// C'était 36 et 18 : le cap dans un sens, le cap dans l'autre, comme sur
+// n'importe quel terrain. Exact, et sans aucun intérêt — on lit deux nombres
+// qui ne disent que ce que la boussole dit déjà.
+//
+// Ils disent maintenant AUTRE CHOSE. Le seuil de départ porte le cap du
+// tunnel de la montagne, l'autre porte le cap du refuge de la Grande Ourse.
+// C'est faux au sens de l'aviation — deux bouts d'une même piste sont
+// opposés à cent quatre-vingts degrés, et ceux-là ne le sont pas — et c'est
+// exactement le point : deux nombres qui ne collent pas à la piste sont deux
+// nombres qui parlent d'ailleurs.
+//
+// ILS SE CALCULENT. Écrits en dur, ils auraient menti dès le premier
+// déplacement du tunnel — et le tunnel a déjà bougé une fois.
+// ---------------------------------------------------------------------------
+function capDepuis(x0, z0, x1, z1) {
+  const d = (Math.atan2(x1 - x0, -(z1 - z0)) * 180 / Math.PI + 360) % 360;
+  const n = Math.round(d / 10) % 36;
+  return String(n === 0 ? 36 : n).padStart(2, '0');
+}
+// la bouche que l'on rencontre en premier : celle des deux qui est la plus
+// proche du terrain
+function boucheTunnel() {
+  const d = TUNNEL.long / 2;
+  const a = { x: TUNNEL.x - TUNNEL.ux * d, z: TUNNEL.z - TUNNEL.uz * d };
+  const b = { x: TUNNEL.x + TUNNEL.ux * d, z: TUNNEL.z + TUNNEL.uz * d };
+  return (a.x * a.x + a.z * a.z) <= (b.x * b.x + b.z * b.z) ? a : b;
+}
+const CAP_TUNNEL = capDepuis(0, 0, boucheTunnel().x, boucheTunnel().z);
+const CAP_REFUGE = capDepuis(0, 0, REFUGE.x, REFUGE.z);
 
 // ---------------------------------------------------------------------------
 // UN ALPHABET AU TRAIT. Les chiffres de piste sont des CONTOURS — c'est juste,
@@ -5967,8 +6030,8 @@ function ecrisEnZ(p, txt, xs, y0, z0, ech) {
       }
     }
   };
-  nombre('36', PISTE.z0 - 60, 1);
-  nombre('18', PISTE.z1 + 60, -1);
+  nombre(CAP_TUNNEL, PISTE.z0 - 60, 1);
+  nombre(CAP_REFUGE, PISTE.z1 + 60, -1);
 
   // LE PEIGNE. Les bandes blanches du seuil : c'est là qu'on doit toucher, et
   // maintenant que le tube les vise, il fallait qu'elles se voient. Huit
@@ -6808,6 +6871,47 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
                sx - 2.4, y, sz - 2.6, sx + 2.4, y, sz - 2.6,          // la barre du T, au nord
                sx, y, sz - 2.6, sx, y, sz + 2.8];                      // la jambe part au sud : on se pose PARALLELEMENT a elle et VERS la barre (OACI annexe 14)
   g.add(new THREE.LineSegments(segGeom(sig), matHangar));
+
+  // -------------------------------------------------------------------------
+  // ET LA FLÈCHE, DANS SON PROPRE CARRÉ, À CÔTÉ DU T.
+  //
+  // Le T d'atterrissage dit déjà quelque chose — le sens de la pose — et on ne
+  // le détourne pas : il est réglementaire, il est juste, et il sert. La
+  // flèche a donc son carré à elle, vingt-six mètres plus au nord.
+  //
+  // Elle pointe LA BOUCHE DU TUNNEL. C'est le même cap que le chiffre peint au
+  // seuil de départ, dit une deuxième fois et autrement : un nombre pour qui
+  // lit la piste, une direction pour qui regarde le terrain. Deux indices qui
+  // se confirment valent mieux qu'un seul qu'on prend pour une coquille.
+  //
+  // Elle se calcule, comme le chiffre. Le tunnel a déjà déménagé une fois.
+  // -------------------------------------------------------------------------
+  {
+    // LE CAP SE PREND EN COORDONNÉES DU MONDE. Le groupe de l'aérodrome est
+    // décalé de (AERO.x, AERO.z) : calculée en local, la flèche pointait un
+    // degré et demi à côté — invisible ici, faux partout ailleurs.
+    const bt = boucheTunnel();
+    const fz = sz - 26;
+    const mx = A.x + sx, mz = A.z + fz;
+    const th = Math.atan2(bt.x - mx, -(bt.z - mz));
+    const ux = Math.sin(th), uz = -Math.cos(th);   // le sens de la flèche
+    const px = -uz, pz = ux;                       // et sa perpendiculaire
+    const fle = [];
+    const trait = (a0, b0, a1, b1) => fle.push(
+      sx + ux * a0 + px * b0, y, fz + uz * a0 + pz * b0,
+      sx + ux * a1 + px * b1, y, fz + uz * a1 + pz * b1);
+    // le carré, à plat comme celui du T
+    fle.push(sx - c, y, fz - c, sx + c, y, fz - c,
+             sx + c, y, fz - c, sx + c, y, fz + c,
+             sx + c, y, fz + c, sx - c, y, fz + c,
+             sx - c, y, fz + c, sx - c, y, fz - c);
+    // la hampe et les deux barbes
+    trait(-3.6, 0, 3.6, 0);
+    trait(3.6, 0, 0.9, 1.9);
+    trait(3.6, 0, 0.9, -1.9);
+    g.add(new THREE.LineSegments(segGeom(fle), matHangar));
+  }
+
   g.frustumCulled = false;
   scene.add(g);
 })();
@@ -7275,8 +7379,30 @@ const VIE_MAX = 1e9;      // au-dela de cent, c'est de la vie de bonus, sans pla
 const VIE_PLEINE_ECLAT = 1.6;       // secondes pendant lesquelles la jauge brille
 const VIE_DEPART = 100;             // la vie du premier décollage
 const JAUGE_ECHELLE = VIE_DEPART * 2;   // et la barre en vaut deux fois plus
+// ---------------------------------------------------------------------------
+// LES DEUX PORTAILS DU REFUGE.
+//
+// Le chiffre peint sur la piste donne le cap. Ces deux-là le confirment : ils
+// sont alignés dessus, l'un derrière l'autre, et l'on ne tombe pas sur deux
+// portails alignés par hasard. Les prendre tous les deux et continuer tout
+// droit mène au refuge de la Grande Ourse.
+//
+// ILS NE SONT PAS DANS LA CARTE. La carte se remplace — l'éditeur la rend au
+// joueur — et une énigme qui disparaît quand on dessine son propre terrain
+// n'est pas une énigme. Ils sont donc ajoutés à la liste, jamais dedans.
+//
+// Et ils s'arrêtent avant le relief : à trois kilomètres plein ouest la roche
+// est déjà à soixante-dix mètres, ce qui enterrerait la seconde arche jusqu'à
+// la poutre. Deux mille trois cents mètres, c'est le dernier endroit plat.
+// ---------------------------------------------------------------------------
+const ARCHES_REFUGE = [
+  { x: -1500, z: 0, q: 1 },
+  { x: -2300, z: 0, q: 1 },
+];
+const ARCHES_CARTE = [...CARTE.arches, ...ARCHES_REFUGE];
+
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
-for (let i = 0; i < CARTE.arches.length; i++) {
+for (let i = 0; i < ARCHES_CARTE.length; i++) {
   const g = new THREE.Group();
   const demi = (ARCHE.ouvertureL + ARCHE.pile) / 2;
   g.add(bloc(ARCHE.pile, ARCHE.ouvertureH, ARCHE.prof, -demi, ARCHE.ouvertureH / 2),
@@ -7300,7 +7426,7 @@ for (let i = 0; i < CARTE.arches.length; i++) {
 // c'est précisément par là qu'on passe.
 function placeArche(a, initial) {
   let x, z;
-  const c = CARTE.arches[arches.indexOf(a)];
+  const c = ARCHES_CARTE[arches.indexOf(a)];
   if (c) { x = c.x; z = c.z; }
   else for (let essai = 0; ; essai++) {
     const ang = Math.random() * Math.PI * 2;
@@ -7772,7 +7898,8 @@ const SPECIAL = { largeur: 110, prof: 60, trou: 45, hautU: 200, entreeY: 40, hau
 // phrase de l'aide devient littéralement vraie. C'est aussi ce qui distingue
 // les trois secrets du ciel — le chariot montre le refuge sur la boussole,
 // Vénus le montre DANS LE CIEL.
-const REFUGE = { x: -32000, z: 0, demiL: 14, demiZ: 180 };
+// REFUGE est déclaré plus haut, avec le tunnel : les chiffres de piste se
+// calculent à partir des deux, et sont peints avant qu'on arrive ici.
 const REFUGE_TEMPS = 180;        // secondes de vol avant qu'il existe
 const REFUGE_VUE = 1700;         // distance à laquelle il se laisse voir
 // DEUX FOIS PLUS LENTE. À 0,22 le tour durait vingt-neuf secondes : assez vite
@@ -15999,7 +16126,7 @@ function drawHud() {
     hctx.fillStyle = 'rgba(190,255,220,0.55)';
     const capV = ((-VENT.a * 180 / Math.PI) % 360 + 360) % 360;
     hctx.fillText(t('ventMot') + String(Math.round(capV)).padStart(3, '0')
-                  + '  ·  ' + t('pisteMot') + (PLAN.sens < 0 ? '36' : '18'),
+                  + '  ·  ' + t('pisteMot') + (PLAN.sens < 0 ? CAP_TUNNEL : CAP_REFUGE),
                   w / 2, ty + ch + 30);
     hctx.restore();
   }
@@ -18147,6 +18274,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.66', fr: 'Les deux chiffres peints sur la piste ne sont plus 36 et 18 : ce sont deux caps, celui du tunnel et celui du refuge.', en: 'The two figures painted on the runway are no longer 36 and 18: they are two bearings, the tunnel’s and the refuge’s.' },
+  { v: '1.66', fr: 'Ils se calculent à partir de la carte, et les dix chiffres sont enfin dessinés.', en: 'They are computed from the map, and all ten digits are finally drawn.' },
+  { v: '1.66', fr: 'Deux portails alignés plein ouest, à 1 500 et 2 300 mètres, confirment le cap du refuge.', en: 'Two gates lined up due west, at 1,500 and 2,300 metres, confirm the bearing to the refuge.' },
+  { v: '1.66', fr: 'Un quatrième carré à côté du T porte une flèche : elle pointe la bouche du tunnel.', en: 'A fourth square beside the T carries an arrow: it points at the mouth of the tunnel.' },
+  { v: '1.66', fr: 'Un pylône barrait le couloir des deux portails à quatre mètres de l’axe : il s’écarte.', en: 'A pylon blocked the gate corridor four metres off axis: it steps aside.' },
   { v: '1.65', fr: 'Le soleil devient la lune : un croissant, ses cratères, et le reste du disque en lumière cendrée.', en: 'The sun becomes the moon: a crescent, its craters, and the rest of the disc in earthshine.' },
   { v: '1.65', fr: 'Sa phase est l’horloge de la partie : pleine à la première vague, un fil à la dernière.', en: 'Its phase is the clock of the run: full on wave one, a thread on the last.' },
   { v: '1.65', fr: 'Elle éclaire de moins en moins : les dernières vagues se jouent dans le noir.', en: 'It gives less and less light: the last waves are flown in the dark.' },
@@ -18676,6 +18808,14 @@ const INDICES = [
     su: () => decouvertes.refuge,
     fr: 'Derrière la chaîne, la plaine continue. Trois minutes, et quelqu’un y a vécu.',
     en: 'Past the range, the plain goes on. Three minutes, and someone lived out there.' },
+  { cle: 'tunnel',
+    su: () => decouvertes.tunnel,
+    fr: 'Les deux chiffres peints sur la piste ne font pas 180 d’écart. Ce ne sont donc pas des numéros de piste.',
+    en: 'The two figures painted on the runway are not 180 apart. So they are not runway designators.' },
+  { cle: 'fleche',
+    su: () => decouvertes.tunnel,
+    fr: 'À côté du T, un deuxième carré. Ce qu’il contient n’est pas dans l’annexe 14.',
+    en: 'Beside the T, a second square. What it holds is not in Annex 14.' },
   { cle: 'soleil',
     su: () => decouvertes.soleil,
     fr: 'Un tonneau, le nez dans la lune. Ce qui tombe du ciel ensuite ne tombe qu’une fois par demi-minute.',
