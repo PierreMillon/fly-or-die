@@ -370,8 +370,8 @@
   dessus. Une deuxième demande de viser vraiment, pas de viser large. Une
   troisième ne se lève que très loin d'ici. On ne t'en dira pas plus.</p>
   <p><b>Les deux chiffres de la piste.</b> Deux bouts d'une même piste sont
-  opposés à cent quatre-vingts degrés. Ceux-là ne le sont pas. Et le deuxième
-  carré, à côté du T, dit la même chose autrement.</p>
+  opposés à cent quatre-vingts degrés. Ceux-là ne le sont pas. Et le T de
+  l'aire à signaux dit la même chose autrement.</p>
   <p><b>Loin à l'ouest.</b> Il y a un terrain qui n'est sur aucune carte, bien
   au-delà des montagnes, sur la plaine qui recommence derrière elles. Dix
   kilomètres. On y arrive en volant longtemps et bas, ou en ayant tracé le
@@ -425,20 +425,18 @@
   <p>Trois signaux au sol, les vrais, ceux d'un aérodrome. Ils sont là pour
   te dire comment te poser sans radio.</p>
   <p><b>Le carré de signalisation et le T.</b> Le carré blanc au nord du
-  hangar est l'aire à signaux. Le grand T qu'il contient est l'indicateur de
-  direction d'atterrissage : on se pose <b>parallèlement à sa jambe et vers
-  sa barre</b>. Ici la barre est au nord : c'est le sens en service. Le jeu
-  t'accepte dans les deux sens, un vrai terrain non.</p>
+  hangar est l'aire à signaux. Sur un vrai terrain, le grand T qu'il contient
+  est l'indicateur de direction d'atterrissage : on se pose
+  <b>parallèlement à sa jambe et vers sa barre</b>. Ici, il ne pointe pas
+  dans l'axe de la piste. Ce n'est pas une erreur.</p>
   <p><b>La manche à air.</b> Le cône au bout du mât montre d'où vient le vent
   et sa force : plus il est tendu à l'horizontale, plus ça souffle. On décolle
   et on se pose <b>face au vent</b>, jamais dans le dos.</p>
   <p><b>Le PAPI.</b> Les quatre feux de chaque côté de la piste donnent ta pente.
   Quatre blancs, tu es trop haut. Deux blancs deux rouges, tu es pile sur les
   3 degrés. Quatre rouges, tu es trop bas — et trop bas, c'est le sol.</p>
-  <p><b>Et un quatrième carré, qui n'est pas réglementaire.</b> Vingt-six
-  mètres plus au nord, une flèche. Elle ne dit rien de l'atterrissage.</p>
   <p class="src">Sources : OACI annexe 14 (aire à signaux, T d'atterrissage,
-  PAPI). La flèche n'en vient pas.</p>
+  PAPI). Le T de ce terrain-ci n'en vient plus.</p>
 
   <h2>EN FACE</h2>
   <p>Quatre adversaires, quatre silhouettes, quatre manières de poursuivre.
@@ -579,8 +577,8 @@
   where they should be. One points the way, as it always has. The other
   announces the day, and it only yields on the way out of a figure.</p>
   <p><b>The two runway figures.</b> Two ends of one runway are a hundred and
-  eighty degrees apart. These are not. And the second square, beside the T,
-  says the same thing another way.</p>
+  eighty degrees apart. These are not. And the T in the signals area says the
+  same thing another way.</p>
   <p><b>Somewhere west.</b> There is an airfield on no map. You get there by
   flying long and low.</p>
 
@@ -617,20 +615,18 @@
   <p>Three real ground signals, the ones a real aerodrome uses. They tell you
   how to land without a radio.</p>
   <p><b>The signal square and the T.</b> The white square north of the hangar
-  is the signals area. The large T inside it is the landing direction
-  indicator: you land <b>parallel to its shaft and towards its crossbar</b>.
-  Here the crossbar is to the north: that is the direction in use. The game
-  takes you either way, a real airfield would not.</p>
+  is the signals area. On a real airfield the large T inside it is the landing
+  direction indicator: you land <b>parallel to its shaft and towards its
+  crossbar</b>. Here it does not line up with the runway. That is not a
+  mistake.</p>
   <p><b>The windsock.</b> The cone on the mast shows where the wind comes from
   and how hard: the flatter it sits, the stronger it blows. You take off and
   land <b>into the wind</b>, never with it behind you.</p>
   <p><b>The PAPI.</b> The four lights on each side of the runway give your slope.
   Four white, too high. Two white two red, dead on the 3 degrees. Four red,
   too low — and too low is the ground.</p>
-  <p><b>And a fourth square, which is not regulation.</b> Twenty-six metres
-  further north, an arrow. It says nothing about landing.</p>
-  <p class="src">Sources: ICAO Annex 14 (signals area, landing T, PAPI). The
-  arrow is not from it.</p>
+  <p class="src">Sources: ICAO Annex 14 (signals area, landing T, PAPI). This
+  field's T no longer comes from it.</p>
 
   <h2>WHO YOU FACE</h2>
   <p>Four opponents, four silhouettes, four ways of pursuing. The waves cross
@@ -5821,6 +5817,18 @@ function dessineTraits(k) {
 // esquiver ni riposter. Le marché est net.
 const ARRONDI_H = 16;         // hauteur à laquelle le nez commence à remonter
 const ROULAGE_M = 44;        // metres de piste pour s'arreter : trois fois moins qu'avant, le temps de freinage avec
+// ET LE RETOUR AU PARKING DURE UNE SECONDE, PAS DAVANTAGE.
+//
+// Dépasser le hangar arrive, et ce n'est pas une faute grave : on a touché un
+// peu long, c'est tout. Le retour se faisait en marche arrière à vitesse
+// proportionnelle à l'écart — une décroissance exponentielle de constante 0,9
+// seconde, donc quatre à cinq secondes à regarder l'appareil glisser en
+// arrière sans rien pouvoir faire. C'est la punition la plus longue du jeu
+// pour la faute la plus bénigne.
+//
+// Une seconde, quelle que soit la distance, avec un fondu doux aux deux bouts
+// — et une phrase qui dit ce qu'il faut en penser.
+const RETOUR_DUREE = 1;
 const FREIN_FRANC = 9;       // m/s2 : le coup de frein, franc — presque un g
 const TOUCHER_DUR = 4.5;      // m/s de descente au-delà desquels ça casse
 const REPARATION = 10;        // secondes avant que ça reparte tout seul
@@ -6802,7 +6810,17 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   const rang = [{ id: 'bimoteur', geo: planeGeom, edges: planeEdges, mat: matPlayer, ech: PLANE_SCALE * 0.9 },
                 { id: 'intercepteur', geo: KINDS[2].geom, edges: KINDS[2].edges, mat: legendesN > 0 ? matPlayer : matPale, ech: KINDS[2].echelle * 12 / 7.5 * 0.9 },
                 { id: 'pionnier', lignes: PIONNIER_SHAPE, mat: matPlayer, ech: 12 / 7 * 0.75 }];
-  for (const k of KINDS) if (!k.sol && !k.secret && k !== KINDS[2]) rang.push({ geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
+  // ET ELLES AUSSI RÉPONDENT AU NEZ. Quatre appareils du rang sur neuf
+  // n'avaient aucun identifiant : les carcasses adverses. Le nez passait
+  // dessus et il ne se passait RIEN — pas de cercle, pas de nom, pas un mot.
+  // Du point de vue du joueur ce n'est pas « celui-là ne se prend pas », c'est
+  // « le jeu ne me voit pas », et il recommence, et ça ne marche toujours pas.
+  //
+  // Elles portent donc un nom et un cercle, comme les autres. Ce qu'elles
+  // disent est simplement qu'il n'y a rien à prendre.
+  for (const k of KINDS) if (!k.sol && !k.secret && k !== KINDS[2])
+    rang.push({ id: 'prise_' + k.nom, nom: k.nom, prise: true,
+                geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
   // quatre devant, le reste derriere : tout le monde est visible depuis la
   // piste des que les vantaux sont effaces
   // ON RETIENT OÙ SONT LES NÔTRES — ET ON S'ÉTAIT TROMPÉ DE RANG. Le nom
@@ -6829,9 +6847,8 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
     m.position.set(-A.largeur / 2 + 13, 1.2, -A.prof / 2 + 16 + i * AERO_PAS);
     m.rotation.y = -Math.PI / 2;      // le nez vers la porte
     g.add(m);
-    if (r.id)
-      hangar.choix.push({ id: r.id, mesh: m,
-                          p: new THREE.Vector3(A.x + m.position.x, 2.2, A.z + m.position.z) });
+    hangar.choix.push({ id: r.id, nom: r.nom || '', prise: !!r.prise, mesh: m,
+                        p: new THREE.Vector3(A.x + m.position.x, 2.2, A.z + m.position.z) });
   });
   // la table et les tabourets, devant la porte, côté sud
   const table = paroi(1.6, 0.08, 1.0, 0, 0.78, 0); table.position.set(-A.largeur / 2 - 29, 0, 21);
@@ -6864,53 +6881,38 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   hangar.manche = new THREE.LineSegments(segGeom(cone), matHangar);
   hangar.manche.position.set(mat.position.x, MANCHE_MAT, mat.position.z);
   g.add(hangar.manche);
-  // l'aire à signaux : un carré et le T d'atterrissage, à plat au sol
+  // -------------------------------------------------------------------------
+  // L'AIRE À SIGNAUX, ET SON T QUI NE DIT PLUS L'ATTERRISSAGE.
+  //
+  // Le T d'atterrissage est réglementaire : on se pose parallèlement à sa
+  // jambe et vers sa barre (OACI annexe 14). Celui-ci ne l'est plus. Il est
+  // tourné VERS LA BOUCHE DU TUNNEL, comme les chiffres de la piste sont
+  // tournés vers le tunnel et vers le refuge.
+  //
+  // C'était une flèche à part, dans un quatrième carré. Deux marques pour un
+  // seul message, et la vraie — celle qu'on regarde parce qu'elle est censée
+  // servir — continuait de mentir gentiment dans son coin. Le T détourné dit
+  // la même chose en occupant la place de quelque chose qu'on croyait
+  // connaître, et c'est exactement ce qu'on cherche : un terrain dont les
+  // marques au sol ne parlent pas de se poser.
+  //
+  // Le cap se prend en coordonnées du MONDE : le groupe de l'aérodrome est
+  // décalé de (AERO.x, AERO.z), et calculé en local le T pointait un degré et
+  // demi à côté.
+  // -------------------------------------------------------------------------
   const y = PISTE.y + 0.06, sx = -A.largeur / 2 - 16, sz = -55, c = 5;
+  const bt = boucheTunnel();
+  const th = Math.atan2(bt.x - (A.x + sx), -(bt.z - (A.z + sz)));
+  const ux = Math.sin(th), uz = -Math.cos(th);   // la jambe, vers la barre
+  const px = -uz, pz = ux;                       // et la barre, en travers
   const sig = [sx - c, y, sz - c, sx + c, y, sz - c, sx + c, y, sz - c, sx + c, y, sz + c,
-               sx + c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz - c,
-               sx - 2.4, y, sz - 2.6, sx + 2.4, y, sz - 2.6,          // la barre du T, au nord
-               sx, y, sz - 2.6, sx, y, sz + 2.8];                      // la jambe part au sud : on se pose PARALLELEMENT a elle et VERS la barre (OACI annexe 14)
+               sx + c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz + c, sx - c, y, sz - c];
+  const met = (a0, b0, a1, b1) => sig.push(
+    sx + ux * a0 + px * b0, y, sz + uz * a0 + pz * b0,
+    sx + ux * a1 + px * b1, y, sz + uz * a1 + pz * b1);
+  met(2.6, -2.4, 2.6, 2.4);    // la barre du T, du côté où il pointe
+  met(-2.8, 0, 2.6, 0);        // la jambe
   g.add(new THREE.LineSegments(segGeom(sig), matHangar));
-
-  // -------------------------------------------------------------------------
-  // ET LA FLÈCHE, DANS SON PROPRE CARRÉ, À CÔTÉ DU T.
-  //
-  // Le T d'atterrissage dit déjà quelque chose — le sens de la pose — et on ne
-  // le détourne pas : il est réglementaire, il est juste, et il sert. La
-  // flèche a donc son carré à elle, vingt-six mètres plus au nord.
-  //
-  // Elle pointe LA BOUCHE DU TUNNEL. C'est le même cap que le chiffre peint au
-  // seuil de départ, dit une deuxième fois et autrement : un nombre pour qui
-  // lit la piste, une direction pour qui regarde le terrain. Deux indices qui
-  // se confirment valent mieux qu'un seul qu'on prend pour une coquille.
-  //
-  // Elle se calcule, comme le chiffre. Le tunnel a déjà déménagé une fois.
-  // -------------------------------------------------------------------------
-  {
-    // LE CAP SE PREND EN COORDONNÉES DU MONDE. Le groupe de l'aérodrome est
-    // décalé de (AERO.x, AERO.z) : calculée en local, la flèche pointait un
-    // degré et demi à côté — invisible ici, faux partout ailleurs.
-    const bt = boucheTunnel();
-    const fz = sz - 26;
-    const mx = A.x + sx, mz = A.z + fz;
-    const th = Math.atan2(bt.x - mx, -(bt.z - mz));
-    const ux = Math.sin(th), uz = -Math.cos(th);   // le sens de la flèche
-    const px = -uz, pz = ux;                       // et sa perpendiculaire
-    const fle = [];
-    const trait = (a0, b0, a1, b1) => fle.push(
-      sx + ux * a0 + px * b0, y, fz + uz * a0 + pz * b0,
-      sx + ux * a1 + px * b1, y, fz + uz * a1 + pz * b1);
-    // le carré, à plat comme celui du T
-    fle.push(sx - c, y, fz - c, sx + c, y, fz - c,
-             sx + c, y, fz - c, sx + c, y, fz + c,
-             sx + c, y, fz + c, sx - c, y, fz + c,
-             sx - c, y, fz + c, sx - c, y, fz - c);
-    // la hampe et les deux barbes
-    trait(-3.6, 0, 3.6, 0);
-    trait(3.6, 0, 0.9, 1.9);
-    trait(3.6, 0, 0.9, -1.9);
-    g.add(new THREE.LineSegments(segGeom(fle), matHangar));
-  }
 
   g.frustumCulled = false;
   scene.add(g);
@@ -7378,7 +7380,9 @@ const VIE_MAX = 1e9;      // au-dela de cent, c'est de la vie de bonus, sans pla
 // ---------------------------------------------------------------------------
 const VIE_PLEINE_ECLAT = 1.6;       // secondes pendant lesquelles la jauge brille
 const VIE_DEPART = 100;             // la vie du premier décollage
-const JAUGE_ECHELLE = VIE_DEPART * 2;   // et la barre en vaut deux fois plus
+const JAUGE_ECHELLE = VIE_DEPART * 2;   // le potentiel au-delà duquel la barre cesse de s'allonger
+const JAUGE_PX = 92;                    // pixels de barre pour la vie de départ
+const JAUGE_PX_MAX = 168;               // et jamais plus : la bande du haut doit tenir
 // ---------------------------------------------------------------------------
 // LES DEUX PORTAILS DU REFUGE.
 //
@@ -13981,29 +13985,43 @@ function simulate(dt) {
       // v²/2·reste tient sous FREIN_FRANC ; passé ce point, on freine à ce
       // taux-là, et l'arrêt tombe toujours pile devant la baie. Mesuré : douze
       // secondes au lieu de dix-sept, dont cinq à pleine vitesse.
-      const reste = (AERO.z - state.pos.z) * (R.sens < 0 ? -1 : 1);
-      if (reste > 1.5) {
-        const besoin = R.v * R.v / (2 * reste);
-        R.a = besoin < FREIN_FRANC ? 0 : THREE.MathUtils.clamp(besoin, FREIN_FRANC, 240);
-        if (R.a > 0 && !R.dit) { R.dit = true; announce(t('freinage')); }
-        R.v = Math.max(0, R.v - R.a * dt);
+      if (R.retour) {
+        // LE RETOUR, D'UN TRAIT. Une seconde de glissé, fondu aux deux bouts,
+        // et l'on est devant les mécaniciens. Voir RETOUR_DUREE.
+        R.retour.t += dt;
+        const u = THREE.MathUtils.clamp(R.retour.t / RETOUR_DUREE, 0, 1);
+        const e = u * u * (3 - 2 * u);
+        state.pos.x = THREE.MathUtils.lerp(R.retour.x0, 0, e);
+        state.pos.z = THREE.MathUtils.lerp(R.retour.z0, AERO.z, e);
+        state.pos.y = SOL_Y;
+        state.speed = R.v = 0;
+        if (u >= 1) R.retour = null;
       } else {
-        // dépassé : on plante les freins, puis on repart doucement en arrière
-        R.v = Math.max(0, R.v - 240 * dt);
-        if (R.v < 0.5) {
-          R.retour = true;
-          R.v = -Math.min(55, Math.abs(reste) * 1.1 + 1.2);   // vite au début, doux à l'arrivée
-          if (Math.abs(reste) < 1.5) { R.v = 0; R.retour = false; }
+        const reste = (AERO.z - state.pos.z) * (R.sens < 0 ? -1 : 1);
+        if (reste > 1.5) {
+          const besoin = R.v * R.v / (2 * reste);
+          R.a = besoin < FREIN_FRANC ? 0 : THREE.MathUtils.clamp(besoin, FREIN_FRANC, 240);
+          if (R.a > 0 && !R.dit) { R.dit = true; announce(t('freinage')); }
+          R.v = Math.max(0, R.v - R.a * dt);
+        } else {
+          // dépassé : on plante les freins, et le retour se fait d'un trait
+          R.v = Math.max(0, R.v - 240 * dt);
+          if (R.v < 0.5) {
+            R.v = 0;
+            if (Math.abs(reste) >= 1.5) {
+              R.retour = { t: 0, x0: state.pos.x, z0: state.pos.z };
+              announce(t('poseColonel'), t('poseColonelSous'));
+            }
+          }
         }
+        state.speed = R.v;
+        // on garde l'axe, et le doigt peut encore corriger un peu
+        const devant = R.sens < 0 ? -500 : 500;
+        const voulu = Math.atan2(state.pos.x, -devant);
+        state.yaw = dampAngle(state.yaw, voulu + dx * 0.10, 2.4, dt);
+        state.pos.addScaledVector(state.forward, state.speed * dt);
+        state.pos.y = SOL_Y;
       }
-      state.speed = R.v;
-      // on garde l'axe, et le doigt peut encore corriger un peu. En marche
-      // arrière on ne corrige plus : on rentre au parking, c'est tout.
-      const devant = R.sens < 0 ? -500 : 500;
-      const voulu = Math.atan2(state.pos.x, -devant);
-      state.yaw = dampAngle(state.yaw, voulu + (R.retour ? 0 : dx * 0.10), 2.4, dt);
-      state.pos.addScaledVector(state.forward, state.speed * dt);
-      state.pos.y = SOL_Y;
 
       if (state.speed <= 0.6 && !R.retour) {
         state.roulage = null;
@@ -15113,7 +15131,7 @@ const CHOIX_ANGLE  = 5.5 * Math.PI / 180;
 // geste. C'est la même hystérésis que le tube d'approche, pour la même raison.
 const CHOIX_GARDE  = 1.5;
 const CHOIX_TENUE  = 1.4;                   // secondes de nez tenu
-const CHOIX = { cible: null, t: 0, verrou: false, dit: false, mien: false };
+const CHOIX = { cible: null, t: 0, verrou: false, dit: false, mien: false, prise: false };
 const _chv = new THREE.Vector3();
 function majChoixHangar(dt) {
   if (!state.pose || !hangar.choix.length) { CHOIX.cible = null; CHOIX.t = 0; CHOIX.dit = false; return; }
@@ -15134,14 +15152,16 @@ function majChoixHangar(dt) {
     const seuil = (CHOIX.cible === c ? CHOIX_ANGLE * CHOIX_GARDE : CHOIX_ANGLE);
     if (a < seuil && a < mieux) { mieux = a; vu = c; }
   }
-  if (!vu) { CHOIX.cible = null; CHOIX.t = 0; CHOIX.dit = false; CHOIX.mien = false; return; }
+  if (!vu) { CHOIX.cible = null; CHOIX.t = 0; CHOIX.dit = false; CHOIX.mien = false; CHOIX.prise = false; return; }
   if (CHOIX.cible !== vu) { CHOIX.cible = vu; CHOIX.t = 0; CHOIX.dit = false; }
   CHOIX.mien = vu.id === avionChoisi;
   if (CHOIX.mien) { CHOIX.t = 0; CHOIX.verrou = false; return; }
   const a = AVIONS.find(x => x.id === vu.id);
   // UN APPAREIL VERROUILLÉ SE VOIT QUAND MÊME. Le cercle s'affiche, il ne se
   // remplit pas, et le nom dit ce qu'il faut faire pour l'ouvrir : c'est une
-  // promesse, pas un refus muet.
+  // promesse, pas un refus muet. Et une carcasse adverse se voit aussi : elle
+  // n'a pas de clé, mais elle a un nom.
+  CHOIX.prise = !!vu.prise;
   CHOIX.verrou = !(a && avionOuvert(a));
   if (CHOIX.verrou) { CHOIX.t = 0; return; }
   CHOIX.t += dt;
@@ -16048,8 +16068,9 @@ function drawHud() {
       hctx.textBaseline = 'middle';
       hctx.fillStyle = (CHOIX.verrou || CHOIX.mien) ? 'rgba(190,255,220,0.62)'
                                                     : 'rgba(143,252,196,0.92)';
-      const nom = a ? (langue === 'en' ? a.en : a.nom) : '';
+      const nom = a ? (langue === 'en' ? a.en : a.nom) : (CHOIX.cible.nom || '');
       const mot = CHOIX.mien   ? nom + '  ·  ' + t('avionMien')
+                : CHOIX.prise  ? nom + '  ·  ' + t('avionPrise')
                 : CHOIX.verrou ? nom + '  ·  ' + t('avionFerme')
                 : nom;
       // ET CE QU'IL FAUT FAIRE POUR L'OUVRIR. « Verrouillé » ne dit rien :
@@ -16057,7 +16078,7 @@ function drawHud() {
       // rien de plus qu'en ne le regardant pas. Une phrase, sous le nom, dit
       // par où passe la clé — c'est une promesse, et c'est ce qui donne envie
       // de repartir.
-      const indice = (CHOIX.verrou && a) ? t('acces_' + a.acces) : '';
+      const indice = CHOIX.prise ? t('acces_prise') : (CHOIX.verrou && a) ? t('acces_' + a.acces) : '';
       let tp = 12;
       hctx.font = tp + 'px "IBM Plex Mono", ui-monospace, monospace';
       while (tp > 8 && hctx.measureText(mot).width > w - 24) {
@@ -17119,6 +17140,7 @@ function edgeArrow(target, w, h, dist) {
 const scoreLbl = document.getElementById('scoreLbl');
 const waveLbl  = document.getElementById('waveLbl');
 const chronoLbl = document.getElementById('chronoLbl');
+const gauge = document.getElementById('gauge');
 const gaugeFill = document.getElementById('gaugeFill');
 // LA JAUGE DIT DÉJÀ TOUT. Le mot « LIFE », le pourcentage et le second nombre
 // répétaient trois fois une barre qu'on lit d'un coup d'œil — et ils prenaient
@@ -17376,9 +17398,22 @@ function refreshBars() {
   const reste = state.vagueLimite - state.vagueT;
   chronoLbl.textContent = (state.vagueLimite > 0 && reste > 0) ? reste.toFixed(0) + 's' : '';
   const st = Math.max(0, Math.ceil(state.structure));
-  // la jauge est graduée sur le plafond de la partie, pas sur cent : le
-  // potentiel gagné se voit, et ce qu'il en reste aussi
-  gaugeFill.style.width = Math.min(100, st / Math.max(JAUGE_ECHELLE, state.vieMax) * 100) + '%';
+  // ---------------------------------------------------------------------------
+  // LA BARRE S'ALLONGE, ELLE NE SE REMPLIT PLUS D'UNE RÉSERVE VIDE.
+  //
+  // Elle était graduée sur deux cents pour cent points de départ : au premier
+  // décollage, appareil intact, la moitié droite restait noire. On lisait donc
+  // « il te manque la moitié de ta vie » alors qu'il ne manquait rien — et la
+  // zone vide, qui est justement ce que les portails font gagner, ressemblait
+  // à un défaut.
+  //
+  // La barre vaut maintenant EXACTEMENT le plafond de la partie : pleine au
+  // départ, et c'est elle qui s'allonge à mesure qu'on prend des trous. Le
+  // potentiel gagné ne se lit plus dans un vide, il se lit dans la largeur.
+  // ---------------------------------------------------------------------------
+  const larg = JAUGE_PX * THREE.MathUtils.clamp(state.vieMax / VIE_DEPART, 1, JAUGE_PX_MAX / JAUGE_PX);
+  gauge.style.width = Math.round(larg) + 'px';
+  gaugeFill.style.width = Math.min(100, st / Math.max(1, state.vieMax) * 100) + '%';
   gaugeFill.classList.toggle('pleine', state.viePleineT > 0);
   // OÙ S'ARRÊTE CE QUE LES MÉCANICIENS PEUVENT RENDRE. La barre vaut deux
   // cents ; le plafond de la partie en vaut cent au départ. Réparé à fond,
@@ -17387,11 +17422,10 @@ function refreshBars() {
   // gauche c'est de la vie qu'on récupère au sol, à droite de la vie qu'il
   // faut aller chercher dans les trous. Le trait se déplace quand le plafond
   // monte, et disparaît quand il atteint le bout.
-  if (jaugeCap) {
-    const k = Math.min(1, state.vieMax / Math.max(JAUGE_ECHELLE, state.vieMax));
-    jaugeCap.style.left = (k * 100) + '%';
-    jaugeCap.hidden = k >= 0.999;
-  }
+  // LE REPÈRE DU PLAFOND N'A PLUS D'OBJET. Il marquait la frontière entre la
+  // vie que les mécaniciens rendent et celle qu'il faut aller chercher : avec
+  // une barre qui vaut le plafond, cette frontière EST le bout de la barre.
+  if (jaugeCap) jaugeCap.hidden = true;
   // et le doré dit « au-delà du départ », pas « le plafond a bougé » : c'est
   // la vie de bonus elle-même qu'on regarde se remplir
   gaugeFill.classList.toggle('bonus', st > VIE_DEPART);
@@ -17456,6 +17490,10 @@ const T = {
     luneMort: 'AVEUGLÉ', luneMortSous: 'La chenillée attendait que tu regardes la lune.',
     luneDetourne: 'DÉTOURNE-TOI',
     esquive: 'ESQUIVE', tunnel: 'SORTI DU TUNNEL', tunnelSous: 'Vie gagnée sous la montagne  ·  +',
+    avionPrise: 'PRISE DE GUERRE',
+    acces_prise: 'Elle ne revolera pas. Elle est là pour qu’on la regarde.',
+    poseColonel: 'ATTERRISSAGE DE COLONEL',
+    poseColonelSous: 'C’est pas grave, on dira rien.',
     acces_legende: 'Entre dans la légende pour l’ouvrir',
     acces_refuge: 'Il attend au refuge, loin à l’ouest',
     acces_ciel: 'Complète le ciel : toutes les figures des étoiles',
@@ -17592,6 +17630,10 @@ const T = {
     luneMort: 'BLINDED', luneMortSous: 'The tracked gun was waiting for you to look at the moon.',
     luneDetourne: 'LOOK AWAY',
     esquive: 'BREAK', tunnel: 'OUT OF THE TUNNEL', tunnelSous: 'Life gained under the mountain  ·  +',
+    avionPrise: 'WAR PRIZE',
+    acces_prise: 'It will not fly again. It is here to be looked at.',
+    poseColonel: 'A COLONEL’S LANDING',
+    poseColonelSous: 'Never mind. Nobody will say a word.',
     acces_legende: 'Enter the legend to unlock it',
     acces_refuge: 'It waits at the refuge, far west',
     acces_ciel: 'Complete the sky: every star figure',
@@ -18274,6 +18316,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.67', fr: 'Les neuf appareils du hangar répondent au nez : quatre carcasses adverses n’avaient aucun identifiant et ne disaient rien du tout.', en: 'All nine aircraft in the hangar answer the nose: four enemy wrecks had no identifier at all and said nothing.' },
+  { v: '1.67', fr: 'Une carcasse porte son nom et une phrase : elle ne revolera pas, elle est là pour qu’on la regarde.', en: 'A wreck carries its name and a line: it will not fly again, it is there to be looked at.' },
+  { v: '1.67', fr: 'Dépasser le hangar au roulage coûte une seconde de retour au lieu de cinq, et un mot : ATTERRISSAGE DE COLONEL.', en: 'Overshooting the hangar costs one second of rolling back instead of five, and a line: A COLONEL’S LANDING.' },
+  { v: '1.67', fr: 'La barre de vie vaut le plafond de la partie : pleine au départ, elle s’allonge à chaque trou au lieu de remplir un vide.', en: 'The life bar equals the run’s ceiling: full at the start, it grows with every hole instead of filling an empty space.' },
+  { v: '1.67', fr: 'Le T de l’aire à signaux est tourné vers la bouche du tunnel, et la flèche du quatrième carré disparaît.', en: 'The T in the signals area is turned towards the mouth of the tunnel, and the fourth square’s arrow is gone.' },
   { v: '1.66', fr: 'Les deux chiffres peints sur la piste ne sont plus 36 et 18 : ce sont deux caps, celui du tunnel et celui du refuge.', en: 'The two figures painted on the runway are no longer 36 and 18: they are two bearings, the tunnel’s and the refuge’s.' },
   { v: '1.66', fr: 'Ils se calculent à partir de la carte, et les dix chiffres sont enfin dessinés.', en: 'They are computed from the map, and all ten digits are finally drawn.' },
   { v: '1.66', fr: 'Deux portails alignés plein ouest, à 1 500 et 2 300 mètres, confirment le cap du refuge.', en: 'Two gates lined up due west, at 1,500 and 2,300 metres, confirm the bearing to the refuge.' },
@@ -18814,8 +18861,8 @@ const INDICES = [
     en: 'The two figures painted on the runway are not 180 apart. So they are not runway designators.' },
   { cle: 'fleche',
     su: () => decouvertes.tunnel,
-    fr: 'À côté du T, un deuxième carré. Ce qu’il contient n’est pas dans l’annexe 14.',
-    en: 'Beside the T, a second square. What it holds is not in Annex 14.' },
+    fr: 'Le T de l’aire à signaux ne pointe pas dans l’axe de la piste. Il pointe ailleurs, et ce n’est pas une erreur.',
+    en: 'The T in the signals area does not line up with the runway. It points somewhere else, and that is not a mistake.' },
   { cle: 'soleil',
     su: () => decouvertes.soleil,
     fr: 'Un tonneau, le nez dans la lune. Ce qui tombe du ciel ensuite ne tombe qu’une fois par demi-minute.',
