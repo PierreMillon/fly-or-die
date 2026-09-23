@@ -6,7 +6,11 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 
 - [x] L'approche stabilisée, d'après les vrais atterrissages → v1.70 (2 posés sur 3)
 - [x] Le passage sous la piste → v1.70
-- [ ] L'approche : le cas « arrivé haut et vite » n'est toujours pas capturé par le tube
+- [ ] Débloquer un avion verrouillé depuis le menu, contre une vidéo adaptée
+- [x] L'approche : le cas « arrivé haut et vite » → v1.72, à revérifier au banc
+- [x] Le passage sous la piste → RETIRÉ en v1.73, sur demande
+- [x] La lune : booléen de deux cercles, un croissant propre → v1.73
+- [x] Les essais tournent tout seuls à chaque poussée → v1.73
 - [x] Des bonshommes dans les casemates du tunnel → v1.71 (9 salles, 22 silhouettes)
 - [x] Voir le tunnel de bout en bout → déjà vrai, mesuré : zéro segment au centre
 - [x] Un léger ralenti au-delà de 400 m/s → v1.71

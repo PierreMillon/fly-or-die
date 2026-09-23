@@ -1,0 +1,64 @@
+# ---------------------------------------------------------------------------
+# LES ESSAIS TOURNENT AVANT QUE LE JEU PARTE.
+#
+# Activé en v1.73, après une mise en ligne qui ne démarrait plus du tout :
+# SyntaxError: Importing binding name 'SOMMET' is not found. Il n'y a pas de
+# build dans ce projet — le dépôt est servi tel quel — donc rien ne liait les
+# fichiers entre eux avant le navigateur du joueur. C'est ce fichier-là qui le
+# fait maintenant.
+#
+# Le déploiement (deploy-pages.yml) ne l'attend pas : GitHub marque la version
+# en rouge si un essai échoue, et l'on sait dans la minute.
+# ---------------------------------------------------------------------------
+name: essais
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  essais:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: Le numéro du cache suit le journal
+        run: |
+          J=$(grep -m1 -o "v: '[0-9.]*'" index.html | grep -o "[0-9.]*")
+          S=$(grep -o "'v[0-9.]*'" sw.js | grep -o "[0-9.]*")
+          echo "journal $J / sw.js $S"
+          test "$J" = "$S" || { echo "sw.js doit porter v$J, sinon le cache sert un math.js d'une version d'avant"; exit 1; }
+
+      - name: Les calculs purs
+        run: node essais/math.mjs
+
+      - name: Installer Chromium
+        run: |
+          npm i -D playwright
+          npx playwright install --with-deps chromium
+
+      - name: Servir le jeu
+        run: |
+          python3 -m http.server 8123 --directory . &
+          sleep 2
+
+      - name: Le test de fumée
+        run: node essais/fumee.mjs http://127.0.0.1:8123
+
+      - name: La police, réseau coupé
+        run: node essais/police.mjs http://127.0.0.1:8123
+
+      - name: Le démarrage, lien lent et vraie panne
+        run: node essais/demarrage.mjs http://127.0.0.1:8123
+
+      - name: Les écrans qui ne sont pas des téléphones debout
+        run: node essais/pliants.mjs http://127.0.0.1:8123
+
+      - name: Le jeu démarre depuis toutes les sauvegardes
+        run: node essais/sauvegardes.mjs http://127.0.0.1:8123
+
+      - name: Les gestes du système
+        run: node essais/gestes.mjs http://127.0.0.1:8123

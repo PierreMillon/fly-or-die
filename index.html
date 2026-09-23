@@ -3795,39 +3795,65 @@ function luneClarte() {
 // se raccourcissent toutes seules quand la lune se creuse.
 // ---------------------------------------------------------------------------
 const LUNE_RAY = 210;
-const LUNE_ARC = 44;                        // segments par demi-contour
+const LUNE_ARC = 64;                        // segments par arc
 const LUNE_PENCHE = -38 * Math.PI / 180;    // penchée, les cornes en haut à gauche
-// LES CRATÈRES, ET PAS DES HACHURES. Un disque hachuré, c'est un camembert :
-// à pleine lune on ne voyait qu'un rond rayé. Quatre cercles posés à demeure
-// disent « lune » d'un coup d'œil, et ils disparaissent un par un dans
-// l'ombre à mesure que la phase se creuse — c'est la phase qui les efface,
-// on n'a rien à calculer de plus.
+// LES CRATÈRES. Quatre cercles à demeure, tracés seulement quand ils tiennent
+// tout entiers dans le croissant : la phase les efface un par un, on n'a rien
+// à calculer de plus.
 const LUNE_CRATERES = [
   [ 0.30,  0.34, 0.20], [-0.26,  0.08, 0.27],
   [ 0.16, -0.44, 0.14], [-0.44, -0.40, 0.11],
 ];
+// ---------------------------------------------------------------------------
+// LE CROISSANT EST UNE SOUSTRACTION DE DEUX CERCLES. RIEN D'AUTRE.
+//
+// C'était un demi-cercle et une demi-ELLIPSE : le terminateur d'une vraie lune
+// est l'ombre de la sphère sur elle-même, donc une ellipse, et c'était juste.
+// C'était aussi une figure qu'on ne reconnaît pas — un ovale collé à un arc,
+// qui ne dit « croissant » à personne.
+//
+// Deux cercles de MÊME rayon, l'un moins l'autre. Le contour est alors fait de
+// deux arcs de même courbure qui se rejoignent en deux pointes franches : la
+// forme que tout le monde dessine quand on dit « lune », et la seule qui se
+// lise à trente pixels.
+//
+// Une seule variable : d, l'écart des deux centres, qui vaut 2R × f.
+//
+//   f = 1  → d = 2R  le cercle noir est tangent dehors : le disque est plein
+//   f = 0,5→ d = R   il en mange la moitié : un beau croissant épais
+//   f = 0  → d = 0   il le recouvre : il ne reste rien
+//
+// Les deux arcs se coupent là où cos α = f. Le limbe éclairé est donc l'arc
+// |α| > arccos f du cercle clair, et le terminateur l'arc symétrique du cercle
+// noir. Tout le reste du dessin en découle.
+// ---------------------------------------------------------------------------
 function traceLune(f) {
-  const c = 1 - 2 * f;
+  const R = LUNE_RAY, d = 2 * R * f;
+  const th = Math.acos(THREE.MathUtils.clamp(f, -1, 1));   // le demi-angle des pointes
   const clair = [], sombre = [];
   const co = Math.cos(LUNE_PENCHE), si = Math.sin(LUNE_PENCHE);
   const met = (t, x, y) => t.push(x * co - y * si, x * si + y * co, 0);
-  const arc = (t, a0, a1, kx) => {
+  // un arc de cercle, centre (cx,0), de a0 à a1
+  const arc = (t, cx, a0, a1) => {
     let px = 0, py = 0;
     for (let i = 0; i <= LUNE_ARC; i++) {
       const a = a0 + (a1 - a0) * i / LUNE_ARC;
-      const x = Math.cos(a) * LUNE_RAY * kx, y = Math.sin(a) * LUNE_RAY;
+      const x = cx + Math.cos(a) * R, y = Math.sin(a) * R;
       if (i) { met(t, px, py); met(t, x, y); }
       px = x; py = y;
     }
   };
-  arc(clair, -Math.PI / 2, Math.PI / 2, 1);       // le limbe éclairé
-  arc(clair, Math.PI / 2, -Math.PI / 2, c);       // le terminateur
-  arc(sombre, Math.PI / 2, 3 * Math.PI / 2, 1);   // le reste du disque, en cendre
-  // un cratère n'est tracé que s'il tient TOUT ENTIER dans la partie éclairée
+  // le limbe éclairé : la part du cercle clair que le noir ne couvre pas
+  arc(clair, 0, th, 2 * Math.PI - th);
+  // le terminateur : la part du cercle noir qui tombe dans le clair
+  arc(clair, d, Math.PI - th, Math.PI + th);
+  // et la lumière cendrée : le reste du cercle clair, à peine visible
+  arc(sombre, 0, -th, th);
+  // les cratères, seulement ceux qui tiennent entièrement dans le croissant
   for (const [cx, cy, cr] of LUNE_CRATERES) {
-    const x = cx * LUNE_RAY, y = cy * LUNE_RAY, r = cr * LUNE_RAY;
-    const limbe = Math.sqrt(Math.max(0, LUNE_RAY * LUNE_RAY - y * y));
-    if (x - r < c * limbe || x + r > limbe) continue;
+    const x = cx * R, y = cy * R, r = cr * R;
+    if (Math.hypot(x, y) + r > R) continue;              // il dépasse du limbe
+    if (Math.hypot(x - d, y) - r < R) continue;          // le cercle noir le mord
     let px = 0, py = 0;
     for (let i = 0; i <= 18; i++) {
       const a = i / 18 * Math.PI * 2;
@@ -4649,90 +4675,6 @@ TUNNEL.ux = 0.544639; TUNNEL.uz = 0.838671;     // le vecteur unitaire du boyau
 // LE REFUGE, DÉCLARÉ ICI. Les deux chiffres peints sur la piste sont les caps
 // du tunnel et du refuge : il faut donc les deux avant de peindre le bitume.
 const REFUGE = { x: -32000, z: 0, demiL: 14, demiZ: 180 };
-// ---------------------------------------------------------------------------
-// LE PASSAGE SOUS LA PISTE.
-//
-// Deux hangars se font face de part et d'autre du bitume, à sept cents mètres
-// au nord du terrain. Ils ont l'air de deux hangars. Chacun est percé d'un
-// trou dans son pignon EXTÉRIEUR — celui qu'on ne voit pas depuis la piste,
-// donc celui devant lequel on ne passe jamais — et derrière le trou le sol
-// s'ouvre : le plancher descend, file sous la piste, et remonte de l'autre
-// côté.
-//
-// On le trouve en fouillant, pas en jouant. C'était la demande : « les trous
-// sont cachés, il faut vraiment fouiller. »
-//
-// La règle est celle du tunnel de la montagne : de la vie en continu tant
-// qu'on est dedans, rien à l'entrée, et un coup de pied à la sortie. Ce n'est
-// pas un raccourci, c'est un endroit où l'on va exprès.
-// ---------------------------------------------------------------------------
-const SOUS = {
-  z: -560,          // l'axe du passage : le seul couloir libre en travers du bitume
-  bout: 380,        // |x| des deux bouches, dans les pignons extérieurs
-  hangar: 200,      // |x| où le hangar s'arrête et où le sol se referme dessus
-  plat: 40,         // |x| jusqu'où le fond est horizontal, sous le bitume
-  large: 44,        // largeur du boyau : trois fois et demie l'envergure
-  haut: 24,         // et sa hauteur
-  yBouche: 10,      // le plancher à la bouche, au ras du pignon
-  yFond: -20        // et au plus bas, vingt mètres sous la piste
-};
-const SOUS_VIE = 16;      // points de vie par seconde passée dedans
-const SOUS_MARGE = 9;     // mètres de tolérance pour « on est dedans »
-// le plancher du boyau, le long de l'axe : palier, rampe, palier
-function sousY(x) {
-  const a = Math.abs(x);
-  if (a >= SOUS.hangar) return SOUS.yBouche;
-  if (a <= SOUS.plat) return SOUS.yFond;
-  const t = (a - SOUS.plat) / (SOUS.hangar - SOUS.plat);
-  return SOUS.yFond + (SOUS.yBouche - SOUS.yFond) * (t * t * (3 - 2 * t));
-}
-function dansSous(p) {
-  const q = p || state.pos;
-  if (Math.abs(q.x) > SOUS.bout) return false;
-  if (Math.abs(q.z - SOUS.z) > SOUS.large / 2 - 2) return false;
-  const y0 = sousY(q.x);
-  return q.y > y0 + 1 && q.y < y0 + SOUS.haut - 1;
-}
-// LE SOL EST DUR AUTOUR DU BOYAU, comme la roche autour du tunnel : dans son
-// emprise, le seul endroit où l'on ait le droit d'être est le boyau.
-function heurteSous() {
-  if (Math.abs(state.pos.x) > SOUS.bout) return false;
-  const dv = state.pos.z - SOUS.z;
-  const y0 = sousY(state.pos.x), y1 = y0 + SOUS.haut;
-  const vMax = SOUS.large / 2 - 4;
-  // hors de l'emprise verticale, ce n'est pas notre affaire : au-dessus c'est
-  // le terrain, et le terrain a ses propres règles
-  if (state.pos.y > y1 + SOUS_MARGE || state.pos.y < y0 - SOUS_MARGE) return false;
-  if (Math.abs(dv) > vMax + SOUS_MARGE) return false;
-  let touche = false;
-  if (Math.abs(dv) > vMax) { state.pos.z = SOUS.z + Math.sign(dv) * vMax; touche = true; }
-  if (state.pos.y < y0 + 3) { state.pos.y = y0 + 3; touche = true; }
-  else if (state.pos.y > y1 - 3) { state.pos.y = y1 - 3; touche = true; }
-  return touche;
-}
-function majSous(dt) {
-  const dedans = dansSous();
-  if (dedans) {
-    if (!state.sous) { state.sous = { t: 0, vie: 0 }; SFX.tunnelEntree(); }
-    state.sous.t += dt;
-    const avant = state.structure;
-    state.structure = Math.min(VIE_MAX, state.structure + SOUS_VIE * dt);
-    if (state.structure > state.vieMax) {
-      state.vieMax = state.structure;
-      if (state.stats) state.stats.vieMax = state.vieMax;
-    }
-    state.sous.vie += state.structure - avant;
-    stat('vieGagnee', state.structure - avant);
-  } else if (state.sous) {
-    const S = state.sous;
-    state.sous = null;
-    coupDePied();
-    trouve('sous');
-    announce(t('sous'), t('sousSous') + Math.round(S.vie));
-    SFX.tunnelSortie();
-  }
-}
-
 const TUNNEL_VIE = 14;        // points de vie par seconde passée dedans
 const TUNNEL_MARGE = 14;      // mètres de tolérance pour « on est dedans »
 const TUNNEL_CINTRE = 30;     // mètres entre deux cintres
@@ -7662,80 +7604,6 @@ const PORTE = { boites: [], passage: null, repos: 0, g: null };
   PORTE.passage = b(0, PORTE_OUV_L / 2, 3, PORTE_OUV_H);
 })();
 
-// LES DEUX HANGARS ET LEUR BOYAU. Les hangars ont l'air de hangars : quatre
-// murs, un toit, et un trou dans le pignon EXTÉRIEUR. Le boyau, lui, est
-// invisible d'en haut — c'est un trou dans le sol, et le sol n'est pas percé
-// ailleurs qu'à l'intérieur des hangars.
-(function batisSousPiste() {
-  const g = new THREE.Group();
-  const L = SOUS.large / 2, H = SOUS.haut;
-  const p = [];
-  const seg = (a1, b1, c1, a2, b2, c2) => p.push(a1, b1, c1, a2, b2, c2);
-  // les cintres du boyau, tous les vingt mètres : quatre traits par cadre
-  for (let x = -SOUS.bout; x <= SOUS.bout + 0.1; x += 20) {
-    const y0 = sousY(x), y1 = y0 + H;
-    seg(x, y0, SOUS.z - L, x, y1, SOUS.z - L);
-    seg(x, y1, SOUS.z - L, x, y1, SOUS.z + L);
-    seg(x, y1, SOUS.z + L, x, y0, SOUS.z + L);
-    seg(x, y0, SOUS.z + L, x, y0, SOUS.z - L);
-  }
-  // et les quatre arêtes qui courent d'un bout à l'autre
-  for (const cz of [SOUS.z - L, SOUS.z + L]) {
-    for (const dh of [0, H]) {
-      let px = -SOUS.bout, py = sousY(px) + dh;
-      for (let x = -SOUS.bout + 20; x <= SOUS.bout + 0.1; x += 20) {
-        const y = sousY(x) + dh;
-        seg(px, py, cz, x, y, cz);
-        px = x; py = y;
-      }
-    }
-  }
-  g.add(new THREE.LineSegments(segGeom(p), matBati));
-  // les deux hangars, posés sur le sol, de part et d'autre
-  const HH = 26, HL = 46;
-  for (const sens of [-1, 1]) {
-    const x0 = sens * SOUS.hangar, x1 = sens * SOUS.bout;
-    const cx = (x0 + x1) / 2, lx = Math.abs(x1 - x0);
-    const murs = [
-      [lx, 1.2, HL, cx, HH, SOUS.z],                    // le toit
-      [lx, HH, 1.2, cx, HH / 2, SOUS.z - HL / 2],       // les deux longs pans
-      [lx, HH, 1.2, cx, HH / 2, SOUS.z + HL / 2],
-      [1.2, HH, HL, x0, HH / 2, SOUS.z]                 // le pignon côté piste, plein
-    ];
-    for (const [sx, sy, sz, ox, oy, oz] of murs) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), solidMat);
-      m.position.set(ox, oy, oz); m.frustumCulled = false; g.add(m);
-    }
-    // le pignon extérieur, percé : deux jambages et un linteau, le trou au ras
-    const tL = SOUS.large / 2, tH = SOUS.haut;
-    const yT = SOUS.yBouche;
-    const cote = (HL / 2 - tL) / 2;
-    for (const s2 of [-1, 1]) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(1.2, HH, HL / 2 - tL), solidMat);
-      m.position.set(x1, HH / 2, SOUS.z + s2 * (tL + (HL / 2 - tL) / 2));
-      m.frustumCulled = false; g.add(m);
-    }
-    const lint = new THREE.Mesh(new THREE.BoxGeometry(1.2, HH - (yT + tH), 2 * tL), solidMat);
-    lint.position.set(x1, (yT + tH + HH) / 2, SOUS.z); lint.frustumCulled = false; g.add(lint);
-    // les arêtes du hangar
-    const ar = [];
-    const boite = (sx, sy, sz, ox, oy, oz) => {
-      const X = sx / 2, Y = sy / 2, Z = sz / 2;
-      const s8 = [[-X,-Y,-Z],[X,-Y,-Z],[X,Y,-Z],[-X,Y,-Z],[-X,-Y,Z],[X,-Y,Z],[X,Y,Z],[-X,Y,Z]];
-      for (const [i0, i1] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]) {
-        const A = s8[i0], B = s8[i1];
-        ar.push(ox + A[0], oy + A[1], oz + A[2], ox + B[0], oy + B[1], oz + B[2]);
-      }
-    };
-    for (const m of murs) boite(...m);
-    boite(1.2, HH - (yT + tH), 2 * tL, x1, (yT + tH + HH) / 2, SOUS.z);
-    for (const s2 of [-1, 1]) boite(1.2, HH, HL / 2 - tL, x1, HH / 2, SOUS.z + s2 * (tL + (HL / 2 - tL) / 2));
-    g.add(new THREE.LineSegments(segGeom(ar), matBati));
-  }
-  g.frustumCulled = false;
-  scene.add(g);
-})();
-
 const PASSAGE_REPOS = 4;  // secondes avant qu'un meme passage rapporte a nouveau
 for (let i = 0; i < ARCHES_CARTE.length; i++) {
   const g = new THREE.Group();
@@ -10187,7 +10055,6 @@ const state = {
   nappeVu: 0,         // secondes de repère du faucheur sur la bande d'altitude
   immunCrash: false,  // monté au plafond : plus de crash contre le sol ni les murs
   tunnel: null,       // dans le tunnel : { t, vie }
-  sous: null,         // sous la piste : { t, vie }
   suite: {},          // avancement de chaque figure de CIEL_SUITE
   suiteFaite: {},     // celles qui sont deja tracees
   dehorsDeja: false,  // la chaine a deja ete franchie : la musique ne part qu'une fois
@@ -10468,7 +10335,6 @@ function toucherPiste() {
 }
 
 function resetGame() {
-  state.sous = null;
   state.finEcran = 0;
   state.causeMort = null;
   state.nappeVu = 0;
@@ -15269,19 +15135,11 @@ function simulate(dt) {
   // mètres au-dessus de la mer et deux cents mètres SOUS la crête : tous les
   // filets qui empêchent de labourer la plaine nous éjecteraient du boyau.
   // Ce sont les parois du tunnel qui tiennent, et elles seules.
-  // LE PLANCHER DU MONDE EST À ZÉRO, ET LE BOYAU PASSE DESSOUS. Deux lignes
-  // interdisaient toute altitude négative : le plancher tombait bien à zéro
-  // dans un passage, mais zéro reste zéro, et un boyau creusé vingt mètres
-  // sous le bitume n'existait donc pas. Mesuré : l'appareil restait collé à
-  // y = 0 sur toute la traversée. Sous la piste, le plancher, c'est le sol du
-  // boyau.
-  const sousP = dansSous() ? sousY(state.pos.x) + 2 : null;
-  const plancherEff = sousP !== null ? sousP
-                    : (state.assist || dansTunnel()) ? 0 : FLOOR * (1 - partPiste);
+  const plancherEff = (state.assist || dansTunnel()) ? 0 : FLOOR * (1 - partPiste);
   if (state.pos.y < plancherEff) {
     state.pos.y = plancherEff;
     if (state.pitch < 0) state.pitch = THREE.MathUtils.damp(state.pitch, 0.12, 9, dt);
-  } else if (sousP === null && state.pos.y < SOL_Y) {
+  } else if (state.pos.y < SOL_Y) {
     state.pos.y = SOL_Y;
   }
   if (state.pos.y > CEILING) {
@@ -15718,7 +15576,6 @@ function scrapeCorps(dt) {
   state.scrapeT = Math.max(0, state.scrapeT - dt);
   PORTE.repos = Math.max(0, PORTE.repos - dt);
   majTunnel(dt);
-  majSous(dt);
   if (state.viePleineT > 0) state.viePleineT = Math.max(0, state.viePleineT - dt);
   // le repos d'un portail : une traversée dure plusieurs images, et sans lui
   // un seul passage compterait deux ou trois crans de guillotine
@@ -15767,7 +15624,7 @@ function scrapeCorps(dt) {
     // donc à rallumer le coussin en plein milieu du bitume dès que la part
     // valait un — et l'appareil était replaqué au plancher, treize mètres
     // plus haut, mesuré. On sort d'abord, on compare ensuite.
-    const pbC = (dansTunnel() || dansSous()) ? 1 : partBitume(60);
+    const pbC = dansTunnel() ? 1 : partBitume(60);
     if (pbC < 1 && hs < SOL_COUSSIN * (1 - pbC) && !state.assist) {
       if (doux) {
         const k = THREE.MathUtils.clamp(1 - hs / SOL_COUSSIN, 0, 1);
@@ -15808,13 +15665,8 @@ function scrapeCorps(dt) {
     // saut en bout de piste — onze mètres et demi en une image, à cinq mètres
     // du seuil, pour venir poser l'appareil pile à plancher moins six. Il
     // remonte maintenant depuis le sol sur les cent quarante mètres du fondu.
-    // ET LE FILET SUIT LE PLANCHER DU BOYAU. Écrit « (plancher − 6) × (1 − pb) »,
-    // il vaut zéro dès qu'on est dans un passage : parfait pour le tunnel de la
-    // montagne, dont le sol est à trois cents mètres, faux pour un boyau qui
-    // passe SOUS le niveau de la mer. Mesuré : l'appareil était collé à y = 0
-    // et n'atteignait jamais les vingt mètres sous la piste.
-    const pb = (dansTunnel() || dansSous()) ? 1 : partBitume(60);
-    const filet = dansSous() ? sousY(state.pos.x) + 2 : (plancher - 6) * (1 - pb);
+    const pb = dansTunnel() ? 1 : partBitume(60);
+    const filet = (plancher - 6) * (1 - pb);
     if (state.pos.y < filet) state.pos.y = filet;
   }
 
@@ -15873,16 +15725,6 @@ function scrapeCorps(dt) {
     state.yaw += (cote >= 0 ? -1 : 1) * 0.30;
     state.roll = THREE.MathUtils.clamp(state.roll + (cote >= 0 ? -0.5 : 0.5), -1.2, 1.2);
   };
-
-  // LE BOYAU SOUS LA PISTE : ses parois sont dures, comme la roche du tunnel.
-  if (heurteSous()) {
-    if (state.scrapeT <= 0) {
-      damagePlayer(7, _impactSrc.copy(state.pos), 'decor');
-      state.scrapeT = 0.45; SFX.eraflure();
-    }
-    state.speed *= 0.97;
-    return;
-  }
 
   // LES PAROIS DU TUNNEL, AVANT TOUT LE RESTE.
   if (heurteTunnel()) {
@@ -18136,7 +17978,6 @@ const T = {
     porte: 'LA PORTE DU SOMMET', porteSous: 'Ils ont posé ça ici, et puis ils sont partis.',
     stabNon: 'NON STABILISÉ  ·  ', stabChute: 'ÇA DESCEND TROP VITE',
     stabVite: 'TROP RAPIDE', stabLent: 'TROP LENT', stabHaut: 'AU-DESSUS DU PLAN', stabBas: 'SOUS LE PLAN',
-    sous: 'SORTI DE SOUS LA PISTE', sousSous: 'Vie gagnée sous le bitume  ·  +',
     sousSaNappe: 'SOUS SA NAPPE', sousSaNappeSous: 'Tu as disparu de son écran. Reste bas.',
     avionPrise: 'PRISE DE GUERRE',
     acces_prise: 'Elle ne revolera pas. Elle est là pour qu’on la regarde.',
@@ -18281,7 +18122,6 @@ const T = {
     porte: 'THE SUMMIT GATE', porteSous: 'They set this here, and then they left.',
     stabNon: 'NOT STABILISED  ·  ', stabChute: 'SINK RATE',
     stabVite: 'TOO FAST', stabLent: 'TOO SLOW', stabHaut: 'ABOVE PATH', stabBas: 'BELOW PATH',
-    sous: 'OUT FROM UNDER THE RUNWAY', sousSous: 'Life gained under the tarmac  ·  +',
     sousSaNappe: 'BELOW HIS SCAN', sousSaNappeSous: 'You are off his screen. Stay low.',
     avionPrise: 'WAR PRIZE',
     acces_prise: 'It will not fly again. It is here to be looked at.',
@@ -18969,6 +18809,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.73', fr: 'La lune est une soustraction de deux cercles : deux arcs de même courbure, deux pointes franches.', en: 'The moon is one circle minus another: two arcs of equal curvature, two clean horns.' },
+  { v: '1.73', fr: 'Le passage sous la piste est retiré.', en: 'The passage under the runway is removed.' },
+  { v: '1.73', fr: 'Les essais tournent à chaque poussée, et le numéro du cache est vérifié avant tout.', en: 'The tests run on every push, and the cache number is checked before anything else.' },
   { v: '1.72', fr: 'Le jeu redémarre : le cache servait un math.js de la v1.50 à l’index.html d’aujourd’hui.', en: 'The game boots again: the cache was serving a v1.50 math.js to today’s index.html.' },
   { v: '1.72', fr: 'Le code du jeu passe au réseau d’abord, comme la page : les trois fichiers ne peuvent plus se dépareiller.', en: 'Game code goes network-first like the page: the three files can no longer fall out of step.' },
   { v: '1.72', fr: 'Le tube rattrape une arrivée haute : sortie d’entonnoir à 26 mètres et huit degrés de correction vers le bas.', en: 'The tube now catches a high arrival: funnel exit at 26 metres and eight degrees of downward correction.' },
