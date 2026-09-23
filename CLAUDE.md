@@ -70,10 +70,42 @@ de 160 m) — sans quoi la mesure ne vaut rien, leçon de la v1.30.
 
 Chaque mesure est consignée dans `BACKLOG.md`.
 
-## 4. Le journal
+## 4. Le journal, et le numéro du cache
 
 Une ligne par changement, un tiret, une phrase courte, traduite en anglais.
-Le numéro de version affiché vient de `JOURNAL[0].v` ; `sw.js` porte le même.
+
+### Le contrôle, avant chaque `git push`
+
+`sw.js` nomme la boîte de cache. Si elle ne change pas, le joueur reçoit un
+`math.js` d'une version d'avant avec l'`index.html` d'aujourd'hui, et le jeu
+**ne démarre pas du tout**. Exécuter :
+
+```sh
+diff <(grep -o "v[0-9]\+\.[0-9]\+" <(head -3 <(grep -A1 "^const JOURNAL" index.html))) \
+     <(grep -o "v[0-9]\+\.[0-9]\+" <(grep "^const VERSION" sw.js))
+```
+
+Plus simplement, les deux doivent être égaux :
+
+```sh
+grep -m1 -o "v: '[0-9.]*'" index.html   # JOURNAL[0].v
+grep -o "'v[0-9.]*'" sw.js              # VERSION
+```
+
+Différents → on corrige `sw.js` avant de pousser. Ce n'est pas une politesse :
+c'est la seule chose qui sépare une version publiée d'une page blanche.
+
+### Pourquoi ce contrôle existe
+
+Ajouté en v1.72. `VERSION` était resté à `v1.50` pendant vingt et une
+versions. Le jeu en production est mort sur
+`SyntaxError: Importing binding name 'SOMMET' is not found` — un `math.js` de
+la v1.50 servi à l'`index.html` de la v1.69.
+
+Depuis la v1.72, `math.js` et `jeu.css` suivent la même règle que la page —
+réseau d'abord, cache en secours — donc le code ne peut plus se dépareiller
+même si le numéro est oublié. Le contrôle reste, parce qu'une ceinture et une
+bretelle valent mieux qu'un fichier qu'on a déjà oublié vingt et une fois.
 
 ## 5. La forme
 

@@ -14184,7 +14184,12 @@ function simulate(dt) {
       // sans avoir à la connaître.
       // -----------------------------------------------------------------
       const err = state.pos.y - tubeHaut(Math.max(0, TUBE.d));
-      const corr = THREE.MathUtils.clamp(err / 260, -0.035, 0.055);
+      // ET LA CORRECTION S'OUVRE VERS LE BAS. Elle plafonnait à 3,2 degrés de
+      // rab : arrivé soixante mètres au-dessus du plan, il aurait fallu dix
+      // degrés pour rattraper avant le seuil, et l'appareil arrivait long.
+      // Huit degrés de rab vers le bas, deux vers le haut — on rattrape une
+      // arrivée haute, on ne creuse pas une arrivée basse.
+      const corr = THREE.MathUtils.clamp(err / 260, -0.035, 0.14);
       const hSolT = state.pos.y - SOL_Y;
       // L'ARRONDI SE MESURE EN HAUTEUR, PAS EN DISTANCE. Il se déclenchait aux
       // quatre-vingts derniers mètres d'axe : arrivé haut, on arrondissait en
@@ -18964,6 +18969,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.72', fr: 'Le jeu redémarre : le cache servait un math.js de la v1.50 à l’index.html d’aujourd’hui.', en: 'The game boots again: the cache was serving a v1.50 math.js to today’s index.html.' },
+  { v: '1.72', fr: 'Le code du jeu passe au réseau d’abord, comme la page : les trois fichiers ne peuvent plus se dépareiller.', en: 'Game code goes network-first like the page: the three files can no longer fall out of step.' },
+  { v: '1.72', fr: 'Le tube rattrape une arrivée haute : sortie d’entonnoir à 26 mètres et huit degrés de correction vers le bas.', en: 'The tube now catches a high arrival: funnel exit at 26 metres and eight degrees of downward correction.' },
   { v: '1.71', fr: 'Il y a quelqu’un dans les casemates du tunnel : vingt-deux silhouettes debout, réparties dans neuf salles.', en: 'Someone is in the tunnel casemates: twenty-two standing figures across nine rooms.' },
   { v: '1.71', fr: 'Au-delà de quatre cents mètres par seconde, le temps s’épaissit — un sixième de moins à six cents.', en: 'Past four hundred metres per second time thickens — a sixth slower at six hundred.' },
   { v: '1.70', fr: 'L’approche se pose enfin : un trim intégral annule l’incidence que l’assiette commandée ignorait.', en: 'The approach finally lands: an integral trim cancels the angle of attack that commanded pitch ignored.' },

@@ -11,7 +11,13 @@
 // aucun moyen de savoir pourquoi. Ici la page est toujours cherchée en ligne
 // quand le réseau répond, et le cache ne sert qu'à ce pour quoi il est fait.
 // ---------------------------------------------------------------------------
-const VERSION = 'v1.50';
+// ELLE DOIT SUIVRE JOURNAL[0].v, ET ELLE NE L'A PAS FAIT PENDANT VINGT ET UNE
+// VERSIONS. Restée à v1.50, la boîte de cache n'a jamais changé de nom : le
+// jeu servait donc un math.js de la v1.50 à un index.html d'aujourd'hui, et
+// la page mourait sur « Importing binding name 'SOMMET' is not found ».
+//
+// Le contrôle est dans CLAUDE.md, règle 4, et il se lance.
+const VERSION = 'v1.72';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
@@ -144,6 +150,42 @@ self.addEventListener('fetch', e => {
         return rep;
       } catch (err) {
         return (await enCache) || (await fetch(r).catch(() => Response.error()));
+      }
+    })());
+    return;
+  }
+
+  // ---------------------------------------------------------------------------
+  // LE CODE DU JEU : LE RÉSEAU D'ABORD, COMME LA PAGE.
+  //
+  // index.html partait chercher le réseau, math.js et jeu.css sortaient du
+  // cache. Les trois forment UN SEUL programme : servir l'un frais et l'autre
+  // vieux, c'est garantir qu'un jour ils ne se comprendront plus. C'est
+  // arrivé, et le jeu ne démarrait plus du tout.
+  //
+  // Ils suivent donc la même règle que la page, avec le même délai. Hors
+  // ligne, le cache prend le relais — et là les trois sont vieux ENSEMBLE,
+  // donc cohérents. C'est la seule chose qui compte.
+  //
+  // Cette règle rend le numéro de version du cache facultatif pour la
+  // correction : même oublié, le code ne peut plus se dépareiller. Le numéro
+  // reste utile pour effacer l'ancien, et il a maintenant son contrôle.
+  // ---------------------------------------------------------------------------
+  if (/\/(math\.js|jeu\.css)($|\?)/.test(r.url)) {
+    e.respondWith((async () => {
+      try {
+        const rep = await Promise.race([
+          fetch(r),
+          new Promise((_, non) => setTimeout(() => non(new Error('trop long')), DELAI_RESEAU))
+        ]);
+        if (rep && rep.status === 200 && rep.type !== 'opaque') {
+          const c = await caches.open(BOITE);
+          c.put(r, rep.clone());
+        }
+        return rep;
+      } catch (err) {
+        return (await caches.match(r, { cacheName: BOITE }))
+            || (await fetch(r).catch(() => Response.error()));
       }
     })());
     return;

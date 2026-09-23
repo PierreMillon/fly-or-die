@@ -89,7 +89,18 @@ export const PENTE_CIBLE = 3 * Math.PI / 180;
 export const TOUCHER_APRES = 60;     // mètres après le seuil : le point que vise le tube
 export const TUBE_DIST = 1800;       // longueur du couloir, depuis le point visé
 export const TUBE_R0 = 190;          // rayon à l'entrée
-export const TUBE_R1 = 9;            // rayon à la sortie, au-dessus du toucher
+// LE BOUT DE L'ENTONNOIR ÉTAIT TROP ÉTROIT POUR RATTRAPER QUOI QUE CE SOIT.
+//
+// Neuf mètres au seuil : arrivé haut et vite, l'appareil n'a pas le temps de
+// descendre assez pour rester dedans, il sort par le bas, le tube le lâche en
+// courte finale et il survole le terrain. Mesuré : la prise tombait à 0,22 sur
+// toute la finale et l'approche ne se terminait pas.
+//
+// Vingt-six mètres : le tube tient jusqu'au bout, et c'est lui qui mange
+// l'excès — il descend plus raide. La précision ne se perd pas pour autant,
+// puisque la pente est maintenant tenue par un trim qui vise le plan, pas par
+// la paroi du couloir.
+export const TUBE_R1 = 26;           // rayon à la sortie, au-dessus du toucher
 
 /** Le point que vise le tube, en mètres EN AMONT du repère de la piste : le
  *  seuil, plus la longueur du peigne. C'est ce nombre qui décide de tout
