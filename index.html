@@ -4699,6 +4699,26 @@ function trouTunnel(x, z, yBas, yHaut) {
   if (Math.abs(q.v) > TUNNEL.large / 2) return false;
   return yHaut > TUNNEL.y0 - 6 && yBas < TUNNEL.y1 + 6;
 }
+// ---------------------------------------------------------------------------
+// ET LA BOUCHE DOIT ÊTRE NETTE.
+//
+// Le sol est une grille de cent soixante mètres de côté ; le boyau en fait
+// soixante-deux de large. Une maille n'était effacée que si son CENTRE tombait
+// dans le trou : la maille d'à côté, dont le centre est dehors, restait
+// entière et débordait jusqu'à quatre-vingts mètres dans l'ouverture. C'est le
+// bout de montagne qui dépasse dans la bouche.
+//
+// On teste donc la maille, pas son centre : ses quatre coins et son milieu. Si
+// l'un d'eux est dans l'emprise, elle saute. Le trou est alors au moins aussi
+// grand que le boyau, jamais plus petit — et comme le test d'altitude ne
+// laisse percer que là où le relief redescend au niveau du boyau, ça ne creuse
+// rien au milieu du massif.
+// ---------------------------------------------------------------------------
+function mailleTrouee(x0, z0, x1, z1, yBas, yHaut) {
+  return trouTunnel((x0 + x1) / 2, (z0 + z1) / 2, yBas, yHaut)
+      || trouTunnel(x0, z0, yBas, yHaut) || trouTunnel(x1, z0, yBas, yHaut)
+      || trouTunnel(x0, z1, yBas, yHaut) || trouTunnel(x1, z1, yBas, yHaut);
+}
 
 function batisSol(cx, cz) {
   const R = GRID_SPAN / 2, N = Math.floor(GRID_SPAN / GRID_STEP);
@@ -4725,7 +4745,7 @@ function batisSol(cx, cz) {
       // n'a plus d'aire, et rien n'est dessiné. Le nombre de triangles ne
       // bouge pas, donc le tampon non plus.
       const yb = Math.min(a[1], b[1], c[1], d[1]), yh = Math.max(a[1], b[1], c[1], d[1]);
-      const perce = trouTunnel((x0 + x1) / 2, (z0 + z1) / 2, yb, yh);
+      const perce = mailleTrouee(x0, z0, x1, z1, yb, yh);
       const tris = [[a, c, b, [1, 0, 0]], [b, c, d, [0, 0, 1]]];
       for (const [p0, p1, p2, garde] of tris) {
         if (perce) {
@@ -7685,41 +7705,78 @@ const TOUR_PRIME = 50;   // pour cent de vie rendus, une fois par tour et par va
 const matTour = matBati;
 const matTourPris = matBatiClos;
 // ---------------------------------------------------------------------------
-// LE TUNNEL — LA ROCHE, LES CINTRES, LES SALLES.
+// LE TUNNEL — LA ROCHE, LES CINTRES, LES CASEMATES.
 //
 // Les nombres sont plus haut, avant le sol. Ici on bâtit ce qui se voit.
 //
-// La roche est une section rectangulaire percée, extrudée sur la longueur :
-// une seule forme, donc uniquement les arêtes vraies — le tour extérieur et
-// le tour du boyau, rien entre les deux. Le groupe est ensuite tourné au cap
-// du boyau, et tout le reste du code parle en u et v.
+// LA ROCHE N'EST PLUS UN SEUL BLOC, ET VOICI POURQUOI.
+//
+// Elle l'était : une section rectangulaire percée, extrudée sur les mille huit
+// cents mètres. Une extrusion garde sa section d'un bout à l'autre — donc les
+// casemates, qui sont des trous dans les parois, ne pouvaient pas y exister.
+// Elles étaient dessinées au trait DERRIÈRE une paroi pleine et opaque : on
+// voyait le cadre de la porte posé sur le mur, et rien dedans. C'est exactement
+// ce qui a été signalé — « on voit qu'il y a un droit de porte mais ces
+// endroits sont pas creux et on voit pas les gens ».
+//
+// La roche se fait donc en quatre pièces — le sol, le plafond, et les deux
+// parois — et ce sont les PAROIS qui portent les trous : une forme percée de
+// ses embrasures, extrudée sur l'épaisseur. Le trou est alors un vrai trou, et
+// la casemate se voit à travers.
 //
 // Les cintres tous les trente mètres donnent le volume et la vitesse : un
-// boyau lisse n'a que quatre arêtes, et vues de l'intérieur elles convergent
-// en un point — on ne sait plus si l'on avance.
-//
-// Et les salles. Tous les cent quatre-vingts mètres, alternativement à
-// gauche et à droite, une pièce vide ouverte sur le boyau : une casemate.
-// On ne peut pas y entrer — elles sont trop basses — mais on les voit défiler
-// et l'on comprend que quelqu'un a vécu là-dessous.
+// boyau lisse n'a que quatre arêtes, et vues de l'intérieur elles convergent en
+// un point — on ne sait plus si l'on avance.
 // ---------------------------------------------------------------------------
+
+// ET L'EMBRASURE EST PLUS GRANDE. Vingt-six mètres de large à deux cents mètres
+// par seconde, cela faisait treize centièmes de seconde : on ne voyait pas les
+// gens, on voyait un clignement. Soixante-quatorze mètres en font trente-sept
+// centièmes, et la hauteur passe de seize à vingt-deux sur les trente du boyau.
+const SALLE_L = 74;      // la largeur de l'embrasure, le long du boyau
+const SALLE_H = 22;      // sa hauteur, sur les trente du boyau
+const SALLE_P = 40;      // la profondeur de la casemate, depuis la paroi
+const SALLE_JEU = 0.5;   // le trou déborde d'autant : aucune face coplanaire
+const SALLE_ECH = 1.6;   // les silhouettes agrandies, pour se voir au passage
+
 const tunnelBoites = [];
 (function creuseLeTunnel() {
   const T = TUNNEL, L2 = T.long / 2, l2 = T.large / 2, e = T.epais;
   const g = new THREE.Group();
+  const pose = (geo) => g.add(solidWire(geo, null, matBati));
 
-  // la roche percée, extrudée selon z puis couchée : le boyau court en x local
-  const forme = new THREE.Shape();
-  forme.moveTo(-l2 - e, T.y0 - e); forme.lineTo(l2 + e, T.y0 - e);
-  forme.lineTo(l2 + e, T.y1 + e); forme.lineTo(-l2 - e, T.y1 + e); forme.closePath();
-  const trou = new THREE.Path();
-  trou.moveTo(-l2, T.y0); trou.lineTo(l2, T.y0);
-  trou.lineTo(l2, T.y1); trou.lineTo(-l2, T.y1); trou.closePath();
-  forme.holes.push(trou);
-  const geo = new THREE.ExtrudeGeometry(forme, { depth: T.long, bevelEnabled: false })
-    .translate(0, 0, -L2);
-  geo.rotateY(Math.PI / 2);
-  g.add(solidWire(geo, new THREE.EdgesGeometry(geo, 20), matBati));
+  // OÙ SONT LES CASEMATES. Une seule liste, lue deux fois : les parois y
+  // prennent leurs trous, les pièces s'y posent. Elles alternent de côté.
+  const SALLES = [];
+  {
+    let cote = 1;
+    for (let u = -L2 + TUNNEL_SALLE; u < L2 - TUNNEL_SALLE / 2; u += TUNNEL_SALLE) {
+      SALLES.push({ u, cote });
+      cote = -cote;
+    }
+  }
+  const sy0 = T.y0 + 1, sy1 = T.y0 + 1 + SALLE_H;
+
+  // le sol et le plafond : deux dalles pleine largeur
+  pose(new THREE.BoxGeometry(T.long, e, T.large + 2 * e).translate(0, T.y0 - e / 2, 0));
+  pose(new THREE.BoxGeometry(T.long, e, T.large + 2 * e).translate(0, T.y1 + e / 2, 0));
+
+  // les deux parois, percées de leurs embrasures
+  for (const cote of [1, -1]) {
+    const forme = new THREE.Shape();
+    forme.moveTo(-L2, T.y0); forme.lineTo(L2, T.y0);
+    forme.lineTo(L2, T.y1); forme.lineTo(-L2, T.y1); forme.closePath();
+    for (const s of SALLES) {
+      if (s.cote !== cote) continue;
+      const a = s.u - SALLE_L / 2 - SALLE_JEU, b = s.u + SALLE_L / 2 + SALLE_JEU;
+      const trou = new THREE.Path();
+      trou.moveTo(a, sy0 - SALLE_JEU); trou.lineTo(a, sy1 + SALLE_JEU);
+      trou.lineTo(b, sy1 + SALLE_JEU); trou.lineTo(b, sy0 - SALLE_JEU); trou.closePath();
+      forme.holes.push(trou);
+    }
+    pose(new THREE.ExtrudeGeometry(forme, { depth: e, bevelEnabled: false })
+      .translate(0, 0, cote > 0 ? l2 : -l2 - e));
+  }
 
   // les cintres
   {
@@ -7737,71 +7794,76 @@ const tunnelBoites = [];
     g.add(cintres);
   }
 
-  // LES SALLES. Une boîte ouverte sur le boyau, dessinée au trait : trois
-  // parois, un sol, un plafond, et l'embrasure. On alterne les côtés.
+  // UNE PIÈCE OUVERTE SUR LE BOYAU. Cinq faces ; la sixième manque, et c'est
+  // par là qu'on regarde. Elle part de la paroi intérieure, traverse les
+  // vingt-deux mètres d'épaisseur et s'enfonce de dix-huit de plus.
+  function casemate(u, cote) {
+    const a = u - SALLE_L / 2, b = u + SALLE_L / 2;
+    const v0 = cote * l2, v1 = cote * (l2 + SALLE_P);
+    const p = [
+      a, sy0, v0,  b, sy0, v0,  b, sy1, v0,  a, sy1, v0,   // 0-3, la face ouverte
+      a, sy0, v1,  b, sy0, v1,  b, sy1, v1,  a, sy1, v1    // 4-7, le fond
+    ];
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(p), 3));
+    geo.setIndex([
+      4, 5, 6,  4, 6, 7,     // le fond
+      0, 4, 7,  0, 7, 3,     // la paroi du côté a
+      1, 2, 6,  1, 6, 5,     // la paroi du côté b
+      0, 1, 5,  0, 5, 4,     // le sol
+      3, 7, 6,  3, 6, 2      // le plafond
+    ]);
+    return geo;
+  }
+
+  // ---------------------------------------------------------------------------
+  // ET IL Y A QUELQU'UN DEDANS.
+  //
+  // Une pièce vide dans un boyau de mille huit cents mètres, c'est un
+  // renfoncement ; trois silhouettes debout au fond, c'est un poste — et l'on
+  // comprend d'un coup qu'on ne traverse pas un trou, on traverse quelque chose
+  // que des gens ont tenu.
+  //
+  // Ils ne bougent pas, ils ne tirent pas, ils ne comptent pas. On passe à deux
+  // cents mètres par seconde : ils durent un tiers de seconde dans le champ.
+  //
+  // Ils sont échelonnés en PROFONDEUR — douze, vingt-trois, trente-quatre
+  // mètres derrière la paroi. Les plus proches se voient de loin et de biais,
+  // les plus lointains seulement quand on arrive à leur hauteur : la pièce se
+  // remplit à mesure qu'on passe au lieu de clignoter d'un coup.
+  // ---------------------------------------------------------------------------
   {
     const pts = [];
-    const P = 34, H = 16, D = 26;        // profondeur, hauteur, largeur d'embrasure
-    let cote = 1;
-    for (let u = -L2 + TUNNEL_SALLE; u < L2 - TUNNEL_SALLE / 2; u += TUNNEL_SALLE) {
-      const v0 = cote * l2, v1 = cote * (l2 + P);
-      const y0 = T.y0 + 1, y1 = T.y0 + 1 + H;
-      const u0 = u - D / 2, u1 = u + D / 2;
-      const seg = (a, b) => pts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
-      const c = (uu, yy, vv) => [uu, yy, vv];
-      // l'embrasure, dans la paroi du boyau
-      seg(c(u0, y0, v0), c(u1, y0, v0)); seg(c(u1, y0, v0), c(u1, y1, v0));
-      seg(c(u1, y1, v0), c(u0, y1, v0)); seg(c(u0, y1, v0), c(u0, y0, v0));
-      // le fond
-      seg(c(u0, y0, v1), c(u1, y0, v1)); seg(c(u1, y0, v1), c(u1, y1, v1));
-      seg(c(u1, y1, v1), c(u0, y1, v1)); seg(c(u0, y1, v1), c(u0, y0, v1));
-      // les quatre arêtes qui relient
-      seg(c(u0, y0, v0), c(u0, y0, v1)); seg(c(u1, y0, v0), c(u1, y0, v1));
-      seg(c(u0, y1, v0), c(u0, y1, v1)); seg(c(u1, y1, v0), c(u1, y1, v1));
-      // ---------------------------------------------------------------------
-      // ET IL Y A QUELQU'UN DEDANS.
-      //
-      // Les casemates étaient vides. Une pièce vide dans un boyau de mille
-      // huit cents mètres, c'est un renfoncement ; trois silhouettes debout au
-      // fond, c'est un poste — et l'on comprend d'un coup qu'on ne traverse
-      // pas un trou, on traverse quelque chose que des gens ont tenu.
-      //
-      // Ils ne bougent pas, ils ne tirent pas, ils ne comptent pas. On passe à
-      // deux cents mètres par seconde : ils durent un dixième de seconde dans
-      // le champ, et c'est exactement ce qu'il faut.
-      //
-      // La silhouette est celle du refuge, en plus petit et sans écharpe :
-      // deux jambes, un tronc, une tête. Il n'en faut pas plus pour que ce
-      // soit quelqu'un.
-      // ---------------------------------------------------------------------
-      {
-        const n = 2 + (Math.abs(Math.round(u / TUNNEL_SALLE)) % 2);
-        for (let k = 0; k < n; k++) {
-          const hu = u - D / 4 + (k / Math.max(1, n - 1)) * (D / 2);
-          const hv = v1 - cote * (5 + (k % 2) * 3);
-          const y = y0;
-          const dv = cote * 0.5;
-          // les deux jambes, écartées en travers du boyau
-          for (const e of [-0.9, 0.9]) {
-            seg(c(hu + e, y, hv), c(hu + e * 0.4, y + 3.2, hv));
-          }
-          // le tronc, la tête, et les deux bras
-          seg(c(hu, y + 3.2, hv), c(hu, y + 6.4, hv));
-          seg(c(hu - 1.5, y + 5.6, hv), c(hu + 1.5, y + 5.6, hv));
-          seg(c(hu - 0.7, y + 6.4, hv), c(hu + 0.7, y + 6.4, hv));
-          seg(c(hu - 0.7, y + 6.4, hv), c(hu - 0.7, y + 7.8, hv));
-          seg(c(hu + 0.7, y + 6.4, hv), c(hu + 0.7, y + 7.8, hv));
-          seg(c(hu - 0.7, y + 7.8, hv), c(hu + 0.7, y + 7.8, hv));
-          // et une épaisseur, pour qu'ils ne soient pas des cartes à jouer
-          seg(c(hu, y + 3.2, hv), c(hu, y + 3.2, hv + dv));
-          seg(c(hu, y + 6.4, hv), c(hu, y + 6.4, hv + dv));
+    const E = SALLE_ECH;
+    const seg = (a, b) => pts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    const c = (uu, yy, vv) => [uu, yy, vv];
+    for (let i = 0; i < SALLES.length; i++) {
+      const u = SALLES[i].u, cote = SALLES[i].cote;
+      pose(casemate(u, cote));
+      const n = 2 + (i % 3);                       // deux, trois ou quatre
+      for (let k = 0; k < n; k++) {
+        const hu = u + ((k + 0.5) / n - 0.5) * (SALLE_L - 16);
+        const hv = cote * (l2 + 12 + (k % 3) * 11);
+        const y = sy0, dv = cote * 0.5 * E;
+        // les deux jambes, écartées en travers du boyau
+        for (const j of [-0.9, 0.9]) {
+          seg(c(hu + j * E, y, hv), c(hu + j * 0.4 * E, y + 3.2 * E, hv));
         }
+        // le tronc, les bras, la tête
+        seg(c(hu, y + 3.2 * E, hv), c(hu, y + 6.4 * E, hv));
+        seg(c(hu - 1.5 * E, y + 5.6 * E, hv), c(hu + 1.5 * E, y + 5.6 * E, hv));
+        seg(c(hu - 0.7 * E, y + 6.4 * E, hv), c(hu + 0.7 * E, y + 6.4 * E, hv));
+        seg(c(hu - 0.7 * E, y + 6.4 * E, hv), c(hu - 0.7 * E, y + 7.8 * E, hv));
+        seg(c(hu + 0.7 * E, y + 6.4 * E, hv), c(hu + 0.7 * E, y + 7.8 * E, hv));
+        seg(c(hu - 0.7 * E, y + 7.8 * E, hv), c(hu + 0.7 * E, y + 7.8 * E, hv));
+        // et une épaisseur, pour qu'ils ne soient pas des cartes à jouer
+        seg(c(hu, y + 3.2 * E, hv), c(hu, y + 3.2 * E, hv + dv));
+        seg(c(hu, y + 6.4 * E, hv), c(hu, y + 6.4 * E, hv + dv));
       }
-      cote = -cote;
     }
-    const salles = new THREE.LineSegments(segGeom(pts), matBati);
-    salles.frustumCulled = false;
-    g.add(salles);
+    const gens = new THREE.LineSegments(segGeom(pts), matBati);
+    gens.frustumCulled = false;
+    g.add(gens);
   }
 
   // la gravure, aux deux bouches
@@ -18851,6 +18913,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.75', fr: 'Les casemates du tunnel sont de vrais trous : la paroi est percée, la pièce est creuse, et les vingt-sept silhouettes se voient en passant.', en: 'The tunnel casemates are real holes now: the wall is pierced, the room is hollow, and the twenty-seven figures show as you pass.' },
+  { v: '1.75', fr: 'L’embrasure passe de vingt-six mètres à soixante-quatorze, et de seize de haut à vingt-deux.', en: 'The opening goes from twenty-six metres to seventy-four, and from sixteen high to twenty-two.' },
+  { v: '1.75', fr: 'La bouche du tunnel est nette : plus un seul triangle de montagne ne dépasse dans le trou.', en: 'The tunnel mouth is clean: not one mountain triangle juts into the opening any more.' },
   { v: '1.74', fr: 'Les portails s’additionnent pour de bon : 321, puis 456, puis 558 sur une chaîne de trois.', en: 'Gates truly add up now: 321, then 456, then 558 on a chain of three.' },
   { v: '1.74', fr: 'Plus de coup de frein deux secondes après : la vitesse gagnée entre au capital et la croisière monte avec.', en: 'No more braking two seconds later: speed gained is banked and the cruise setting rises with it.' },
   { v: '1.74', fr: 'Aucune pièce au sol avant la cinquième vague : les quatre premières restent en l’air.', en: 'No ground piece before wave five: the first four stay in the air.' },

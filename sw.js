@@ -17,7 +17,7 @@
 // la page mourait sur « Importing binding name 'SOMMET' is not found ».
 //
 // Le contrôle est dans CLAUDE.md, règle 4, et il se lance.
-const VERSION = 'v1.74';
+const VERSION = 'v1.75';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
