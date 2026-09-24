@@ -917,6 +917,9 @@ try { decouvertes = JSON.parse(localStorage.getItem('fod_trouve') || '{}') || {}
 let carnetN = {};
 try { carnetN = JSON.parse(localStorage.getItem('fod_carnet') || '{}') || {}; } catch (e) {}
 let legendesN = carnetN.legendes || 0;
+// LES VIDÉOS DÉJÀ REGARDÉES POUR OUVRIR UN APPAREIL, par identifiant.
+let avionsVideo = {};
+try { avionsVideo = JSON.parse(localStorage.getItem('fod_avion_video') || '{}') || {}; } catch (e) {}
 
 // ---------------------------------------------------------------------------
 // constantes de vol et de combat
@@ -4339,7 +4342,31 @@ const vitMonde = () => avion().vit;
 const CIEL_TOUT = ['ourse', 'berger',
                    'ciel_polaire', 'ciel_pleiades', 'ciel_croix'];
 const cielComplet = () => CIEL_TOUT.every(c => !!decouvertes[c]);
-const avionOuvert = a => a.acces === 'libre'
+// ---------------------------------------------------------------------------
+// LE VERROU N'EST PLUS UN MUR.
+//
+// Trois appareils sur cinq se gagnent : la légende, le refuge, tout le ciel.
+// Ce sont de belles clés, et elles restent — mais quelqu'un qui n'ira pas
+// jusque-là ne verra jamais ces appareils, et c'est la moitié du jeu qui lui
+// est fermée sans qu'il puisse rien y faire.
+//
+// Ils s'ouvrent donc AUSSI depuis le menu, contre des vidéos, et le nombre de
+// vidéos est celui de la difficulté de la clé : une pour l'intercepteur, deux
+// pour l'Ancien, trois pour le Faucheur. C'est ce que veut dire « une vidéo
+// adaptée » — pas la même monnaie pour un appareil qu'on gagne en volant
+// proprement et pour celui qu'on gagne en abattant ce qui te chassait.
+//
+// Celui qui abat le Faucheur l'ouvre en l'abattant, et c'est toujours la belle
+// façon. Celui qui n'y arrive pas n'est plus enfermé dehors.
+// ---------------------------------------------------------------------------
+const VIDEOS_AVION = { legende: 1, refuge: 2, ciel: 3 };
+const videosAvion = a => VIDEOS_AVION[a.acces] || 0;
+const videosVues  = a => avionsVideo[a.id] || 0;
+const avionPaye   = a => videosAvion(a) > 0 && videosVues(a) >= videosAvion(a);
+function sauveAvionsVideo() {
+  try { localStorage.setItem('fod_avion_video', JSON.stringify(avionsVideo)); } catch (e) {}
+}
+const avionOuvert = a => a.acces === 'libre' || avionPaye(a)
                       || (a.acces === 'refuge' ? !!decouvertes.refuge
                        :  a.acces === 'ciel'   ? cielComplet()
                        :  legendesN > 0);
@@ -18631,7 +18658,18 @@ aideBtn.addEventListener('click', e => { e.stopPropagation(); ouvrirAide(); });
 // ---------------------------------------------------------------------------
 const panInfos = document.getElementById('infos');
 const CONTACT_MAIL = '';     // l'adresse de la liste bêta : à remplir, sinon le bouton copie le message
-function ouvreInfos(html) { panInfos.innerHTML = html; panInfos.hidden = false; panMenu.hidden = true; majPause(); }
+// TOUT PANNEAU SE FERME PAR UN BOUTON, et pas seulement en tapant à côté.
+// Taper à côté marche déjà ; sur un téléphone tenu à une main, la zone « à
+// côté » est souvent le joystick ou la gâchette, et on relançait le jeu en
+// croyant fermer une page.
+function ouvreInfos(html) {
+  panInfos.innerHTML = '<button id="infosX" aria-label="Fermer">×</button>' + html;
+  panInfos.hidden = false; panMenu.hidden = true;
+  document.getElementById('infosX').addEventListener('click', e => {
+    e.stopPropagation(); panInfos.hidden = true; majPause();
+  });
+  majPause();
+}
 function panneauAvance() {
   const fr = langue !== 'en';
   let ok = false; try { ok = localStorage.getItem('fod_avance_ok') === '1'; } catch (e) {}
@@ -18655,6 +18693,43 @@ function panneauAvance() {
     : 'Each option makes the game harder and multiplies the score. Hold ten waves with an option on to earn its trophy. Current multiplier: <b>×' + facteurAvance().toFixed(2) + '</b>.') + '</p>' + lignes);
   for (const b of panInfos.querySelectorAll('[data-opt]')) b.addEventListener('click', e => {
     e.stopPropagation(); avance[b.dataset.opt] = !avance[b.dataset.opt]; sauveAvance(); panneauAvance();
+  });
+}
+// ---------------------------------------------------------------------------
+// L'APPAREIL VERROUILLÉ S'OUVRE ICI.
+//
+// Le panneau dit D'ABORD la vraie clé — c'est elle qui vaut le coup, et on ne
+// vend pas ce qu'on peut gagner sans avoir dit comment le gagner. Les vidéos
+// viennent après, avec leur compte : une, deux ou trois selon l'appareil.
+// ---------------------------------------------------------------------------
+function panneauAvionVideo(a) {
+  const fr = langue !== 'en';
+  const n = videosAvion(a), vu = Math.min(videosVues(a), n);
+  const cle = a.acces === 'refuge'
+      ? (fr ? 'Il s’ouvre en posant les roues au refuge, une fois. C’est le seul appareil du jeu dont la clé est un endroit.'
+            : 'It opens once you put the wheels down at the refuge. It is the only aircraft whose key is a place.')
+    : a.acces === 'ciel'
+      ? (fr ? 'Il s’ouvre en traçant les cinq figures du ciel — ou en l’abattant, ce que presque personne ne fera.'
+            : 'It opens once you have traced the five sky figures — or by shooting it down, which almost nobody will do.')
+      : (fr ? 'Il s’ouvre en écrivant une légende : une partie tenue jusqu’au bout.'
+            : 'It opens when you write a legend: one game held to the end.');
+  ouvreInfos('<h3>' + (fr ? a.nom : a.en) + '</h3><p>' + cle + '</p><p>' + (fr
+    ? 'Ou contre ' + (n > 1 ? n + ' vidéos' : 'une vidéo') + '. En bêta la vidéo n’est pas branchée : elle est offerte, et ton clic est compté.'
+    : 'Or against ' + (n > 1 ? n + ' videos' : 'one video') + '. In beta the video is not wired: it is on the house, and your tap is counted.')
+    + '</p><button class="ligne" id="avionVideo">'
+    + (fr ? 'REGARDER UNE VIDÉO' : 'WATCH A VIDEO') + '  ·  ' + vu + ' / ' + n + '</button>');
+  document.getElementById('avionVideo').addEventListener('click', ev => {
+    ev.stopPropagation();
+    avionsVideo[a.id] = videosVues(a) + 1; sauveAvionsVideo();
+    carnet.videos = (carnet.videos || 0) + 1; sauveCarnet();
+    if (!avionOuvert(a)) { panneauAvionVideo(a); return; }
+    // OUVERT : on le prend tout de suite. Rouvrir le menu pour aller cliquer
+    // sur la ligne qu'on vient de payer serait une marche de plus pour rien.
+    SFX.bouclierOn();
+    avionChoisi = a.id; appliqueAvion();
+    try { localStorage.setItem('fod_avion', avionChoisi); } catch (e) {}
+    if (!state.running) { state.roquettesN = a.roquettes; state.leurres = a.leurres; }
+    panInfos.hidden = true; panMenu.hidden = false; majMenu(); majPause();
   });
 }
 function panneauCode() {
@@ -18780,11 +18855,15 @@ function majMenu() {
       const cle = a.acces === 'refuge' ? (fr ? '  ·  AU REFUGE' : '  ·  AT THE REFUGE')
                 : a.acces === 'ciel'   ? (fr ? '  ·  TOUT LE CIEL' : '  ·  THE WHOLE SKY')
                 : (fr ? '  ·  LÉGENDE' : '  ·  LEGEND');
-      b.textContent = (fr ? a.nom : a.en) + (ouvert ? '' : cle)
+      const nV = videosAvion(a), vuV = Math.min(videosVues(a), nV);
+      const paie = (!ouvert && nV > 0) ? '  ·  ' + (fr ? 'VIDÉO ' : 'VIDEO ') + vuV + '/' + nV : '';
+      b.textContent = (fr ? a.nom : a.en) + (ouvert ? '' : cle + paie)
         + '  ·  ' + (fr ? 'vit. ' : 'spd ') + a.vit + '  ·  ' + a.roquettes + (fr ? ' roq.' : ' rkt') + '  ·  ' + a.leurres + (fr ? ' leurres' : ' flares');
       b.onclick = e => {
         e.stopPropagation();
-        if (!ouvert) return;
+        // UN VERROU QUI S'OUVRE. Il disait sa clé et ne faisait rien ; il
+        // propose maintenant les vidéos qui l'ouvrent aussi.
+        if (!ouvert) { panneauAvionVideo(a); return; }
         avionChoisi = a.id; appliqueAvion();
         try { localStorage.setItem('fod_avion', avionChoisi); } catch (err) {}
         if (!state.running) { state.roquettesN = a.roquettes; state.leurres = a.leurres; }
@@ -18913,6 +18992,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.76', fr: 'Un appareil verrouillé s’ouvre aussi depuis le menu, contre des vidéos : une pour l’intercepteur, deux pour l’Ancien, trois pour le Faucheur.', en: 'A locked aircraft also opens from the menu against videos: one for the interceptor, two for the Old One, three for the Reaper.' },
+  { v: '1.76', fr: 'Le panneau dit d’abord la vraie clé, et l’appareil se prend tout seul dès la dernière vidéo.', en: 'The panel states the real key first, and the aircraft selects itself as soon as the last video is done.' },
+  { v: '1.76', fr: 'Tous les panneaux d’information ont une croix de fermeture, en plus du geste de taper à côté.', en: 'Every information panel has a close cross, on top of tapping outside.' },
   { v: '1.75', fr: 'Les casemates du tunnel sont de vrais trous : la paroi est percée, la pièce est creuse, et les vingt-sept silhouettes se voient en passant.', en: 'The tunnel casemates are real holes now: the wall is pierced, the room is hollow, and the twenty-seven figures show as you pass.' },
   { v: '1.75', fr: 'L’embrasure passe de vingt-six mètres à soixante-quatorze, et de seize de haut à vingt-deux.', en: 'The opening goes from twenty-six metres to seventy-four, and from sixteen high to twenty-two.' },
   { v: '1.75', fr: 'La bouche du tunnel est nette : plus un seul triangle de montagne ne dépasse dans le trou.', en: 'The tunnel mouth is clean: not one mountain triangle juts into the opening any more.' },

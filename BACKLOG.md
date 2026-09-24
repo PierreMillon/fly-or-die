@@ -6,7 +6,8 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 
 - [x] L'approche stabilisée, d'après les vrais atterrissages → v1.70 (2 posés sur 3)
 - [x] Le passage sous la piste → v1.70
-- [ ] Débloquer un avion verrouillé depuis le menu, contre une vidéo adaptée
+- [x] Débloquer un avion verrouillé depuis le menu, contre une vidéo adaptée → v1.76 (1, 2 ou 3 vidéos)
+- [x] Une croix de fermeture sur tous les panneaux d'information → v1.76
 - [x] La bouche du tunnel : un bout de montagne dépasse dans le trou → v1.75 (0 triangle dans l'emprise)
 - [x] Les casemates ne sont pas creuses : on voit un cadre de porte → v1.75 (vrais trous, 27 silhouettes)
 - [ ] Un quatrième mécanicien, le seul à avoir le droit de tirer

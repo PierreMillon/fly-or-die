@@ -597,6 +597,14 @@
   }
   #changelog[hidden], #aide[hidden], #viseurs[hidden], #coop[hidden],
   #install[hidden], #menu[hidden], #infos[hidden] { display: none; }
+  /* LA CROIX DE FERMETURE. Elle flotte dans le coin du panneau, au-dessus du
+     texte, et le titre lui laisse la place à droite. */
+  #infos #infosX {
+    position: sticky; top: 0; float: right; margin: -4px -4px 0 8px;
+    background: none; border: 1px solid var(--ph-dim); border-radius: 5px;
+    color: var(--ph-text); font-family: inherit; font-size: 14px; line-height: 1;
+    padding: 5px 9px; cursor: pointer; z-index: 2;
+  }
   #infos h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.14em; font-weight: 500; color: var(--ph-line); }
   #infos p { margin: 0 0 8px; color: var(--ph-text); }
   #infos .ligne, #menu .ligne.opt { display: block; width: 100%; margin: 0 0 6px; background: none; border: 1px solid var(--ph-dim); border-radius: 5px; color: var(--ph-text); font-family: inherit; font-size: 11px; letter-spacing: 0.1em; padding: 9px 10px; text-align: left; }
