@@ -3723,6 +3723,7 @@ const EFFECTIF = [1, 2, 3, 4, 1, 5, 6, 7];
 const APRES_POOL = [3, 3, 3, 0];   // au-delà : surtout des drones
 const APRES_N = 8;                 // et l'effectif repart de là
 const BAL_N = 20;                  // les biplans de la dixième
+const VAGUE_PREMIER_TANK = 5; // avant, le ciel et rien que le ciel
 const VAGUE_LOURDE = 9;      // celle qui se termine au sol
 const VAGUE_FAUCHEUR = 10;   // les vingt biplans, puis lui
 const PN_GAIN = 3.2;
@@ -5648,6 +5649,8 @@ const CATAPULTE     = 60;     // m/s ajoutés à l'instant du passage
 // l'autre, on trace une ligne.
 const CHAINE_FENETRE = 9;     // secondes pour attraper le portail suivant
 const CHAINE_GAIN    = 0.40;  // ce que chaque cran ajoute, en proportion
+const ACQUIS_FUITE = 0.035;   // par seconde : la moitié du capital en vingt secondes
+const ACQUIS_MAX = 900;       // et l'on n'accumule pas indéfiniment
 const CHAINE_MAX     = 6;     // au-delà, le gain ne monte plus
 const CATAPULTE_POUSSEE = 4;  // ce que devient le rappel moteur pendant la poussée
 const BOOST_INVINCIBLE = 0.5;     // au-dessus de cette poussée, les ennemis ne nous font rien  // ...et tant qu'on reste loin, ça continue de monter, jusqu'à ceci
@@ -10050,6 +10053,8 @@ const state = {
   viePleineT: 0,      // secondes restantes d'éclat quand la jauge vient de se remplir
   pleineLune: 0,      // secondes de pleine lune offertes par le Berger
   luneT: 0,           // secondes de nez dans la lune, sous la chenillée lourde
+  acquis: 0,          // le capital de vitesse pris aux portails
+  boostAv: 0,         // la poussée de catapulte de l'image d'avant
   finEcran: 0,        // secondes de nuage avant l'écran de fin
   causeMort: null,    // ce qui a eu le dernier mot
   nappeVu: 0,         // secondes de repère du faucheur sur la bande d'altitude
@@ -10335,6 +10340,8 @@ function toucherPiste() {
 }
 
 function resetGame() {
+  state.acquis = 0;
+  state.boostAv = 0;
   state.finEcran = 0;
   state.causeMort = null;
   state.nappeVu = 0;
@@ -10489,7 +10496,11 @@ function coupDePied() {
   // une consigne absolue : arriver plus vite que 320 et le franchir coûtait la
   // différence. On ajoute, point — et une chaîne prise en piqué monte aussi
   // haut que le pilote a su aller la chercher.
-  state.speed = Math.min(SPEED_DUR, state.speed + CATAPULTE * cran);
+  const gagne = Math.min(SPEED_DUR - state.speed, CATAPULTE * cran);
+  state.speed += gagne;
+  // et il entre au capital : la croisière monte avec nous, donc rien ne vient
+  // le reprendre deux secondes plus tard
+  state.acquis = Math.min(ACQUIS_MAX, (state.acquis || 0) + gagne);
   state.secousse = 0.55 * Math.min(1.6, cran);
   // ON PASSE LA PORTE, ILS PERDENT LA MAIN. Traverser un portail au ras du
   // béton est le geste le plus exposé du jeu : on vole droit, lentement par
@@ -11934,11 +11945,16 @@ function spawnWave() {
   // et conclure qu'elles n'existaient pas.
   // une pièce au sol une vague sur deux, à partir de la deuxième
   const tanksDebout = state.enemies.filter(e => e.kind.sol).length;
-  // la lourde amène ses deux chenillées ; sinon, une pièce au sol une vague
-  // sur deux, et jamais chez le gardien
+  // PAS DE PIÈCE AU SOL AVANT LA CINQUIÈME. Elles sortaient dès la deuxième :
+  // on apprend à voler, on apprend à tirer, et on doit déjà descendre traiter
+  // une cible au sol qui riposte. Les quatre premières vagues restent en
+  // l'air, et la chenillée devient une nouveauté au lieu d'une corvée.
+  //
+  // La lourde amène ses deux chenillées ; sinon, une pièce au sol une vague
+  // sur deux, et jamais chez le gardien.
   const tanks = surLaLourde ? 2
               : (boss || leBal || tanksDebout >= 2) ? 0
-              : (state.wave >= 2 && state.wave % 2 === 0 ? 1 : 0);
+              : (state.wave >= VAGUE_PREMIER_TANK && state.wave % 2 === 0 ? 1 : 0);
   for (let i = 0; i < n + escorte + tanks; i++) {
     const auSol = i >= n + escorte;
     // l'escorte du gardien est faite de drones : ce sont eux qui restent
@@ -14153,6 +14169,32 @@ function simulate(dt) {
   // abattue. Au-dessus de la croisière, le rappel est maintenant cinq fois
   // plus doux : la vitesse est un capital, on va la chercher loin et on
   // s'en sert longtemps.
+  // ---------------------------------------------------------------------------
+  // LE CAPITAL DE VITESSE. UN PORTAIL S'AJOUTE, ET IL RESTE.
+  //
+  // Au-dessus de la croisière, le moteur rappelait en permanence à 0,2 fois la
+  // poussée. Une ou deux secondes après le portail, la poussée de catapulte
+  // s'éteint, ce rappel prend le relais, et tout ce qu'on venait de gagner
+  // repart — ce qui se sent exactement comme un coup de frein. Enchaîner deux
+  // portails ne cumulait donc rien : on repayait la première moitié.
+  //
+  // Le gain d'un portail entre maintenant dans un CAPITAL qui relève la
+  // croisière elle-même. Il n'y a plus rien à reprendre : le moteur vise déjà
+  // la vitesse qu'on a. Le capital fuit lentement — une vingtaine de secondes
+  // pour la moitié — donc la vitesse redescend, mais elle redescend comme une
+  // marée, pas comme un frein.
+  // ---------------------------------------------------------------------------
+  // ET C'EST À LA FIN DE LA POUSSÉE QU'ON ENCAISSE. Le portail ajoute soixante
+  // d'un coup, puis pousse fort deux secondes : mesuré, on part de 140 et l'on
+  // culmine à 321. Ne mettre au capital que les soixante de l'ajout laissait
+  // donc deux cents mètres par seconde sans couverture, et le moteur les
+  // reprenait. On relève le compteur à l'instant où la catapulte s'éteint :
+  // ce qu'elle a donné est acquis.
+  if ((state.boostAv || 0) > 0 && state.boostPortail <= 0)
+    state.acquis = Math.min(ACQUIS_MAX, Math.max(state.acquis || 0, state.speed - croisiere));
+  state.boostAv = state.boostPortail;
+  state.acquis = Math.max(0, (state.acquis || 0) - (state.acquis || 0) * ACQUIS_FUITE * dt);
+  croisiere += state.acquis;
   const rappel = state.boostPortail > 0 ? THRUST * CATAPULTE_POUSSEE
                : state.speed > croisiere ? THRUST * 0.2 : THRUST;
   // NEZ SOUS L'HORIZON, ON ACCÉLÈRE. Au-dessus de la croisière, le rappel du
@@ -18809,6 +18851,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.74', fr: 'Les portails s’additionnent pour de bon : 321, puis 456, puis 558 sur une chaîne de trois.', en: 'Gates truly add up now: 321, then 456, then 558 on a chain of three.' },
+  { v: '1.74', fr: 'Plus de coup de frein deux secondes après : la vitesse gagnée entre au capital et la croisière monte avec.', en: 'No more braking two seconds later: speed gained is banked and the cruise setting rises with it.' },
+  { v: '1.74', fr: 'Aucune pièce au sol avant la cinquième vague : les quatre premières restent en l’air.', en: 'No ground piece before wave five: the first four stay in the air.' },
   { v: '1.73', fr: 'La lune est une soustraction de deux cercles : deux arcs de même courbure, deux pointes franches.', en: 'The moon is one circle minus another: two arcs of equal curvature, two clean horns.' },
   { v: '1.73', fr: 'Le passage sous la piste est retiré.', en: 'The passage under the runway is removed.' },
   { v: '1.73', fr: 'Les essais tournent à chaque poussée, et le numéro du cache est vérifié avant tout.', en: 'The tests run on every push, and the cache number is checked before anything else.' },
