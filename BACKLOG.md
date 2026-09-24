@@ -10,8 +10,8 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Une croix de fermeture sur tous les panneaux d'information → v1.76
 - [x] La bouche du tunnel : un bout de montagne dépasse dans le trou → v1.75 (0 triangle dans l'emprise)
 - [x] Les casemates ne sont pas creuses : on voit un cadre de porte → v1.75 (vrais trous, 27 silhouettes)
-- [ ] Un quatrième mécanicien, le seul à avoir le droit de tirer
-- [ ] La réparation complète dure 5 s : de 1 point de vie au plafond maximum
+- [x] Un quatrième mécanicien, le seul à avoir le droit de tirer → v1.77
+- [x] La réparation complète dure 5 s : de 1 pv au plafond → v1.77 (4,96 s à 100, 400 et 900)
 - [ ] L'arrivée : deux grands cercles sur les pistes, et rien d'autre comme repère
 - [ ] L'arrivée : on garde sa vitesse en l'air, on ne freine qu'au sol, aux freins
 - [ ] L'arrivée : viseur coupé dans le tube, et ils cessent de tirer au toucher

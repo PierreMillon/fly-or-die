@@ -405,10 +405,12 @@
   pour passer à plat : il faut arriver en tonneau, l'aile dans l'axe de la
   fente. 100 points de vie, et le plafond monte d'autant.</p>
   <p><b>La piste.</b> Passe bas, dans l'axe, le nez pas trop haut : tu te poses
-  tout seul. Les mécaniciens accourent, la vie remonte de 17 points par
-  seconde, et l'avion repart au bout de dix secondes — ou tout de suite si tu
-  appuies sur REDÉCOLLER. Pendant ce temps tu ne peux ni virer, ni tirer, ni
-  esquiver. Eux, si.</p>
+  tout seul. Trois mécaniciens accourent et refont la jauge entière en cinq
+  secondes, quel que soit le plafond ; un quatrième homme reste en retrait, le
+  fusil à l'épaule — c'est le seul du terrain qui tire, et les trois autres ne
+  lâchent jamais la clé à molette. L'avion repart au bout de dix secondes — ou
+  tout de suite si tu appuies sur REDÉCOLLER. Pendant ce temps tu ne peux ni
+  virer, ni tirer, ni esquiver. Eux, si.</p>
   <p>Le verrouillage tient dans un produit scalaire. On compare la direction du
   nez à la direction de la cible, toutes deux ramenées à une longueur de 1 :
   leur produit scalaire vaut le cosinus de l'angle entre elles.</p>
@@ -5948,7 +5950,20 @@ const RETOUR_DUREE = 1;
 const FREIN_FRANC = 9;       // m/s2 : le coup de frein, franc — presque un g
 const TOUCHER_DUR = 4.5;      // m/s de descente au-delà desquels ça casse
 const REPARATION = 10;        // secondes avant que ça reparte tout seul
-const REPARE_PAR_S = 17;      // points de structure rendus par seconde
+// ---------------------------------------------------------------------------
+// CINQ SECONDES POUR TOUTE LA JAUGE.
+//
+// La cadence était fixe : dix-sept points par seconde. Avec un plafond de cent
+// cela faisait six secondes, ce qui était juste ; mais le plafond MONTE — les
+// portails le repoussent pendant toute la partie — et à quatre cents points de
+// vie la même réparation en demandait vingt-quatre. Plus on jouait bien, plus
+// on attendait longtemps, assis sur une piste, sans rien faire.
+//
+// La cadence suit donc le plafond : les trois hommes rendent la jauge ENTIÈRE
+// en cinq secondes, qu'elle vaille cent ou mille. Un homme à terre, et il en
+// faut la moitié en plus ; deux, le double.
+// ---------------------------------------------------------------------------
+const REPARE_PLEIN = 5;       // secondes pour aller de rien au plafond, à trois
 const REPARE_COUT = 5;        // points de score par point de structure rendu
 
 const PISTE_GARDE_X = 150;    // couloir interdit au décor, de part et d'autre
@@ -6732,8 +6747,24 @@ const matMecano = lineMat(COL_TEXT, 0.85);
 // Cache tant qu'on ne tire pas : au travail, un mecanicien n'est pas arme.
 const geomFusil = new THREE.BoxGeometry(0.07, 0.07, 0.95).translate(0.30, 1.32, -0.35);
 const edgesFusil = new THREE.EdgesGeometry(geomFusil, 20);
+// ---------------------------------------------------------------------------
+// ILS SONT QUATRE, ET UN SEUL A LE DROIT DE TIRER.
+//
+// Ils étaient trois, et chacun lâchait sa clé à molette pour prendre le fusil
+// dès qu'un avion passait : la réparation s'arrêtait au pire moment, celui où
+// l'on est immobile et où l'on se fait tirer dessus. On payait deux fois.
+//
+// Un quatrième arrive, et c'est LUI le fusil — le seul du terrain. Les trois
+// autres ne le touchent plus : ils sont entièrement à l'appareil, et la
+// cadence de réparation ne dépend plus de ce qui vole au-dessus.
+//
+// Le garde tire seul ce que les trois tiraient ensemble : la défense du sol
+// garde exactement le poids qu'elle avait, et c'est la réparation qui gagne.
+// ---------------------------------------------------------------------------
+const MECANO_N = 4;
+const MECANO_ARME = 3;           // l'indice du seul homme armé
 const mecanos = [];
-for (let i = 0; i < 3; i++) {
+for (let i = 0; i < MECANO_N; i++) {
   const g = solidWire(geomMecano, edgesMecano, matMecano);
   g.visible = false;
   scene.add(g);
@@ -6746,7 +6777,8 @@ for (let i = 0; i < 3; i++) {
   caisse.visible = false;
   g.add(caisse);
   mecanos.push({ g, fusil, caisse, p: new THREE.Vector3(), but: new THREE.Vector3(),
-                 t: 0, fuite: 0, cote: i % 2 ? 1 : -1, fusilT: 0, tire: false, livre: null });
+                 t: 0, fuite: 0, cote: i % 2 ? 1 : -1, fusilT: 0, tire: false, livre: null,
+                 arme: i === MECANO_ARME });
 }
 
 // ---------------------------------------------------------------------------
@@ -6761,29 +6793,24 @@ for (let i = 0; i < 3; i++) {
 // d'autant. C'est le prix, et c'est un vrai choix pour l'adversaire aussi.
 // ---------------------------------------------------------------------------
 const FUSIL_PORTEE = 650;
-const FUSIL_DPS = 7;            // par mecanicien : trois fusils font 21 par seconde
+const FUSIL_DPS = 21;           // le garde tire seul ce que les trois tiraient
 const FUSIL_CADENCE = 0.26;     // secondes entre deux tracantes
 const FUSIL_SON_LOIN = 100;     // metres au-dela desquels on ne l'entend plus du tout
 const HARCELE = 2.6;            // secondes pendant lesquelles l'avion pris a partie decroche
 const _fusil = new THREE.Vector3();
 function mecanoTire(m, dt) {
   m.tire = false;
+  // LES TROIS AUTRES NE TOUCHENT PLUS AU FUSIL. Il n'y en a qu'un sur le
+  // terrain, et il est à lui.
+  if (!m.arme) { m.fusil.visible = false; m.tenue = 0; return; }
   if ((!state.pose && !m.repos) || m.mort || m.fuite > 0) { m.fusil.visible = false; m.tenue = 0; return; }
   // depuis la table ils tirent aussi, de loin et pour presque rien : ils sont
   // là pour aider, et ça se voit
   const depuisTable = !state.pose && m.repos;
   if (depuisTable && !state.enemies.some(e => !e.kind.sol && e.pos.distanceTo(m.p) < FUSIL_PORTEE)) { m.fusil.visible = false; return; }
-  // AU MOINS UN RÉPARE. Un fusil par avion ennemi à portée, deux au plus, et
-  // jamais le dernier homme valide : lui garde la clé à molette.
-  const vivants = mecanos.filter(x => !x.mort && x.g.visible);
-  const tireurs = vivants.filter(x => x.tire && x !== m).length;
-  const enPortee = state.enemies.filter(e => !e.kind.sol && e.pos.distanceTo(m.p) < FUSIL_PORTEE).length;
-  const voulus = Math.min(2, enPortee, Math.max(0, vivants.length - 1));
-  // celui qui tirait garde la main une seconde : sans cela, deux hommes se
-  // passaient le fusil à chaque image
-  const enQuota = tireurs < voulus;
-  if (!enQuota && !(m.tenue > 0)) { m.fusil.visible = false; return; }
-  if (enQuota) m.tenue = 1.0; else m.tenue -= dt;
+  // LE QUOTA N'A PLUS D'OBJET. Il servait à garder au moins un homme sur la
+  // clé à molette pendant que les autres prenaient le fusil ; les trois
+  // réparateurs ne le prennent plus jamais, et le garde ne répare pas.
   // ILS NE TIRENT PLUS A TRAVERS LE BETON. Meme regle que pour nous et pour
   // eux : s'il y a un batiment sur la ligne, il n'y a pas de tir. Un homme au
   // fusil vise ce qu'il voit.
@@ -6838,8 +6865,13 @@ function mecanoTire(m, dt) {
   // plus de mise à mort au sol : le plancher ci-dessus l'interdit
 }
 
-// les postes de travail : deux à hauteur de nacelle, un devant le nez
-const MECANO_POSTES = [[-3.4, -3.0], [3.4, -3.2], [0.9, -6.4]];
+// les postes de travail : deux à hauteur de nacelle, un devant le nez — et le
+// garde nettement en retrait, hors de la cellule : on doit voir qu'il n'y
+// touche pas.
+const MECANO_POSTES = [[-3.4, -3.0], [3.4, -3.2], [0.9, -6.4], [5.6, -7.2]];
+// et leurs places autour de la table de cartes, quand il n'y a rien à faire.
+// Le garde n'est pas assis avec eux : il est debout, deux mètres en retrait.
+const MECANO_TABLE = [[-1.3, 0], [1.3, 0], [0, 1.1], [2.9, -1.9]];
 // le bord du bitume, côté hangar : leur place tant que l'avion roule
 const MECANO_BORD = PISTE.demiL + 3;
 // tant qu'ils ne sont pas tous à portée de bras, il n'y a pas de réparation
@@ -7148,7 +7180,7 @@ function mecanosALaTable() {
     m.livre = null; m.caisse.visible = false;
     m.plaque = undefined; m.couche = 0;
     m.g.rotation.set(0, 0, 0);
-    m.but.copy(hangar.table).add(_mec.set([-1.3, 1.3, 0][i], 0, [0, 0, 1.1][i]));
+    m.but.copy(hangar.table).add(_mec.set(MECANO_TABLE[i][0], 0, MECANO_TABLE[i][1]));
   });
 }
 
@@ -7189,7 +7221,7 @@ function nouvelleOccupation(m, i) {
   m.couche = 0;
   m.g.rotation.set(0, 0, 0);
   if (o === 'table') {
-    m.but.copy(hangar.table).add(_mec.set([-1.3, 1.3, 0][i], 0, [0, 0, 1.1][i]));
+    m.but.copy(hangar.table).add(_mec.set(MECANO_TABLE[i][0], 0, MECANO_TABLE[i][1]));
   } else if (o === 'hangar') {
     // sous l'aile d'un des appareils alignés, dans le hangar
     m.but.set(AERO.x - AERO.largeur / 2 + 13 - 7, PISTE.y,
@@ -7232,7 +7264,7 @@ function mecanosTable() {
   mecanos.forEach((m, i) => {
     m.repos = true; m.g.visible = true; m.mort = false; m.fuite = 0; m.tire = false; m.livre = null;
     m.caisse.visible = false; m.fusil.visible = false;
-    m.p.copy(hangar.table).add(new THREE.Vector3([-1.3, 1.3, 0][i], 0, [0, 0, 1.1][i]));
+    m.p.copy(hangar.table).add(new THREE.Vector3(MECANO_TABLE[i][0], 0, MECANO_TABLE[i][1]));
     m.but.copy(m.p); m.g.position.copy(m.p); m.g.rotation.set(0, 0, 0);
   });
 }
@@ -7363,12 +7395,13 @@ function mecanoRoquette(m, dt, cible) {
 function updateMecanos(dt) {
   majPointsMecanos(dt);
   const char = charDansLaBulle();
-  let tireur = true;      // un seul homme au tube : le premier valide
   for (const m of mecanos) {
     if (!m.g.visible || m.mort) { m.mot = null; m.motT = 0; m.caisse.visible = false; continue; }
     majMotMecano(m, dt);
-    if (tireur && mecanoRoquette(m, dt, char)) tireur = false;
-    else if (m !== mecanos[0] || !char) m.caisse.visible = false;
+    // LE TUBE EST AU GARDE, comme le fusil : c'est le même homme, et c'est le
+    // seul. Les trois autres ne portent que des caisses de roquettes.
+    if (m.arme) { if (!mecanoRoquette(m, dt, char)) m.caisse.visible = false; }
+    else if (!m.livre) m.caisse.visible = false;
     mecanoTire(m, dt);
     if (m.tire) continue;            // il tire : il ne s'affaire pas au moteur
     if (m.fuite > 0) {
@@ -7392,7 +7425,7 @@ function updateMecanos(dt) {
       if (m.fuite <= 0) {
         // fini de fuir : il rejoint la table, il ne disparaît plus
         m.plaque = undefined; m.couche = 0; m.repos = true; m.g.rotation.set(0, 0, 0);
-        m.but.copy(hangar.table).add(_mec.set([-1.3, 1.3, 0][mecanos.indexOf(m)], 0, [0, 0, 1.1][mecanos.indexOf(m)]));
+        m.but.copy(hangar.table).add(_mec.set(MECANO_TABLE[mecanos.indexOf(m)][0], 0, MECANO_TABLE[mecanos.indexOf(m)][1]));
       }
       continue;
     }
@@ -7433,7 +7466,7 @@ function updateMecanos(dt) {
         SFX.vagueNette();
         m.livre = null; m.caisse.visible = false; m.t = 0;
       }
-    } else if (state.pose && state.roquettesN < avion().roquettes && !mecanos.some(x => x.livre)) {
+    } else if (!m.arme && state.pose && state.roquettesN < avion().roquettes && !mecanos.some(x => x.livre)) {
       state.livraisonT = (state.livraisonT || 0) - dt;
       if (state.livraisonT <= 0) { state.livraisonT = 3.5; m.livre = { gauche: Math.random() < 0.5 }; m.caisse.visible = true; }
     }
@@ -7442,7 +7475,7 @@ function updateMecanos(dt) {
     // au hasard toutes les deux secondes pendant qu'il traverse le terrain.
     m.t -= dt;
     const loin = m.p.distanceTo(state.pos) > 14;
-    if (m.t <= 0 && !m.livre && !loin && !state.roulage) {
+    if (m.t <= 0 && !m.livre && !loin && !state.roulage && !m.arme) {
       m.t = 1.2 + Math.random() * 2.4;
       m.but.set(state.pos.x + (Math.random() - 0.5) * 9,
                 PISTE.y,
@@ -7450,7 +7483,9 @@ function updateMecanos(dt) {
     }
     // PENDANT LE ROULAGE il reste où il est : au bord. Il ne rejoint les
     // postes qu'une fois l'avion arrêté, et c'est poserMecanos qui l'y envoie.
-    if (loin && state.pose) {
+    // LE GARDE TIENT SON POSTE. Les trois autres tournent autour du moteur ;
+    // lui reste en retrait, à sa place, même quand il n'a rien à viser.
+    if ((loin || m.arme) && state.pose) {
       m.but.set(state.pos.x + MECANO_POSTES[mecanos.indexOf(m)][0],
                 PISTE.y,
                 state.pos.z + MECANO_POSTES[mecanos.indexOf(m)][1]);
@@ -14654,19 +14689,21 @@ function simulate(dt) {
     majChoixHangar(dt);
     // ILS PEUVENT ÊTRE TUÉS. Se poser sous le feu n'était qu'une décision
     // comptable : on encaissait et l'on repartait plein. Maintenant les balles
-    // qui passent atteignent aussi les hommes, et chacun emporte un tiers de
-    // la cadence de réparation. À trois morts, la piste ne rend plus rien et
-    // il faut redécoller.
+    // qui passent atteignent aussi les hommes, et chacun des TROIS emporte un
+    // tiers de la cadence de réparation. À trois morts, la piste ne rend plus
+    // rien et il faut redécoller — le garde, lui, ne répare pas.
     // ILS DOIVENT Y ÊTRE. Compter les hommes valides ne suffisait pas : la
     // vie remontait pendant qu'ils traversaient encore le terrain. On ne
     // compte plus que ceux qui sont à portée de bras de la cellule.
-    const auTravail = mecanos.filter(m => !m.mort && !m.tire
+    // LE GARDE N'EST PAS DE L'ÉQUIPE. Il ne répare pas, donc il ne compte ni
+    // au numérateur ni au dénominateur : la cadence est celle des trois.
+    const auTravail = mecanos.filter(m => !m.mort && !m.arme
                      && m.p.distanceTo(state.pos) < MECANO_PORTEE);
     const debout = auTravail.length;
     const valides = mecanos.filter(m => !m.mort).length;
     const avant = state.structure;
     state.structure = Math.min(state.vieMax,
-      state.structure + REPARE_PAR_S * (debout / 3) * dt);
+      state.structure + (state.vieMax / REPARE_PLEIN) * (debout / 3) * dt);
     stat('vieReparee', state.structure - avant);
     // ET ELLE SE PAIE. Cinq points de score par point de structure rendu :
     // aller se poser reste toujours possible, mais ce n'est plus gratuit.
@@ -18992,6 +19029,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.77', fr: 'Un quatrième mécanicien arrive, et c’est le seul du terrain qui a le droit de tirer : les trois autres ne lâchent plus la clé à molette.', en: 'A fourth mechanic arrives, and he is the only one on the field allowed to shoot: the other three never drop the wrench.' },
+  { v: '1.77', fr: 'La réparation refait la jauge entière en cinq secondes, qu’elle vaille cent ou mille : mesuré 4,96 s à 100, 400 et 900 de plafond.', en: 'A repair refills the whole gauge in five seconds, whether it holds a hundred or a thousand: measured 4.96 s at 100, 400 and 900.' },
+  { v: '1.77', fr: 'Le garde tire seul ce que les trois tiraient ensemble : la défense du sol garde son poids, et la réparation ne s’arrête plus.', en: 'The guard alone fires what the three fired together: ground defence keeps its weight, and the repair no longer stops.' },
   { v: '1.76', fr: 'Un appareil verrouillé s’ouvre aussi depuis le menu, contre des vidéos : une pour l’intercepteur, deux pour l’Ancien, trois pour le Faucheur.', en: 'A locked aircraft also opens from the menu against videos: one for the interceptor, two for the Old One, three for the Reaper.' },
   { v: '1.76', fr: 'Le panneau dit d’abord la vraie clé, et l’appareil se prend tout seul dès la dernière vidéo.', en: 'The panel states the real key first, and the aircraft selects itself as soon as the last video is done.' },
   { v: '1.76', fr: 'Tous les panneaux d’information ont une croix de fermeture, en plus du geste de taper à côté.', en: 'Every information panel has a close cross, on top of tapping outside.' },
