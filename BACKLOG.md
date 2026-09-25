@@ -25,6 +25,7 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
        la grande au 4e. On vise un cadre encore grand et on heurte une lame.)
 - [x] Les lames de la guillotine se voient → v1.83 (pleine épaisseur, croix sur chaque face)
 - [x] En autonomie : essai du tour complet des sept appareils, dans la chaîne GitHub → v1.84 (7/7, zéro exception)
+- [x] En autonomie : l'arrivée au refuge par le tube, avec la corde de 900 m et le couloir élargi → mesuré v1.84 (prise 514 images, posé au refuge à 12,2 s, arrêt à 179 m du centre de la bande, aucune exception)
 - [x] L'Ancien le plus rapide du jeu au double-appui tenu → v1.79 (48 → 336, x7)
 - [x] Le PAPI reste tel quel → tranché, on n'y touche pas
 - [x] Tous les appareils débloqués le temps qu'on règle leurs capacités → v1.79
