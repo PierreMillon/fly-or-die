@@ -979,7 +979,10 @@ dérive lente ne fait rien. « Doigt tout en haut = looping » → au-delà de
 - Le relief au sol : tout le jeu suppose un sol plat (plancher, piste,
   tanks, effondrements, atterrissage). Un relief demande de réécrire les
   collisions et l'approche : chantier du chapitre 2, pas d'une soirée.
-- Le verrouillage de très près : non démontré, faute de reproduction fiable.
+- Le verrouillage de très près : DÉMONTRÉ en v1.84, au banc — cible immobile dans son étage,
+  tenue 100 % des images à 40, 80, 150, 300 et 600 m, cône de 7,7° à 40 m et 1,7° à 600.
+  Les deux essais précédents mentaient : l'ennemi était rabattu à son étage (600 → 430 m), puis
+  abattu en boucle par nos propres canons à 1 point de vie.
 - Les mécaniciens qui ignorent les bâtiments : la piste est dégagée, ça ne
   se voit pas.
 
