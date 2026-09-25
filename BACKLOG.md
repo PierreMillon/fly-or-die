@@ -29,10 +29,10 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Tous les appareils débloqués le temps qu'on règle leurs capacités → v1.79
 - [x] Arrêter les capacités spéciales de chaque appareil, et les drones → validé, tel que proposé
 - [x] L'escouade : deux suiveurs au choix, en formation, qui tirent → v1.80 (et l'ailier volait derrière la caméra)
-- [ ] Bimoteur : plafond de vie supérieur de moitié
-- [ ] Pionnier : le surplace, tenu — 30 m/s, tourne sur place, rien ne l'accroche
-- [ ] Intercepteur : la salve, tenue — cadence doublée, chauffe deux fois plus vite
-- [ ] Faucheur : la nappe, tenue — glisse à plat de côté sans tourner le nez
+- [x] Bimoteur : plafond de vie supérieur de moitié → v1.81 (150 mesuré)
+- [x] Pionnier : le surplace → v1.81 (30 m/s tenu, lacet x2,96, visée adverse 0)
+- [x] Intercepteur : la salve → v1.81 (dégâts x2, chauffe 3 → 6)
+- [x] Faucheur : la nappe → v1.81 (60,3 m/s de côté, cap 0,00°)
 - [ ] Drone lourd : lent, sans arme, double de roquettes, répare en vol
 - [ ] Drone d'essaim : trois cellules en triangle, on pilote celle du milieu
 - [ ] Rebloquer les appareils contre des vidéos une fois les capacités arrêtées

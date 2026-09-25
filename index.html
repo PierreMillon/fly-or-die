@@ -4302,10 +4302,13 @@ const AVIONS = [
   // Sur le bimoteur ils rendaient les roquettes adverses sans conséquence dès
   // la première vague : on ne les regardait même plus arriver. Ils passent sur
   // l'intercepteur, qui se gagne, et là ils sont une raison de le choisir.
-  { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 20, leurres: 0, acces: 'libre' },
-  { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 14, leurres: 6, acces: 'legende' },
-  { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 8,  leurres: 0, acces: 'libre' },
-  { id: 'ancien',       nom: 'L’ANCIEN',     en: 'THE OLD ONE', vit: 0.62, lacet: 1.5, tangage: 1.35, roquettes: 0,  leurres: 0, acces: 'refuge', courant: true, timbre: 'planeur' },
+  // UNE CAPACITÉ PAR APPAREIL. Celle du bimoteur est passive — il encaisse ;
+  // les autres se TIENNENT au doigt, comme le courant de l'Ancien : double
+  // appui, et on garde le doigt. Voir ouvrePouvoir().
+  { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 20, leurres: 0, acces: 'libre', pouvoir: 'coque' },
+  { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 14, leurres: 6, acces: 'legende', pouvoir: 'salve' },
+  { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 8,  leurres: 0, acces: 'libre', pouvoir: 'surplace' },
+  { id: 'ancien',       nom: 'L’ANCIEN',     en: 'THE OLD ONE', vit: 0.62, lacet: 1.5, tangage: 1.35, roquettes: 0,  leurres: 0, acces: 'refuge', courant: true, timbre: 'planeur', pouvoir: 'courant' },
   // CELUI QUI TE CHASSAIT. On ne le gagne ni en volant longtemps ni en allant
   // loin : on le gagne en l'ABATTANT, ce que presque personne ne fera — quatre
   // mille points de structure, et il tue en vingt-deux secondes. C'est le seul
@@ -4315,7 +4318,7 @@ const AVIONS = [
   // de très loin le moins maniable — un cercle plat n'a pas d'aile pour
   // s'appuyer sur l'air. On ne le prend pas pour gagner, on le prend pour
   // savoir ce que c'était.
-  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel' },
+  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel', pouvoir: 'nappe' },
 ];
 let avionChoisi = 'bimoteur';
 try { avionChoisi = localStorage.getItem('fod_avion') || 'bimoteur'; } catch (e) {}
@@ -8429,6 +8432,42 @@ const REFUGE_CENTRE = 11;        // mètres devant le nez : le milieu de la scè
 const COURANT_GAIN = 7.0;
 const COURANT_MONTEE = 1.8;   // secondes pour s'y couper entièrement
 const COURANT_CHUTE = 2.6;    // et pour en sortir
+// ---------------------------------------------------------------------------
+// LES POUVOIRS TENUS.
+//
+// Le courant de l'Ancien a donné la règle : une capacité s'OCCUPE, elle ne se
+// déclenche pas. Double appui, on garde le doigt, ça dure ; on lâche, ça
+// cesse. Trois autres appareils en reçoivent une, chacune dans le caractère
+// de l'appareil :
+//   — le Pionnier fait du SURPLACE : trente mètres par seconde, un lacet
+//     trois fois plus vif, et aucun adversaire n'arrive à le cadrer ;
+//   — l'Intercepteur tire une SALVE : dégâts doublés, et ses canons chauffent
+//     deux fois plus vite à chaque appareil abattu ;
+//   — le Faucheur glisse en NAPPE : il se déporte à plat du côté touché, sans
+//     tourner le nez — c'est un disque, il n'a pas besoin de virer.
+// Le bimoteur, lui, n'a rien à tenir : sa COQUE encaisse, plafond de vie
+// supérieur de moitié dès le départ.
+//
+// ET LES FIGURES RESTENT AU DOUBLE APPUI. Sur ces appareils, le second appui
+// ouvre le pouvoir tout de suite et met la figure en attente : si le doigt
+// part dans le quart de seconde, c'était un double appui — la figure se fait ;
+// s'il reste, c'était une prise — le pouvoir continue, sans figure.
+// ---------------------------------------------------------------------------
+const POUVOIR_TENUE = 260;      // ms : au-delà, le double appui est une prise
+const SURPLACE_V = 30;          // m/s : la vitesse du surplace
+const SURPLACE_LACET = 3;       // fois le lacet ordinaire
+const SALVE_DEGATS = 2;         // fois les dégâts des canons
+const SALVE_CHAUFFE = 2;        // fois la chauffe gagnée par appareil abattu
+const NAPPE_V = 60;             // m/s de glissé latéral
+function pouvoirEst(nom) { return !!state.pouvoir && state.pouvoir.id === nom; }
+function ouvrePouvoir(side) {
+  const nom = avion().pouvoir;
+  if (!nom || nom === 'coque' || nom === 'courant') return false;
+  if (!state.pouvoir) { announce(t(nom)); SFX.cale(); }
+  state.pouvoir = { id: nom, side };
+  return true;
+}
+function fermePouvoir() { state.pouvoir = null; }
 function ouvreCourant() {
   if (state.courant) return;
   state.courant = true;
@@ -10372,6 +10411,8 @@ const state = {
   vieMax: 100,             // le plafond de la jauge : les portails le repoussent pour la partie
   trous: {},          // les trous à figure pris dans cette partie : les trois donnent l'ailier
   escouade: null,     // les suiveurs en vol, deux places : { id, mesh, pos, quat }
+  pouvoir: null,      // le pouvoir tenu au doigt : { id, side }, ou rien
+  figEnAttente: null, // la figure qui attend de savoir si le doigt reste
   triche: null,       // les codes secrets actifs : la partie ne compte plus
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
@@ -10681,7 +10722,8 @@ function resetGame() {
   if (typeof majTraitOurse === 'function') majTraitOurse();
   state.leurres = avion().leurres; state.leurresActifs = []; state.leurresPleins = false;
   state.chaine = 0; state.chaineT = 0;
-  state.trous = {}; state.vieMax = 100;
+  state.trous = {}; state.vieMax = avion().pouvoir === 'coque' ? 150 : 100;   // la coque du bimoteur
+  state.pouvoir = null; state.figEnAttente = null;
   // LA MÉTÉO DU JOUR. Un vent par partie : on le lit en décollant, on s'en
   // souvient en revenant, et c'est ce qui fait qu'un terrain a un caractère
   // ce jour-là plutôt qu'une règle abstraite.
@@ -12922,7 +12964,8 @@ function updateEnemies(dt) {
     // fait qu'une figure sauve la vie contre une vague de biplans et ne suffit
     // plus du tout contre un boss.
     if ((state.fig || state.spinT > 0) && (K.reflexe || 0) >= 1) e.visee = 0;
-    const aligne = !zoneSure && !(state.triche && state.triche.fantome) && dist < K.portee * (1 - 0.45 * gene)
+    // et rien ne cadre un appareil en surplace : c'est tout son pouvoir
+    const aligne = !zoneSure && !pouvoirEst('surplace') && !(state.triche && state.triche.fantome) && dist < K.portee * (1 - 0.45 * gene)
                 && e.forward.dot(_v) > K.cone - (e.coneBonus || 0) + (1 - K.cone) * gene * 1.6;
     e.visee = aligne ? e.visee + dt * (e.viseeX || 1) : 0;
     // LOCKED. Dès qu'il tient son alignement assez pour tirer, l'écran le dit,
@@ -13048,7 +13091,7 @@ function abattre(e) {
   objCompte('abattus');
   stat('abattus');
   const avant = state.chauffe;
-  state.chauffe = Math.min(CHAUFFE_MAX, state.chauffe + CHAUFFE_PAR);
+  state.chauffe = Math.min(CHAUFFE_MAX, state.chauffe + CHAUFFE_PAR * (pouvoirEst('salve') ? SALVE_CHAUFFE : 1));
   if (avant <= 0) SFX.chauffe();
   SFX.detruit(e.pos);
 
@@ -13731,6 +13774,7 @@ function updateLock(dt) {
   if (charge < SEUIL_TIR) return;
 
   const dps = (DPS_MIN + (DPS_MAX - DPS_MIN) * charge)
+            * (pouvoirEst('salve') ? SALVE_DEGATS : 1)
             * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1)
             * (state.pleiades ? PLEIADE_DEGATS : 1)
             * 1;   // l'éblouissement ne gêne plus la visée ordinaire
@@ -14201,8 +14245,10 @@ function simulate(dt) {
   // l'autorité en lacet du moment : jamais moins que MAX_YAW, et assez pour
   // tenir RAYON_MINI quand on va trop vite pour lui
   const autoriteLacet = Math.max(MAX_YAW, state.speed / RAYON_MINI);
-  const yawRate   = -dx * gain * autoriteLacet * avion().lacet;
+  const yawRate   = -dx * gain * autoriteLacet * avion().lacet
+                  * (pouvoirEst('surplace') ? SURPLACE_LACET : 1);
   const pitchRate = -dy * gain * MAX_PITCH * avion().tangage;
+  state.yawRateDbg = yawRate; state.dxDbg = dx;   // lus par les bancs
   // LE DOIGT TOUT EN HAUT NE DÉCLENCHE PLUS RIEN. Il partait dès qu'on montait
   // franchement, et la montée rapide — le geste le plus naturel du jeu —
   // devenait impossible. Les figures se font au double tap, ou au coup de
@@ -14457,6 +14503,13 @@ function simulate(dt) {
   const air = 1 + (COURANT_GAIN - 1) * state.courantK;
   let croisiere = CRUISE * avion().vit * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
                   * coussin * (state.assist ? APPROCHE_GAIN : 1) * air;
+  // LE SURPLACE : la consigne tombe à trente, quoi que fasse le reste — et la
+  // vitesse y vient franchement, sans attendre le rappel doux du capital :
+  // mesuré, à consigne seule il en était encore à 63 trois secondes plus tard.
+  if (pouvoirEst('surplace')) {
+    croisiere = Math.min(croisiere, SURPLACE_V);
+    state.speed = THREE.MathUtils.damp(state.speed, SURPLACE_V, 2.5, dt);
+  }
   // LE TUBE TIENT AUSSI LA VITESSE, et c'est ce qui manquait pour que l'arrivée
   // soit juste. Il tenait l'axe et la pente pendant que l'appareil descendait à
   // cent soixante-quinze : le rappel d'assiette le mettait à plat, un avion à
@@ -14529,7 +14582,7 @@ function simulate(dt) {
   state.speed += dv * dt;
   // Le plafond lui-même monte avec la poussée : sans cela le piqué seul
   // atteignait déjà la limite et la poursuite n'ajoutait plus rien.
-  state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_DUR);
+  state.speed = THREE.MathUtils.clamp(state.speed, pouvoirEst('surplace') ? SURPLACE_V : SPEED_MIN, SPEED_DUR);   // en surplace, c'est le pouvoir qui porte
 
   // ET LE TUBE A LE DERNIER MOT SUR LA VITESSE.
   //
@@ -15206,7 +15259,7 @@ function simulate(dt) {
     state.speed += (-state.forward.y * GRAV + (CRUISE - state.speed) * THRUST) * dt;
     // même garde-fou qu'en vol libre : entrer dans la figure à cinq cents ne
     // doit pas être puni d'un coup de frein à trois cent vingt
-    state.speed = THREE.MathUtils.clamp(state.speed, SPEED_MIN, SPEED_DUR);
+    state.speed = THREE.MathUtils.clamp(state.speed, pouvoirEst('surplace') ? SURPLACE_V : SPEED_MIN, SPEED_DUR);   // en surplace, c'est le pouvoir qui porte
 
     playerMesh.position.copy(state.pos);
     playerMesh.quaternion.copy(state.quat);
@@ -15482,6 +15535,11 @@ function simulate(dt) {
     state.quatVu = (state.quatVu || new THREE.Quaternion()).setFromEuler(euler);
   } else state.quatVu = null;
 
+  // LA NAPPE : le disque se déporte à plat, du côté touché, sans tourner
+  if (pouvoirEst('nappe')) {
+    _right.crossVectors(state.forward, _up).normalize();
+    state.pos.addScaledVector(_right, state.pouvoir.side * NAPPE_V * dt);
+  }
   const yAvant = state.pos.y;
   state.pos.addScaledVector(state.forward, state.speed * dt);
 
@@ -18425,7 +18483,7 @@ const T = {
     disqueCasseSous: 'il ne se jouait qu’une fois  ·  elle l’avait écrit',
     faucheurRompt: 'LE FAUCHEUR ROMPT',
     faucheurRomptSous: 'il ne passe pas la chaîne  ·  ici, il n’y a plus de guerre',
-    courant: 'DANS LE COURANT',
+    courant: 'DANS LE COURANT', surplace: 'SURPLACE', salve: 'SALVE', nappe: 'NAPPE',
     enJeep: 'AU VOLANT  ·  EN HAUT ON ACCÉLÈRE, EN BAS ON FREINE',
     deJeep: 'À PIED',
     act_descendre: 'DESCENDRE',
@@ -18569,7 +18627,7 @@ const T = {
     disqueCasseSous: 'it only played once  ·  she had written as much',
     faucheurRompt: 'THE REAPER BREAKS OFF',
     faucheurRomptSous: 'it does not cross the range  ·  out here there is no war',
-    courant: 'IN THE CURRENT',
+    courant: 'IN THE CURRENT', surplace: 'HOVER', salve: 'VOLLEY', nappe: 'SLIP',
     enJeep: 'AT THE WHEEL  ·  UP TO ACCELERATE, DOWN TO BRAKE',
     deJeep: 'ON FOOT',
     act_descendre: 'GET OUT',
@@ -19145,7 +19203,10 @@ function majMenu() {
                 : (fr ? '  ·  LÉGENDE' : '  ·  LEGEND');
       const nV = videosAvion(a), vuV = Math.min(videosVues(a), nV);
       const paie = (!ouvert && nV > 0) ? '  ·  ' + (fr ? 'VIDÉO ' : 'VIDEO ') + vuV + '/' + nV : '';
+      const CAP = { coque: ['COQUE', 'HULL'], salve: ['SALVE', 'VOLLEY'], surplace: ['SURPLACE', 'HOVER'],
+                    courant: ['COURANT', 'CURRENT'], nappe: ['NAPPE', 'SLIP'] }[a.pouvoir];
       b.textContent = (fr ? a.nom : a.en) + (ouvert ? '' : cle + paie)
+        + (CAP ? '  ·  ' + CAP[fr ? 0 : 1] : '')
         + '  ·  ' + (fr ? 'vit. ' : 'spd ') + a.vit + '  ·  ' + a.roquettes + (fr ? ' roq.' : ' rkt') + '  ·  ' + a.leurres + (fr ? ' leurres' : ' flares');
       b.onclick = e => {
         e.stopPropagation();
@@ -19293,6 +19354,9 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.81', fr: 'Une capacité par appareil, tenue au doigt comme le courant : le Pionnier fait du surplace (30 m/s, lacet triplé, personne ne le cadre), l’Intercepteur tire une salve (dégâts et chauffe doublés), le Faucheur glisse en nappe (60 m/s de côté, cap constant).', en: 'One held ability per aircraft, like the current: the Pioneer hovers (30 m/s, triple yaw, nobody can frame it), the Interceptor fires a volley (double damage and heat), the Reaper slips sideways (60 m/s, heading unchanged).' },
+  { v: '1.81', fr: 'Le bimoteur a une coque : plafond de vie à 150 dès le départ.', en: 'The twin has a hull: life ceiling at 150 from the start.' },
+  { v: '1.81', fr: 'Sur ces appareils, le double appui bref fait toujours la figure ; tenu au-delà d’un quart de seconde, c’est la capacité.', en: 'On these aircraft a quick double tap still does the figure; held past a quarter second, it is the ability.' },
   { v: '1.80', fr: 'L’escouade : choisis jusqu’à deux suiveurs, n’importe quel appareil, sous « Avion » dans le menu. Ils volent en formation et tirent sur ce que tu verrouilles.', en: 'The squadron: pick up to two wingmen, any aircraft, under “Aircraft” in the menu. They fly in formation and fire at what you lock.' },
   { v: '1.80', fr: 'L’ailier volait derrière la caméra depuis le début : les suiveurs volent maintenant devant, à quinze mètres de chaque côté, dans le cadre.', en: 'The wingman had been flying behind the camera all along: wingmen now fly ahead, fifteen metres to each side, in frame.' },
   { v: '1.79', fr: 'Tous les appareils sont jouables : on ne règle pas ce qu’on n’a pas en main. Les clés restent, éteintes par une seule ligne.', en: 'Every aircraft is playable: you cannot tune what you cannot fly. The keys remain, switched off by a single line.' },
@@ -20316,18 +20380,16 @@ window.addEventListener('pointerdown', e => {
       // renversement. Il est passé devant — pour lui, tout double appui tenu
       // cherche de l'air, et rien d'autre.
       ouvreCourant();
+    } else if (ouvrePouvoir(side)) {
+      // le pouvoir est pris ; la figure attend de savoir si le doigt reste
+      state.figEnAttente = { side, dy, t: now };
     } else if (Math.abs(dy) > 50) {
       // Le demi-tonneau de la figure tournait à l'envers du doigt : appuyer à
       // droite partait vers la gauche. Le côté est inversé ici, et là seulement :
       // le tonneau simple, lui, était déjà dans le bon sens.
-      state.fig = { t: 0, side: -side, type: dy > 0 ? 'split' : 'imm',
-                    base: state.quat.clone(), yaw0: state.yaw };
-      SFX.renversement();
+      lanceFigure(side, dy);
     } else {
-      state.spinT = SPIN_TIME;
-      state.spinSide = side;
-      SFX.tonneau();
-      tonneauLune();
+      lanceFigure(side, dy);
     }
     lastTapT = 0;
   } else {
@@ -20372,6 +20434,20 @@ function noteTrace(e) {
   trace.push({ x: e.clientX, y: e.clientY, t: performance.now() });
   if (trace.length > 8) trace.shift();
 }
+// LA FIGURE D'UN DOUBLE APPUI : renversement par les coins, tonneau sur les
+// côtés. Appelée au second appui, ou au lâcher quand un pouvoir l'attendait.
+function lanceFigure(side, dy) {
+  if (Math.abs(dy) > 50) {
+    state.fig = { t: 0, side: -side, type: dy > 0 ? 'split' : 'imm',
+                  base: state.quat.clone(), yaw0: state.yaw };
+    SFX.renversement();
+  } else {
+    state.spinT = SPIN_TIME;
+    state.spinSide = side;
+    SFX.tonneau();
+    tonneauLune();
+  }
+}
 function coupDeManche(e) {
   if (trace.length < 3) return false;
   const now = performance.now();
@@ -20415,6 +20491,14 @@ function releasePointer(e) {
   // ON LÂCHE LE COURANT EN LÂCHANT LE DOIGT. C'est toute la mécanique : il ne
   // se coupe pas, il cesse d'être tenu.
   fermeCourant();
+  // ET LE POUVOIR AUSSI — sauf que si le doigt est parti tout de suite, ce
+  // n'était pas une prise mais un double appui : la figure attendue se fait.
+  if (state.figEnAttente) {
+    const f = state.figEnAttente; state.figEnAttente = null;
+    if (performance.now() - f.t < POUVOIR_TENUE && state.running && !state.fig && state.spinT <= 0)
+      lanceFigure(f.side, f.dy);
+  }
+  fermePouvoir();
 }
 // ---------------------------------------------------------------------------
 // LA LOUPE DE L'IPHONE, POUR DE BON.
