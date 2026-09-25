@@ -12,13 +12,15 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Les casemates ne sont pas creuses : on voit un cadre de porte → v1.75 (vrais trous, 27 silhouettes)
 - [x] Un quatrième mécanicien, le seul à avoir le droit de tirer → v1.77
 - [x] La réparation complète dure 5 s : de 1 pv au plafond → v1.77 (4,96 s à 100, 400 et 900)
-- [ ] L'arrivée : deux grands cercles sur les pistes, et rien d'autre comme repère
-- [ ] L'arrivée : on garde sa vitesse en l'air, on ne freine qu'au sol, aux freins
-- [ ] L'arrivée : viseur coupé dans le tube, et ils cessent de tirer au toucher
-- [ ] L'arrivée : aucun à-coup d'assiette, du tube jusqu'à l'arrêt
+- [x] L'arrivée : deux grands cercles sur les pistes, et rien d'autre → v1.78
+- [x] L'arrivée : on garde sa vitesse en l'air, on freine au sol → v1.78 (176 à 232 au toucher)
+- [x] L'arrivée : viseur coupé dans le tube, et ils cessent de tirer → v1.78
+- [x] L'arrivée : aucun à-coup d'assiette → v1.78 (75 °/s → 5 à 11 en l'air, 1 à 3 au sol)
 - [ ] Le bimoteur doit continuer d'accélérer, au moins x3 au double-appui
 - [x] Le portail freine une ou deux secondes après → v1.74 (capital de vitesse, 321/456/558)
 - [ ] La tour : les quatre fenêtres se mesurent bonnes, trouver ce qui casse en jeu
+- [ ] Le PAPI reste-t-il, maintenant que le cercle est le seul repère ? à trancher
+- [ ] « Accélérer au moins x3 au double-appui » : quel geste, exactement ? à trancher
 - [x] L'approche : le cas « arrivé haut et vite » → v1.72, à revérifier au banc
 - [x] Le passage sous la piste → RETIRÉ en v1.73, sur demande
 - [x] La lune : booléen de deux cercles, un croissant propre → v1.73

@@ -404,8 +404,10 @@
   <p><b>La fente à 45°.</b> Le mur fendu en diagonale. Elle est trop étroite
   pour passer à plat : il faut arriver en tonneau, l'aile dans l'axe de la
   fente. 100 points de vie, et le plafond monte d'autant.</p>
-  <p><b>La piste.</b> Passe bas, dans l'axe, le nez pas trop haut : tu te poses
-  tout seul. Trois mécaniciens accourent et refont la jauge entière en cinq
+  <p><b>La piste.</b> Vise le grand cercle posé dans l'axe : il marque la bouche
+  du cône d'arrivée. Dedans, le tube prend l'axe et la pente et ne les rend
+  qu'aux roues — le viseur se coupe, personne ne te tire plus dessus, et tu
+  gardes toute ta vitesse. On ne freine qu'une fois posé, aux freins. Trois mécaniciens accourent et refont la jauge entière en cinq
   secondes, quel que soit le plafond ; un quatrième homme reste en retrait, le
   fusil à l'épaule — c'est le seul du terrain qui tire, et les trois autres ne
   lâchent jamais la clé à molette. L'avion repart au bout de dix secondes — ou
@@ -5948,6 +5950,15 @@ const ROULAGE_M = 44;        // metres de piste pour s'arreter : trois fois moin
 // — et une phrase qui dit ce qu'il faut en penser.
 const RETOUR_DUREE = 1;
 const FREIN_FRANC = 9;       // m/s2 : le coup de frein, franc — presque un g
+// ET IL N'EN A PRESQUE PAS D'AUTRE. J'avais essayé de le plafonner à vingt-deux
+// — deux g, un freinage d'avion de ligne. Mesuré : arrivé à deux cent cinq,
+// il faut neuf cent cinquante mètres pour s'arrêter et il n'en reste que sept
+// cent trente ; l'appareil sortait par le bout de la piste. Puisqu'on ne
+// ralentit plus en l'air, ce sont les freins qui portent tout, et ils doivent
+// pouvoir tout porter. Ce n'est pas un à-coup : la consigne est relue à chaque
+// image et converge sur la porte du hangar, donc la décélération est continue
+// du premier mètre au dernier.
+const FREIN_MAX = 240;       // m/s2 : ce que les freins donnent au maximum
 const TOUCHER_DUR = 4.5;      // m/s de descente au-delà desquels ça casse
 const REPARATION = 10;        // secondes avant que ça reparte tout seul
 // ---------------------------------------------------------------------------
@@ -6327,7 +6338,6 @@ const ALIGN_TENUE   = 2;      // gardée pour la jauge du collimateur
 // rayon, la bouche va du sol à deux cent trente mètres et laisse passer celui
 // qui rentre à deux cent quarante — l'altitude d'un retour de vague un peu
 // haut. Trente de plus, et il n'y a plus d'arrivée raisonnable qui la manque.
-const TUBE_ANNEAUX = 12;      // plus long, donc un peu plus d'anneaux
 // DEUX, ET NON 1,15. Mesuré : entré par le haut de la bouche, la prise valait
 // 0,28, donc un rappel de 0,32 rad/s — trop faible pour ramener vers le centre
 // avant la fin du couloir, et comme la prise croît avec la proximité, on
@@ -6390,8 +6400,45 @@ const APPROCHE_VIT = Math.round(SPEED_MIN * 1.3);
 // résiduel de l'ordre d'un demi-mètre par seconde au toucher. Le trim, lui,
 // est l'intégrateur qui annule l'écart entre l'assiette commandée et la pente
 // obtenue — sans lui, la consigne de trois degrés donnait zéro.
-const FINALE_ARRONDI = 11;                     // mètres sol où l'arrondi du tube commence
-const ARRONDI_PENTE = 0.7 * Math.PI / 180;     // la pente résiduelle du toucher
+// ---------------------------------------------------------------------------
+// ET L'ARRONDI SE MESURE EN TEMPS, PAS EN HAUTEUR.
+//
+// Il commençait à onze mètres sol, quelle que soit la vitesse. C'était juste
+// tant que le tube ramenait l'appareil à soixante avant le seuil ; il ne le
+// fait plus — on arrive avec la vitesse qu'on a, c'est la demande. Or à cent
+// cinquante mètres par seconde, onze mètres de palier à un demi-degré, c'est
+// neuf cents mètres de flottement : les roues ne touchent jamais, et il n'y a
+// plus de piste devant.
+//
+// L'arrondi dure donc un temps FIXE. Sa hauteur est ce que l'appareil descend
+// pendant ce temps-là : quatre mètres à soixante, dix à cent cinquante. On
+// arrondit tard et franchement quand on arrive vite, tôt et doucement quand on
+// arrive lentement — ce qui est exactement ce que fait un pilote.
+// ---------------------------------------------------------------------------
+// ET LA PENTE RÉSIDUELLE EST UNE FRACTION, PAS UN ANGLE FIXE.
+//
+// Mesuré, avec un demi-degré fixe : l'assiette basculait de quarante degrés
+// par seconde à cinq mètres du sol. C'est l'à-coup signalé — « j'ai des
+// changements d'assiette brusques ». La cause est arithmétique : arrondir de
+// trois degrés à un demi en quatre dixièmes de seconde, c'est six degrés par
+// dixième, et aucun amortissement ne rattrape ça.
+//
+// L'arrondi ne vise donc plus un angle : il garde le QUART de la pente. Trois
+// degrés deviennent trois quarts de degré — deux degrés et quart de
+// changement, étalés sur une seconde deux : moins de deux degrés par seconde,
+// c'est-à-dire rien du tout. Le taux de chute au toucher suit la vitesse, ce
+// qui est honnête : arriver vite se paie d'un contact plus ferme.
+const ARRONDI_T = 1.2;                         // constante de temps de l'arrondi
+const TUBE_ROULE = 900;                        // mètres de piste où le tube tient encore
+// ET LE COULOIR NE SE RESSERRE PLUS AU-DESSUS DU BITUME. L'entonnoir finit à
+// vingt-six mètres de rayon : passé le point visé, un appareil encore à vingt
+// mètres du sol en sortait par le haut, le tube lâchait, et l'arrondi de la
+// main lui donnait son coup de manche. Mesuré : soixante-cinq degrés par
+// seconde, pile à cet instant-là. Au-dessus de la piste le couloir est donc
+// large — il n'y a plus rien à guider latéralement, il n'y a qu'à ne pas
+// lâcher avant que les roues prennent.
+const TUBE_R_SOL = 80;                         // rayon du couloir au-dessus du bitume
+const ARRONDI_VZ = 1.2;                        // m/s : le taux de chute visé au contact
 const TRIM_GAIN = 0.55;                        // radians par radian d'écart et par seconde
 const TRIM_MAX = 0.16;                         // et on ne compense jamais plus de 9 degrés
 // ---------------------------------------------------------------------------
@@ -6462,40 +6509,70 @@ function pisteActive() {
   return best;
 }
 
-let tubeMesh = null, tubePiste = null, tubeSens = 0;
-(function poserTube() {
-  // UNE SEULE GÉOMÉTRIE, DANS SON PROPRE REPÈRE. Il y en avait deux, une par
-  // sens, et il en aurait fallu deux de plus par terrain ajouté. Le tube est
-  // dessiné une fois, l'axe le long de son +z, et c'est le GROUPE qu'on pose
-  // et qu'on tourne sur la piste en service. Ajouter un terrain ne coûte donc
-  // plus un seul triangle.
-  const g = new THREE.Group();
-  const pts = [], prec = [];
-  for (let a = 0; a <= TUBE_ANNEAUX; a++) {
-    const d = TUBE_DIST * a / TUBE_ANNEAUX;
-    const r = tubeRayon(d), y = tubeHaut(d) - PISTE.y;
-    const n = 28, cur = [];
-    for (let i = 0; i < n; i++) {
-      const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
-      pts.push(Math.cos(a0) * r, y + Math.sin(a0) * r, d,
-               Math.cos(a1) * r, y + Math.sin(a1) * r, d);
-    }
-    // quatre longerons : sans eux ce sont des anneaux, pas un tube
-    for (let k = 0; k < 4; k++) {
-      const ak = k / 4 * Math.PI * 2;
-      cur.push([Math.cos(ak) * r, y + Math.sin(ak) * r, d]);
-    }
-    if (prec.length) for (let k = 0; k < 4; k++)
-      pts.push(prec[k][0], prec[k][1], prec[k][2], cur[k][0], cur[k][1], cur[k][2]);
-    prec.length = 0; prec.push(...cur);
+// ---------------------------------------------------------------------------
+// DEUX GRANDS CERCLES, ET RIEN D'AUTRE.
+//
+// Le tube était dessiné en entier : douze anneaux échelonnés sur mille huit
+// cents mètres, plus quatre longerons pour qu'on voie que c'était un tube.
+// C'était juste, et c'était beaucoup — une cage de traits posée sur le ciel
+// pendant toute la descente, là où le jeu n'a plus qu'à être calme.
+//
+// Il n'en reste que la BOUCHE : un cercle, un seul, à l'entrée du couloir, un
+// par terrain. On le voit de loin, on le vise, on passe dedans, et le
+// magnétisme fait le reste. Le cône n'a pas changé — c'est seulement ce qu'on
+// en montre qui tient maintenant en une figure.
+// ---------------------------------------------------------------------------
+const CERCLE_N = 72;               // segments du cercle : assez pour qu'il soit rond
+const CERCLE_VU = 9000;            // mètres au-delà desquels on ne le dessine plus
+// UNE SEULE GÉOMÉTRIE, DANS SON PROPRE REPÈRE, et un groupe par terrain : le
+// cercle est dessiné une fois et posé deux fois. Ajouter un terrain ne coûte
+// toujours pas un triangle.
+//
+// ET IL SE POSE À LA PREMIÈRE IMAGE, PAS À LA LECTURE DU FICHIER. `pistes()`
+// lit le plan du refuge, qui naît plus bas : construire les groupes ici
+// rouvrait le piège du « Cannot access before initialization ». On attend donc
+// que la boucle tourne — à ce moment-là tout existe.
+const cerclesArrivee = [];
+const geomCercleArrivee = (() => {
+  const r = tubeRayon(TUBE_DIST), pts = [];
+  for (let i = 0; i < CERCLE_N; i++) {
+    const a0 = i / CERCLE_N * Math.PI * 2, a1 = (i + 1) / CERCLE_N * Math.PI * 2;
+    pts.push(Math.cos(a0) * r, Math.sin(a0) * r, 0,
+             Math.cos(a1) * r, Math.sin(a1) * r, 0);
   }
-  const li = new THREE.LineSegments(segGeom(pts), lineMat(COL_LINE, 0.30));
-  li.frustumCulled = false;
-  g.add(li);
-  g.visible = false;
-  scene.add(g);
-  tubeMesh = g;
+  return segGeom(pts);
 })();
+function batisLesCercles() {
+  for (const P of pistes()) {
+    const g = new THREE.Group();
+    const li = new THREE.LineSegments(geomCercleArrivee, lineMat(COL_LINE, 0.34));
+    li.frustumCulled = false;
+    g.add(li);
+    g.visible = false;
+    scene.add(g);
+    cerclesArrivee.push({ P, g });
+  }
+}
+
+// OÙ SE POSE LE CERCLE D'UN TERRAIN. À la bouche du couloir, dans le sens où
+// l'on se pose ce jour-là : c'est le vent qui décide, donc ça bouge.
+function majCerclesArrivee() {
+  if (!cerclesArrivee.length) batisLesCercles();
+  for (const c of cerclesArrivee) {
+    const P = c.P;
+    const cap = capPiste(P, sensAuVentDe(P));
+    const av = viseDe(P);
+    // le point visé, puis la bouche, TUBE_DIST plus loin en amont
+    const dx = -Math.sin(cap), dz = -Math.cos(cap);
+    const vx = P.x - dx * av, vz = P.z - dz * av;
+    const bx = vx - dx * TUBE_DIST, bz = vz - dz * TUBE_DIST;
+    c.g.position.set(bx, tubeHaut(TUBE_DIST), bz);
+    c.g.rotation.set(0, cap, 0);
+    const d = Math.hypot(state.pos.x - bx, state.pos.z - bz);
+    c.g.visible = state.running && d < CERCLE_VU
+                  && !state.pose && !state.roulage && !state.refuge && !state.auSol;
+  }
+}
 
 // OÙ L'ON EST DANS LE TUBE. Renvoie la distance au point visé, l'écart à
 // l'axe, et la prise — de zéro dehors à un au centre.
@@ -6529,6 +6606,27 @@ function sensAuVent() {
   return Math.cos(VENT.base) > 0 ? -1 : 1;
 }
 
+// ---------------------------------------------------------------------------
+// LE TUBE COMMANDE-T-IL ENCORE ?
+//
+// `state.assist` s'éteint au dernier mètre : il est écrit « la prise tient ET
+// l'on est à plus d'un mètre du sol ». C'est voulu pour tout ce qui concerne
+// le joueur — au toucher, il reprend la main. Mais le TUBE, lui, commande
+// toujours l'assiette à ce moment-là : il la commande jusqu'aux roues.
+//
+// Et c'est exactement là que se cachait l'à-coup. Sous un mètre, `state.assist`
+// tombait, l'arrondi de la main se réveillait, et il pose l'assiette par pas
+// de 1,2 radian par seconde sur une consigne à lui : mesuré, soixante-quinze
+// degrés par seconde en une image, puis l'assiette CLOUÉE à −0,23° pendant
+// que le tube en demandait −1,9. Les deux lois tournaient dans la même image
+// et la dernière écrite gagnait.
+//
+// Tout ce qui doit se taire pendant que le tube commande lit donc ceci, et
+// non `state.assist`.
+// ---------------------------------------------------------------------------
+const tubeCommande = () => TUBE.tient && TUBE.prise > 0.01
+                        && !state.roulage && !state.pose;
+
 const _tubA = new THREE.Vector3(), _tubD = new THREE.Vector3(), _tubC = new THREE.Vector3();
 function majTube() {
   // LE MÊME CALCUL POUR TOUS LES TERRAINS, dans le repère de celui qu'on
@@ -6551,7 +6649,12 @@ function majTube() {
   TUBE.d = d;
   TUBE.dedans = false;
   TUBE.prise = 0;
-  if (d < -40 || d > TUBE_DIST || defiEst('sansPiste') || avance.sansAtterrir
+  // ET IL NE LÂCHE PLUS AU POINT VISÉ. Il rendait la main quarante mètres
+  // après : à la vitesse qu'on garde maintenant, l'appareil y est encore à un
+  // mètre du bitume, et il repartait en vol libre à un mètre du sol, à plat,
+  // pour survoler tout le terrain. Le tube tient jusqu'à ce que les roues
+  // prennent — c'est-à-dire sur toute la longueur de piste qui reste devant.
+  if (d < -TUBE_ROULE || d > TUBE_DIST || defiEst('sansPiste') || avance.sansAtterrir
       || state.pose || state.roulage || state.refuge) {
     TUBE.tient = false;
     // le trim appartient à l'approche en cours : il repart de zéro à la
@@ -6559,7 +6662,7 @@ function majTube() {
     TUBE.trim = 0; TUBE.vue = false; TUBE.ditStab = false;
     return;
   }
-  const r = tubeRayon(Math.max(0, d));
+  const r = d < 0 ? TUBE_R_SOL : tubeRayon(d);
   // le centre du couloir à cette distance, et l'écart perpendiculaire à l'axe
   _tubC.copy(_tubA).addScaledVector(_tubD, -Math.max(0, d));
   _tubC.y = tubeHaut(Math.max(0, d));
@@ -12772,7 +12875,12 @@ function updateEnemies(dt) {
     // question de qui se cale le premier, pas de qui a le droit de tirer.
     // ZONE SÛRE. Dès que l'approche est engagée et jusqu'à ce que les roues
     // quittent le bitume, personne ne tire sur nous.
-    const zoneSure = state.assist || state.roulage || state.pose || state.takeoff;
+    // ET LE DERNIER MÈTRE EN FAIT PARTIE. `state.assist` s'éteint à un mètre
+    // du sol et le roulage ne commence qu'au contact : il restait une seconde
+    // et demie, l'appareil à deux mètres du bitume, où l'on pouvait encore se
+    // faire descendre. Le tube commande jusqu'aux roues, la zone sûre aussi.
+    const zoneSure = state.assist || tubeCommande()
+                  || state.roulage || state.pose || state.takeoff;
     // celui qui remue beaucoup ne se laisse pas cadrer : la visée adverse
     // retombe au lieu de monter, et c'est le répit qu'on cherchait
     if (state.remuant > 0.45) e.visee = Math.max(0, e.visee - dt * (state.remuant - 0.3) * 4);
@@ -13523,6 +13631,16 @@ function eblouissement() {
 }
 
 function updateLock(dt) {
+  // LE TUBE COUPE LES CANONS. « Dès qu'on rentre dans le cône, le viseur
+  // désactivé, parce qu'on n'est pas censé tirer. » Les adversaires ne
+  // tiraient déjà plus sur nous dès la prise du tube ; l'inverse était
+  // toujours permis, et un appareil guidé qui mitraille en descendant n'a
+  // aucun sens. Rien ne s'accroche, rien ne se charge, rien ne part.
+  if (state.assist) {
+    for (const e of state.enemies) e.charge = Math.max(0, e.charge - CHARGE_DECROIT * dt);
+    state.lock = null; state.lockCharge = 0; state.lockTenu = 0;
+    return;
+  }
   let best = null, bestEcart = Infinity;
   for (const e of state.enemies) {
     // ON VISE L'AVION. Le point de deflexion existe toujours — c'est la que
@@ -14109,25 +14227,10 @@ function simulate(dt) {
   majPlan();
   majPapi();
   majTube();
-  // le tube ne se montre que du bon côté, et seulement quand on vient vraiment
-  // LE DESSIN SE POSE SUR LA PISTE EN SERVICE. Un seul tube, qu'on déplace et
-  // qu'on tourne : c'est ce qui permet d'en avoir un sur chaque terrain sans
-  // rien redessiner. Sur la principale il ne s'affiche que si les feux sont
-  // lisibles ; au refuge il n'y a pas de feux, donc c'est la proximité qui
-  // décide — et c'est justement là qu'un guide sert le plus.
-  if (tubeMesh) {
-    const P = TUBE.piste;
-    if (P && TUBE.d > -20 && TUBE.d < TUBE_DIST * 1.05
-        && (P.cle !== 'base' || PLAN.lisible)
-        && !state.pose && !state.roulage && !state.refuge) {
-      const cap = TUBE.cap || 0;
-      const av = viseDe(P);
-      tubeMesh.position.set(P.x - Math.sin(cap) * -av, PISTE.y,
-                            P.z - Math.cos(cap) * -av);
-      tubeMesh.rotation.y = cap;
-      tubeMesh.visible = true;
-    } else tubeMesh.visible = false;
-  }
+  // LES DEUX CERCLES. Ils ne dépendent plus de la piste « en service » : il y
+  // en a un par terrain, posé à la bouche de son couloir, et on les voit tous
+  // les deux tant qu'on est en l'air et pas trop loin.
+  majCerclesArrivee();
 
   // LE MAGNÉTISME. Plus de bouton, plus de barre à tenir : c'est la géométrie
   // qui décide. Entrer dans le tube suffit à être pris, en sortir suffit à le
@@ -14148,8 +14251,31 @@ function simulate(dt) {
       // faux pour une bande inclinée de trois degrés à trente-deux kilomètres.
       const capT = TUBE.cap || 0;
       const vx = -Math.sin(capT), vz = -Math.cos(capT);
-      const tx = (TUBE.cx !== undefined ? TUBE.cx : 0) + vx * 400;
-      const tz = (TUBE.cz !== undefined ? TUBE.cz : 0) + vz * 400;
+      // -----------------------------------------------------------------
+      // ET CES QUATRE CENTS MÈTRES SONT DEVANT NOUS, PAS DEVANT LE SEUIL.
+      //
+      // Le centre du couloir est cloué au point visé dès qu'on l'a dépassé —
+      // c'est juste, le couloir n'existe pas en amont du seuil. Mais le point
+      // de visée du lacet s'en déduisait : « quatre cents mètres après le
+      // centre ». Passé quatre cents mètres de bitume, ce point tombait donc
+      // DERRIÈRE l'appareil, et l'arc-tangente renvoyait un demi-tour.
+      //
+      // Mesuré, en roulant à deux mètres du sol à deux cents mètres par
+      // seconde : le cap sautait de zéro à −46 degrés en deux images, le tube
+      // se voyait pris à contresens et lâchait, l'appareil sortait du bitume,
+      // le plancher invisible le renvoyait vingt-deux mètres en l'air et
+      // l'arrondi de la main lui donnait son coup de manche. Toute la
+      // cascade tenait dans cette ligne.
+      //
+      // On repart donc du PIED DE PERPENDICULAIRE réel — le centre, plus ce
+      // qu'on a déjà parcouru au-delà — et on vise quatre cents mètres plus
+      // loin. Le point visé reste devant, toujours.
+      // -----------------------------------------------------------------
+      const apres = Math.max(0, -TUBE.d);
+      const cx0 = (TUBE.cx !== undefined ? TUBE.cx : 0) + vx * apres;
+      const cz0 = (TUBE.cz !== undefined ? TUBE.cz : 0) + vz * apres;
+      const tx = cx0 + vx * 400;
+      const tz = cz0 + vz * 400;
       const voulu = Math.atan2(-(tx - state.pos.x), -(tz - state.pos.z));
       const avantYaw = state.yaw;
       state.yaw = dampAngle(state.yaw, voulu, TUBE_PRISE * tenu, dt);
@@ -14199,11 +14325,35 @@ function simulate(dt) {
       const hSolT = state.pos.y - SOL_Y;
       // L'ARRONDI SE MESURE EN HAUTEUR, PAS EN DISTANCE. Il se déclenchait aux
       // quatre-vingts derniers mètres d'axe : arrivé haut, on arrondissait en
-      // l'air ; arrivé bas, jamais. Un pilote arrondit à une hauteur — une
-      // dizaine de mètres — et pas à une abscisse.
-      const kArr = THREE.MathUtils.clamp(1 - hSolT / FINALE_ARRONDI, 0, 1);
-      // la pente voulue : trois degrés, adoucie à presque rien dans l'arrondi
-      const penteVoulue = -(PENTE_CIBLE + corr) * (1 - kArr * kArr) - ARRONDI_PENTE * kArr * kArr;
+      // l'air ; arrivé bas, jamais. Un pilote arrondit à une hauteur — et cette
+      // hauteur est ce qu'il descend pendant la durée de l'arrondi, donc elle
+      // grandit avec la vitesse. Voir ARRONDI_T.
+      // ---------------------------------------------------------------------
+      // L'ARRONDI VISE UN TAUX DE CHUTE, PAS UNE PENTE.
+      //
+      // Une pente résiduelle, même petite, ne se raccorde jamais au sol : elle
+      // y tend sans l'atteindre, et un appareil rapide flotte des centaines de
+      // mètres. Une FRACTION de pente ne fait pas mieux : elle change la
+      // consigne d'un coup au moment où l'on entre dans l'arrondi.
+      //
+      // On vise donc une vitesse verticale proportionnelle à la hauteur qui
+      // reste, avec un plancher. Trois propriétés, et ce sont les trois qu'on
+      // voulait :
+      //   — au HAUT de l'arrondi, hauteur sur durée vaut exactement le taux de
+      //     chute du plan : le raccord est parfait, il n'y a pas de marche ;
+      //   — la hauteur décroît ensuite comme une exponentielle de constante
+      //     ARRONDI_T, donc l'assiette bouge de trois degrés en une seconde et
+      //     deux dixièmes — deux degrés et demi par seconde, c'est-à-dire rien ;
+      //   — le plancher ARRONDI_VZ garantit que les roues finissent par
+      //     toucher, et à la même douceur quelle que soit la vitesse.
+      // ---------------------------------------------------------------------
+      const chute0 = state.speed * Math.sin(PENTE_CIBLE + corr);
+      const hArr = Math.max(2, chute0 * ARRONDI_T);
+      const kArr = THREE.MathUtils.clamp(1 - hSolT / hArr, 0, 1);
+      const penteVoulue = hSolT < hArr
+        ? -Math.asin(Math.min(1, Math.max(ARRONDI_VZ, hSolT / ARRONDI_T)
+                                 / Math.max(1, state.speed)))
+        : -(PENTE_CIBLE + corr);
       // la pente réelle, relevée entre deux images
       const vhT = Math.max(1, Math.hypot(state.pos.x - TUBE.xPrec, state.pos.z - TUBE.zPrec) / Math.max(dt, 1e-3));
       const vzT = (state.pos.y - TUBE.yPrec) / Math.max(dt, 1e-3);
@@ -14217,17 +14367,28 @@ function simulate(dt) {
       // LA PORTE DES CINQ CENTS PIEDS, franchie une seule fois par approche
       if (!TUBE.ditStab && hSolT < PORTE_STAB && hSolT > PORTE_STAB - 40) {
         TUBE.ditStab = true;
+        // LA PORTE NE PARLE PLUS DE VITESSE. Les critères de la Flight Safety
+        // Foundation valent pour une approche qui décélère jusqu'à Vref ;
+        // celle-ci arrive à la vitesse qu'on a bien voulu garder, et c'est
+        // voulu. Crier « trop vite » à chaque passage, c'est une alarme qui
+        // ne veut plus rien dire. Le taux de chute suit la vitesse pour la
+        // même raison : trois degrés à cent cinquante font sept mètres par
+        // seconde, et c'est la bonne pente. Reste ce qui a encore un sens :
+        // être sur le plan, ou ne pas y être.
         const trop = [];
-        if (-vzT > STAB_CHUTE) trop.push(t('stabChute'));
-        if (state.speed > APPROCHE_VIT + STAB_VITESSE) trop.push(t('stabVite'));
-        if (state.speed < APPROCHE_VIT - 4) trop.push(t('stabLent'));
+        if (-vzT > state.speed * Math.sin(PENTE_CIBLE) * 1.6) trop.push(t('stabChute'));
         if (Math.abs(err) > 45) trop.push(err > 0 ? t('stabHaut') : t('stabBas'));
         if (trop.length) nouvelle(null, 0, t('stabNon') + trop.join('  ·  '));
       }
-      let vise = penteVoulue - TUBE.trim;
-      // et dans l'arrondi le nez vient au-dessus de l'horizon : on pose les
-      // roues principales, on ne plante pas le train avant
-      vise += (SOL_ASSIETTE - vise) * kArr * kArr * 0.5;
+      // ET LE NEZ NE SE RELÈVE PLUS D'UN COUP. Il y avait ici un mélange vers
+      // SOL_ASSIETTE — trois degrés au-dessus de l'horizon — pondéré par le
+      // carré de l'arrondi : c'est lui qui donnait les quarante degrés par
+      // seconde, et c'est lui qui empêchait les roues de toucher, puisqu'un
+      // avion à plat ne descend plus. L'assiette à cabrer que l'on VOIT au
+      // toucher est celle de l'incidence d'approche, appliquée à la maquette
+      // au moment du rendu : elle n'a jamais eu besoin d'être commandée ici.
+      const vise = penteVoulue - TUBE.trim;
+      TUBE.vise = vise; TUBE.kArr = kArr; TUBE.hArr = hArr;   // lus par les bancs
       state.pitch = THREE.MathUtils.damp(state.pitch, vise, TUBE_PRISE * tenu, dt);
     }
     // ILS SORTENT DÈS QUE LE TUBE NOUS TIENT : le temps qu'on descende, ils
@@ -14274,14 +14435,13 @@ function simulate(dt) {
   // rouler en marche arrière jusqu'au parking, ce qui est une rustine sur un
   // symptôme.
   //
-  // Une approche, c'est une vitesse qui descend en même temps que l'altitude.
-  // De la bouche du tube au seuil, la consigne glisse de la croisière à
-  // APPROCHE_VIT, en proportion de ce que le tube tient réellement.
-  if (state.assist && TUBE.prise > 0.01) {
-    const uT = THREE.MathUtils.clamp(1 - Math.max(0, TUBE.d) / TUBE_DIST, 0, 1);
-    const vSeuil = croisiere + (APPROCHE_VIT - croisiere) * uT;
-    croisiere += (vSeuil - croisiere) * TUBE.prise;
-  }
+  // ET IL NE LA TIENT PLUS. « On arrive avec notre vitesse, et on ne freine
+  // qu'une fois posé, aux freins. » Le tube ramenait la consigne de la
+  // croisière à soixante le long du couloir : on arrivait au ralenti, ce qui
+  // est une vraie approche mais coûte dix secondes à chaque passage. Il ne
+  // touche plus à la vitesse EN L'AIR — ni par la consigne moteur, ni
+  // directement. Ce qui arrête l'appareil, ce sont les freins, une fois les
+  // roues au sol, et eux savent freiner aussi fort qu'il faut.
   const pesanteur = state.forward.y < 0 ? 2.6 : 1;
   // ELLES S'AJOUTENT. La poussée fixe une vitesse visée, la pesanteur en donne
   // une autre : tant que le plafond était à 205, le piqué d'un avion déjà
@@ -14353,18 +14513,9 @@ function simulate(dt) {
   // Le tube ne demande donc plus au moteur : il tient la vitesse lui-même,
   // exactement comme il tient l'axe et la pente. « Il prend les commandes »
   // veut dire les trois.
-  if (state.assist && TUBE.prise > 0.01 && !state.roulage && !state.pose) {
-    // ON EST À LA VITESSE DE FINALE AVANT LA FINALE. La consigne glissait de
-    // la croisière à soixante sur toute la longueur du couloir : on arrivait
-    // donc au seuil en décélérant encore, à soixante-sept au lieu de soixante.
-    // Un avion stabilisé a sa vitesse d'approche bien avant le seuil — c'est
-    // la moitié du mot « stabilisée ». Elle est atteinte aux deux tiers du
-    // couloir, et tenue ensuite.
-    const uT = Math.min(1, THREE.MathUtils.clamp(1 - Math.max(0, TUBE.d) / TUBE_DIST, 0, 1) * 1.55);
-    const haut = CRUISE * avion().vit;
-    const vAppro = haut + (APPROCHE_VIT - haut) * uT;
-    state.speed = THREE.MathUtils.damp(state.speed, vAppro, 2.2 * TUBE.prise, dt);
-  }
+  // LE TUBE NE TIENT PLUS LA VITESSE. Il tenait l'axe, la pente ET la vitesse ;
+  // il ne tient plus que les deux premiers. La troisième est au pilote en
+  // l'air, et aux freins au sol.
 
   // LE VACILLEMENT REVIENT — MAIS IL NE TOUCHE PLUS AU CAP. Ce qui le rendait
   // insupportable n'était pas la secousse : c'était le LACET qu'il ajoutait.
@@ -14518,12 +14669,12 @@ function simulate(dt) {
         const reste = (AERO.z - state.pos.z) * (R.sens < 0 ? -1 : 1);
         if (reste > 1.5) {
           const besoin = R.v * R.v / (2 * reste);
-          R.a = besoin < FREIN_FRANC ? 0 : THREE.MathUtils.clamp(besoin, FREIN_FRANC, 240);
+          R.a = besoin < FREIN_FRANC ? 0 : THREE.MathUtils.clamp(besoin, FREIN_FRANC, FREIN_MAX);
           if (R.a > 0 && !R.dit) { R.dit = true; announce(t('freinage')); }
           R.v = Math.max(0, R.v - R.a * dt);
         } else {
           // dépassé : on plante les freins, et le retour se fait d'un trait
-          R.v = Math.max(0, R.v - 240 * dt);
+          R.v = Math.max(0, R.v - FREIN_MAX * dt);
           if (R.v < 0.5) {
             R.v = 0;
             if (Math.abs(reste) >= 1.5) {
@@ -15202,7 +15353,25 @@ function simulate(dt) {
   // visible, ce qui est tout l'intérêt d'avoir des feux.
   const surLeBitume = auDessusDuBitume(60);
   const hauteur = state.pos.y - SOL_Y;
-  if (surLeBitume && hauteur < ARRONDI_H && state.forward.y < 0 && state.running) {
+  // ---------------------------------------------------------------------------
+  // ET IL Y AVAIT DEUX ARRONDIS QUI SE DISPUTAIENT LE MANCHE.
+  //
+  // Celui-ci est l'arrondi de la main : il existe pour qu'un posé sans tube —
+  // à la main, n'importe où sur le bitume — ne plante pas le train avant. Il
+  // commande une assiette par pas de 1,2 radian par seconde, c'est-à-dire
+  // soixante-huit degrés par seconde, ce qui est fait pour rattraper un piqué,
+  // pas pour accompagner une descente.
+  //
+  // Le tube a maintenant son propre arrondi, continu et amorti. Les deux
+  // tournaient dans la même image : mesuré, l'assiette sautait de trente et un
+  // degrés par seconde à quatre mètres du sol — un seul pas de celui-ci. C'est
+  // l'à-coup signalé, et il n'en restait pas d'autre.
+  //
+  // Quand le tube tient, il tient TOUT : l'axe, la pente et l'arrondi, du
+  // couloir jusqu'aux roues. Celui-ci se tait.
+  // ---------------------------------------------------------------------------
+  if (surLeBitume && hauteur < ARRONDI_H && state.forward.y < 0 && state.running
+      && !tubeCommande()) {
     // l'arrondi assisté est deux fois plus franc : c'est lui qui prenait la
     // moitié du temps entre la porte et l'arrêt
     const vzMax = Math.max(0.7, (state.assist ? 2.0 : 0.85) * hauteur);
@@ -15303,7 +15472,7 @@ function simulate(dt) {
   // mètres au-dessus de la mer et deux cents mètres SOUS la crête : tous les
   // filets qui empêchent de labourer la plaine nous éjecteraient du boyau.
   // Ce sont les parois du tunnel qui tiennent, et elles seules.
-  const plancherEff = (state.assist || dansTunnel()) ? 0 : FLOOR * (1 - partPiste);
+  const plancherEff = (state.assist || tubeCommande() || dansTunnel()) ? 0 : FLOOR * (1 - partPiste);
   if (state.pos.y < plancherEff) {
     state.pos.y = plancherEff;
     if (state.pitch < 0) state.pitch = THREE.MathUtils.damp(state.pitch, 0.12, 9, dt);
@@ -15793,7 +15962,7 @@ function scrapeCorps(dt) {
     // valait un — et l'appareil était replaqué au plancher, treize mètres
     // plus haut, mesuré. On sort d'abord, on compare ensuite.
     const pbC = dansTunnel() ? 1 : partBitume(60);
-    if (pbC < 1 && hs < SOL_COUSSIN * (1 - pbC) && !state.assist) {
+    if (pbC < 1 && hs < SOL_COUSSIN * (1 - pbC) && !state.assist && !tubeCommande()) {
       if (doux) {
         const k = THREE.MathUtils.clamp(1 - hs / SOL_COUSSIN, 0, 1);
         // la reprise, en mètres par seconde : nulle en haut, franche en bas
@@ -16945,7 +17114,10 @@ function drawHud() {
   // seul moment calme du jeu. Il revient quand l'appareil vole, donc quand la
   // caméra s'est recollée derrière lui.
   const nose = project(_v.copy(state.forward).multiplyScalar(1500).add(state.pos));
+  // ET PLUS RIEN DANS LE TUBE. Dès que l'approche est prise, on n'est plus
+  // censé tirer : le viseur s'efface, comme il s'efface déjà une fois posé.
   if (nose.front && !state.pose && !state.roulage && !state.refuge && !state.auSol
+      && !state.assist
       && !(state.takeoff && state.pos.y < SOL_Y + 12)) {
     const ch = state.lock ? state.lockCharge : 0;
     const jit = () => (Math.random() - 0.5) * 2.4 * ch;
@@ -19029,6 +19201,11 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.78', fr: 'Un seul grand cercle par terrain remplace le tube dessiné : la bouche du cône, et rien d’autre.', en: 'One big circle per field replaces the drawn tube: the mouth of the cone, and nothing else.' },
+  { v: '1.78', fr: 'On garde toute sa vitesse en l’air : le tube ne ralentit plus, on touche à 176 comme à 232, et on freine aux freins.', en: 'You keep all your speed in the air: the tube no longer slows you, you touch at 176 or at 232, and you brake with the brakes.' },
+  { v: '1.78', fr: 'Plus d’à-coup d’assiette : il y avait deux arrondis qui se disputaient le manche, mesurés à 75 degrés par seconde. Il n’en reste qu’un, et il fait 5.', en: 'No more attitude jolt: two flare laws were fighting over the stick, measured at 75 degrees per second. One remains, and it does 5.' },
+  { v: '1.78', fr: 'Passé le seuil, le tube commandait un demi-tour à deux mètres du sol : il vise maintenant quatre cents mètres devant NOUS.', en: 'Past the threshold the tube commanded a U-turn two metres off the ground: it now aims four hundred metres ahead of US.' },
+  { v: '1.78', fr: 'Le viseur se coupe dès l’entrée dans le cône, et plus personne ne tire sur nous jusqu’aux roues.', en: 'The sight cuts out on entering the cone, and nobody fires at us until the wheels are down.' },
   { v: '1.77', fr: 'Un quatrième mécanicien arrive, et c’est le seul du terrain qui a le droit de tirer : les trois autres ne lâchent plus la clé à molette.', en: 'A fourth mechanic arrives, and he is the only one on the field allowed to shoot: the other three never drop the wrench.' },
   { v: '1.77', fr: 'La réparation refait la jauge entière en cinq secondes, qu’elle vaille cent ou mille : mesuré 4,96 s à 100, 400 et 900 de plafond.', en: 'A repair refills the whole gauge in five seconds, whether it holds a hundred or a thousand: measured 4.96 s at 100, 400 and 900.' },
   { v: '1.77', fr: 'Le garde tire seul ce que les trois tiraient ensemble : la défense du sol garde son poids, et la réparation ne s’arrête plus.', en: 'The guard alone fires what the three fired together: ground defence keeps its weight, and the repair no longer stops.' },
