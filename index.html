@@ -8180,9 +8180,26 @@ const GUILLO_DELAI = 2;    // secondes entre la traversée et la chute de la lam
 // une lame : un volume plein de la taille du trou, qui descend depuis le
 // linteau. Elle est dessinée comme tout le reste — un seul passage, le trait
 // peint par le fragment — donc elle a exactement le même vert que sa tour.
+// ---------------------------------------------------------------------------
+// ET LA LAME SE VOIT. Elle était une plaque au tiers de la profondeur, du même
+// vert que le cadre, sans un trait de plus : vue de face, deux rectangles
+// emboîtés, et l'on visait le grand. Mesuré : au deuxième cran de la grande
+// tour, l'ouverture qui reste fait 24 mètres sur 95, et l'image était presque
+// celle de la tour ouverte. C'est ce qui « ne fonctionnait pas ».
+//
+// La lame occupe maintenant toute la profondeur du passage, au trait plein,
+// et porte une croix sur chaque face : ce qui est barré est
+// barré, on ne le confond plus avec un trou.
+// ---------------------------------------------------------------------------
 function faitLame(largeur, hauteur, prof) {
-  const geo = new THREE.BoxGeometry(largeur, hauteur, prof * 0.34);
-  const l = solidWire(geo, new THREE.EdgesGeometry(geo, 20), matBati);
+  const geo = new THREE.BoxGeometry(largeur, hauteur, prof * 0.92);
+  const l = solidWire(geo, null, matBati);
+  const w = largeur / 2, h = hauteur / 2, d = prof * 0.92 / 2 + 0.3;
+  const pts = [];
+  for (const z of [-d, d]) pts.push(-w, -h, z,  w, h, z,  -w, h, z,  w, -h, z);
+  const croix = new THREE.LineSegments(segGeom(pts), matBati);
+  croix.frustumCulled = false;
+  l.add(croix);
   l.visible = false;
   return l;
 }
@@ -19384,6 +19401,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.83', fr: 'Les lames de la guillotine se voient : pleine épaisseur, trait plein, une croix sur chaque face. Ce qui est barré est barré.', en: 'The guillotine blades show: full depth, full stroke, a cross on each face. What is barred is barred.' },
   { v: '1.82', fr: 'Deux drones. Le lourd : lent, sans canon, quarante roquettes, et il se répare en vol tout seul. L’essaim : trois cellules en triangle, on pilote celle du milieu, les deux autres tirent.', en: 'Two drones. The heavy: slow, no gun, forty rockets, and it repairs itself in flight. The swarm: three cells in a triangle, you fly the middle one, the other two shoot.' },
   { v: '1.81', fr: 'Une capacité par appareil, tenue au doigt comme le courant : le Pionnier fait du surplace (30 m/s, lacet triplé, personne ne le cadre), l’Intercepteur tire une salve (dégâts et chauffe doublés), le Faucheur glisse en nappe (60 m/s de côté, cap constant).', en: 'One held ability per aircraft, like the current: the Pioneer hovers (30 m/s, triple yaw, nobody can frame it), the Interceptor fires a volley (double damage and heat), the Reaper slips sideways (60 m/s, heading unchanged).' },
   { v: '1.81', fr: 'Le bimoteur a une coque : plafond de vie à 150 dès le départ.', en: 'The twin has a hull: life ceiling at 150 from the start.' },

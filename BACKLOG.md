@@ -23,7 +23,7 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
        la grande +/-44 lat, +/-48 vert, 36 deg dans 95 m. Mais chaque passage divise
        l'ouverture par deux : l'ordinaire est FERMEE au 2e passage (11 m < 14),
        la grande au 4e. On vise un cadre encore grand et on heurte une lame.)
-- [ ] Les lames de la guillotine doivent se voir mieux qu'un cadre vide
+- [x] Les lames de la guillotine se voient → v1.83 (pleine épaisseur, croix sur chaque face)
 - [x] L'Ancien le plus rapide du jeu au double-appui tenu → v1.79 (48 → 336, x7)
 - [x] Le PAPI reste tel quel → tranché, on n'y touche pas
 - [x] Tous les appareils débloqués le temps qu'on règle leurs capacités → v1.79
