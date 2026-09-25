@@ -4319,7 +4319,17 @@ const AVIONS = [
   // s'appuyer sur l'air. On ne le prend pas pour gagner, on le prend pour
   // savoir ce que c'était.
   { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel', pouvoir: 'nappe' },
+  // LES DRONES. Ils ne se pilotent pas comme des avions : aucun canon, et
+  // c'est ce qui les définit.
+  //   — le LOURD est lent, sans arme, porte le double de roquettes et se
+  //     répare en vol, tout seul, tant qu'il vole ;
+  //   — l'ESSAIM est trois cellules en triangle : on pilote celle du milieu,
+  //     qui ne tire pas, et les deux autres tirent. Ses deux suiveurs sont
+  //     imposés — c'est l'appareil lui-même.
+  { id: 'lourd',        nom: 'DRONE LOURD',  en: 'HEAVY DRONE', vit: 0.7,  lacet: 0.7,  tangage: 0.8,  roquettes: 40, leurres: 2, acces: 'libre', canons: false, pouvoir: 'soute' },
+  { id: 'essaim',       nom: 'ESSAIM',       en: 'SWARM',       vit: 1.1,  lacet: 1.2,  tangage: 1.1,  roquettes: 0,  leurres: 0, acces: 'libre', canons: false, pouvoir: 'essaim' },
 ];
+const LOURD_REPARE = 6;        // points de vie par seconde, en vol, pour le drone lourd
 let avionChoisi = 'bimoteur';
 try { avionChoisi = localStorage.getItem('fod_avion') || 'bimoteur'; } catch (e) {}
 const avion = () => AVIONS.find(a => a.id === avionChoisi) || AVIONS[0];
@@ -4512,7 +4522,15 @@ const meshFaucheur = solidWire(KIND_FAUCHEUR.geom, KIND_FAUCHEUR.edges, matPlaye
 meshFaucheur.scale.setScalar(KIND_FAUCHEUR.echelle * ENVERGURE_JOUEUR / KIND_FAUCHEUR.envergure / PLANE_SCALE);
 meshPionnier.frustumCulled = meshInter.frustumCulled = meshAncien.frustumCulled = false;
 meshFaucheur.frustumCulled = false;
-playerMesh.add(meshInter, meshPionnier, meshAncien, meshFaucheur);
+// les drones empruntent des silhouettes adverses : le lourd celle du gardien,
+// la cellule d'essaim celle du drone
+const KIND_GARDIEN = KINDS.find(x => x.nom === 'GARDIEN'), KIND_DRONE = KINDS.find(x => x.nom === 'DRONE');
+const meshLourd = solidWire(KIND_GARDIEN.geom, KIND_GARDIEN.edges, matPlayer);
+meshLourd.scale.setScalar(KIND_GARDIEN.echelle * ENVERGURE_JOUEUR * 1.3 / KIND_GARDIEN.envergure / PLANE_SCALE);
+const meshEssaim = solidWire(KIND_DRONE.geom, KIND_DRONE.edges, matPlayer);
+meshEssaim.scale.setScalar(KIND_DRONE.echelle * ENVERGURE_JOUEUR * 0.6 / KIND_DRONE.envergure / PLANE_SCALE);
+meshLourd.frustumCulled = meshEssaim.frustumCulled = false;
+playerMesh.add(meshInter, meshPionnier, meshAncien, meshFaucheur, meshLourd, meshEssaim);
 // elle est FILLE de l'appareil : elle hérite de son échelle et de son assiette,
 // et il ne reste qu'un angle à faire avancer
 const propAncien = new THREE.LineSegments(segGeom(ANCIEN_HELICE), matPlayer);
@@ -4536,9 +4554,11 @@ function appliqueAvion() {
   meshPionnier.visible = id === 'pionnier';
   meshAncien.visible = id === 'ancien';
   meshFaucheur.visible = id === 'faucheur';
-  // l'ancien porte la sienne, le faucheur et l'intercepteur n'en ont pas
+  meshLourd.visible = id === 'lourd';
+  meshEssaim.visible = id === 'essaim';
+  // l'ancien porte la sienne ; le faucheur, l'intercepteur et les drones n'en ont pas
   if (typeof propMesh !== 'undefined')
-    propMesh.visible = id !== 'intercepteur' && id !== 'ancien' && id !== 'faucheur';
+    propMesh.visible = id === 'bimoteur' || id === 'pionnier';
 }
 function appliqueTeinte() {
   const t = TEINTES.find(x => x.id === teinteChoisie) || TEINTES[0];
@@ -13774,6 +13794,7 @@ function updateLock(dt) {
   if (charge < SEUIL_TIR) return;
 
   const dps = (DPS_MIN + (DPS_MAX - DPS_MIN) * charge)
+            * (avion().canons === false ? 0 : 1)          // un drone n'a pas de canons
             * (pouvoirEst('salve') ? SALVE_DEGATS : 1)
             * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1)
             * (state.pleiades ? PLEIADE_DEGATS : 1)
@@ -13814,7 +13835,7 @@ function updateLock(dt) {
 
   // une salve part de chaque aile, d'autant plus serrée que le tir est calé
   state.gunT -= dt;
-  if (state.gunT <= 0 && !defiEst('roquettes')) {
+  if (state.gunT <= 0 && !defiEst('roquettes') && avion().canons !== false) {
     state.gunT = SHOT_RATE * (1.6 - 0.6 * charge)
                  * (state.chauffe > 0 ? CHAUFFE_CADENCE : 1);
     for (const g of [GUN_L, GUN_R]) {
@@ -15535,6 +15556,9 @@ function simulate(dt) {
     state.quatVu = (state.quatVu || new THREE.Quaternion()).setFromEuler(euler);
   } else state.quatVu = null;
 
+  // LA SOUTE : le drone lourd se répare en vol, tout seul, tant qu'il vole
+  if (avion().pouvoir === 'soute' && state.running && !state.pose && !state.roulage)
+    state.structure = Math.min(state.vieMax, state.structure + LOURD_REPARE * dt);
   // LA NAPPE : le disque se déporte à plat, du côté touché, sans tourner
   if (pouvoirEst('nappe')) {
     _right.crossVectors(state.forward, _up).normalize();
@@ -15811,6 +15835,7 @@ function sauveEscouade() {
 }
 // les appareils qu'on veut voir voler à côté de nous, place par place
 function escouadeVoulue() {
+  if (avion().id === 'essaim') return ['essaim', 'essaim'];   // les deux autres cellules
   const v = escouade.slice();
   if (carnet.ailier && v[0] === 'aucun' && v[1] === 'aucun') v[0] = 'bimoteur';
   return v;
@@ -16654,6 +16679,10 @@ function meshAmiDe(id) {
   else if (id === 'ancien') { g = avionEnFil(ANCIEN_SHAPE, ANCIEN_PEAU, matAmi); ech = 12 / 7.2 * 0.9; }
   else if (id === 'faucheur') { g = solidWire(KIND_FAUCHEUR.geom, KIND_FAUCHEUR.edges, matAmi);
     ech = KIND_FAUCHEUR.echelle * ENVERGURE_JOUEUR / KIND_FAUCHEUR.envergure; }
+  else if (id === 'lourd') { g = solidWire(KIND_GARDIEN.geom, KIND_GARDIEN.edges, matAmi);
+    ech = KIND_GARDIEN.echelle * ENVERGURE_JOUEUR * 1.3 / KIND_GARDIEN.envergure; }
+  else if (id === 'essaim') { g = solidWire(KIND_DRONE.geom, KIND_DRONE.edges, matAmi);
+    ech = KIND_DRONE.echelle * ENVERGURE_JOUEUR * 0.6 / KIND_DRONE.envergure; }
   else return meshAmi();
   g.scale.setScalar(ech);
   g.frustumCulled = false;
@@ -19204,7 +19233,8 @@ function majMenu() {
       const nV = videosAvion(a), vuV = Math.min(videosVues(a), nV);
       const paie = (!ouvert && nV > 0) ? '  ·  ' + (fr ? 'VIDÉO ' : 'VIDEO ') + vuV + '/' + nV : '';
       const CAP = { coque: ['COQUE', 'HULL'], salve: ['SALVE', 'VOLLEY'], surplace: ['SURPLACE', 'HOVER'],
-                    courant: ['COURANT', 'CURRENT'], nappe: ['NAPPE', 'SLIP'] }[a.pouvoir];
+                    courant: ['COURANT', 'CURRENT'], nappe: ['NAPPE', 'SLIP'],
+                    soute: ['SE RÉPARE EN VOL', 'SELF-REPAIRS'], essaim: ['TROIS CELLULES', 'THREE CELLS'] }[a.pouvoir];
       b.textContent = (fr ? a.nom : a.en) + (ouvert ? '' : cle + paie)
         + (CAP ? '  ·  ' + CAP[fr ? 0 : 1] : '')
         + '  ·  ' + (fr ? 'vit. ' : 'spd ') + a.vit + '  ·  ' + a.roquettes + (fr ? ' roq.' : ' rkt') + '  ·  ' + a.leurres + (fr ? ' leurres' : ' flares');
@@ -19354,6 +19384,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.82', fr: 'Deux drones. Le lourd : lent, sans canon, quarante roquettes, et il se répare en vol tout seul. L’essaim : trois cellules en triangle, on pilote celle du milieu, les deux autres tirent.', en: 'Two drones. The heavy: slow, no gun, forty rockets, and it repairs itself in flight. The swarm: three cells in a triangle, you fly the middle one, the other two shoot.' },
   { v: '1.81', fr: 'Une capacité par appareil, tenue au doigt comme le courant : le Pionnier fait du surplace (30 m/s, lacet triplé, personne ne le cadre), l’Intercepteur tire une salve (dégâts et chauffe doublés), le Faucheur glisse en nappe (60 m/s de côté, cap constant).', en: 'One held ability per aircraft, like the current: the Pioneer hovers (30 m/s, triple yaw, nobody can frame it), the Interceptor fires a volley (double damage and heat), the Reaper slips sideways (60 m/s, heading unchanged).' },
   { v: '1.81', fr: 'Le bimoteur a une coque : plafond de vie à 150 dès le départ.', en: 'The twin has a hull: life ceiling at 150 from the start.' },
   { v: '1.81', fr: 'Sur ces appareils, le double appui bref fait toujours la figure ; tenu au-delà d’un quart de seconde, c’est la capacité.', en: 'On these aircraft a quick double tap still does the figure; held past a quarter second, it is the ability.' },

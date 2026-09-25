@@ -16,7 +16,7 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] L'arrivée : on garde sa vitesse en l'air, on freine au sol → v1.78 (176 à 232 au toucher)
 - [x] L'arrivée : viseur coupé dans le tube, et ils cessent de tirer → v1.78
 - [x] L'arrivée : aucun à-coup d'assiette → v1.78 (75 °/s → 5 à 11 en l'air, 1 à 3 au sol)
-- [ ] Le bimoteur doit continuer d'accélérer, au moins x3 au double-appui
+- [x] « L'avion traditionnel accélère x3 au double-appui » : c'était l'Ancien → v1.79
 - [x] Le portail freine une ou deux secondes après → v1.74 (capital de vitesse, 321/456/558)
 - [x] La tour : ce n'est pas la fenêtre, c'est la guillotine → mesuré en v1.79
       (les quatre passent : ordinaire +/-20 lat, +/-20 vert, 36 deg de biais dans 45 m ;
@@ -33,8 +33,8 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Pionnier : le surplace → v1.81 (30 m/s tenu, lacet x2,96, visée adverse 0)
 - [x] Intercepteur : la salve → v1.81 (dégâts x2, chauffe 3 → 6)
 - [x] Faucheur : la nappe → v1.81 (60,3 m/s de côté, cap 0,00°)
-- [ ] Drone lourd : lent, sans arme, double de roquettes, répare en vol
-- [ ] Drone d'essaim : trois cellules en triangle, on pilote celle du milieu
+- [x] Drone lourd → v1.82 (40 roquettes, canons coupés, +6 pv/s en vol)
+- [x] Drone d'essaim → v1.82 (deux cellules imposées, nous 0 balle, l'ennemi perd 69)
 - [ ] Rebloquer les appareils contre des vidéos une fois les capacités arrêtées
 - [x] L'approche : le cas « arrivé haut et vite » → v1.72, à revérifier au banc
 - [x] Le passage sous la piste → RETIRÉ en v1.73, sur demande
