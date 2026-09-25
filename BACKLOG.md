@@ -27,7 +27,14 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] L'Ancien le plus rapide du jeu au double-appui tenu → v1.79 (48 → 336, x7)
 - [x] Le PAPI reste tel quel → tranché, on n'y touche pas
 - [x] Tous les appareils débloqués le temps qu'on règle leurs capacités → v1.79
-- [ ] Arrêter les capacités spéciales de chaque appareil, et les drones
+- [x] Arrêter les capacités spéciales de chaque appareil, et les drones → validé, tel que proposé
+- [x] L'escouade : deux suiveurs au choix, en formation, qui tirent → v1.80 (et l'ailier volait derrière la caméra)
+- [ ] Bimoteur : plafond de vie supérieur de moitié
+- [ ] Pionnier : le surplace, tenu — 30 m/s, tourne sur place, rien ne l'accroche
+- [ ] Intercepteur : la salve, tenue — cadence doublée, chauffe deux fois plus vite
+- [ ] Faucheur : la nappe, tenue — glisse à plat de côté sans tourner le nez
+- [ ] Drone lourd : lent, sans arme, double de roquettes, répare en vol
+- [ ] Drone d'essaim : trois cellules en triangle, on pilote celle du milieu
 - [ ] Rebloquer les appareils contre des vidéos une fois les capacités arrêtées
 - [x] L'approche : le cas « arrivé haut et vite » → v1.72, à revérifier au banc
 - [x] Le passage sous la piste → RETIRÉ en v1.73, sur demande

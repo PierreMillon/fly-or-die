@@ -185,6 +185,10 @@
     <summary data-en="LOOK">APPARENCE</summary>
     <p class="aide" id="menuAvionTitre" data-en="AIRCRAFT">AVION</p>
     <div class="puces" id="menuAvions"></div>
+    <p class="aide" id="menuSuiveur1Titre" data-en="SQUADRON · FIRST WINGMAN">ESCOUADE · PREMIER SUIVEUR</p>
+    <div class="puces" id="menuSuiveur1"></div>
+    <p class="aide" id="menuSuiveur2Titre" data-en="SQUADRON · SECOND WINGMAN">ESCOUADE · SECOND SUIVEUR</p>
+    <div class="puces" id="menuSuiveur2"></div>
     <p class="aide" id="menuTeinteTitre" data-en="AIRCRAFT COLOUR">COULEUR DE L'AVION</p>
     <div class="puces" id="menuTeintes"></div>
     <p class="aide" id="menuTraineeTitre" data-en="TRAIL">TRAÎNÉE</p>
@@ -921,6 +925,9 @@ try { decouvertes = JSON.parse(localStorage.getItem('fod_trouve') || '{}') || {}
 let carnetN = {};
 try { carnetN = JSON.parse(localStorage.getItem('fod_carnet') || '{}') || {}; } catch (e) {}
 let legendesN = carnetN.legendes || 0;
+// L'ESCOUADE : les deux suiveurs choisis, par identifiant d'appareil, ou « aucun ».
+let escouade = ['aucun', 'aucun'];
+try { const e = JSON.parse(localStorage.getItem('fod_escouade') || 'null'); if (Array.isArray(e) && e.length === 2) escouade = e; } catch (e) {}
 // LES VIDÉOS DÉJÀ REGARDÉES POUR OUVRIR UN APPAREIL, par identifiant.
 let avionsVideo = {};
 try { avionsVideo = JSON.parse(localStorage.getItem('fod_avion_video') || '{}') || {}; } catch (e) {}
@@ -10364,7 +10371,7 @@ const state = {
   mecanosEnRoute: false,   // ils ont quitté la table pour venir nous attendre
   vieMax: 100,             // le plafond de la jauge : les portails le repoussent pour la partie
   trous: {},          // les trous à figure pris dans cette partie : les trois donnent l'ailier
-  ailier: null,       // l'ailier en vol { mesh, pos, quat }
+  escouade: null,     // les suiveurs en vol, deux places : { id, mesh, pos, quat }
   triche: null,       // les codes secrets actifs : la partie ne compte plus
   fuiteT: 0,          // secondes passées trop loin de la piste
   faucheur: false,    // le faucheur est lâché
@@ -15664,7 +15671,7 @@ function simulate(dt) {
   updateBullets(dt);
   updateLock(dt);
   coopTirsAmis(dt);
-  updateAilier(dt);
+  updateEscouade(dt);
   updateShots(dt);
   updateRoquettes(dt);
   updateRoqEnnemies(dt);
@@ -15719,11 +15726,37 @@ function simulate(dt) {
 // bas et le rase-mottes possibles au lieu d'être interdits. Le délai empêche
 // qu'un frottement continu vide la jauge en une seconde.
 const t_ = k => t(k);
-// L'AILIER. Prendre les trois trous à figure dans une même partie le
-// débloque pour toujours : dès la partie suivante un appareil ami vole à
-// notre droite, un peu en retrait, et tire sur ce que nous verrouillons.
-// Il ne se fait pas abattre — il n'est pas une cible, il est une récompense.
-const AILIER_DPS = 9, AILIER_DECAL = { x: 38, y: -4, z: 30 };
+// ---------------------------------------------------------------------------
+// L'ESCOUADE.
+//
+// Il y avait un ailier : un bimoteur ami, gagné en prenant les trois trous à
+// figure dans une même partie, qui volait à notre droite et tirait sur ce que
+// nous verrouillions. Il devient le cas particulier d'une chose plus grande :
+// on choisit jusqu'à DEUX suiveurs, n'importe quel appareil, l'un à droite,
+// l'autre à gauche, un peu en retrait. Ils suivent, ils tirent sur notre
+// cible, et ils ne se font pas abattre — ils ne sont pas des cibles, ils
+// sont une escorte.
+//
+// L'ailier gagné reste ce qu'il était : tant qu'on n'a rien choisi, il prend
+// la place de droite tout seul.
+// ---------------------------------------------------------------------------
+const AILIER_DPS = 9;
+// ET ON LES VOIT. L'ailier volait trente mètres en retrait, « un peu derrière »
+// — mais la caméra n'est qu'à seize mètres derrière l'appareil : il volait
+// derrière la caméra, et personne ne l'a jamais vu. Mesuré : projeté hors
+// écran, x = −1026. Les places sont donc à hauteur d'aile, DEVANT nous,
+// quinze sur le côté, soixante-quatre devant : le champ d'un téléphone tenu
+// debout ne fait que trente degrés de large, et ils y tiennent.
+const ESCOUADE_PLACES = [{ x: 15, y: -2, z: -64 }, { x: -15, y: -2, z: -64 }];
+function sauveEscouade() {
+  try { localStorage.setItem('fod_escouade', JSON.stringify(escouade)); } catch (e) {}
+}
+// les appareils qu'on veut voir voler à côté de nous, place par place
+function escouadeVoulue() {
+  const v = escouade.slice();
+  if (carnet.ailier && v[0] === 'aucun' && v[1] === 'aucun') v[0] = 'bimoteur';
+  return v;
+}
 function noteTrou(cle) {
   state.trous[cle] = true;
   if (state.trous.u && state.trous.double && state.trous.incline && !carnet.ailier) {
@@ -15731,34 +15764,40 @@ function noteTrou(cle) {
     announce(t('ailier')); SFX.bouclierOn();
   }
 }
-function updateAilier(dt) {
-  if (!carnet.ailier || !state.running || state.takeoff || state.pose || state.roulage || coop.actif) {
-    if (state.ailier) state.ailier.mesh.visible = false;
-    return;
-  }
-  if (!state.ailier) {
-    const mesh = meshAmi();
-    state.ailier = { mesh, pos: state.pos.clone(), quat: state.quat.clone(), gunT: 0 };
-  }
-  const A = state.ailier;
-  A.mesh.visible = true;
-  _right.crossVectors(state.forward, _up).normalize();
-  _v.copy(state.pos).addScaledVector(_right, AILIER_DECAL.x).addScaledVector(state.forward, -AILIER_DECAL.z);
-  _v.y += AILIER_DECAL.y;
-  A.pos.lerp(_v, 1 - Math.exp(-3.2 * dt));
-  A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
-  A.mesh.position.copy(A.pos); A.mesh.quaternion.copy(A.quat);
-  // il tire sur notre cible verrouillée, à découvert seulement
-  const e = state.lock;
-  if (e && state.lockCharge >= SEUIL_TIR && !obstacleEntre(A.pos, e.pos)) {
-    blesse(e, AILIER_DPS * dt);
-    A.gunT -= dt;
-    if (A.gunT <= 0) {
-      A.gunT = 0.16;
-      const d = new THREE.Vector3().subVectors(e.pos, A.pos).normalize();
-      state.shots.push({ pos: A.pos.clone().addScaledVector(d, 6), dir: d, t: 0 });
+function updateEscouade(dt) {
+  if (!state.escouade) state.escouade = [null, null];
+  const voulue = escouadeVoulue();
+  const enVol = state.running && !state.takeoff && !state.pose && !state.roulage && !coop.actif;
+  for (let i = 0; i < 2; i++) {
+    let A = state.escouade[i];
+    const id = voulue[i];
+    // la place change d'appareil : l'ancien mesh s'efface, le nouveau naît
+    if (A && A.id !== id) { A.mesh.visible = false; scene.remove(A.mesh); A = state.escouade[i] = null; }
+    if (id === 'aucun' || !enVol) { if (A) A.mesh.visible = false; continue; }
+    if (!A) {
+      A = state.escouade[i] = { id, mesh: meshAmiDe(id), pos: state.pos.clone(),
+                                quat: state.quat.clone(), gunT: 0 };
     }
-    if (e.hp <= 0) abattre(e);
+    A.mesh.visible = true;
+    const P = ESCOUADE_PLACES[i];
+    _right.crossVectors(state.forward, _up).normalize();
+    _v.copy(state.pos).addScaledVector(_right, P.x).addScaledVector(state.forward, -P.z);
+    _v.y += P.y;
+    A.pos.lerp(_v, 1 - Math.exp(-3.2 * dt));
+    A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
+    A.mesh.position.copy(A.pos); A.mesh.quaternion.copy(A.quat);
+    // il tire sur notre cible verrouillée, à découvert seulement
+    const e = state.lock;
+    if (e && state.lockCharge >= SEUIL_TIR && !obstacleEntre(A.pos, e.pos)) {
+      blesse(e, AILIER_DPS * dt);
+      A.gunT -= dt;
+      if (A.gunT <= 0) {
+        A.gunT = 0.16;
+        const d = new THREE.Vector3().subVectors(e.pos, A.pos).normalize();
+        state.shots.push({ pos: A.pos.clone().addScaledVector(d, 6), dir: d, t: 0 });
+      }
+      if (e.hp <= 0) abattre(e);
+    }
   }
 }
 // ---------------------------------------------------------------------------
@@ -16542,6 +16581,23 @@ const matAmi = lineMat(COL_TEXT, 0.9);
 function meshAmi() {
   const g = solidWire(planeGeom, planeEdges, matAmi);
   g.scale.setScalar(PLANE_SCALE);
+  g.frustumCulled = false;
+  scene.add(g);
+  return g;
+}
+// LE MÊME, MAIS DE N'IMPORTE QUEL APPAREIL. Les formes et les échelles sont
+// celles de la maquette du joueur (voir appliqueAvion) ; seul le matériau
+// change, c'est celui des amis.
+function meshAmiDe(id) {
+  let g, ech;
+  if (id === 'intercepteur') { g = solidWire(KINDS[2].geom, KINDS[2].edges, matAmi);
+    ech = KINDS[2].echelle * ENVERGURE_JOUEUR / KINDS[2].envergure; }
+  else if (id === 'pionnier') { g = avionEnFil(PIONNIER_SHAPE, PIONNIER_PEAU, matAmi); ech = 12 / 7 * 0.85; }
+  else if (id === 'ancien') { g = avionEnFil(ANCIEN_SHAPE, ANCIEN_PEAU, matAmi); ech = 12 / 7.2 * 0.9; }
+  else if (id === 'faucheur') { g = solidWire(KIND_FAUCHEUR.geom, KIND_FAUCHEUR.edges, matAmi);
+    ech = KIND_FAUCHEUR.echelle * ENVERGURE_JOUEUR / KIND_FAUCHEUR.envergure; }
+  else return meshAmi();
+  g.scale.setScalar(ech);
   g.frustumCulled = false;
   scene.add(g);
   return g;
@@ -19047,9 +19103,9 @@ function majMenu() {
   {
     let ok = false; try { ok = localStorage.getItem('fod_carte_ok') === '1'; } catch (err) {}
     document.getElementById('mCarte').textContent = (fr ? 'CARTE  ·  ÉDITEUR' : 'MAP  ·  EDITOR') + (ok ? '' : (fr ? '  ·  VIDÉO' : '  ·  VIDEO'));
-    document.getElementById('menuAilier').textContent = carnet.ailier
-      ? (fr ? 'AILIER  ·  DÉBLOQUÉ, IL VOLE AVEC TOI' : 'WINGMAN  ·  UNLOCKED, HE FLIES WITH YOU')
-      : (fr ? 'AILIER  ·  PRENDS LE U, LE DOUBLE ET LA FENTE DANS UNE MÊME PARTIE' : 'WINGMAN  ·  TAKE THE U, THE DOUBLE AND THE SLOT IN ONE GAME');
+    document.getElementById('menuAilier').textContent = fr
+      ? 'ESCOUADE  ·  CHOISIS JUSQU’À DEUX SUIVEURS SOUS « AVION »'
+      : 'SQUADRON  ·  PICK UP TO TWO WINGMEN UNDER “AIRCRAFT”';
   }
   const md = document.getElementById('mDefi');
   md.hidden = state.running;
@@ -19101,6 +19157,19 @@ function majMenu() {
         if (!state.running) { state.roquettesN = a.roquettes; state.leurres = a.leurres; }
         majMenu();
       };
+      c.appendChild(b);
+    }
+  }
+  // L'ESCOUADE : deux rangs, « aucun » puis chaque appareil
+  for (let i = 0; i < 2; i++) {
+    const c = document.getElementById('menuSuiveur' + (i + 1));
+    c.innerHTML = '';
+    const choix = [{ id: 'aucun', nom: 'AUCUN', en: 'NONE' }, ...AVIONS];
+    for (const a of choix) {
+      const b = document.createElement('button');
+      b.className = escouade[i] === a.id ? 'actif' : '';
+      b.textContent = fr ? a.nom : a.en;
+      b.onclick = e => { e.stopPropagation(); escouade[i] = a.id; sauveEscouade(); majMenu(); };
       c.appendChild(b);
     }
   }
@@ -19224,6 +19293,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.80', fr: 'L’escouade : choisis jusqu’à deux suiveurs, n’importe quel appareil, sous « Avion » dans le menu. Ils volent en formation et tirent sur ce que tu verrouilles.', en: 'The squadron: pick up to two wingmen, any aircraft, under “Aircraft” in the menu. They fly in formation and fire at what you lock.' },
+  { v: '1.80', fr: 'L’ailier volait derrière la caméra depuis le début : les suiveurs volent maintenant devant, à quinze mètres de chaque côté, dans le cadre.', en: 'The wingman had been flying behind the camera all along: wingmen now fly ahead, fifteen metres to each side, in frame.' },
   { v: '1.79', fr: 'Tous les appareils sont jouables : on ne règle pas ce qu’on n’a pas en main. Les clés restent, éteintes par une seule ligne.', en: 'Every aircraft is playable: you cannot tune what you cannot fly. The keys remain, switched off by a single line.' },
   { v: '1.79', fr: 'L’Ancien redevient le plus rapide du jeu quand on tient le double-appui : 48 de croisière, 336 dans son courant.', en: 'The Old One is the fastest in the game again when you hold the double tap: 48 cruising, 336 in its current.' },
   { v: '1.78', fr: 'Un seul grand cercle par terrain remplace le tube dessiné : la bouche du cône, et rien d’autre.', en: 'One big circle per field replaces the drawn tube: the mouth of the cone, and nothing else.' },
