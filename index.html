@@ -8499,7 +8499,9 @@ const NAPPE_V = 60;             // m/s de glissé latéral
 function pouvoirEst(nom) { return !!state.pouvoir && state.pouvoir.id === nom; }
 function ouvrePouvoir(side) {
   const nom = avion().pouvoir;
-  if (!nom || nom === 'coque' || nom === 'courant') return false;
+  // seuls trois pouvoirs se tiennent ; la coque, la soute et l'essaim sont
+  // passifs, et le courant a sa propre porte
+  if (nom !== 'surplace' && nom !== 'salve' && nom !== 'nappe') return false;
   if (!state.pouvoir) { announce(t(nom)); SFX.cale(); }
   state.pouvoir = { id: nom, side };
   return true;
@@ -19401,6 +19403,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.84', fr: 'Un essai fait faire le tour complet aux sept appareils à chaque poussée : décollage, vague, pouvoir tenu, posé dans le sens du vent, réparation, redécollage — zéro exception exigée.', en: 'A test runs all seven aircraft through the full loop on every push: takeoff, wave, held ability, landing into the wind, repair, takeoff again — zero exceptions required.' },
+  { v: '1.84', fr: 'Le drone lourd et l’essaim ne « tiennent » plus un pouvoir vide au double appui.', en: 'The heavy drone and the swarm no longer “hold” an empty ability on a double tap.' },
   { v: '1.83', fr: 'Les lames de la guillotine se voient : pleine épaisseur, trait plein, une croix sur chaque face. Ce qui est barré est barré.', en: 'The guillotine blades show: full depth, full stroke, a cross on each face. What is barred is barred.' },
   { v: '1.82', fr: 'Deux drones. Le lourd : lent, sans canon, quarante roquettes, et il se répare en vol tout seul. L’essaim : trois cellules en triangle, on pilote celle du milieu, les deux autres tirent.', en: 'Two drones. The heavy: slow, no gun, forty rockets, and it repairs itself in flight. The swarm: three cells in a triangle, you fly the middle one, the other two shoot.' },
   { v: '1.81', fr: 'Une capacité par appareil, tenue au doigt comme le courant : le Pionnier fait du surplace (30 m/s, lacet triplé, personne ne le cadre), l’Intercepteur tire une salve (dégâts et chauffe doublés), le Faucheur glisse en nappe (60 m/s de côté, cap constant).', en: 'One held ability per aircraft, like the current: the Pioneer hovers (30 m/s, triple yaw, nobody can frame it), the Interceptor fires a volley (double damage and heat), the Reaper slips sideways (60 m/s, heading unchanged).' },

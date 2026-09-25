@@ -24,6 +24,7 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
        l'ouverture par deux : l'ordinaire est FERMEE au 2e passage (11 m < 14),
        la grande au 4e. On vise un cadre encore grand et on heurte une lame.)
 - [x] Les lames de la guillotine se voient → v1.83 (pleine épaisseur, croix sur chaque face)
+- [x] En autonomie : essai du tour complet des sept appareils, dans la chaîne GitHub → v1.84 (7/7, zéro exception)
 - [x] L'Ancien le plus rapide du jeu au double-appui tenu → v1.79 (48 → 336, x7)
 - [x] Le PAPI reste tel quel → tranché, on n'y touche pas
 - [x] Tous les appareils débloqués le temps qu'on règle leurs capacités → v1.79
@@ -390,7 +391,7 @@ Traversée en 19,5 s, +273 de vie, 82 m/s dans le boyau et 142 à la sortie.
 vue à travers de bout en bout — à 1800 m la bouche opposée est trop petite
 pour qu'on y voie les étoiles.
 
-## 4. L'arche du sommet (idée neuve, non commencée)
+## 4. L'arche du sommet (idée d'origine) → fait en v1.69, voir plus haut
 
 Sur le cap du refuge, le premier sommet assez haut reçoit un petit plateau
 plat, taillé en haut de la montagne — comme si quelqu'un l'avait aplani il y
