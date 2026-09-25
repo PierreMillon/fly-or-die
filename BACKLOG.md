@@ -35,7 +35,7 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Faucheur : la nappe → v1.81 (60,3 m/s de côté, cap 0,00°)
 - [x] Drone lourd → v1.82 (40 roquettes, canons coupés, +6 pv/s en vol)
 - [x] Drone d'essaim → v1.82 (deux cellules imposées, nous 0 balle, l'ennemi perd 69)
-- [ ] Rebloquer les appareils contre des vidéos une fois les capacités arrêtées
+- [x] Rebloquer les appareils contre des vidéos → REMIS À PLUS TARD sur ta décision (« on verra ») ; tout le mécanisme dort sous TOUS_OUVERTS, une ligne à remettre à false
 - [x] L'approche : le cas « arrivé haut et vite » → v1.72, à revérifier au banc
 - [x] Le passage sous la piste → RETIRÉ en v1.73, sur demande
 - [x] La lune : booléen de deux cercles, un croissant propre → v1.73
