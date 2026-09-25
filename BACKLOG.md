@@ -18,9 +18,17 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] L'arrivée : aucun à-coup d'assiette → v1.78 (75 °/s → 5 à 11 en l'air, 1 à 3 au sol)
 - [ ] Le bimoteur doit continuer d'accélérer, au moins x3 au double-appui
 - [x] Le portail freine une ou deux secondes après → v1.74 (capital de vitesse, 321/456/558)
-- [ ] La tour : les quatre fenêtres se mesurent bonnes, trouver ce qui casse en jeu
-- [ ] Le PAPI reste-t-il, maintenant que le cercle est le seul repère ? à trancher
-- [ ] « Accélérer au moins x3 au double-appui » : quel geste, exactement ? à trancher
+- [x] La tour : ce n'est pas la fenêtre, c'est la guillotine → mesuré en v1.79
+      (les quatre passent : ordinaire +/-20 lat, +/-20 vert, 36 deg de biais dans 45 m ;
+       la grande +/-44 lat, +/-48 vert, 36 deg dans 95 m. Mais chaque passage divise
+       l'ouverture par deux : l'ordinaire est FERMEE au 2e passage (11 m < 14),
+       la grande au 4e. On vise un cadre encore grand et on heurte une lame.)
+- [ ] Les lames de la guillotine doivent se voir mieux qu'un cadre vide
+- [x] L'Ancien le plus rapide du jeu au double-appui tenu → v1.79 (48 → 336, x7)
+- [x] Le PAPI reste tel quel → tranché, on n'y touche pas
+- [x] Tous les appareils débloqués le temps qu'on règle leurs capacités → v1.79
+- [ ] Arrêter les capacités spéciales de chaque appareil, et les drones
+- [ ] Rebloquer les appareils contre des vidéos une fois les capacités arrêtées
 - [x] L'approche : le cas « arrivé haut et vite » → v1.72, à revérifier au banc
 - [x] Le passage sous la piste → RETIRÉ en v1.73, sur demande
 - [x] La lune : booléen de deux cercles, un croissant propre → v1.73

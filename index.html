@@ -4370,7 +4370,20 @@ const avionPaye   = a => videosAvion(a) > 0 && videosVues(a) >= videosAvion(a);
 function sauveAvionsVideo() {
   try { localStorage.setItem('fod_avion_video', JSON.stringify(avionsVideo)); } catch (e) {}
 }
-const avionOuvert = a => a.acces === 'libre' || avionPaye(a)
+// ---------------------------------------------------------------------------
+// TOUT EST OUVERT, POUR L'INSTANT.
+//
+// Trois appareils sur cinq étaient fermés, et l'on ne pouvait donc ni les
+// essayer ni en parler. On ne règle pas ce qu'on n'a pas en main : tant qu'on
+// discute de ce que chacun doit savoir faire, ils sont tous jouables.
+//
+// Les clés ne sont pas supprimées — la légende, le refuge, tout le ciel, les
+// vidéos : tout le mécanisme est intact, sous cette ligne. Remettre `false`
+// suffit à le rallumer, et c'est ce qui se passera quand les capacités seront
+// arrêtées.
+// ---------------------------------------------------------------------------
+const TOUS_OUVERTS = true;
+const avionOuvert = a => TOUS_OUVERTS || a.acces === 'libre' || avionPaye(a)
                       || (a.acces === 'refuge' ? !!decouvertes.refuge
                        :  a.acces === 'ciel'   ? cielComplet()
                        :  legendesN > 0);
@@ -8389,14 +8402,24 @@ const REFUGE_CENTRE = 11;        // mètres devant le nez : le milieu de la scè
 // l'air porte. Dès qu'on lève le doigt, il retombe — en douceur, parce que
 // sortir d'un courant n'est pas un freinage, c'est une fin de portance.
 // ---------------------------------------------------------------------------
-// QUATRE VIRGULE HUIT, ET C'EST UN CALCUL. L'ancien croise à CRUISE × 0,62,
-// soit 48 m/s de consigne — c'est le plus lent du jeu, et ce doit l'être. Pour
-// qu'il devienne le plus RAPIDE dans un courant, il faut dépasser ce qu'un
-// biplan atteint en enchaînant les portails, autour de 230 m/s.
-//   78 × 0,62 × 4,8 = 232
-// Mesuré à 3,4 : il plafonnait à 161, c'est-à-dire à peine plus qu'une
-// croisière ordinaire. Un pouvoir qui ne se voit pas n'est pas un pouvoir.
-const COURANT_GAIN = 4.8;
+// SEPT, ET C'EST UN CALCUL QUI A VIEILLI UNE FOIS DÉJÀ.
+//
+// L'Ancien croise à CRUISE × 0,62, soit 48 m/s de consigne — c'est le plus lent
+// du jeu, et ce doit l'être. Dans un courant il doit devenir le plus RAPIDE :
+// c'est tout son sens, et c'est la seule chose qu'il ait.
+//
+// Le facteur valait 4,8, calculé quand un bimoteur lancé plafonnait vers 230.
+// Depuis, le capital de vitesse de la v1.74 fait qu'un bimoteur garde ce qu'un
+// portail lui donne : mesuré, 265 sur un seul portail. Les 4,8 le mettaient à
+// 231 — deuxième, donc, et pour une raison qu'il ne pouvait rien y faire.
+//
+//   78 × 0,62 × 7 = 339
+//
+// Il repasse devant, avec de la marge, et il la garde tant que le doigt reste.
+// Une chaîne de trois portails monte plus haut que ça pour tout le monde, l'
+// Ancien compris : ce n'est pas un appareil qui va plus vite, c'est le monde
+// qui pousse — et l'Ancien y a droit comme les autres, par-dessus son courant.
+const COURANT_GAIN = 7.0;
 const COURANT_MONTEE = 1.8;   // secondes pour s'y couper entièrement
 const COURANT_CHUTE = 2.6;    // et pour en sortir
 function ouvreCourant() {
@@ -19201,6 +19224,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.79', fr: 'Tous les appareils sont jouables : on ne règle pas ce qu’on n’a pas en main. Les clés restent, éteintes par une seule ligne.', en: 'Every aircraft is playable: you cannot tune what you cannot fly. The keys remain, switched off by a single line.' },
+  { v: '1.79', fr: 'L’Ancien redevient le plus rapide du jeu quand on tient le double-appui : 48 de croisière, 336 dans son courant.', en: 'The Old One is the fastest in the game again when you hold the double tap: 48 cruising, 336 in its current.' },
   { v: '1.78', fr: 'Un seul grand cercle par terrain remplace le tube dessiné : la bouche du cône, et rien d’autre.', en: 'One big circle per field replaces the drawn tube: the mouth of the cone, and nothing else.' },
   { v: '1.78', fr: 'On garde toute sa vitesse en l’air : le tube ne ralentit plus, on touche à 176 comme à 232, et on freine aux freins.', en: 'You keep all your speed in the air: the tube no longer slows you, you touch at 176 or at 232, and you brake with the brakes.' },
   { v: '1.78', fr: 'Plus d’à-coup d’assiette : il y avait deux arrondis qui se disputaient le manche, mesurés à 75 degrés par seconde. Il n’en reste qu’un, et il fait 5.', en: 'No more attitude jolt: two flare laws were fighting over the stick, measured at 75 degrees per second. One remains, and it does 5.' },
