@@ -86,7 +86,23 @@ export const PISTE = {
 };
 
 export const PENTE_CIBLE = 3 * Math.PI / 180;
-export const TOUCHER_APRES = 60;     // mètres après le seuil : le point que vise le tube
+// TROIS CENTS MÈTRES, COMME UN VRAI TERRAIN. Le point visé était à soixante
+// mètres du seuil, et le PAPI au milieu de la piste : sur le plan du tube on
+// était toujours vingt-sept mètres sous le plan des feux — quatre rouges en
+// finale, pile sur le magnétisme. Un PAPI se pose à côté de la zone de
+// toucher, trois cents mètres après le seuil ; le tube vise ce point-là, et
+// les feux le regardent aussi. Les deux disent la même chose parce qu'ils
+// parlent du même endroit.
+//
+// CENT, ET NON TROIS CENTS, ET VOICI POURQUOI. Trois cents mètres, c'est la
+// norme — pour un avion qui arrive à soixante. Ici on garde toute sa vitesse
+// en l'air, et l'arrondi flotte cinq cents mètres au-delà du point visé :
+// mesuré avec trois cents, les roues touchaient de 455 à 918 mètres après le
+// seuil, c'est-à-dire derrière le hangar et, à deux cent cinq mètres par
+// seconde, derrière le bout de la piste. Cent mètres remet le toucher réel
+// sur le bitume, devant le hangar. Le PAPI est posé à côté de ce point-là :
+// les deux instruments parlent du même endroit, c'est ce qui compte.
+export const TOUCHER_APRES = 100;    // mètres après le seuil : le point que vise le tube, et le PAPI
 export const TUBE_DIST = 1800;       // longueur du couloir, depuis le point visé
 export const TUBE_R0 = 190;          // rayon à l'entrée
 // LE BOUT DE L'ENTONNOIR ÉTAIT TROP ÉTROIT POUR RATTRAPER QUOI QUE CE SOIT.

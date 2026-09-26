@@ -57,7 +57,7 @@ vaut('pente à mille mètres', M.tubeHaut(1000) - M.PISTE.y, 52.407779, 1e-5);
 // ---- le point visé ---------------------------------------------------------
 // La piste principale fait 1160 m ; on touche 60 m après le seuil, donc 520 m
 // en amont de son centre. C'est ce nombre qui décide de tout l'atterrissage.
-vaut('point visé sur la piste principale', M.viseDe({ long: 1160 }), 520);
+vaut('point visé sur la piste principale', M.viseDe({ long: 1160 }), 480);   // 580 - 100 : la zone de toucher
 vaut('point visé sur une bande courte', M.viseDe({ long: 180 }), 40);
 vaut('cap d’atterrissage, sens nord', M.capPiste({ cap: 0 }, -1), 0);
 vaut('cap d’atterrissage, sens sud', M.capPiste({ cap: 0 }, 1), Math.PI);

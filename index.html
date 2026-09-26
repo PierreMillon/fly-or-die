@@ -4305,10 +4305,10 @@ const AVIONS = [
   // UNE CAPACITÉ PAR APPAREIL. Celle du bimoteur est passive — il encaisse ;
   // les autres se TIENNENT au doigt, comme le courant de l'Ancien : double
   // appui, et on garde le doigt. Voir ouvrePouvoir().
-  { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 20, leurres: 0, acces: 'libre', pouvoir: 'coque' },
-  { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 14, leurres: 6, acces: 'legende', pouvoir: 'salve' },
-  { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 8,  leurres: 0, acces: 'libre', pouvoir: 'surplace' },
-  { id: 'ancien',       nom: 'L’ANCIEN',     en: 'THE OLD ONE', vit: 0.62, lacet: 1.5, tangage: 1.35, roquettes: 0,  leurres: 0, acces: 'refuge', courant: true, timbre: 'planeur', pouvoir: 'courant' },
+  { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 20, leurres: 0, acces: 'libre', pouvoir: 'coque', vieSuiveur: 60 },
+  { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 14, leurres: 6, acces: 'legende', pouvoir: 'salve', vieSuiveur: 50 },
+  { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 8,  leurres: 0, acces: 'libre', pouvoir: 'surplace', vieSuiveur: 40 },
+  { id: 'ancien',       nom: 'L’ANCIEN',     en: 'THE OLD ONE', vit: 0.62, lacet: 1.5, tangage: 1.35, roquettes: 0,  leurres: 0, acces: 'refuge', courant: true, timbre: 'planeur', pouvoir: 'courant', vieSuiveur: 35 },
   // CELUI QUI TE CHASSAIT. On ne le gagne ni en volant longtemps ni en allant
   // loin : on le gagne en l'ABATTANT, ce que presque personne ne fera — quatre
   // mille points de structure, et il tue en vingt-deux secondes. C'est le seul
@@ -4318,7 +4318,7 @@ const AVIONS = [
   // de très loin le moins maniable — un cercle plat n'a pas d'aile pour
   // s'appuyer sur l'air. On ne le prend pas pour gagner, on le prend pour
   // savoir ce que c'était.
-  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel', pouvoir: 'nappe' },
+  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel', pouvoir: 'nappe', vieSuiveur: 120 },
   // LES DRONES. Ils ne se pilotent pas comme des avions : aucun canon, et
   // c'est ce qui les définit.
   //   — le LOURD est lent, sans arme, porte le double de roquettes et se
@@ -4326,10 +4326,11 @@ const AVIONS = [
   //   — l'ESSAIM est trois cellules en triangle : on pilote celle du milieu,
   //     qui ne tire pas, et les deux autres tirent. Ses deux suiveurs sont
   //     imposés — c'est l'appareil lui-même.
-  { id: 'lourd',        nom: 'DRONE LOURD',  en: 'HEAVY DRONE', vit: 0.7,  lacet: 0.7,  tangage: 0.8,  roquettes: 40, leurres: 2, acces: 'libre', canons: false, pouvoir: 'soute' },
-  { id: 'essaim',       nom: 'ESSAIM',       en: 'SWARM',       vit: 1.1,  lacet: 1.2,  tangage: 1.1,  roquettes: 0,  leurres: 0, acces: 'libre', canons: false, pouvoir: 'essaim' },
+  { id: 'lourd',        nom: 'DRONE LOURD',  en: 'HEAVY DRONE', vit: 0.7,  lacet: 0.7,  tangage: 0.8,  roquettes: 40, leurres: 2, acces: 'libre', canons: false, pouvoir: 'soute', vieSuiveur: 150 },
+  { id: 'essaim',       nom: 'ESSAIM',       en: 'SWARM',       vit: 1.1,  lacet: 1.2,  tangage: 1.1,  roquettes: 0,  leurres: 0, acces: 'libre', canons: false, pouvoir: 'essaim', vieSuiveur: 30 },
 ];
 const LOURD_REPARE = 6;        // points de vie par seconde, en vol, pour le drone lourd
+const LOURD_CALME = 4;         // secondes sans être touché avant que la soute répare
 let avionChoisi = 'bimoteur';
 try { avionChoisi = localStorage.getItem('fod_avion') || 'bimoteur'; } catch (e) {}
 const avion = () => AVIONS.find(a => a.id === avionChoisi) || AVIONS[0];
@@ -6263,7 +6264,11 @@ function ecrisEnZ(p, txt, xs, y0, z0, ech) {
 // prend dans le sens qu'on veut, et il n'était pas question d'en peindre
 // seize.
 // ---------------------------------------------------------------------------
-const PAPI_Z = (PISTE.z0 + PISTE.z1) / 2;   // le point visé : le milieu
+const PAPI_Z = (PISTE.z0 + PISTE.z1) / 2;   // le centre du terrain
+// LA ZONE DE TOUCHER, PAR SENS. Un PAPI par bout de piste, chacun à côté de sa
+// zone de toucher, trois cents mètres après son seuil — comme sur un vrai
+// terrain, et au même point que celui que vise le tube (voir TOUCHER_APRES).
+const toucherZ = sens => sens < 0 ? PISTE.z0 - TOUCHER_APRES : PISTE.z1 + TOUCHER_APRES;
 const PAPI_X0 = 34, PAPI_PAS = 8;
 // ---------------------------------------------------------------------------
 // UNE SEULE RAMPE, ET DU CÔTÉ OÙ IL N'Y A PAS DE HANGAR. Les huit feux
@@ -6281,13 +6286,15 @@ const PAPI_COTE = -1;    // ouest : le hangar est à l'est (AERO.x vaut 78)
 // du plus près de la piste au plus loin. Le plus près est réglé le plus haut :
 // c'est lui qui vire au blanc en premier quand on remonte.
 const PAPI_ECARTS = [0.5, 1 / 6, -1 / 6, -0.5].map(d => d * Math.PI / 180);
-const PAPI_BLANC = [1, 1, 1], PAPI_ROUGE = [1, 0.32, 0.26];
+const PAPI_BLANC = [1, 1, 1], PAPI_ROUGE = [1, 0.32, 0.26], PAPI_ETEINT = [0.10, 0.14, 0.12];
 
 let papiMesh = null, papiCouleurs = null;
 (function poserPapi() {
+  // huit feux : quatre à côté de chaque zone de toucher. Ceux du bout qui
+  // n'est pas en service restent sombres.
   const pos = [], col = [];
-  for (let i = 0; i < 4; i++) {
-    pos.push(PAPI_COTE * (PAPI_X0 + i * PAPI_PAS), PISTE.y + 1.2, PAPI_Z);
+  for (const sens of [-1, 1]) for (let i = 0; i < 4; i++) {
+    pos.push(PAPI_COTE * (PAPI_X0 + i * PAPI_PAS), PISTE.y + 1.2, toucherZ(sens));
     col.push(1, 1, 1);
   }
   const g = new THREE.BufferGeometry();
@@ -6771,8 +6778,9 @@ function majPlan() {
   // belle approche et le tube, lui, ne prenait pas. Deux instruments qui se
   // contredisent valent moins qu'aucun des deux.
   const sens = sensAuVent();
-  const dh = Math.abs(state.pos.z - PAPI_Z);
-  const devant = sens < 0 ? state.pos.z > PAPI_Z : state.pos.z < PAPI_Z;
+  const zT = toucherZ(sens);                  // les feux du bout en service
+  const dh = Math.abs(state.pos.z - zT);
+  const devant = sens < 0 ? state.pos.z > zT : state.pos.z < zT;
   PLAN.sens = sens;
   PLAN.dist = dh;
   PLAN.devant = devant;
@@ -6819,9 +6827,12 @@ function majPapi() {
   const auTerrain = state.pose || state.roulage || state.takeoff || state.assist;
   papiMesh.visible = auTerrain || (PLAN.lisible && PLAN.axe < 160);
   const a = papiCouleurs.array;
-  for (let i = 0; i < 4; i++) {
-    const c = PLAN.angle > PENTE_CIBLE + PAPI_ECARTS[i] ? PAPI_BLANC : PAPI_ROUGE;
-    const k = i * 3;
+  const actif = PLAN.sens < 0 ? 0 : 4;        // les quatre feux du bout en service
+  for (let j = 0; j < 8; j++) {
+    const i = j % 4;
+    const c = (j - actif !== i) ? PAPI_ETEINT
+            : PLAN.angle > PENTE_CIBLE + PAPI_ECARTS[i] ? PAPI_BLANC : PAPI_ROUGE;
+    const k = j * 3;
     a[k] = c[0]; a[k+1] = c[1]; a[k+2] = c[2];
   }
   papiCouleurs.needsUpdate = true;
@@ -8164,7 +8175,8 @@ function heurteTunnel() {
 // sa structure. La lame en fait partie, et l'on s'y écrase comme sur le reste.
 // ---------------------------------------------------------------------------
 const GUILLO_N = 3;        // traversées avant la fermeture définitive
-const GUILLO_MIN = 14;     // mètres : en dessous, l'ouverture n'en est plus une
+const GUILLO_MIN = 10;     // mètres : en dessous, l'ouverture n'en est plus une — dix, pour que
+                           // le troisième passage d'une tour ordinaire (11 m) reste possible
 const GUILLO_REPOS = 1.1;  // secondes : une traversée ne se compte pas deux fois
 // ---------------------------------------------------------------------------
 // ET ELLE TOMBE APRÈS NOUS, PAS SUR NOUS. La lame descendait à l'instant même
@@ -8503,10 +8515,11 @@ function ouvrePouvoir(side) {
   // passifs, et le courant a sa propre porte
   if (nom !== 'surplace' && nom !== 'salve' && nom !== 'nappe') return false;
   if (!state.pouvoir) { announce(t(nom)); SFX.cale(); }
+  state.dbgOuvre = (state.dbgOuvre || 0) + 1;
   state.pouvoir = { id: nom, side };
   return true;
 }
-function fermePouvoir() { state.pouvoir = null; }
+function fermePouvoir() { if (state.pouvoir) state.dbgFerme = (state.dbgFerme || 0) + 1; state.pouvoir = null; }
 function ouvreCourant() {
   if (state.courant) return;
   state.courant = true;
@@ -12969,7 +12982,11 @@ function updateEnemies(dt) {
         dir.x += (Math.random() - 0.5) * 0.14; dir.y += (Math.random() - 0.5) * 0.14;
         dir.z += (Math.random() - 0.5) * 0.14; dir.normalize();
       }
-      state.bullets.push({ pos: e.pos.clone(), dir, t: 0, faucheur: !!e.faucheur, de: e.faucheur ? 'FAUCHEUR' : K.nom });
+      // UN SUIVEUR PREND LA BALLE, UNE FOIS SUR TROIS. La balle part alors vers
+      // lui, et c'est lui qu'elle peut toucher — pas nous.
+      const ami = suiveurVise();
+      if (ami) dir.subVectors(ami.pos, e.pos).normalize();
+      state.bullets.push({ pos: e.pos.clone(), dir, t: 0, faucheur: !!e.faucheur, de: e.faucheur ? 'FAUCHEUR' : K.nom, ami });
       stat('ballesEnnemies');
     };
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
@@ -13543,6 +13560,17 @@ function updateBullets(dt) {
     }
     _seg.subVectors(b.pos, _segA);
     const L2 = _seg.lengthSq();
+    // LES SUIVEURS D'ABORD : une balle qui passe près d'un suiveur le touche,
+    // qu'elle lui fût destinée ou non
+    let touche = false;
+    if (state.escouade) for (const A of state.escouade) {
+      if (!A || A.mort || !A.mesh.visible) continue;
+      let ua = L2 > 1e-6 ? _segB.subVectors(A.pos, _segA).dot(_seg) / L2 : 0;
+      ua = THREE.MathUtils.clamp(ua, 0, 1);
+      _segB.copy(_segA).addScaledVector(_seg, ua);
+      if (_segB.distanceTo(A.pos) < BULLET_HIT) { blesseSuiveur(A, b.faucheur ? 45 : 7); touche = true; break; }
+    }
+    if (touche) { state.bullets.splice(i, 1); continue; }
     let u = L2 > 1e-6 ? _segB.subVectors(state.pos, _segA).dot(_seg) / L2 : 0;
     u = THREE.MathUtils.clamp(u, 0, 1);
     _segB.copy(_segA).addScaledVector(_seg, u);
@@ -13611,6 +13639,7 @@ function noteImpact(source) {
 const RESISTANCE = 1 / 1.3;
 function damagePlayer(amount, source, cause) {
   if (!state.running) return;
+  state.calmeT = 0;                            // touché : la soute du lourd attend
   amount *= RESISTANCE;
   if (state.triche && state.triche.invincible) { state.hitFlash = Math.max(state.hitFlash, 0.3); return; }
   // PLUS ELLE BAISSE, PLUS ELLE TIENT. À pleine vie un point d'attaque coûte
@@ -15576,7 +15605,10 @@ function simulate(dt) {
   } else state.quatVu = null;
 
   // LA SOUTE : le drone lourd se répare en vol, tout seul, tant qu'il vole
-  if (avion().pouvoir === 'soute' && state.running && !state.pose && !state.roulage)
+  // — et seulement hors du feu : quatre secondes sans être touché, comme un
+  // vrai. On doit s'échapper pour guérir.
+  state.calmeT = (state.calmeT || 0) + dt;
+  if (avion().pouvoir === 'soute' && state.running && !state.pose && !state.roulage && state.calmeT > LOURD_CALME)
     state.structure = Math.min(state.vieMax, state.structure + LOURD_REPARE * dt);
   // LA NAPPE : le disque se déporte à plat, du côté touché, sans tourner
   if (pouvoirEst('nappe')) {
@@ -15842,6 +15874,61 @@ const t_ = k => t(k);
 // la place de droite tout seul.
 // ---------------------------------------------------------------------------
 const AILIER_DPS = 9;
+// ---------------------------------------------------------------------------
+// ILS VIVENT, ILS TOMBENT, ILS REVIENNENT — ET ILS FONT BOUCLIER.
+//
+// L'ailier était invulnérable : « il n'est pas une cible, il est une
+// récompense ». Décidé autrement : chaque suiveur a une vie, et un tiers des
+// balles qui nous visent partent sur lui à la place — deux suiveurs, deux
+// balles sur trois épargnées. Sous le feu ils tombent ; le suiveur tombé
+// redécolle du terrain une dizaine de secondes plus tard et revient se mettre
+// en formation. On le voit manquer, on le voit revenir.
+// ---------------------------------------------------------------------------
+// LA VIE D'UN SUIVEUR EST CELLE DE SON MODÈLE. Décidé : une cellule d'essaim
+// de six mètres n'encaisse pas comme un drone lourd. Voir `vieSuiveur` dans
+// AVIONS ; ESCOUADE_VIE ne sert que si un appareil n'en dit rien.
+const ESCOUADE_VIE = 60;          // points de vie d'un suiveur, à défaut
+const vieSuiveurDe = id => { const a = AVIONS.find(x => x.id === id); return (a && a.vieSuiveur) || ESCOUADE_VIE; };
+const ESCOUADE_RETOUR = 10;       // secondes avant qu'un suiveur tombé redécolle
+const ESCOUADE_PART = 1 / 3;      // la part des balles qu'un suiveur prend pour nous
+// ET IL REVIENT EN VOLANT, PAS EN GLISSANT. Décidé : le suiveur tombé
+// redécolle du terrain et met le temps du vol réel pour nous rejoindre — à
+// trente kilomètres, il manque plusieurs minutes. Il vole un peu plus vite
+// que nous, sinon il ne nous rattraperait jamais.
+const ESCOUADE_VOL = 160;         // m/s au moins, en route pour rejoindre
+const ESCOUADE_RATTRAPE = 1.4;    // fois notre vitesse, s'il faut plus
+const ESCOUADE_CONE = 0.94;       // cosinus : la cible qu'un suiveur se choisit doit être devant lui
+// LA CIBLE D'UN SUIVEUR quand nous n'en désignons pas : l'adversaire le plus
+// proche dans son cône. Décidé : notre verrouillage d'abord, la sienne sinon.
+function cibleSuiveur(A) {
+  if (state.lock) return state.lockCharge >= SEUIL_TIR ? state.lock : null;
+  let best = null, dBest = LOCK_RANGE;
+  for (const e of state.enemies) {
+    if (e.kind.sol || e.hp <= 0) continue;
+    _v.subVectors(e.pos, A.pos); const d = _v.length();
+    if (d > dBest) continue;
+    _v.divideScalar(d || 1);
+    _right.set(0, 0, -1).applyQuaternion(A.quat);   // le nez du suiveur
+    if (_right.dot(_v) < ESCOUADE_CONE) continue;
+    best = e; dBest = d;
+  }
+  return best;
+}
+// le suiveur que vise une balle adverse, ou rien : un tiers de chance chacun
+function suiveurVise() {
+  if (!state.escouade) return null;
+  for (const A of state.escouade)
+    if (A && !A.mort && A.mesh.visible && Math.random() < ESCOUADE_PART) return A;
+  return null;
+}
+// un suiveur touché, et ce qu'il en reste
+function blesseSuiveur(A, n) {
+  A.vie -= n;
+  if (A.vie > 0) return;
+  spawnBurst(A.pos, 8); SFX.detruit(A.pos);
+  A.mort = true; A.retourT = ESCOUADE_RETOUR; A.mesh.visible = false;
+  announce(t('suiveurTombe'));
+}
 // ET ON LES VOIT. L'ailier volait trente mètres en retrait, « un peu derrière »
 // — mais la caméra n'est qu'à seize mètres derrière l'appareil : il volait
 // derrière la caméra, et personne ne l'a jamais vu. Mesuré : projeté hors
@@ -15878,19 +15965,38 @@ function updateEscouade(dt) {
     if (id === 'aucun' || !enVol) { if (A) A.mesh.visible = false; continue; }
     if (!A) {
       A = state.escouade[i] = { id, mesh: meshAmiDe(id), pos: state.pos.clone(),
-                                quat: state.quat.clone(), gunT: 0 };
+                                quat: state.quat.clone(), gunT: 0, vie: vieSuiveurDe(id), mort: false, retourT: 0 };
+    }
+    // TOMBÉ : il attend au sol, puis il redécolle du terrain et revient
+    if (A.mort) {
+      A.retourT -= dt;
+      if (A.retourT > 0) { A.mesh.visible = false; continue; }
+      A.mort = false; A.vie = vieSuiveurDe(A.id);
+      A.pos.set(0, SOL_Y + 2, PAPI_Z);          // il part de la piste
+      A.quat.copy(state.quat);
     }
     A.mesh.visible = true;
     const P = ESCOUADE_PLACES[i];
     _right.crossVectors(state.forward, _up).normalize();
     _v.copy(state.pos).addScaledVector(_right, P.x).addScaledVector(state.forward, -P.z);
     _v.y += P.y;
-    A.pos.lerp(_v, 1 - Math.exp(-3.2 * dt));
-    A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
+    const loin = A.pos.distanceTo(_v);
+    if (loin > 150) {
+      // EN ROUTE : il vole vers sa place à sa vitesse, le nez dessus
+      const vit = Math.max(ESCOUADE_VOL, state.speed * ESCOUADE_RATTRAPE);
+      _seg.subVectors(_v, A.pos).normalize();
+      A.pos.addScaledVector(_seg, Math.min(loin, vit * dt));
+      _m4.lookAt(A.pos, _v, _up); _q.setFromRotationMatrix(_m4);
+      A.quat.slerp(_q, 1 - Math.exp(-4 * dt));
+    } else {
+      A.pos.lerp(_v, 1 - Math.exp(-3.2 * dt));
+      A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
+    }
     A.mesh.position.copy(A.pos); A.mesh.quaternion.copy(A.quat);
-    // il tire sur notre cible verrouillée, à découvert seulement
-    const e = state.lock;
-    if (e && state.lockCharge >= SEUIL_TIR && !obstacleEntre(A.pos, e.pos)) {
+    // il tire sur notre cible verrouillée — ou sur la sienne quand nous n'en
+    // avons pas —, à découvert seulement, et pas en route
+    const e = loin > 150 ? null : cibleSuiveur(A);
+    if (e && !obstacleEntre(A.pos, e.pos)) {
       blesse(e, AILIER_DPS * dt);
       A.gunT -= dt;
       if (A.gunT <= 0) {
@@ -18531,7 +18637,7 @@ const T = {
     disqueCasseSous: 'il ne se jouait qu’une fois  ·  elle l’avait écrit',
     faucheurRompt: 'LE FAUCHEUR ROMPT',
     faucheurRomptSous: 'il ne passe pas la chaîne  ·  ici, il n’y a plus de guerre',
-    courant: 'DANS LE COURANT', surplace: 'SURPLACE', salve: 'SALVE', nappe: 'NAPPE',
+    courant: 'DANS LE COURANT', surplace: 'SURPLACE', salve: 'SALVE', nappe: 'NAPPE', suiveurTombe: 'SUIVEUR ABATTU  ·  IL REVIENT',
     enJeep: 'AU VOLANT  ·  EN HAUT ON ACCÉLÈRE, EN BAS ON FREINE',
     deJeep: 'À PIED',
     act_descendre: 'DESCENDRE',
@@ -18675,7 +18781,7 @@ const T = {
     disqueCasseSous: 'it only played once  ·  she had written as much',
     faucheurRompt: 'THE REAPER BREAKS OFF',
     faucheurRomptSous: 'it does not cross the range  ·  out here there is no war',
-    courant: 'IN THE CURRENT', surplace: 'HOVER', salve: 'VOLLEY', nappe: 'SLIP',
+    courant: 'IN THE CURRENT', surplace: 'HOVER', salve: 'VOLLEY', nappe: 'SLIP', suiveurTombe: 'WINGMAN DOWN  ·  HE WILL BE BACK',
     enJeep: 'AT THE WHEEL  ·  UP TO ACCELERATE, DOWN TO BRAKE',
     deJeep: 'ON FOOT',
     act_descendre: 'GET OUT',
@@ -19403,6 +19509,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.85', fr: 'Un PAPI par bout de piste, posé à côté de la zone de toucher, et le tube vise ce même point : les feux et le magnétisme parlent enfin du même endroit.', en: 'One PAPI per runway end, beside the touchdown zone, and the tube aims at that same point: the lights and the magnetism finally speak of the same place.' },
+  { v: '1.85', fr: 'Les suiveurs ont une vie : ils encaissent un tiers chacun des balles qui nous visent, tombent, redécollent du terrain dix secondes plus tard et reviennent en volant, le temps du vol réel.', en: 'Wingmen have a life: they each take a third of the bullets aimed at us, fall, take off again from the field ten seconds later and fly back, in real flight time.' },
+  { v: '1.85', fr: 'Sans cible désignée, un suiveur se choisit l’adversaire le plus proche devant lui.', en: 'With no designated target, a wingman picks the nearest enemy ahead of him.' },
+  { v: '1.85', fr: 'Le drone lourd ne se répare que hors du feu, quatre secondes sans être touché. Et la guillotine laisse trois passages partout : le minimum passe de 14 à 10 m.', en: 'The heavy drone repairs only out of fire, four seconds untouched. And the guillotine allows three passes everywhere: the minimum drops from 14 to 10 m.' },
   { v: '1.84', fr: 'Un essai fait faire le tour complet aux sept appareils à chaque poussée : décollage, vague, pouvoir tenu, posé dans le sens du vent, réparation, redécollage — zéro exception exigée.', en: 'A test runs all seven aircraft through the full loop on every push: takeoff, wave, held ability, landing into the wind, repair, takeoff again — zero exceptions required.' },
   { v: '1.84', fr: 'Le drone lourd et l’essaim ne « tiennent » plus un pouvoir vide au double appui.', en: 'The heavy drone and the swarm no longer “hold” an empty ability on a double tap.' },
   { v: '1.83', fr: 'Les lames de la guillotine se voient : pleine épaisseur, trait plein, une croix sur chaque face. Ce qui est barré est barré.', en: 'The guillotine blades show: full depth, full stroke, a cross on each face. What is barred is barred.' },
@@ -20416,6 +20526,7 @@ window.addEventListener('pointerdown', e => {
   // sur le dos, et deux autres le relèvent.
   const aPied = !!state.pied || !!state.couche;
   const libre = state.running && state.spinT <= 0 && !state.fig;
+  state.dbgTapDt = now - lastTapT; state.dbgTapLibre = libre;   // lu par les bancs
   if (aPied && now - lastTapT < DOUBLE_TAP && side === lastTapSide) {
     if (state.couche) releveToi(); else coucheToi();
     lastTapT = 0;
@@ -20537,6 +20648,7 @@ function coupDeManche(e) {
 }
 function releasePointer(e) {
   if (e.pointerType === 'mouse') return;
+  state.dbgUp = (state.dbgUp || 0) + 1; state.dbgUpType = e.type;
   coupDeManche(e);
   trace.length = 0;
   joy.on = false;

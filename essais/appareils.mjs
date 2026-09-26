@@ -21,7 +21,8 @@ import { chromium } from 'playwright';
 
 const URL = process.argv[2] || 'https://pierremillon.github.io/fly-or-die/';
 const EXEC = process.env.CHROMIUM || undefined;
-const APPAREILS = ['bimoteur', 'intercepteur', 'pionnier', 'ancien', 'faucheur', 'lourd', 'essaim'];
+// un seul appareil en troisième argument, pour rejouer une ligne
+const APPAREILS = process.argv[3] ? [process.argv[3]] : ['bimoteur', 'intercepteur', 'pionnier', 'ancien', 'faucheur', 'lourd', 'essaim'];
 const rate = [];
 
 const navigateur = await chromium.launch({
@@ -65,7 +66,18 @@ for (const id of APPAREILS) {
   dit('une vague est là', vol.wave >= 1, 'vague ' + vol.wave);
   dit('les deux suiveurs volent', vol.suiveurs === 2, vol.suiveurs);
 
-  // LE POUVOIR TENU : double appui à hauteur de l'avion, et le doigt reste
+  // LE POUVOIR TENU : double appui à hauteur de l'avion, et le doigt reste.
+  // La vague est retirée d'abord : sous rendu logiciel, une image peut durer
+  // plus que les 320 ms du double appui quand des adversaires tirent, et le
+  // geste n'est plus lu comme double — mesuré, un intervalle de 208 ms sans
+  // adversaires, au-delà de 320 avec. Ce qu'on vérifie ici, c'est le geste,
+  // pas la cadence d'images du serveur d'essai.
+  await page.evaluate(() => {
+    const s = window.__fod;
+    s.enemies.forEach(e => e.mesh.parent && e.mesh.parent.remove(e.mesh)); s.enemies.length = 0;
+    s.waveTimer = 1e9; s.fig = null; s.spinT = 0;
+  });
+  await page.waitForTimeout(400);
   const cible = await page.evaluate(() => ({ x: window.__fod.screenX, y: window.__fod.screenY }));
   const cdp = await contexte.newCDPSession(page);
   const x = Math.min(cible.x + 110, 420), y = Math.max(60, Math.min(cible.y, 700));

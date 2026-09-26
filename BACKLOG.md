@@ -25,6 +25,16 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
        la grande au 4e. On vise un cadre encore grand et on heurte une lame.)
 - [x] Les lames de la guillotine se voient → v1.83 (pleine épaisseur, croix sur chaque face)
 - [x] En autonomie : essai du tour complet des sept appareils, dans la chaîne GitHub → v1.84 (7/7, zéro exception)
+- [x] PAPI et tube parlent du même point → v1.85 (un PAPI par bout, à 100 m du seuil : à 300, les roues touchaient derrière le bout de piste)
+- [x] Les suiveurs ont une vie, tombent, redécollent et reviennent, et font bouclier → v1.85 (part 33,7 / 22,2 %, retour 30,5 s pour 3,3 km)
+- [x] Le drone lourd ne se répare que hors du feu → v1.85
+- [x] Les suiveurs se choisissent une cible quand nous n'en verrouillons pas → v1.85 (507 points sans notre verrouillage)
+- [x] Un suiveur tombé revient en volant, le temps du vol réel → v1.85
+- [x] L'Ancien et la chaîne de portails : on laisse, les portails sont le monde → tranché
+- [x] Au reblocage par vidéos, seul le bimoteur reste gratuit → tranché, pour plus tard
+- [x] Guillotine : trois passages partout, minimum 14 → 10 m → v1.85
+- [x] Lune / Lourde : pas de bouclier tant qu'elle vit → CONFIRMÉ par toi
+- [x] Freinage : on garde l'arcade (240 m/s²), arrêt devant le hangar → tranché par toi
 - [x] En autonomie : l'arrivée au refuge par le tube, avec la corde de 900 m et le couloir élargi → mesuré v1.84 (prise 514 images, posé au refuge à 12,2 s, arrêt à 179 m du centre de la bande, aucune exception)
 - [x] L'Ancien le plus rapide du jeu au double-appui tenu → v1.79 (48 → 336, x7)
 - [x] Le PAPI reste tel quel → tranché, on n'y touche pas
