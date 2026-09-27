@@ -3811,7 +3811,13 @@ function luneClarte() {
 // ---------------------------------------------------------------------------
 const LUNE_RAY = 210;
 const LUNE_ARC = 64;                        // segments par arc
-const LUNE_PENCHE = -38 * Math.PI / 180;    // penchée, les cornes en haut à gauche
+// ---------------------------------------------------------------------------
+// LA LUNE EST UNE SILHOUETTE. Demandé, image à l'appui : un croissant tout
+// noir, son contour vert, et rien d'autre — pas de cratères, pas de lumière
+// cendrée qui devine le reste du disque. Et presque vertical : douze degrés
+// de penche, les cornes vers la droite, comme la silhouette qu'on dessine.
+// ---------------------------------------------------------------------------
+const LUNE_PENCHE = -12 * Math.PI / 180;    // presque verticale, à peine penchée
 // LES CRATÈRES. Quatre cercles à demeure, tracés seulement quand ils tiennent
 // tout entiers dans le croissant : la phase les efface un par un, on n'a rien
 // à calculer de plus.
@@ -3862,10 +3868,8 @@ function traceLune(f) {
   arc(clair, 0, th, 2 * Math.PI - th);
   // le terminateur : la part du cercle noir qui tombe dans le clair
   arc(clair, d, Math.PI - th, Math.PI + th);
-  // et la lumière cendrée : le reste du cercle clair, à peine visible
-  arc(sombre, 0, -th, th);
-  // les cratères, seulement ceux qui tiennent entièrement dans le croissant
-  for (const [cx, cy, cr] of LUNE_CRATERES) {
+  // plus de lumière cendrée, plus de cratères : la silhouette, et c'est tout
+  for (const [cx, cy, cr] of []) {
     const x = cx * R, y = cy * R, r = cr * R;
     if (Math.hypot(x, y) + r > R) continue;              // il dépasse du limbe
     if (Math.hypot(x - d, y) - r < R) continue;          // le cercle noir le mord
@@ -19513,6 +19517,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.87', fr: 'La lune est une silhouette : un croissant tout noir, contour vert seulement, presque vertical. Plus de cratères, plus de face sombre dessinée.', en: 'The moon is a silhouette: an all-black crescent, green outline only, nearly vertical. No more craters, no more drawn dark side.' },
+  { v: '1.87', fr: 'L’écran de fin tient entier sur les petits écrans : titres, boutons et journal se serrent sous 720 pixels de haut, sans rien à faire défiler.', en: 'The end screen fits whole on small screens: titles, buttons and log tighten under 720 pixels of height, nothing to scroll.' },
   { v: '1.86', fr: 'Au décollage, le viseur n’apparaît qu’en fin de montée, au palier — plus à douze mètres sol en pleine course.', en: 'On takeoff the sight appears only at the end of the climb, at level flight — no longer at twelve metres in the middle of the run.' },
   { v: '1.85', fr: 'Un PAPI par bout de piste, posé à côté de la zone de toucher, et le tube vise ce même point : les feux et le magnétisme parlent enfin du même endroit.', en: 'One PAPI per runway end, beside the touchdown zone, and the tube aims at that same point: the lights and the magnetism finally speak of the same place.' },
   { v: '1.85', fr: 'Les suiveurs ont une vie : ils encaissent un tiers chacun des balles qui nous visent, tombent, redécollent du terrain dix secondes plus tard et reviennent en volant, le temps du vol réel.', en: 'Wingmen have a life: they each take a third of the bullets aimed at us, fall, take off again from the field ten seconds later and fly back, in real flight time.' },

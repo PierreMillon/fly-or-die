@@ -26,7 +26,15 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Les lames de la guillotine se voient → v1.83 (pleine épaisseur, croix sur chaque face)
 - [x] En autonomie : essai du tour complet des sept appareils, dans la chaîne GitHub → v1.84 (7/7, zéro exception)
 - [x] Au décollage, le viseur n'apparaît qu'en fin de montée → v1.86 (absent de 0 à 5,6 s, apparaît au palier à 204 m)
-- [ ] L'écran de mort tient entièrement à l'écran : tous les boutons, tout l'affichage, sans défiler
+- [x] L'écran de mort tient entièrement à l'écran : tous les boutons, tout l'affichage, sans défiler → v1.87 (0 débordement à 320×568, 375×667, 390×844, 430×932)
+- [x] La lune : un croissant tout noir, contour vert seulement, presque vertical (image de référence envoyée) → v1.87 (penchée de 12°, 0 cratère, 0 arc sombre)
+- [ ] Le tunnel : on GARDE l'invincibilité et la réparation dedans (on peut y rester contre les murs pour regarder les bonshommes)
+- [ ] Le tunnel : la montagne doit le cacher, on ne voit que l'entrée et la sortie (aujourd'hui le tunnel se voit à travers, « comme si la montagne était creusée un peu partout »)
+- [ ] Les bonshommes des casemates : des poses drôles (ping-pong, judo, ...)
+- [ ] Des bulles au-dessus des bonshommes, avec des phrases absurdes
+- [ ] Une page à part : la liste des phrases proposées, à cocher et à me renvoyer
+- [ ] Les portails : à fond avec le bimoteur, 11 portails à la suite et aucune accélération. Chaque portail doit TOUJOURS faire gagner de la vitesse, c'est tout l'intérêt
+- [ ] Le tonneau : le déplacement latéral de l'avion x3, et la caméra part une fraction de seconde AVANT l'avion, s'arrête à l'endroit d'arrivée, et l'avion arrive dans l'écran
 - [x] PAPI et tube parlent du même point → v1.85 (un PAPI par bout, à 100 m du seuil : à 300, les roues touchaient derrière le bout de piste)
 - [x] Les suiveurs ont une vie, tombent, redécollent et reviennent, et font bouclier → v1.85 (part 33,7 / 22,2 %, retour 30,5 s pour 3,3 km)
 - [x] Le drone lourd ne se répare que hors du feu → v1.85

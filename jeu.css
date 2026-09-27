@@ -1045,6 +1045,20 @@
     letter-spacing: 0.16em; padding: 11px 18px;
   }
   #statsBtn[hidden] { display: none; }
+
+  /* L'ÉCRAN DE MORT TIENT SANS DÉFILER. Mesuré : à 320×568 il débordait de
+     156 px (« explications », « rapport de vol » et la case sortaient), à
+     375×667 de 89 px. Sur un écran bas, tout se resserre : marges, titre,
+     boutons — sans rien retirer. Demandé : tout à l'écran, sans lisser. */
+  @media (max-height: 720px) {
+    #overlay { gap: 6px; padding: clamp(12px, 3vh, 34px) 18px calc(50px + env(safe-area-inset-bottom, 0px)); }
+    #overlay h1 { font-size: 1.25rem; letter-spacing: 0.22em; }
+    #overlayText { font-size: 12px; line-height: 1.4; }
+    #overlayScore { font-size: 12px; line-height: 1.45; }
+    #videoBtn, #installBtn, #partageBtn, #expliqueBtn, #statsBtn { padding: 7px 14px; margin-top: 0; }
+    #startBtn { padding: 11px 20px; font-size: 14px; }
+    #plusJamais { margin-top: 0; }
+  }
   #stats { margin: 0; font-size: 12px; color: var(--ph-dim); letter-spacing: 0.06em; line-height: 1.9; text-align: left; }
   #stats b { color: var(--ph-text); font-weight: 500; }
   #stats[hidden] { display: none; }
