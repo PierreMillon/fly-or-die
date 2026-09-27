@@ -17407,9 +17407,13 @@ function drawHud() {
   const nose = project(_v.copy(state.forward).multiplyScalar(1500).add(state.pos));
   // ET PLUS RIEN DANS LE TUBE. Dès que l'approche est prise, on n'est plus
   // censé tirer : le viseur s'efface, comme il s'efface déjà une fois posé.
-  if (nose.front && !state.pose && !state.roulage && !state.refuge && !state.auSol
-      && !state.assist
-      && !(state.takeoff && state.pos.y < SOL_Y + 12)) {
+  // ET PAS PENDANT LA MONTÉE. Le viseur apparaissait dès douze mètres sol, en
+  // pleine course de décollage : demandé, il n'apparaît qu'en fin de montée —
+  // c'est-à-dire quand la séquence de décollage rend la main, au palier.
+  const viseurVu = nose.front && !state.pose && !state.roulage && !state.refuge && !state.auSol
+      && !state.assist && !state.takeoff;
+  state.viseurVu = viseurVu;                   // lu par les bancs
+  if (viseurVu) {
     const ch = state.lock ? state.lockCharge : 0;
     const jit = () => (Math.random() - 0.5) * 2.4 * ch;
     const cx = nose.x + jit(), cy = nose.y + jit();
@@ -19509,6 +19513,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.86', fr: 'Au décollage, le viseur n’apparaît qu’en fin de montée, au palier — plus à douze mètres sol en pleine course.', en: 'On takeoff the sight appears only at the end of the climb, at level flight — no longer at twelve metres in the middle of the run.' },
   { v: '1.85', fr: 'Un PAPI par bout de piste, posé à côté de la zone de toucher, et le tube vise ce même point : les feux et le magnétisme parlent enfin du même endroit.', en: 'One PAPI per runway end, beside the touchdown zone, and the tube aims at that same point: the lights and the magnetism finally speak of the same place.' },
   { v: '1.85', fr: 'Les suiveurs ont une vie : ils encaissent un tiers chacun des balles qui nous visent, tombent, redécollent du terrain dix secondes plus tard et reviennent en volant, le temps du vol réel.', en: 'Wingmen have a life: they each take a third of the bullets aimed at us, fall, take off again from the field ten seconds later and fly back, in real flight time.' },
   { v: '1.85', fr: 'Sans cible désignée, un suiveur se choisit l’adversaire le plus proche devant lui.', en: 'With no designated target, a wingman picks the nearest enemy ahead of him.' },

@@ -25,6 +25,8 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
        la grande au 4e. On vise un cadre encore grand et on heurte une lame.)
 - [x] Les lames de la guillotine se voient → v1.83 (pleine épaisseur, croix sur chaque face)
 - [x] En autonomie : essai du tour complet des sept appareils, dans la chaîne GitHub → v1.84 (7/7, zéro exception)
+- [x] Au décollage, le viseur n'apparaît qu'en fin de montée → v1.86 (absent de 0 à 5,6 s, apparaît au palier à 204 m)
+- [ ] L'écran de mort tient entièrement à l'écran : tous les boutons, tout l'affichage, sans défiler
 - [x] PAPI et tube parlent du même point → v1.85 (un PAPI par bout, à 100 m du seuil : à 300, les roues touchaient derrière le bout de piste)
 - [x] Les suiveurs ont une vie, tombent, redécollent et reviennent, et font bouclier → v1.85 (part 33,7 / 22,2 %, retour 30,5 s pour 3,3 km)
 - [x] Le drone lourd ne se répare que hors du feu → v1.85
