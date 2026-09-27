@@ -891,7 +891,7 @@ import * as THREE from 'three';
 // navigateur. Les sortir d'ici, c'est pouvoir les tester ; les laisser, c'était
 // les mesurer à travers dix-sept mille lignes.
 import {
-  borne, hauteurSol, PISTE, PENTE_CIBLE, viseDe, capPiste, tubeRayon, tubeHaut,
+  borne, hauteurSol as hauteurSolBrut, PISTE, PENTE_CIBLE, viseDe, capPiste, tubeRayon, tubeHaut,
   TERRAIN_R0, TERRAIN_R1, TERRAIN_R2, TERRAIN_R3, TERRAIN_H,
   TOUCHER_APRES, TUBE_DIST, TUBE_R0, TUBE_R1, SOMMET
 } from './math.js';
@@ -1013,7 +1013,10 @@ const TONNEAU_LAT   = 2;      // ce qui part et revient : plus rien, ou presque
 const TONNEAU_VERT  = 16;     // la moitié de la hauteur prise au sommet
 const TONNEAU_TOURS = 1;      // tours d'enroulement le long de la barrique
 const TONNEAU_CABRE = 45;     // degrés de nez levé au plus fort
-const TONNEAU_DECAL = 145;    // le décalage NET à la sortie, et il reste
+// TRIPLÉ. Cent quarante-cinq mètres de pas de côté ne se sentaient pas : « la
+// caméra doit vraiment se déplacer sur le côté ». Quatre cent trente-cinq, et
+// la caméra part AVANT l'avion — voir CAM_TONNEAU_AVANCE.
+const TONNEAU_DECAL = 435;    // le décalage NET à la sortie, et il reste
 const SPIN_TIME     = 1.45;   // durée du tonneau au double tap
 const SPIN_DODGE    = 110;    // ancien écart latéral : gardé pour l'esquive des roquettes
 // CINQ DEGRÉS, PAS VINGT-QUATRE. Réglé au curseur sur la planche : l'image ne
@@ -1088,7 +1091,14 @@ function camDecolEcart(t) {
 const CAM_DECOL_SOUPLE = 10;
 const CAM_SERPENT = 4.0;          // mètres : elle serpente vers le côté du tonneau, et revient
 const CAM_LATERAL_MAX = 4.5;      // et le décalage total ne dépasse jamais ceci, sinon l'avion quitte le cadre
-const CAM_TONNEAU   = 0.25;   // part du deport que la camera laisse filer avant de se recaler
+// LA CAMÉRA PART D'ABORD. Elle traînait d'un cinquième de figure derrière
+// l'avion ; elle part maintenant une fraction de seconde AVANT lui, file à
+// l'endroit où il va arriver, s'y arrête, et l'avion la rejoint dans le cadre :
+// on sent le bond. Le décalage entre elle et lui n'est plus borné à quatre
+// mètres et demi — c'est justement lui qu'on veut voir.
+const CAM_TONNEAU   = 1.0;    // part de l'avance de la caméra sur l'avion, à l'image
+const CAM_TONNEAU_AVANCE = 0.45;   // part de la figure au bout de laquelle la caméra est ARRIVÉE, et attend
+const CAM_TONNEAU_MAX = 500;  // mètres : l'écart caméra-avion ne dépasse pas ceci
 // LA PART DU PAS VERTICAL QUE LA CAMERA LAISSE FILER. A zero elle est rivee a
 // l'avion et la barrique ne se voit plus du tout ; a un elle ne suit rien et
 // l'avion sort du cadre par le haut. Un dixieme donne sept metres d'ecart au
@@ -1283,7 +1293,10 @@ const ROQ_E_VIRAGE  = 1.5;    // rad/s : moins agile que la nôtre, sinon rien n
 // ---------------------------------------------------------------------------
 const ROQ_E_TERMINAL = 260;   // mètres : en deçà, son virage se durcit
 const ROQ_E_VIRAGE_MAX = 6;   // rad/s : l'autorité maximale, tout près
-const ROQ_E_DEGATS  = 50;
+// QUATRE FOIS PLUS. Cinquante, c'était une éraflure qu'on encaissait sans
+// bouger. À deux cents, la roquette tue tout ce qui n'a pas dépassé deux cents
+// de vie : l'esquive n'est plus un conseil, c'est la règle.
+const ROQ_E_DEGATS  = 200;
 const ROQ_E_RECHARGE = 9;
 // DEUX SECONDES POUR RÉAGIR, PAS NEUF. Tirée à neuf cent cinquante mètres et
 // rattrapant à quatre-vingt-quinze mètres par seconde, elle mettait neuf
@@ -1992,12 +2005,21 @@ const TIMBRES = {
   // cinquième du gain du biplan, coupé très bas : on l'entend comme on entend
   // un ventilateur dans la pièce d'à côté, et c'est le seul appareil du jeu
   // avec lequel on entend le ciel.
-  planeur: { base: 34,  ecart: 2.2, coupe: 260,  sous: 0.30, gain: 0.011 }
+  planeur: { base: 34,  ecart: 2.2, coupe: 260,  sous: 0.30, gain: 0.011 },
+  // LE DISQUE. Le Faucheur n'a pas de moteur à pistons : un bourdon grave,
+  // deux voix presque à l'unisson qui battent lentement, coupé bas. On
+  // l'entend comme on entend un transformateur.
+  disque:  { base: 52,  ecart: 0.6, coupe: 300,  sous: 0.70, gain: 0.048 },
+  // LE LOURD. Un rotor : très grave, très désaccordé, beaucoup de gras.
+  lourd:   { base: 40,  ecart: 3.4, coupe: 520,  sous: 0.60, gain: 0.066 },
+  // L'ESSAIM. Un vrombissement aigu, serré, sans dessous : une cellule qui
+  // vibre, pas un moteur qui tourne.
+  essaim:  { base: 150, ecart: 1.4, coupe: 1600, sous: 0,    gain: 0.030 }
 };
 
 function appliqueTimbre() {
   if (!moteur || !moteurLP) return;
-  const T = TIMBRES[timbre] || TIMBRES.clair;
+  const T = TIMBRES[(typeof avion === 'function' && avion().timbre) || timbre] || TIMBRES.clair;
   moteurLP.frequency.value = T.coupe;
   // la troisième voix, une octave en dessous, est ce qui fait le gras : elle
   // est muette sur le timbre clair, c'est elle seule qui distingue les deux
@@ -4312,7 +4334,7 @@ const AVIONS = [
   { id: 'bimoteur',     nom: 'BIMOTEUR',     en: 'TWIN',        vit: 1.0,  lacet: 1.0, tangage: 1.0,  roquettes: 20, leurres: 0, acces: 'libre', pouvoir: 'coque', vieSuiveur: 60 },
   { id: 'intercepteur', nom: 'INTERCEPTEUR', en: 'INTERCEPTOR', vit: 1.3,  lacet: 0.8, tangage: 1.15, roquettes: 14, leurres: 6, acces: 'legende', pouvoir: 'salve', vieSuiveur: 50 },
   { id: 'pionnier',     nom: 'PIONNIER',     en: 'PIONEER',     vit: 0.85, lacet: 1.3, tangage: 1.2,  roquettes: 8,  leurres: 0, acces: 'libre', pouvoir: 'surplace', vieSuiveur: 40 },
-  { id: 'ancien',       nom: 'L’ANCIEN',     en: 'THE OLD ONE', vit: 0.62, lacet: 1.5, tangage: 1.35, roquettes: 0,  leurres: 0, acces: 'refuge', courant: true, timbre: 'planeur', pouvoir: 'courant', vieSuiveur: 35 },
+  { id: 'ancien',       nom: 'L’ANCIEN',     en: 'THE OLD ONE', vit: 0.62, lacet: 1.5, tangage: 1.35, roquettes: 0,  leurres: 0, acces: 'refuge', courant: true, chaud: 10, timbre: 'planeur', pouvoir: 'courant', vieSuiveur: 35 },
   // CELUI QUI TE CHASSAIT. On ne le gagne ni en volant longtemps ni en allant
   // loin : on le gagne en l'ABATTANT, ce que presque personne ne fera — quatre
   // mille points de structure, et il tue en vingt-deux secondes. C'est le seul
@@ -4322,7 +4344,7 @@ const AVIONS = [
   // de très loin le moins maniable — un cercle plat n'a pas d'aile pour
   // s'appuyer sur l'air. On ne le prend pas pour gagner, on le prend pour
   // savoir ce que c'était.
-  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel', pouvoir: 'nappe', vieSuiveur: 120 },
+  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel', timbre: 'disque', pouvoir: 'nappe', vieSuiveur: 120 },
   // LES DRONES. Ils ne se pilotent pas comme des avions : aucun canon, et
   // c'est ce qui les définit.
   //   — le LOURD est lent, sans arme, porte le double de roquettes et se
@@ -4330,8 +4352,8 @@ const AVIONS = [
   //   — l'ESSAIM est trois cellules en triangle : on pilote celle du milieu,
   //     qui ne tire pas, et les deux autres tirent. Ses deux suiveurs sont
   //     imposés — c'est l'appareil lui-même.
-  { id: 'lourd',        nom: 'DRONE LOURD',  en: 'HEAVY DRONE', vit: 0.7,  lacet: 0.7,  tangage: 0.8,  roquettes: 40, leurres: 2, acces: 'libre', canons: false, pouvoir: 'soute', vieSuiveur: 150 },
-  { id: 'essaim',       nom: 'ESSAIM',       en: 'SWARM',       vit: 1.1,  lacet: 1.2,  tangage: 1.1,  roquettes: 0,  leurres: 0, acces: 'libre', canons: false, pouvoir: 'essaim', vieSuiveur: 30 },
+  { id: 'lourd',        nom: 'DRONE LOURD',  en: 'HEAVY DRONE', vit: 0.7,  lacet: 0.7,  tangage: 0.8,  roquettes: 40, leurres: 2, acces: 'libre', canons: false, timbre: 'lourd', pouvoir: 'soute', vieSuiveur: 150 },
+  { id: 'essaim',       nom: 'ESSAIM',       en: 'SWARM',       vit: 1.1,  lacet: 1.2,  tangage: 1.1,  roquettes: 0,  leurres: 0, acces: 'libre', canons: false, timbre: 'essaim', pouvoir: 'essaim', vieSuiveur: 30 },
 ];
 const LOURD_REPARE = 6;        // points de vie par seconde, en vol, pour le drone lourd
 const LOURD_CALME = 4;         // secondes sans être touché avant que la soute répare
@@ -4564,6 +4586,9 @@ function appliqueAvion() {
   // l'ancien porte la sienne ; le faucheur, l'intercepteur et les drones n'en ont pas
   if (typeof propMesh !== 'undefined')
     propMesh.visible = id === 'bimoteur' || id === 'pionnier';
+  // ET LE SON SUIT L'APPAREIL : le filtre et la voix grave du timbre se règlent
+  // ici aussi, pas seulement au bouton du menu.
+  if (typeof appliqueTimbre === 'function') appliqueTimbre();
 }
 function appliqueTeinte() {
   const t = TEINTES.find(x => x.id === teinteChoisie) || TEINTES[0];
@@ -4752,6 +4777,38 @@ const TUNNEL = {
 };
 TUNNEL.y1 = TUNNEL.y0 + TUNNEL.haut;
 TUNNEL.ux = 0.544639; TUNNEL.uz = 0.838671;     // le vecteur unitaire du boyau
+// ---------------------------------------------------------------------------
+// LA MONTAGNE CACHE LE TUNNEL. On voyait le boyau à travers le massif, « comme
+// si la montagne était creusée un peu partout ». Mesuré : le relief au-dessus
+// du boyau descend à 360 mètres au milieu, pour un toit de roche à 352 — huit
+// mètres de couverture, et par endroits moins entre deux sommets de la grille.
+// Et le sol se perçait partout où une maille touchait la tranche d'altitude du
+// boyau : au milieu du massif aussi, dès qu'un coin de maille était bas.
+//
+// Deux choses, donc. Le relief est relevé d'office au-dessus du boyau, à trente
+// mètres au-dessus du toit, avec un raccord doux tout autour ; et le sol ne se
+// perce plus qu'aux deux BOUCHES — cent soixante mètres à chaque bout — jamais
+// au milieu. On voit l'entrée, on voit la sortie, et entre les deux il y a une
+// montagne.
+// ---------------------------------------------------------------------------
+const TUNNEL_BOUCHE = 160;        // mètres : la zone de chaque bouche, où le sol se perce
+const TUNNEL_COUVERTURE = 30;     // mètres de roche garantis au-dessus du toit
+function hauteurSol(x, z) {
+  let h = hauteurSolBrut(x, z);
+  const T = TUNNEL;
+  const dx = x - T.x, dz = z - T.z;
+  const u = Math.abs(dx * T.ux + dz * T.uz), v = Math.abs(-dx * T.uz + dz * T.ux);
+  const demiU = T.long / 2 - TUNNEL_BOUCHE, demiV = T.large / 2 + T.epais + 40, jupe = 140;
+  if (u < demiU + jupe && v < demiV + jupe) {
+    const plancher = T.y1 + T.epais + TUNNEL_COUVERTURE;
+    if (h < plancher) {
+      let ku = borne((demiU + jupe - u) / jupe, 0, 1), kv = borne((demiV + jupe - v) / jupe, 0, 1);
+      ku = ku * ku * (3 - 2 * ku); kv = kv * kv * (3 - 2 * kv);
+      h += (plancher - h) * ku * kv;
+    }
+  }
+  return h;
+}
 // LE REFUGE, DÉCLARÉ ICI. Les deux chiffres peints sur la piste sont les caps
 // du tunnel et du refuge : il faut donc les deux avant de peindre le bitume.
 const REFUGE = { x: -32000, z: 0, demiL: 14, demiZ: 180 };
@@ -4775,6 +4832,7 @@ function tunnelUV(x, z) {
 function trouTunnel(x, z, yBas, yHaut) {
   const q = tunnelUV(x, z);
   if (Math.abs(q.u) > TUNNEL.long / 2 + 40) return false;
+  if (Math.abs(q.u) < TUNNEL.long / 2 - TUNNEL_BOUCHE) return false;   // jamais au milieu du massif
   if (Math.abs(q.v) > TUNNEL.large / 2) return false;
   return yHaut > TUNNEL.y0 - 6 && yBas < TUNNEL.y1 + 6;
 }
@@ -5749,7 +5807,11 @@ const CATAPULTE     = 60;     // m/s ajoutés à l'instant du passage
 const CHAINE_FENETRE = 9;     // secondes pour attraper le portail suivant
 const CHAINE_GAIN    = 0.40;  // ce que chaque cran ajoute, en proportion
 const ACQUIS_FUITE = 0.035;   // par seconde : la moitié du capital en vingt secondes
-const ACQUIS_MAX = 900;       // et l'on n'accumule pas indéfiniment
+// ET L'ON ACCUMULE SANS FIN. Le capital plafonnait à neuf cents : onze
+// portails à la suite, à fond, et les derniers ne donnaient plus rien. « Chaque
+// portail doit toujours faire gagner de la vitesse, c'est tout l'intérêt. » Le
+// seul mur qui reste est le garde-fou de simulation.
+const ACQUIS_MAX = SPEED_DUR;
 const CHAINE_MAX     = 6;     // au-delà, le gain ne monte plus
 const CATAPULTE_POUSSEE = 4;  // ce que devient le rappel moteur pendant la poussée
 const BOOST_INVINCIBLE = 0.5;     // au-dessus de cette poussée, les ennemis ne nous font rien  // ...et tant qu'on reste loin, ça continue de monter, jusqu'à ceci
@@ -6036,7 +6098,7 @@ const PISTE_GARDE_Z1 = -1150;
 // se dessine sur la page d'édition et se colle ici telle quelle. L'origine est
 // le milieu de la piste ; x vers l'est, z vers le sud (le nord est en -z).
 // ---------------------------------------------------------------------------
-const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":130,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":6,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":110,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
+const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":130,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":-430,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":-560,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
 // ---------------------------------------------------------------------------
 // LES DEUX BÂTIMENTS À FIGURE SORTENT DE LA CARTE.
 //
@@ -6484,6 +6546,8 @@ const APPROCHE_VIT = Math.round(SPEED_MIN * 1.3);
 // qui est honnête : arriver vite se paie d'un contact plus ferme.
 const ARRONDI_T = 1.2;                         // constante de temps de l'arrondi
 const TUBE_ROULE = 900;                        // mètres de piste où le tube tient encore
+const TUBE_V_POSE = 230;                       // m/s : au-dessus, le tube freine dans l'air
+const TUBE_FREIN_AIR = 2.2;                    // par seconde : la part de l'excès reprise
 // ET LE COULOIR NE SE RESSERRE PLUS AU-DESSUS DU BITUME. L'entonnoir finit à
 // vingt-six mètres de rayon : passé le point visé, un appareil encore à vingt
 // mètres du sol en sortait par le haut, le tube lâchait, et l'arrondi de la
@@ -6891,6 +6955,23 @@ function partBitume(marge) {
 function surLaPiste(x, z) {
   return Math.abs(x) < PISTE_GARDE_X && z < PISTE_GARDE_Z0 && z > PISTE_GARDE_Z1;
 }
+// ET RIEN DANS LE CERCLE NON PLUS. Le couloir d'arrivée — de la bouche du cône
+// au seuil, pour chaque piste et chaque sens — est interdit au décor : « il ne
+// faut pas d'obstacle dans le cercle, évidemment ». Un pylône était pile sur
+// l'axe, à mille cent quatre-vingts mètres du point visé.
+const COULOIR_MARGE = 60;
+function dansCouloirArrivee(x, z) {
+  for (const P of pistes()) for (const sens of [-1, 1]) {
+    const cap = capPiste(P, sens), av = viseDe(P);
+    const dx = -Math.sin(cap), dz = -Math.cos(cap);
+    const vx = P.x - dx * av, vz = P.z - dz * av;
+    const s = (x - vx) * dx + (z - vz) * dz;          // le long du couloir, négatif en amont
+    if (s > 0 || s < -(TUBE_DIST + 300)) continue;
+    const e = Math.abs(-(x - vx) * dz + (z - vz) * dx);
+    if (e < tubeRayon(-s) + COULOIR_MARGE) return true;
+  }
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // LES MÉCANICIENS. Trois pavés d'un mètre quatre-vingts qui s'affairent autour
@@ -7177,6 +7258,15 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   rang.push({ id: 'faucheur', geo: KIND_FAUCHEUR.geom, edges: KIND_FAUCHEUR.edges,
               mat: cielComplet() ? matPlayer : matPale,
               ech: KIND_FAUCHEUR.echelle * 0.9 });
+  // ET LES DEUX DRONES, garés au bout du rang comme les autres : tout ce qui
+  // se pilote se voit dans le hangar, et s'y prend du nez.
+  rang.push({ id: 'lourd', geo: KIND_GARDIEN.geom, edges: KIND_GARDIEN.edges, mat: matPlayer,
+              ech: KIND_GARDIEN.echelle * ENVERGURE_JOUEUR * 1.3 / KIND_GARDIEN.envergure * 0.9 });
+  rang.push({ id: 'essaim', geo: KIND_DRONE.geom, edges: KIND_DRONE.edges, mat: matPlayer,
+              ech: KIND_DRONE.echelle * ENVERGURE_JOUEUR * 0.6 / KIND_DRONE.envergure * 0.9 });
+  // TOUT EST OUVERT, TOUT BRILLE. Un appareil pâle disait « pas encore » ;
+  // tant que tout est débloqué, aucun ne l'est.
+  for (const r of rang) { const a = AVIONS.find(x => x.id === r.id); if (a && avionOuvert(a)) r.mat = matPlayer; }
   rang.forEach((r, i) => {
     const m = r.lignes ? avionEnFil(r.lignes, r.peau || [], r.mat)
                        : solidWire(r.geo, r.edges, r.mat);
@@ -7861,12 +7951,12 @@ for (let i = 0; i < ARCHES_CARTE.length; i++) {
         new THREE.LineSegments(aretesArche, matArche));
   const trait = g.children[g.children.length - 1];
   const lame = faitLame(ARCHE.ouvertureL, ARCHE.ouvertureH, ARCHE.prof);
-  const lameBas = faitLame(ARCHE.ouvertureL, ARCHE.ouvertureH, ARCHE.prof);
-  g.add(lame, lameBas);
+  g.add(lame);
   g.frustumCulled = false;
   scene.add(g);
-  arches.push({ g, trait, lame, lameBas, boites: [], boiteBas: null, passage: null, prise: false,
+  arches.push({ g, trait, lame, boites: [], passage: null, prise: false,
                 guillo: 0, repos: 0, tombe: 0, ferme: false, boiteLame: null,
+                sommetsToit: sommetsDuToit(trait, ARCHE.ouvertureH, ARCHE.ouvertureL / 2),
                 ouv: { y0: 0, y1: ARCHE.ouvertureH } });
 }
 
@@ -7882,7 +7972,7 @@ function placeArche(a, initial) {
     const r = initial ? 450 + Math.random() * 1500 : 1900 + Math.random() * 900;
     x = state.pos.x + Math.cos(ang) * r;
     z = state.pos.z + Math.sin(ang) * r;
-    if (!surLaPiste(x, z) || essai > 12) break;
+    if ((!surLaPiste(x, z) && !dansCouloirArrivee(x, z)) || essai > 12) break;
   }
   const quart = c ? !!c.q : Math.random() < 0.5;   // orientée à 0 ou 90 degrés, pour
   a.g.position.set(x, 0, z);                  // que les boîtes restent alignées
@@ -7961,6 +8051,21 @@ const SALLE_H = 22;      // sa hauteur, sur les trente du boyau
 const SALLE_P = 40;      // la profondeur de la casemate, depuis la paroi
 const SALLE_JEU = 0.5;   // le trou déborde d'autant : aucune face coplanaire
 const SALLE_ECH = 1.6;   // les silhouettes agrandies, pour se voir au passage
+const BULLE_L = 30;      // mètres : la largeur d'une bulle
+// LES PHRASES DES BONSHOMMES. Une par casemate, dans l'ordre des scènes :
+// ping-pong, judo, échecs, yoga, poirier, guitare, jongleur, pêcheur, salut.
+// Provisoires : la planche planche.html sert à les cocher.
+const BULLES = [
+  ['On joue le point. Le perdant creuse la suite du tunnel.', 'Match point. Loser digs the rest of the tunnel.'],
+  ['Ippon. Je t’avais dit que la montagne glissait.', 'Ippon. Told you the mountain was slippery.'],
+  ['Échec au roi. Le roi est parti en 1987.', 'Check. The king left in 1987.'],
+  ['Je fais l’arbre. Ça pousse pas, mais je fais l’arbre.', 'I’m doing the tree. Nothing grows, but I’m doing the tree.'],
+  ['Vu d’ici, l’avion est à l’endroit.', 'From here, the plane is the right way up.'],
+  ['Trois accords, et tous les trois sont faux.', 'Three chords, and all three are wrong.'],
+  ['J’en avais quatre. Il y en a une qui n’est jamais redescendue.', 'I had four. One never came back down.'],
+  ['Ça ne mord pas. Ça n’a jamais mordu. C’est un seau.', 'Nothing bites. Nothing ever did. It’s a bucket.'],
+  ['On salue tout ce qui passe. C’est le règlement.', 'We salute whatever passes. Those are the rules.'],
+];
 
 const tunnelBoites = [];
 (function creuseLeTunnel() {
@@ -8056,37 +8161,166 @@ const tunnelBoites = [];
   // remplit à mesure qu'on passe au lieu de clignoter d'un coup.
   // ---------------------------------------------------------------------------
   {
+    // -----------------------------------------------------------------------
+    // ET ILS FONT QUELQUE CHOSE. Trois silhouettes au garde-à-vous, c'était un
+    // poste ; c'est devenu une vie. Chaque casemate a sa scène — ping-pong,
+    // judo, échecs, yoga, poirier, guitare, jonglage, pêche, salut — et une
+    // bulle au-dessus, avec une phrase. Absurde, exprès : on ne les voit qu'en
+    // s'arrêtant sous la montagne, et ceux qui s'arrêtent là ont mérité un
+    // sourire. Les phrases sont dans BULLES, et la planche planche.html sert
+    // à les trier.
+    //
+    // Un pantin : un point d'ancrage au sol (u, v), une échelle E, et des
+    // angles. Les jambes et les bras sont donnés en radians depuis la
+    // verticale (jambes) ou depuis le bas (bras), le tronc peut pencher, et
+    // tout peut être couché (poirier, judoka projeté).
+    // -----------------------------------------------------------------------
     const pts = [];
     const E = SALLE_ECH;
     const seg = (a, b) => pts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
-    const c = (uu, yy, vv) => [uu, yy, vv];
+    const pantin = (hu, hv, cote, o) => {
+      o = o || {};
+      const y0 = sy0 + (o.y || 0) * E;
+      const pench = o.pench || 0;               // le tronc, en radians depuis la verticale (+ vers +u)
+      const jambes = o.jambes || [-0.35, 0.35];
+      const bras = o.bras || [-0.6, 0.6];       // depuis le bas : 0 = le long du corps, π/2 = à l'horizontale, π = en l'air
+      const dv = cote * 0.5 * E;
+      // un repère local : X le long du boyau (u), Y en haut, tourné de `roule`
+      // autour de v (couché = π/2)
+      const roule = o.roule || 0;
+      const cr = Math.cos(roule), sr = Math.sin(roule);
+      const P = (x, y) => [hu + (x * cr - y * sr) * E, y0 + (x * sr + y * cr) * E, hv];
+      const hanche = [0, 3.2];
+      for (const j of jambes) seg(P(0, 3.2), P(Math.sin(j) * 3.4, 3.2 - Math.cos(j) * 3.2));
+      const ep = [Math.sin(pench) * 3.2, 3.2 + Math.cos(pench) * 3.2];   // l'épaule
+      seg(P(hanche[0], hanche[1]), P(ep[0], ep[1]));
+      const bx = [], by = [];
+      bras.forEach((a2, k) => {
+        const sx = k === 0 ? -1 : 1;
+        const x = ep[0] + sx * Math.sin(a2) * 2.6, y = ep[1] - 0.8 - Math.cos(a2) * 2.6;
+        seg(P(ep[0], ep[1] - 0.8), P(x, y)); bx.push(x); by.push(y);
+      });
+      // la tête : un carré
+      const tx = ep[0], ty = ep[1];
+      seg(P(tx - 0.7, ty), P(tx + 0.7, ty)); seg(P(tx - 0.7, ty), P(tx - 0.7, ty + 1.4));
+      seg(P(tx + 0.7, ty), P(tx + 0.7, ty + 1.4)); seg(P(tx - 0.7, ty + 1.4), P(tx + 0.7, ty + 1.4));
+      // et une épaisseur
+      const h1 = P(hanche[0], hanche[1]), e1 = P(ep[0], ep[1] - 0.8);
+      seg(h1, [h1[0], h1[1], h1[2] + dv]); seg(e1, [e1[0], e1[1], e1[2] + dv]);
+      return { mains: [P(bx[0], by[0]), P(bx[1], by[1])], tete: P(tx, ty + 1.4), P };
+    };
+    const carre = (c, r) => {   // un petit carré dans le plan u-y, centré en c
+      seg([c[0] - r, c[1] - r, c[2]], [c[0] + r, c[1] - r, c[2]]); seg([c[0] + r, c[1] - r, c[2]], [c[0] + r, c[1] + r, c[2]]);
+      seg([c[0] + r, c[1] + r, c[2]], [c[0] - r, c[1] + r, c[2]]); seg([c[0] - r, c[1] + r, c[2]], [c[0] - r, c[1] - r, c[2]]);
+    };
+    const SCENES = [
+      // PING-PONG : une table, un filet, deux joueurs raquette levée, la balle en l'air
+      (u, hv, cote) => {
+        const y = sy0, t = 2.2 * E;
+        seg([u - 7, y + t, hv], [u + 7, y + t, hv]); seg([u - 7, y + t, hv + cote * 3], [u + 7, y + t, hv + cote * 3]);
+        seg([u - 7, y + t, hv], [u - 7, y + t, hv + cote * 3]); seg([u + 7, y + t, hv], [u + 7, y + t, hv + cote * 3]);
+        seg([u - 6, y, hv], [u - 6, y + t, hv]); seg([u + 6, y, hv], [u + 6, y + t, hv]);
+        seg([u, y + t, hv], [u, y + t + 1.2, hv]); seg([u, y + t, hv + cote * 3], [u, y + t + 1.2, hv + cote * 3]);
+        const a = pantin(u - 10, hv + cote * 1.5, cote, { bras: [0.3, 2.2], pench: 0.25 });
+        const b = pantin(u + 10, hv + cote * 1.5, cote, { bras: [2.4, 0.3], pench: -0.25 });
+        carre(a.mains[1], 0.9); carre(b.mains[0], 0.9);
+        carre([u + 2, y + t + 3.5, hv + cote * 1.5], 0.35);
+      },
+      // JUDO : l'un debout, bras tendus ; l'autre en l'air, à l'horizontale, projeté
+      (u, hv, cote) => {
+        pantin(u - 3, hv, cote, { bras: [1.6, 1.9], pench: 0.3, jambes: [-0.7, 0.5] });
+        pantin(u + 5, hv, cote, { y: 5.5, roule: -Math.PI / 2 + 0.3, bras: [2.6, 2.4], jambes: [-0.2, 0.5] });
+      },
+      // ÉCHECS : deux assis, une table basse, un damier
+      (u, hv, cote) => {
+        const y = sy0, t = 1.6 * E;
+        for (let k = 0; k <= 3; k++) { seg([u - 3 + k * 2, y + t, hv], [u - 3 + k * 2, y + t, hv + cote * 6]); seg([u - 3, y + t, hv + cote * k * 2], [u + 3, y + t, hv + cote * k * 2]); }
+        seg([u - 3, y, hv + cote * 3], [u - 3, y + t, hv + cote * 3]); seg([u + 3, y, hv + cote * 3], [u + 3, y + t, hv + cote * 3]);
+        pantin(u - 7, hv + cote * 3, cote, { y: 0, jambes: [1.2, 1.4], bras: [0.4, 1.7], pench: 0.35 });
+        pantin(u + 7, hv + cote * 3, cote, { y: 0, jambes: [-1.4, -1.2], bras: [1.7, 0.4], pench: -0.35 });
+      },
+      // YOGA : l'arbre — sur une jambe, l'autre pliée, les bras en V au ciel
+      (u, hv, cote) => {
+        pantin(u, hv, cote, { jambes: [0, 1.3], bras: [2.6, 2.6] });
+        pantin(u + 12, hv + cote * 8, cote, { jambes: [0, 1.3], bras: [2.6, 2.6] });
+      },
+      // LE POIRIER : la tête en bas, et un spectateur qui applaudit
+      (u, hv, cote) => {
+        pantin(u - 4, hv, cote, { y: 7.8, roule: Math.PI, bras: [0.2, 0.2], jambes: [-0.3, 0.4] });
+        pantin(u + 7, hv + cote * 6, cote, { bras: [1.4, 1.5] });
+      },
+      // LA GUITARE : un assis qui joue, deux qui écoutent
+      (u, hv, cote) => {
+        const g2 = pantin(u, hv, cote, { jambes: [1.1, 1.3], bras: [1.1, 1.4], pench: 0.15 });
+        const m = g2.mains[0];
+        carre([m[0] + 1.5, m[1] - 0.5, m[2]], 1.4); seg([m[0] + 1.5, m[1] + 0.9, m[2]], [m[0] - 3.5, m[1] + 2.4, m[2]]);
+        pantin(u + 9, hv + cote * 7, cote, { jambes: [1.2, 1.4], bras: [0.5, 0.5] });
+        pantin(u - 9, hv + cote * 7, cote, { jambes: [-1.4, -1.2], bras: [0.4, 0.6] });
+      },
+      // LE JONGLEUR : bras levés, trois balles en l'air
+      (u, hv, cote) => {
+        const j = pantin(u, hv, cote, { bras: [1.9, 1.9] });
+        carre([j.tete[0] - 2, j.tete[1] + 2.5, hv], 0.4); carre([j.tete[0] + 2, j.tete[1] + 1.5, hv], 0.4); carre([j.tete[0], j.tete[1] + 4.5, hv], 0.4);
+        pantin(u + 11, hv + cote * 8, cote, { bras: [0.8, 0.8], pench: -0.2 });
+      },
+      // LE PÊCHEUR : assis au bord d'un seau, la canne au-dessus, le fil dedans
+      (u, hv, cote) => {
+        const pch = pantin(u - 2, hv, cote, { jambes: [1.3, 1.5], bras: [1.0, 1.2], pench: 0.2 });
+        const m = pch.mains[1];
+        seg(m, [m[0] + 9, m[1] + 6, m[2]]); seg([m[0] + 9, m[1] + 6, m[2]], [m[0] + 9, sy0 + 1.5, m[2]]);
+        const s0 = [m[0] + 9, sy0, m[2]];
+        seg([s0[0] - 1.5, s0[1], s0[2]], [s0[0] + 1.5, s0[1], s0[2]]); seg([s0[0] - 1.5, s0[1], s0[2]], [s0[0] - 1.2, s0[1] + 2.2, s0[2]]);
+        seg([s0[0] + 1.5, s0[1], s0[2]], [s0[0] + 1.2, s0[1] + 2.2, s0[2]]); seg([s0[0] - 1.2, s0[1] + 2.2, s0[2]], [s0[0] + 1.2, s0[1] + 2.2, s0[2]]);
+        pantin(u + 10, hv + cote * 9, cote, { bras: [0.4, 0.4] });
+      },
+      // LE SALUT : trois au garde-à-vous, la main à la tempe — ceux d'avant
+      (u, hv, cote) => {
+        for (let k = -1; k <= 1; k++) pantin(u + k * 8, hv + cote * (k + 1) * 3, cote, { jambes: [-0.15, 0.15], bras: [0.1, 2.9] });
+      },
+    ];
     for (let i = 0; i < SALLES.length; i++) {
       const u = SALLES[i].u, cote = SALLES[i].cote;
       pose(casemate(u, cote));
-      const n = 2 + (i % 3);                       // deux, trois ou quatre
-      for (let k = 0; k < n; k++) {
-        const hu = u + ((k + 0.5) / n - 0.5) * (SALLE_L - 16);
-        const hv = cote * (l2 + 12 + (k % 3) * 11);
-        const y = sy0, dv = cote * 0.5 * E;
-        // les deux jambes, écartées en travers du boyau
-        for (const j of [-0.9, 0.9]) {
-          seg(c(hu + j * E, y, hv), c(hu + j * 0.4 * E, y + 3.2 * E, hv));
-        }
-        // le tronc, les bras, la tête
-        seg(c(hu, y + 3.2 * E, hv), c(hu, y + 6.4 * E, hv));
-        seg(c(hu - 1.5 * E, y + 5.6 * E, hv), c(hu + 1.5 * E, y + 5.6 * E, hv));
-        seg(c(hu - 0.7 * E, y + 6.4 * E, hv), c(hu + 0.7 * E, y + 6.4 * E, hv));
-        seg(c(hu - 0.7 * E, y + 6.4 * E, hv), c(hu - 0.7 * E, y + 7.8 * E, hv));
-        seg(c(hu + 0.7 * E, y + 6.4 * E, hv), c(hu + 0.7 * E, y + 7.8 * E, hv));
-        seg(c(hu - 0.7 * E, y + 7.8 * E, hv), c(hu + 0.7 * E, y + 7.8 * E, hv));
-        // et une épaisseur, pour qu'ils ne soient pas des cartes à jouer
-        seg(c(hu, y + 3.2 * E, hv), c(hu, y + 3.2 * E, hv + dv));
-        seg(c(hu, y + 6.4 * E, hv), c(hu, y + 6.4 * E, hv + dv));
-      }
+      const hv = cote * (l2 + 12);
+      SCENES[i % SCENES.length](u, hv, cote);
     }
     const gens = new THREE.LineSegments(segGeom(pts), matBati);
     gens.frustumCulled = false;
     g.add(gens);
+
+    // LES BULLES. Une par casemate, au-dessus de la scène, tournée vers
+    // nous : un cadre arrondi, une queue, une phrase. Dessinée une fois sur
+    // une toile, portée par un sprite.
+    // la langue : `langue` n'est déclarée que plus bas, on lit ce qu'elle lira
+    let fr = true;
+    try { const g2 = localStorage.getItem('fod_langue'); fr = g2 ? g2 !== 'en' : (navigator.language || 'en').toLowerCase().startsWith('fr'); } catch (e2) {}
+    for (let i = 0; i < SALLES.length; i++) {
+      const u = SALLES[i].u, cote = SALLES[i].cote, hv = cote * (l2 + 12);
+      const ph = BULLES[i % BULLES.length];
+      const texte = fr ? ph[0] : ph[1];
+      const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256;
+      const cx = cv.getContext('2d');
+      cx.strokeStyle = '#' + COL_LINE.toString(16).padStart(6, '0'); cx.fillStyle = cx.strokeStyle;
+      cx.lineWidth = 6;
+      const r = 40, x0 = 20, y0 = 20, w = 984, h = 180;
+      cx.beginPath();
+      cx.moveTo(x0 + r, y0); cx.lineTo(x0 + w - r, y0); cx.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + r);
+      cx.lineTo(x0 + w, y0 + h - r); cx.quadraticCurveTo(x0 + w, y0 + h, x0 + w - r, y0 + h);
+      cx.lineTo(x0 + 190, y0 + h); cx.lineTo(x0 + 150, y0 + h + 48); cx.lineTo(x0 + 130, y0 + h);   // la queue
+      cx.lineTo(x0 + r, y0 + h); cx.quadraticCurveTo(x0, y0 + h, x0, y0 + h - r);
+      cx.lineTo(x0, y0 + r); cx.quadraticCurveTo(x0, y0, x0 + r, y0); cx.closePath(); cx.stroke();
+      cx.font = 'bold 54px "Courier New", monospace'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      // deux lignes au plus, coupées au mot
+      const mots = texte.split(' '); const lignes = ['']; 
+      for (const m of mots) { const essai = (lignes[lignes.length - 1] + ' ' + m).trim(); if (cx.measureText(essai).width > w - 60 && lignes[lignes.length - 1]) lignes.push(m); else lignes[lignes.length - 1] = essai; }
+      lignes.slice(0, 2).forEach((l, k) => cx.fillText(l, x0 + w / 2, y0 + h / 2 + (k - (Math.min(lignes.length, 2) - 1) / 2) * 62));
+      const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter;
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, fog: true, depthTest: true }));
+      sp.scale.set(BULLE_L, BULLE_L / 4, 1);
+      sp.position.set(u - 4, sy0 + 8.4 * E + BULLE_L / 8, hv + cote * 2);
+      sp.frustumCulled = false;
+      g.add(sp);
+    }
   }
 
   // la gravure, aux deux bouches
@@ -8208,47 +8442,60 @@ const GUILLO_DELAI = 2;    // secondes entre la traversée et la chute de la lam
 // barré, on ne le confond plus avec un trou.
 // ---------------------------------------------------------------------------
 function faitLame(largeur, hauteur, prof) {
-  const geo = new THREE.BoxGeometry(largeur, hauteur, prof * 0.92);
-  const l = solidWire(geo, null, matBati);
-  const w = largeur / 2, h = hauteur / 2, d = prof * 0.92 / 2 + 0.3;
-  const pts = [];
-  for (const z of [-d, d]) pts.push(-w, -h, z,  w, h, z,  -w, h, z,  w, -h, z);
-  const croix = new THREE.LineSegments(segGeom(pts), matBati);
-  croix.frustumCulled = false;
-  l.add(croix);
+  const l = bloc(largeur, hauteur, prof, 0, 0);
   l.visible = false;
   return l;
 }
 
+// LES SOMMETS DU TOIT. Dans le trait d'un bâtiment, les deux coins du bas du
+// linteau — ceux qui sont à la hauteur du haut de l'ouverture et dans sa
+// largeur — sont ceux que la guillotine fait descendre. On les repère une fois
+// pour toutes à la construction, et on ne fait ensuite que les déplacer.
+function sommetsDuToit(trait, yHaut, demiLargeur) {
+  trait.geometry = trait.geometry.clone();     // chacun son trait : il va bouger
+  const pos = trait.geometry.attributes.position;
+  const idx = [];
+  for (let i = 0; i < pos.count; i++)
+    if (Math.abs(pos.getY(i) - yHaut) < 0.01 && Math.abs(pos.getX(i)) <= demiLargeur + 0.01) idx.push(i);
+  return idx;
+}
+
+// ---------------------------------------------------------------------------
+// LE TOIT DESCEND, ET C'EST TOUT. Il y avait deux lames, une croix sur chaque
+// face, un trait plus sombre une fois clos : « moche, lourd, complexe ». Il
+// n'y a plus qu'une chose : le bas de la masse du haut descend, comme une
+// extrusion. Le trait garde le même nombre de sommets — les deux coins du
+// linteau bougent, rien d'autre — la masse pleine grandit, le vide diminue.
+//
+// L'air qui compte est celui qu'on peut prendre : au-dessus du plancher du
+// monde. Une arche a le pied au sol et le plancher à vingt-six mètres ; ce
+// sont les quarante-huit mètres au-dessus qui se divisent par deux à chaque
+// passage — 48, 24, 12, puis clos. La tour, elle, a sa fenêtre en l'air, et
+// tout son trou compte : 45, 22, 11, clos. Un portail clos est un mur plein,
+// du même vert que le reste : on lit la fermeture à la forme.
+// ---------------------------------------------------------------------------
 function majGuillotine(b) {
   const o = b.ouv;
   if (!o || !b.lame) return;
   const H = o.y1 - o.y0;
-  const reste = b.guillo >= GUILLO_N ? 0 : H / Math.pow(2, b.guillo);
-  const descente = (H - reste) / 2;         // la moitié par le haut, la moitié par le bas
+  const airBas = Math.max(o.y0, FLOOR + 2);
+  const reste = b.guillo >= GUILLO_N ? 0 : (o.y1 - airBas) / Math.pow(2, b.guillo);
   b.ferme = reste < GUILLO_MIN;
-  // ELLE SE FERME PAR LES DEUX BORDS, ET VOICI POURQUOI. Une vraie guillotine
-  // tombe du linteau : l'air qui reste est alors en BAS. Or le bas d'une
-  // arche est au niveau du sol, et le plancher invisible du monde est à
-  // vingt-six mètres — au deuxième cran il ne restait plus un mètre d'air
-  // accessible, et au troisième le trou était sous terre. Le passage devenait
-  // impossible avant d'être fermé, ce qui n'a aucun sens.
-  //
-  // Les deux mâchoires se referment donc vers le milieu. Le trou rétrécit
-  // exactement de moitié à chaque fois — c'est ce qu'on voulait — et il reste
-  // à la MÊME hauteur : on vise le même endroit à chaque passage, et il
-  // faut seulement y entrer plus juste.
-  const bas = o.y0 + descente, haut = o.y1 - descente;
-  const pose = (lame, y0, y1) => {
-    if (!lame) return;
-    lame.visible = (y1 - y0) > 0.5;
-    if (!lame.visible) return;
-    lame.scale.y = (y1 - y0) / H;
-    lame.position.y = ((y0 + y1) / 2) / (b.k || 1);
-  };
-  pose(b.lame, haut, o.y1);                 // la mâchoire du haut
-  pose(b.lameBas, o.y0, bas);               // celle du bas
-  // ELLE EST SOLIDE. La boîte de la lame vit dans la liste des murs du
+  const haut = b.ferme ? o.y0 : airBas + reste;   // où s'arrête le toit
+  const k = b.k || 1;
+  // la masse : du toit à l'ancien haut de l'ouverture
+  b.lame.visible = (o.y1 - haut) > 0.5;
+  if (b.lame.visible) {
+    b.lame.scale.y = (o.y1 - haut) / H;
+    b.lame.position.y = ((haut + o.y1) / 2) / k;
+  }
+  // et le trait suit : les deux coins du linteau descendent
+  if (b.sommetsToit && b.trait) {
+    const pos = b.trait.geometry.attributes.position;
+    for (const i of b.sommetsToit) pos.setY(i, haut / k);
+    pos.needsUpdate = true;
+  }
+  // ELLE EST SOLIDE. La boîte de la masse vit dans la liste des murs du
   // bâtiment ; on la retire et on la remet, parce que placeArche() et
   // placeTour() refont cette liste à chaque déménagement.
   if (b.boiteLame) {
@@ -8256,29 +8503,16 @@ function majGuillotine(b) {
     if (i >= 0) b.boites.splice(i, 1);
     b.boiteLame = null;
   }
-  if (b.boiteBas) {
-    const i = b.boites.indexOf(b.boiteBas);
-    if (i >= 0) b.boites.splice(i, 1);
-    b.boiteBas = null;
-  }
-  if (descente > 0.5 && b.passage) {
+  if (o.y1 - haut > 0.5 && b.passage) {
     const q = b.passage;
     b.boiteLame = { x: q.x, z: q.z, hx: q.hx, hz: q.hz, y0: haut, y1: o.y1 };
-    b.boiteBas  = { x: q.x, z: q.z, hx: q.hx, hz: q.hz, y0: o.y0, y1: bas };
-    b.boites.push(b.boiteLame, b.boiteBas);
+    b.boites.push(b.boiteLame);
   }
-  // ET LE TROU LUI-MÊME RÉTRÉCIT. C'était le défaut : la lame descendait en
-  // image et en collision, mais le VOLUME qui compte la traversée gardait sa
-  // taille d'origine. On visait donc le haut du trou — là où il n'y a plus
-  // rien — on était repoussé par la lame, et l'on croyait à un mur invisible
-  // en travers d'une ouverture encore grande ouverte. Le passage vaut
-  // maintenant exactement ce qui reste d'air : soixante-quatorze mètres, puis
-  // trente-sept, puis dix-huit, puis plus rien. On vise ce qu'on voit.
+  // ET LE TROU LUI-MÊME RÉTRÉCIT : le passage vaut exactement ce qui reste d'air.
   if (b.passage) {
     if (b.ferme) { b.passage.y0 = b.passageY0; b.passage.y1 = b.passageY0; }
-    else { b.passage.y0 = Math.max(b.passageY0, bas); b.passage.y1 = Math.max(b.passage.y0, haut); }
+    else { b.passage.y0 = b.passageY0; b.passage.y1 = Math.max(b.passageY0, haut); }
   }
-  if (b.trait) b.trait.material = b.ferme ? matBatiClos : matBati;
 }
 
 // on remet tout à neuf : une nouvelle partie rouvre les portails
@@ -8322,14 +8556,14 @@ for (let i = 0; i < TOURS_CARTE.length; i++) {
         new THREE.LineSegments(aretesTour, matTour));
   const trait = g.children[g.children.length - 1];
   const lame = faitLame(TOUR.trou, TOUR.trou, TOUR.prof);
-  const lameBas = faitLame(TOUR.trou, TOUR.trou, TOUR.prof);
-  g.add(lame, lameBas);
+  g.add(lame);
   g.frustumCulled = false;
   scene.add(g);
   const k = TOURS_CARTE[i].grande ? GRANDE_K : 1;
   g.scale.setScalar(k);
-  tours.push({ g, trait, lame, lameBas, boites: [], boiteBas: null, passage: null, prise: false,
+  tours.push({ g, trait, lame, boites: [], passage: null, prise: false,
                guillo: 0, repos: 0, tombe: 0, ferme: false, boiteLame: null, k,
+               sommetsToit: sommetsDuToit(trait, TOUR.y1, TOUR.trou / 2),
                grande: !!TOURS_CARTE[i].grande, sy: k,
                ouv: { y0: TOUR.y0 * k, y1: TOUR.y1 * k } });
 }
@@ -8343,7 +8577,7 @@ function placeTour(t, initial) {
     const r = initial ? 900 + Math.random() * 2000 : 3200 + Math.random() * 1400;
     x = state.pos.x + Math.cos(ang) * r;
     z = state.pos.z + Math.sin(ang) * r;
-    if (!surLaPiste(x, z) || essai > 12) break;
+    if ((!surLaPiste(x, z) && !dansCouloirArrivee(x, z)) || essai > 12) break;
   }
   const quart = c ? !!c.q : Math.random() < 0.5;
   t.g.position.set(x, 0, z);
@@ -8483,6 +8717,7 @@ const REFUGE_CENTRE = 11;        // mètres devant le nez : le milieu de la scè
 // Ancien compris : ce n'est pas un appareil qui va plus vite, c'est le monde
 // qui pousse — et l'Ancien y a droit comme les autres, par-dessus son courant.
 const COURANT_GAIN = 7.0;
+const COURANT_CAPITAL = 3.0;   // et ce que le courant fait du capital des portails
 const COURANT_MONTEE = 1.8;   // secondes pour s'y couper entièrement
 const COURANT_CHUTE = 2.6;    // et pour en sortir
 // ---------------------------------------------------------------------------
@@ -8524,15 +8759,35 @@ function ouvrePouvoir(side) {
   return true;
 }
 function fermePouvoir() { if (state.pouvoir) state.dbgFerme = (state.dbgFerme || 0) + 1; state.pouvoir = null; }
+// UNE FOIS. La première fois qu'on tient le double appui de l'Ancien, on
+// apprend quelque chose : le message le dit, un petit son le marque. Les fois
+// suivantes, rien — ni mot ni bruit, seulement l'accélération. On sait.
+//
+// ET ON TIENT, ON GARDE, ON LÂCHE. Tenu, l'Ancien accélère sans fin. Le doigt
+// parti, il GARDE la vitesse qu'il a : elle entre au capital, comme celle d'un
+// portail, et le moteur la vise. Un double appui bref — le doigt parti avant
+// le quart de seconde de la prise — c'est l'inverse : le capital tombe et
+// l'appareil revient à sa croisière en une seconde. Du lent au rapide et
+// retour, d'un geste, sans rien d'autre à apprendre.
+const COURANT_FREIN = 1.0;    // secondes pour revenir à la croisière au double appui bref
 function ouvreCourant() {
   if (state.courant) return;
   state.courant = true;
-  announce(t('courant'));
-  SFX.cale();
+  state.courantTenu = 0;
+  state.ralentiT = 0;
 }
 function fermeCourant() {
   if (!state.courant) return;
   state.courant = false;
+  if ((state.courantTenu || 0) * 1000 < POUVOIR_TENUE) {
+    // bref : on ralentit
+    state.ralentiT = COURANT_FREIN;
+    state.acquis = 0;
+    state.courantK = 0;
+  } else {
+    // tenu : on garde. Le capital prend ce que le courant a donné.
+    state.gardeVitesse = true;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -10449,6 +10704,9 @@ const state = {
   roquettes: [],
   roqEnnemies: [],    // les leurs
   courant: false,     // l'ancien est couché dans un courant d'air
+  courantTenu: 0,     // secondes de prise tenue
+  ralentiT: 0,        // secondes de retour à la croisière (double appui bref)
+  gardeVitesse: false,// le doigt vient de partir : le capital prend la vitesse
   courantK: 0,        // de zéro à un : ce que le courant donne en ce moment
   pied: null,         // quand on marche : le bonhomme a pris la main
   jeep: null,         // quand on conduit : la Jeep a pris la main
@@ -10780,6 +11038,7 @@ function resetGame() {
   state.chaine = 0; state.chaineT = 0;
   state.trous = {}; state.vieMax = avion().pouvoir === 'coque' ? 150 : 100;   // la coque du bimoteur
   state.pouvoir = null; state.figEnAttente = null;
+  state.courantTenu = 0; state.ralentiT = 0; state.gardeVitesse = false;
   // LA MÉTÉO DU JOUR. Un vent par partie : on le lit en décollant, on s'en
   // souvient en revenant, et c'est ce qui fait qu'un terrain a un caractère
   // ce jour-là plutôt qu'une règle abstraite.
@@ -12219,7 +12478,7 @@ function placeTower(t, initial) {
     const r = initial ? 250 + Math.random() * 2400 : 2600 + Math.random() * 900;
     x = state.pos.x + Math.cos(a) * r;
     z = state.pos.z + Math.sin(a) * r;
-    if (!surLaPiste(x, z) || essai > 12) break;
+    if ((!surLaPiste(x, z) && !dansCouloirArrivee(x, z)) || essai > 12) break;
   }
   t.position.set(x, 0, z);
   const p = pylones[towers.indexOf(t)];
@@ -13151,7 +13410,10 @@ function abattre(e) {
   objCompte('abattus');
   stat('abattus');
   const avant = state.chauffe;
-  state.chauffe = Math.min(CHAUFFE_MAX, state.chauffe + CHAUFFE_PAR * (pouvoirEst('salve') ? SALVE_CHAUFFE : 1));
+  // L'ANCIEN GARDE SES CANONS CHAUDS DIX FOIS PLUS LONGTEMPS : il n'a pas la
+  // cadence des autres, il a la patience.
+  const chaud = avion().chaud || 1;
+  state.chauffe = Math.min(CHAUFFE_MAX * chaud, state.chauffe + CHAUFFE_PAR * chaud * (pouvoirEst('salve') ? SALVE_CHAUFFE : 1));
   if (avant <= 0) SFX.chauffe();
   SFX.detruit(e.pos);
 
@@ -13680,7 +13942,9 @@ function damagePlayer(amount, source, cause) {
   // arrondit toujours vers le haut.
   if (state.structure < 1) {
     state.structure = 0;
-    state.causeMort = cause || null;
+    // LA CAUSE EXACTE. Le sol atteint en vrille n'est pas le sol atteint en
+    // piqué : l'écran de fin le dira.
+    state.causeMort = (cause === 'sol' && state.vrille) ? 'vrille' : (cause || null);
     gameOver();
   }
 }
@@ -13959,7 +14223,10 @@ function springCamera(desired, dt, k, d, vitesse) {
 const _camCadre = new THREE.Vector3();
 const _cdrV = new THREE.Vector3(), _cdrD = new THREE.Vector3(), _cdrH = new THREE.Vector3();
 function cadreLAvion() {
-  if (state.spinT <= 0 && !state.fig) return;
+  // PENDANT LE TONNEAU, L'AVION A LE DROIT DE SORTIR DU CADRE : la caméra est
+  // partie devant, et c'est lui qui la rejoint. Les autres figures gardent le
+  // cadrage.
+  if (!state.fig) return;
   _cdrV.subVectors(state.pos, camera.position);
   const dist = _cdrV.length();
   if (dist < 1) return;
@@ -14046,7 +14313,13 @@ function step(now) {
     // avant que l'appareil ne s'ébranle
     const vSon = Math.max(state.speed, state.regime * 62);
     const T = TIMBRES[tim] || TIMBRES.clair;
-    let f = (T.base * 0.51) + THREE.MathUtils.clamp(vSon, 0, SPEED_MAX) / SPEED_MAX * T.base * 0.63;
+    // ET IL MONTE ENCORE AU-DELÀ. La hauteur plafonnait à trois cent vingt :
+    // onze portails enchaînés, et le moteur ne disait plus rien. Passé le
+    // plafond, elle continue de monter, en logarithme — chaque doublement de
+    // vitesse ajoute un tiers du chemin parcouru jusque-là.
+    const kv = vSon <= SPEED_MAX ? Math.max(0, vSon) / SPEED_MAX
+             : 1 + 0.35 * Math.log2(vSon / SPEED_MAX);
+    let f = (T.base * 0.51) + kv * T.base * 0.63;
     // le nez bas monte dans l'aigu, le nez haut retombe
     if (state.running && !state.auSol) f *= 1 + 0.16 * Math.max(0, -state.forward.y) - 0.07 * Math.max(0, state.forward.y);
     // PLUS DE BATTEMENT DE DÉGÂTS. L'écart entre les deux cylindres était
@@ -14539,6 +14812,20 @@ function simulate(dt) {
       const vise = penteVoulue - TUBE.trim;
       TUBE.vise = vise; TUBE.kArr = kArr; TUBE.hArr = hArr;   // lus par les bancs
       state.pitch = THREE.MathUtils.damp(state.pitch, vise, TUBE_PRISE * tenu, dt);
+      // LE FREIN D'AIR, RELATIF À LA VITESSE. « Peu importe comment on
+      // arrive : dans le cercle, dans le bon angle, on se pose et on s'arrête
+      // au bon endroit. » Mesuré : à 400, 700 et 1100 m/s le tube prenait
+      // l'appareil, l'alignait, et il passait le bout de piste en l'air sans
+      // jamais toucher — l'arrondi dure 1,2 s quelle que soit la vitesse, et
+      // à sept cents mètres par seconde c'est huit cents mètres de piste. Le
+      // tube ramène donc l'excès au-dessus de TUBE_V_POSE, proportionnellement
+      // à cet excès : lancé à 1100, on est à 250 une seconde et demie plus
+      // tard ; lancé à 230, il ne touche à rien. Et le capital des portails
+      // redescend avec, sinon le moteur relancerait ce que le frein enlève.
+      if (state.speed > TUBE_V_POSE) {
+        state.speed -= (state.speed - TUBE_V_POSE) * TUBE_FREIN_AIR * dt;
+        state.acquis = Math.min(state.acquis || 0, Math.max(0, TUBE_V_POSE - CRUISE * avion().vit));
+      }
     }
     // ILS SORTENT DÈS QUE LE TUBE NOUS TIENT : le temps qu'on descende, ils
     // ont traversé le terrain, et ils sont déjà là quand les roues s'arrêtent.
@@ -14573,6 +14860,15 @@ function simulate(dt) {
   // d'un bouton de turbo.
   state.courantK = THREE.MathUtils.damp(state.courantK || 0, state.courant ? 1 : 0,
                                         state.courant ? 1 / COURANT_MONTEE * 2.2 : 1 / COURANT_CHUTE * 2.2, dt);
+  // UNE FOIS. La première prise TENUE apprend quelque chose : le message le
+  // dit, un petit son le marque. Ensuite, plus rien — ni mot ni bruit,
+  // seulement l'accélération. On sait.
+  if (state.courant) {
+    state.courantTenu = (state.courantTenu || 0) + dt;
+    if (state.courantTenu * 1000 >= POUVOIR_TENUE && !decouvertes.courant) {
+      trouve('courant'); announce(t('courant'), t('courantSous')); SFX.cale();
+    }
+  }
   const air = 1 + (COURANT_GAIN - 1) * state.courantK;
   let croisiere = CRUISE * avion().vit * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
                   * coussin * (state.assist ? APPROCHE_GAIN : 1) * air;
@@ -14634,7 +14930,22 @@ function simulate(dt) {
     state.acquis = Math.min(ACQUIS_MAX, Math.max(state.acquis || 0, state.speed - croisiere));
   state.boostAv = state.boostPortail;
   state.acquis = Math.max(0, (state.acquis || 0) - (state.acquis || 0) * ACQUIS_FUITE * dt);
-  croisiere += state.acquis;
+  // LE COURANT PORTE AUSSI LE CAPITAL. L'Ancien lancé par des portails tenait
+  // son double appui et ne sentait presque rien : le courant multipliait la
+  // croisière de base (48 → 336) et laissait le capital tel quel. « La vitesse
+  // max multipliée par trois » : dans le courant, le capital vaut trois fois.
+  // LE DOIGT PARTI, ON GARDE : ce que le courant a donné entre au capital, à
+  // l'instant où il cesse d'être tenu, et le moteur vise déjà la vitesse qu'on a.
+  if (state.gardeVitesse) {
+    state.gardeVitesse = false;
+    state.acquis = Math.max(state.acquis || 0, state.speed - croisiere);
+  }
+  croisiere += state.acquis * (1 + (COURANT_CAPITAL - 1) * state.courantK);
+  // LE DOUBLE APPUI BREF RALENTIT : une seconde pour revenir à la croisière.
+  if ((state.ralentiT || 0) > 0) {
+    state.ralentiT -= dt;
+    state.speed = THREE.MathUtils.damp(state.speed, croisiere, 4 / COURANT_FREIN, dt);
+  }
   const rappel = state.boostPortail > 0 ? THRUST * CATAPULTE_POUSSEE
                : state.speed > croisiere ? THRUST * 0.2 : THRUST;
   // NEZ SOUS L'HORIZON, ON ACCÉLÈRE. Au-dessus de la croisière, le rappel du
@@ -14825,7 +15136,9 @@ function simulate(dt) {
         const reste = (AERO.z - state.pos.z) * (R.sens < 0 ? -1 : 1);
         if (reste > 1.5) {
           const besoin = R.v * R.v / (2 * reste);
-          R.a = besoin < FREIN_FRANC ? 0 : THREE.MathUtils.clamp(besoin, FREIN_FRANC, FREIN_MAX);
+          // ET AU SOL, LE FREIN N'A PLUS DE PLAFOND : ce qu'il faut pour
+          // s'arrêter devant la baie, quelle que soit la vitesse au toucher.
+          R.a = besoin < FREIN_FRANC ? 0 : Math.max(FREIN_FRANC, besoin);
           if (R.a > 0 && !R.dit) { R.dit = true; announce(t('freinage')); }
           R.v = Math.max(0, R.v - R.a * dt);
         } else {
@@ -15418,8 +15731,8 @@ function simulate(dt) {
     // la caméra suit le décalage net, avec un cinquième de figure de retard :
     // on voit l'appareil partir, l'image le rejoindre sur la nouvelle ligne
     state.spinDep = TONNEAU_DECAL * lisseC(t);
-    state.spinDepCam = TONNEAU_DECAL
-                     * lisseC(THREE.MathUtils.clamp((t - RETARD) / (1 - RETARD), 0, 1));
+    // la caméra est EN AVANCE : elle lit la courbe un peu plus loin que l'avion
+    state.spinDepCam = TONNEAU_DECAL * lisseC(THREE.MathUtils.clamp(t / CAM_TONNEAU_AVANCE, 0, 1));
     // Lent, vite, lent. L'ancienne courbe partait sec et s'asseyait : elle
     // avait un début et pas de fin. Le lissage du second ordre a sa dérivée
     // ET sa courbure nulles aux deux bouts — c'est le geste d'un manche
@@ -15755,7 +16068,7 @@ function simulate(dt) {
     _camDecal.val = THREE.MathUtils.clamp(
       state.spinSide * (CAM_TONNEAU * (state.spinDepCam - state.spinDep)
                       + CAM_SERPENT * Math.sin(Math.PI * u)),
-      -CAM_LATERAL_MAX, CAM_LATERAL_MAX);
+      -CAM_TONNEAU_MAX, CAM_TONNEAU_MAX);
     _camDecal.dir.copy(_right);
     camera.position.addScaledVector(_camDecal.dir, _camDecal.val);
   }
@@ -15926,6 +16239,41 @@ function suiveurVise() {
   return null;
 }
 // un suiveur touché, et ce qu'il en reste
+// LE SUIVEUR CONTRE LES MURS. Point contre boîtes : s'il est dedans, on le
+// pousse dehors par la face la plus proche, et on dit qu'il a touché.
+const ESCOUADE_MUR = 30;          // points de vie perdus par seconde dans un mur
+const ESCOUADE_FILE = 40;         // mètres entre deux suiveurs, en file dans le tunnel
+const ESCOUADE_RONDE = 110;       // rayon de la ronde autour du surplace
+const ESCOUADE_RONDE_W = 0.9;     // radians par seconde
+const ESCOUADE_CHASSE = 600;      // mètres : au-delà, ils ne partent pas en chasse
+function sortDeBoite(p, b) {
+  if (Math.abs(p.x - b.x) >= b.hx || Math.abs(p.z - b.z) >= b.hz || p.y <= b.y0 || p.y >= b.y1) return false;
+  const dx = b.hx - Math.abs(p.x - b.x), dz = b.hz - Math.abs(p.z - b.z), dy = Math.min(p.y - b.y0, b.y1 - p.y);
+  if (dx <= dz && dx <= dy) p.x = b.x + Math.sign(p.x - b.x || 1) * (b.hx + 1);
+  else if (dz <= dy) p.z = b.z + Math.sign(p.z - b.z || 1) * (b.hz + 1);
+  else p.y = (p.y - b.y0 < b.y1 - p.y) ? b.y0 - 1 : b.y1 + 1;
+  return true;
+}
+function heurteSuiveur(A) {
+  let touche = false;
+  for (const b of BATIMENTS) {
+    if (b.mort || b.g.position.distanceTo(A.pos) > 700) continue;
+    for (const bo of b.boites) if (sortDeBoite(A.pos, bo)) touche = true;
+  }
+  // et la roche du tunnel : dans l'emprise, hors du vide, c'est du mur
+  const T = TUNNEL, uv = tunnelUV(A.pos.x, A.pos.z);
+  if (Math.abs(uv.u) < T.long / 2 && Math.abs(uv.v) < T.large / 2 + T.epais
+      && A.pos.y > T.y0 - T.epais && A.pos.y < T.y1 + T.epais) {
+    const vMax = T.large / 2 - 5, yBas = T.y0 + 4, yHaut = T.y1 - 4;
+    const dedans = Math.abs(uv.v) <= vMax && A.pos.y >= yBas && A.pos.y <= yHaut;
+    if (!dedans) {
+      touche = true;
+      const v2 = borne(uv.v, -vMax, vMax), y2 = borne(A.pos.y, yBas, yHaut);
+      A.pos.x = T.x + uv.u * T.ux - v2 * T.uz; A.pos.z = T.z + uv.u * T.uz + v2 * T.ux; A.pos.y = y2;
+    }
+  }
+  return touche;
+}
 function blesseSuiveur(A, n) {
   A.vie -= n;
   if (A.vie > 0) return;
@@ -15939,7 +16287,17 @@ function blesseSuiveur(A, n) {
 // écran, x = −1026. Les places sont donc à hauteur d'aile, DEVANT nous,
 // quinze sur le côté, soixante-quatre devant : le champ d'un téléphone tenu
 // debout ne fait que trente degrés de large, et ils y tiennent.
-const ESCOUADE_PLACES = [{ x: 15, y: -2, z: -64 }, { x: -15, y: -2, z: -64 }];
+// EN TRIANGLE, ET DANS LE CADRE. « Nous devant au milieu, eux derrière, un
+// peu plus de la moitié de chacun visible. » Mesuré sur un téléphone tenu
+// debout, champ de trente degrés de large, caméra à dix-sept mètres derrière
+// l'appareil : tout ce qui vole derrière nous est à moins de dix-sept mètres
+// de l'objectif, donc énorme à l'image. À hauteur d'aile, huit mètres sur le
+// côté et quatre derrière, on n'en voit que dix-neuf pour cent — et il cache
+// le nôtre. Le seul endroit derrière nous où plus de la moitié tient dans le
+// cadre sans recouvrir notre avion est juste au-dessus des épaules : trois
+// mètres de côté, six au-dessus, deux derrière — cinquante et un pour cent,
+// aux deux coins du haut. C'est le triangle vu de la pointe.
+const ESCOUADE_PLACES = [{ x: 3, y: 6, z: 2 }, { x: -3, y: 6, z: 2 }];
 function sauveEscouade() {
   try { localStorage.setItem('fod_escouade', JSON.stringify(escouade)); } catch (e) {}
 }
@@ -15981,10 +16339,26 @@ function updateEscouade(dt) {
     }
     A.mesh.visible = true;
     const P = ESCOUADE_PLACES[i];
+    let px = P.x, py = P.y, pz = P.z;
+    // DANS LE TUNNEL, EN FILE. Le boyau fait soixante-deux mètres de large :
+    // ils se mettent derrière nous, l'un après l'autre, et ressortent en
+    // formation.
+    if (dansTunnel()) { px = 0; py = 0; pz = ESCOUADE_FILE * (i + 1); }
+    // EN SURPLACE, ILS TOURNENT. Eux ne savent pas faire du surplace : ils
+    // décrivent un cercle autour de nous en attendant qu'on reparte — et si
+    // un adversaire passe à portée, ils vont le chercher, sans s'éloigner.
+    let chasse = null;
+    if (pouvoirEst('surplace')) {
+      const a = state.dureeVol * ESCOUADE_RONDE_W + i * Math.PI;
+      px = Math.cos(a) * ESCOUADE_RONDE; pz = Math.sin(a) * ESCOUADE_RONDE; py = 6;
+      let dB = ESCOUADE_CHASSE;
+      for (const e of state.enemies) { if (e.kind.sol || e.hp <= 0) continue; const d = e.pos.distanceTo(state.pos); if (d < dB) { dB = d; chasse = e; } }
+    }
     _right.crossVectors(state.forward, _up).normalize();
-    _v.copy(state.pos).addScaledVector(_right, P.x).addScaledVector(state.forward, -P.z);
-    _v.y += P.y;
+    if (chasse) _v.copy(chasse.pos).addScaledVector(_seg.subVectors(state.pos, chasse.pos).normalize(), 45);
+    else { _v.copy(state.pos).addScaledVector(_right, px).addScaledVector(state.forward, -pz); _v.y += py; }
     const loin = A.pos.distanceTo(_v);
+    if (loin > 150 || chasse) A.off = null;
     if (loin > 150) {
       // EN ROUTE : il vole vers sa place à sa vitesse, le nez dessus
       const vit = Math.max(ESCOUADE_VOL, state.speed * ESCOUADE_RATTRAPE);
@@ -15992,10 +16366,31 @@ function updateEscouade(dt) {
       A.pos.addScaledVector(_seg, Math.min(loin, vit * dt));
       _m4.lookAt(A.pos, _v, _up); _q.setFromRotationMatrix(_m4);
       A.quat.slerp(_q, 1 - Math.exp(-4 * dt));
-    } else {
+    } else if (chasse) {
       A.pos.lerp(_v, 1 - Math.exp(-3.2 * dt));
       A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
+    } else {
+      // EN PLACE, ON SUIT DANS NOTRE REPÈRE. Le glissé se faisait en
+      // coordonnées du monde : à cent vingt mètres par seconde, un retard de
+      // trois dixièmes, c'est trente mètres derrière la place — derrière la
+      // caméra. On glisse donc l'ÉCART à l'avion, pas la position : la place
+      // avance avec nous, le retard ne porte que sur le changement de place.
+      // L'écart vit dans A.off, dans notre repère : il ne connaît pas notre
+      // vitesse. Recalculer l'écart depuis la position monde à chaque image
+      // revenait au même retard — mesuré, trente-quatre mètres.
+      if (!A.off) {
+        _seg.subVectors(A.pos, state.pos);
+        A.off = new THREE.Vector3(_seg.dot(_right), _seg.y, _seg.dot(state.forward));
+      }
+      const k = 1 - Math.exp(-3.2 * dt);
+      A.off.x += (px - A.off.x) * k; A.off.y += (py - A.off.y) * k; A.off.z += (-pz - A.off.z) * k;
+      A.pos.copy(state.pos).addScaledVector(_right, A.off.x).addScaledVector(state.forward, A.off.z);
+      A.pos.y += A.off.y;
+      A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
     }
+    // UN MUR, C'EST DES DÉGÂTS. Un suiveur qui traverse un bâtiment ou la
+    // roche du tunnel y laisse de la vie, et il en est repoussé.
+    if (heurteSuiveur(A)) blesseSuiveur(A, ESCOUADE_MUR * dt);
     A.mesh.position.copy(A.pos); A.mesh.quaternion.copy(A.quat);
     // il tire sur notre cible verrouillée — ou sur la sienne quand nous n'en
     // avons pas —, à découvert seulement, et pas en route
@@ -18171,7 +18566,7 @@ function drawHud() {
     hctx.fillStyle = 'rgba(190,255,220,' + (0.5 + 0.45 * kch).toFixed(2) + ')';
     hctx.fillText(t('canons') + state.chauffe.toFixed(1) + 's', w / 2, cy2);
     hctx.strokeStyle = 'rgba(190,255,220,' + (0.3 + 0.5 * kch).toFixed(2) + ')';
-    const q = Math.min(1, state.chauffe / CHAUFFE_MAX);
+    const q = Math.min(1, state.chauffe / (CHAUFFE_MAX * (avion().chaud || 1)));
     hctx.beginPath();
     hctx.moveTo(w / 2 - lg * q, cy2 + 9); hctx.lineTo(w / 2 + lg * q, cy2 + 9);
     hctx.stroke();
@@ -18635,6 +19030,13 @@ const T = {
     degagee: 'VAGUE DÉGAGÉE  ·  +12',
     coop: 'COOP  ·  ', appareils: ' APPAREILS', releve: 'RELEVÉ PAR UN ÉQUIPIER',
     vague: 'VAGUE ', gardien: 'GARDIEN', abattu: 'ABATTU',
+    mortVrille: 'VRILLE JUSQU’AU SOL', mortVrilleSous: 'Elle a tourné, tu as attendu, le sol non.',
+    mortSol: 'ÉCRASÉ AU SOL', mortSolSous: 'Le nez bas trop longtemps. La plaine ne recule jamais.',
+    mortMur: 'CONTRE UN MUR', mortMurSous: 'Le bâtiment était là avant toi, et il y est encore.',
+    mortRoquette: 'ROQUETTE', mortRoquetteSous: 'Elle t’a suivi jusqu’au bout. Un tonneau l’aurait perdue.',
+    mortBalles: 'ABATTU', mortBallesSous: 'Trop longtemps dans son axe. Casse la ligne.',
+    mortChoc: 'COLLISION', mortChocSous: 'Deux appareils au même endroit. Il n’en reste aucun.',
+    mortPose: 'POSÉ TROP DUR', mortPoseSous: 'Les roues ont touché avant l’arrondi. Descends moins vite.',
     canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
     dos: 'LUNE DANS LE DOS  ·  ILS N’Y VOIENT PLUS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
@@ -18645,7 +19047,7 @@ const T = {
     disqueCasseSous: 'il ne se jouait qu’une fois  ·  elle l’avait écrit',
     faucheurRompt: 'LE FAUCHEUR ROMPT',
     faucheurRomptSous: 'il ne passe pas la chaîne  ·  ici, il n’y a plus de guerre',
-    courant: 'DANS LE COURANT', surplace: 'SURPLACE', salve: 'SALVE', nappe: 'NAPPE', suiveurTombe: 'SUIVEUR ABATTU  ·  IL REVIENT',
+    courant: 'MAÎTRISE DES COURANTS', courantSous: 'L’Ancien se couche dans l’air qui passe, et l’air le porte', surplace: 'SURPLACE', salve: 'SALVE', nappe: 'NAPPE', suiveurTombe: 'SUIVEUR ABATTU  ·  IL REVIENT',
     enJeep: 'AU VOLANT  ·  EN HAUT ON ACCÉLÈRE, EN BAS ON FREINE',
     deJeep: 'À PIED',
     act_descendre: 'DESCENDRE',
@@ -18779,6 +19181,13 @@ const T = {
     degagee: 'WAVE CLEARED  ·  +12',
     coop: 'CO-OP  ·  ', appareils: ' AIRCRAFT', releve: 'PICKED UP BY A WINGMAN',
     vague: 'WAVE ', gardien: 'GUARDIAN', abattu: 'SHOT DOWN',
+    mortVrille: 'SPUN INTO THE GROUND', mortVrilleSous: 'It turned, you waited, the ground did not.',
+    mortSol: 'CRASHED', mortSolSous: 'Nose down too long. The plain never backs off.',
+    mortMur: 'INTO A WALL', mortMurSous: 'The building was there before you, and still is.',
+    mortRoquette: 'ROCKET', mortRoquetteSous: 'It followed you all the way. A roll would have lost it.',
+    mortBalles: 'SHOT DOWN', mortBallesSous: 'Too long in his line. Break it.',
+    mortChoc: 'COLLISION', mortChocSous: 'Two aircraft in one place. Neither is left.',
+    mortPose: 'LANDED TOO HARD', mortPoseSous: 'The wheels touched before the flare. Come down slower.',
     canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
     dos: 'MOON AT YOUR BACK  ·  THEY CANNOT SEE',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
@@ -18789,7 +19198,7 @@ const T = {
     disqueCasseSous: 'it only played once  ·  she had written as much',
     faucheurRompt: 'THE REAPER BREAKS OFF',
     faucheurRomptSous: 'it does not cross the range  ·  out here there is no war',
-    courant: 'IN THE CURRENT', surplace: 'HOVER', salve: 'VOLLEY', nappe: 'SLIP', suiveurTombe: 'WINGMAN DOWN  ·  HE WILL BE BACK',
+    courant: 'MASTERY OF THE CURRENTS', courantSous: 'The Old One lies down in the passing air, and the air carries it', surplace: 'HOVER', salve: 'VOLLEY', nappe: 'SLIP', suiveurTombe: 'WINGMAN DOWN  ·  HE WILL BE BACK',
     enJeep: 'AT THE WHEEL  ·  UP TO ACCELERATE, DOWN TO BRAKE',
     deJeep: 'ON FOOT',
     act_descendre: 'GET OUT',
@@ -19385,9 +19794,19 @@ function majMenu() {
     }
   }
   // L'ESCOUADE : deux rangs, « aucun » puis chaque appareil
+  // ET L'ESSAIM N'A PAS LE CHOIX : ses deux suiveurs sont ses deux autres
+  // cellules. Les rangs le disent au lieu de proposer des boutons sans effet.
   for (let i = 0; i < 2; i++) {
     const c = document.getElementById('menuSuiveur' + (i + 1));
     c.innerHTML = '';
+    if (avion().id === 'essaim') {
+      const b = document.createElement('button');
+      b.className = 'actif';
+      b.textContent = fr ? 'CELLULE DE L’ESSAIM  ·  IMPOSÉE' : 'SWARM CELL  ·  FIXED';
+      b.onclick = e => e.stopPropagation();
+      c.appendChild(b);
+      continue;
+    }
     const choix = [{ id: 'aucun', nom: 'AUCUN', en: 'NONE' }, ...AVIONS];
     for (const a of choix) {
       const b = document.createElement('button');
@@ -19517,6 +19936,19 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.88', fr: 'Le double appui se mesure à l’heure du doigt, pas à celle de l’image : une image longue ne le fait plus rater.', en: 'The double tap is timed by the finger, not by the frame: a long frame no longer makes it miss.' },
+  { v: '1.88', fr: 'La montagne cache le tunnel : le relief est relevé au-dessus du boyau, et le sol ne se perce plus qu’aux deux bouches. On voit l’entrée, on voit la sortie, et entre les deux il y a une montagne.', en: 'The mountain hides the tunnel: the terrain is raised over the bore, and the ground only opens at the two mouths. You see the entrance, you see the exit, and in between there is a mountain.' },
+  { v: '1.88', fr: 'Les bonshommes des casemates vivent : ping-pong, judo, échecs, yoga, poirier, guitare, jonglage, pêche au seau, salut. Et chacun a sa bulle, avec une phrase qu’on ne lit qu’en s’arrêtant sous la montagne.', en: 'The casemate figures live: ping-pong, judo, chess, yoga, handstand, guitar, juggling, bucket fishing, salute. Each has a speech bubble, with a line you only read by stopping under the mountain.' },
+  { v: '1.88', fr: 'La guillotine sans lame ni croix : le bas du linteau descend, comme une extrusion. Même nombre de sommets, la masse pleine grandit, le vide diminue, et un portail clos est un mur plein du même vert.', en: 'The guillotine with no blade and no cross: the bottom of the lintel comes down, like an extrusion. Same vertex count, the solid mass grows, the void shrinks, and a closed gate is a solid wall in the same green.' },
+  { v: '1.88', fr: 'Les portails n’ont plus de plafond : onze à la suite, onze gains. Le capital de vitesse allait jusqu’à 900, il va jusqu’au garde-fou.', en: 'Gates have no ceiling any more: eleven in a row, eleven gains. The speed bank stopped at 900, it now stops at the simulation guard.' },
+  { v: '1.88', fr: 'L’Ancien : tenu, il accélère sans fin, et son courant triple aussi le capital des portails ; relâché, il GARDE sa vitesse ; un double appui bref le ramène à sa croisière en une seconde. La première prise tenue annonce « Maîtrise des courants », les suivantes ne disent rien. Et il garde ses canons chauds dix fois plus longtemps.', en: 'The Old One: held, it accelerates without end, and its current also triples the gate bank; released, it KEEPS its speed; a quick double tap brings it back to cruise in one second. The first held grip announces “Mastery of the currents”, the next ones say nothing. And it keeps its guns hot ten times longer.' },
+  { v: '1.88', fr: 'Les roquettes reçues font quatre fois plus mal : deux cents. L’esquive n’est plus un conseil.', en: 'Rockets taken hurt four times more: two hundred. Dodging is no longer advice.' },
+  { v: '1.88', fr: 'L’écran de fin dit de quoi on est mort : vrille jusqu’au sol, écrasé, contre un mur, roquette, abattu, collision, posé trop dur — et une phrase pour chaque.', en: 'The end screen says what killed you: spun into the ground, crashed, into a wall, rocket, shot down, collision, landed too hard — with a line for each.' },
+  { v: '1.88', fr: 'L’arrivée : lancé à 400, 700 ou 1100, le tube freine dans l’air, on touche à 230 et l’on s’arrête devant la baie ; au sol le frein n’a plus de plafond. Et rien ne se pose plus dans le couloir d’arrivée : un pylône était sur l’axe, une arche à côté.', en: 'The arrival: launched at 400, 700 or 1100, the tube brakes in the air, you touch at 230 and stop in front of the bay; on the ground the brake has no ceiling. And nothing stands in the approach corridor any more: a pylon was on the axis, an arch beside it.' },
+  { v: '1.88', fr: 'Le tonneau barriqué déporte de 435 mètres, trois fois plus, et la caméra part la première : elle est arrivée à la moitié de la figure, elle attend, et l’avion la rejoint dans le cadre.', en: 'The barrel roll now shifts you 435 metres, three times more, and the camera goes first: it has arrived by mid-figure, it waits, and the aircraft rejoins it in the frame.' },
+  { v: '1.88', fr: 'L’escouade : juste au-dessus des épaules, trois mètres de côté, six au-dessus, deux derrière — mesuré, le seul endroit derrière nous où plus de la moitié tient dans un écran tenu debout. Dans le tunnel ils se mettent en file ; en surplace ils tournent autour et vont chercher ce qui passe à portée ; un mur leur coûte de la vie.', en: 'The squadron: just above the shoulders, three metres aside, six above, two behind — measured, the only place behind us where more than half fits on a phone held upright. In the tunnel they fall in line; while you hover they circle and go after whatever comes in range; a wall costs them life.' },
+  { v: '1.88', fr: 'Chaque appareil a son bruit : le Faucheur bourdonne, le drone lourd gronde, l’essaim vrombit. Et le moteur monte encore dans l’aigu au-delà de 320, à chaque portail enchaîné.', en: 'Each aircraft has its sound: the Reaper hums, the heavy drone growls, the swarm buzzes. And the engine keeps climbing in pitch past 320, with every chained gate.' },
+  { v: '1.88', fr: 'Le hangar garde tous les appareils, drones compris, et tous brillent. L’essaim dit dans le menu que ses suiveurs sont ses cellules. Une planche à cocher, planche.html, réunit les phrases des bonshommes et d’autres noms que « canons chauds ».', en: 'The hangar parks every aircraft, drones included, and all of them shine. The swarm says in the menu that its wingmen are its cells. A checklist page, planche.html, gathers the figures’ lines and other names than “hot guns”.' },
   { v: '1.87', fr: 'La lune est une silhouette : un croissant tout noir, contour vert seulement, presque vertical. Plus de cratères, plus de face sombre dessinée.', en: 'The moon is a silhouette: an all-black crescent, green outline only, nearly vertical. No more craters, no more drawn dark side.' },
   { v: '1.87', fr: 'L’écran de fin tient entier sur les petits écrans : titres, boutons et journal se serrent sous 720 pixels de haut, sans rien à faire défiler.', en: 'The end screen fits whole on small screens: titles, buttons and log tighten under 720 pixels of height, nothing to scroll.' },
   { v: '1.86', fr: 'Au décollage, le viseur n’apparaît qu’en fin de montée, au palier — plus à douze mètres sol en pleine course.', en: 'On takeoff the sight appears only at the end of the climb, at level flight — no longer at twelve metres in the middle of the run.' },
@@ -20398,7 +20830,13 @@ function gameOver(victoire) {
   state.pose = null;
   redecoBtn.hidden = true;
   SFX.fin();
-  overlayTitle.textContent = victoire ? t('legende') : t('abattu');
+  // LE TITRE DIT DE QUOI ON EST MORT. « Abattu » convenait à tout, donc à
+  // rien : une vrille jusqu'au sol, un mur, une roquette, ce n'est pas la
+  // même fin, et le pilote sait la différence.
+  const MORTS = { vrille: 'mortVrille', sol: 'mortSol', decor: 'mortMur', roquette: 'mortRoquette',
+                  balles: 'mortBalles', choc: 'mortChoc', pose: 'mortPose' };
+  const cleMort = (!victoire && MORTS[state.causeMort]) || null;
+  overlayTitle.textContent = victoire ? t('legende') : (cleMort ? t(cleMort) : t('abattu'));
   document.body.classList.add('accueil');   // ni vie ni chiffres sur l'épave
   document.body.classList.remove('titre');  // et ce n'est plus l'écran de titre
   // LE QUASI-RECORD. Rater de peu est le plus fort des rappels : il transforme
@@ -20407,9 +20845,11 @@ function gameOver(victoire) {
   const manque = record.score - Math.floor(state.score);
   const deJustesse = !battuScore && manque > 0
                    && manque <= Math.max(120, record.score * 0.12);
+  // ET LA PHRASE PARLE DE ÇA. Puis, sous elle, la pique — on garde l'indice.
+  const phraseMort = cleMort ? t(cleMort + 'Sous') : '';
   overlayText.textContent = victoire ? t('legendeTexte')
     : deJustesse ? t('manque1') + manque + t('manque2')
-    : pique();
+    : (phraseMort ? phraseMort + '  ·  ' : '') + pique();
   // QUI VOUS A EU. On sait toujours qu'on est mort, jamais de la main de qui :
   // la ligne le dit, et c'est la première chose qu'un pilote veut savoir. Le
   // faucheur a quatre mille points de structure — il se tue, mais il faut y
@@ -20449,7 +20889,7 @@ function gameOver(victoire) {
   // après. Seulement pour une mort au combat : un crash au sol se voit déjà,
   // et une fin de partie au sol n'a rien à montrer.
   // -------------------------------------------------------------------------
-  const auCombat = !victoire && (state.causeMort === 'roquette' || state.causeMort === 'balle');
+  const auCombat = !victoire && (state.causeMort === 'roquette' || state.causeMort === 'balles' || state.causeMort === 'choc');
   if (auCombat) {
     for (let i = 0; i < 5; i++) {
       _b1.copy(state.pos).set(state.pos.x + (Math.random() - 0.5) * 16,
@@ -20530,7 +20970,12 @@ window.addEventListener('pointerdown', e => {
   // le geste qu'on essaie en premier.
   if (state.joue) { rangeGuitare(); return; }
   const side = e.clientX >= window.innerWidth / 2 ? 1 : -1;
-  const now = performance.now();
+  // L'HEURE DU DOIGT, PAS CELLE DE LA PAGE. Le double appui se mesurait à
+  // l'instant où la page traitait l'événement : pendant une image longue, le
+  // second appui arrivait « en retard » et n'était plus lu comme double —
+  // mesuré, 341 ms entre deux appuis espacés de 80. L'événement porte sa
+  // propre heure, prise quand le doigt a touché : c'est elle qui compte.
+  const now = (e.timeStamp > 0 && e.timeStamp <= performance.now() + 1) ? e.timeStamp : performance.now();
   // À PIED, LE DOUBLE APPUI NE FAIT PAS DE FIGURE. Il en faisait une : on
   // marchait dans l'herbe, on tapait deux fois, et l'appareil garé à trente
   // mètres partait en tonneau tout seul. À pied, deux appuis couchent l'homme

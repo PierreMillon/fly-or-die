@@ -81,10 +81,15 @@ for (const id of APPAREILS) {
   const cible = await page.evaluate(() => ({ x: window.__fod.screenX, y: window.__fod.screenY }));
   const cdp = await contexte.newCDPSession(page);
   const x = Math.min(cible.x + 110, 420), y = Math.max(60, Math.min(cible.y, 700));
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  // L'HEURE DU DOIGT. Chaque événement porte son horodatage : les deux appuis
+  // sont à quatre-vingts millisecondes l'un de l'autre, quelle que soit la
+  // lenteur du rendu logiciel à les traiter — c'est le geste qu'on vérifie,
+  // pas la cadence du serveur d'essai.
+  const t0 = Date.now() / 1000;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }], timestamp: t0 });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + 0.05 });
   await page.waitForTimeout(80);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }], timestamp: t0 + 0.08 });
   await page.waitForTimeout(2000);
   const tenu = await page.evaluate(() => ({ pouvoir: window.__fod.pouvoir && window.__fod.pouvoir.id,
                                             courant: !!window.__fod.courant, v: Math.round(window.__fod.speed) }));

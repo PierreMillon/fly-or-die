@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fly or Die — la planche à cocher</title>
+<style>
+  :root { --fond: #050d09; --trait: #46ffa0; --pale: #2a8f5c; --gris: #9fb8a9; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fond); color: var(--trait); font-family: "Courier New", ui-monospace, monospace; line-height: 1.5; padding: 18px 16px 80px; max-width: 760px; margin-inline: auto; }
+  h1 { font-size: 1.3rem; letter-spacing: .08em; margin: 0 0 6px; }
+  h2 { font-size: 1.05rem; letter-spacing: .08em; margin: 34px 0 10px; border-bottom: 1px solid var(--pale); padding-bottom: 6px; }
+  p.aide { color: var(--gris); font-size: .9rem; margin: 4px 0 14px; }
+  label { display: flex; gap: 12px; align-items: flex-start; padding: 8px 6px; border-bottom: 1px solid #0f2a1c; cursor: pointer; }
+  label:hover { background: #08160f; }
+  input[type=checkbox] { width: 20px; height: 20px; margin-top: 3px; accent-color: var(--trait); flex: none; }
+  .scene { color: var(--gris); font-size: .8rem; letter-spacing: .06em; display: block; }
+  .comment { color: var(--gris); font-size: .85rem; display: block; margin-top: 2px; }
+  textarea { width: 100%; min-height: 90px; background: #08160f; color: var(--trait); border: 1px solid var(--pale); border-radius: 8px; padding: 10px; font: inherit; }
+  .barre { position: fixed; left: 0; right: 0; bottom: 0; background: var(--fond); border-top: 1px solid var(--pale); padding: 10px 16px; display: flex; gap: 10px; justify-content: center; }
+  button { background: transparent; color: var(--trait); border: 1px solid var(--trait); border-radius: 10px; padding: 10px 16px; font: inherit; letter-spacing: .06em; cursor: pointer; }
+  button:active { background: #0f2a1c; }
+  #sortie { margin-top: 14px; white-space: pre-wrap; color: var(--gris); font-size: .85rem; }
+</style>
+</head>
+<body>
+<h1>LA PLANCHE À COCHER</h1>
+<p class="aide">Coche ce que tu gardes, puis « COPIER MA SÉLECTION » en bas : le texte se colle tel quel dans la conversation. Les cases restent cochées sur cet appareil.</p>
+
+<h2>1 · LES BONSHOMMES DU TUNNEL</h2>
+<p class="aide">Neuf casemates, neuf scènes, une bulle par scène. Il en faut une par scène au minimum ; s'il y en a plusieurs de cochées pour une même scène, je tire au sort à chaque partie. Les scènes sont déjà dans le jeu, c'est le texte qu'on tranche.</p>
+<div id="phrases"></div>
+
+<h2>2 · LES CANONS : UNE AUTRE NOTION QUE « CHAUDS »</h2>
+<p class="aide">Aujourd'hui : chaque appareil abattu donne trois secondes de « canons chauds », cadence et dégâts doublés. En vrai, des canons qui chauffent ne tirent pas plus vite : ils s'enrayent, ils perdent leur précision, et une munition peut partir toute seule dans un tube brûlant. Voici des notions qui gardent la mécanique (la prime d'un abattage sert au suivant) sous un nom qui tient debout. Coche le nom ET le fonctionnement qui te plaisent ; plusieurs possibles.</p>
+<div id="canons"></div>
+
+<h2>3 · UN MOT</h2>
+<textarea id="mot" placeholder="Autre chose à me dire sur tout ça ?"></textarea>
+<div id="sortie"></div>
+
+<div class="barre">
+  <button id="copier">COPIER MA SÉLECTION</button>
+  <button id="vider">TOUT DÉCOCHER</button>
+</div>
+
+<script>
+const PHRASES = [
+  ['Ping-pong', 'On joue le point. Le perdant creuse la suite du tunnel.'],
+  ['Ping-pong', 'Trente-deux ans qu’on joue la balle de match.'],
+  ['Ping-pong', 'La balle est en carbone. Le tunnel aussi. On ne la retrouve jamais.'],
+  ['Ping-pong', 'Attention, elle revient. Elle revient toujours.'],
+  ['Judo', 'Ippon. Je t’avais dit que la montagne glissait.'],
+  ['Judo', 'Il m’a projeté en 1994. Je n’ai pas encore atterri.'],
+  ['Judo', 'Ceinture noire de tunnel. Ça n’existe pas, mais je l’ai.'],
+  ['Judo', 'Ce n’est pas une chute. C’est une descente contrôlée par quelqu’un d’autre.'],
+  ['Échecs', 'Échec au roi. Le roi est parti en 1987.'],
+  ['Échecs', 'Je joue les blancs. Ils sont verts, mais je joue les blancs.'],
+  ['Échecs', 'Mat en douze coups. On en est au troisième depuis mardi.'],
+  ['Échecs', 'Il réfléchit. Depuis la construction du tunnel.'],
+  ['Yoga', 'Je fais l’arbre. Ça pousse pas, mais je fais l’arbre.'],
+  ['Yoga', 'Inspire la roche. Expire la roche. Tu es la roche.'],
+  ['Yoga', 'Posture du tunnel : on reste là et on attend.'],
+  ['Yoga', 'Mon centre est quelque part sous la montagne.'],
+  ['Poirier', 'Vu d’ici, l’avion est à l’endroit.'],
+  ['Poirier', 'Le plafond est mon sol. Le sol est mon problème.'],
+  ['Poirier', 'Je ne tiens pas sur les mains. C’est la montagne qui est à l’envers.'],
+  ['Guitare', 'Trois accords, et tous les trois sont faux.'],
+  ['Guitare', 'C’est une chanson sur un tunnel. Elle ne finit pas.'],
+  ['Guitare', 'La corde de mi est partie avec le dernier avion.'],
+  ['Guitare', 'Requête du public : le silence. Je travaille dessus.'],
+  ['Jongleur', 'J’en avais quatre. Il y en a une qui n’est jamais redescendue.'],
+  ['Jongleur', 'Je ne jongle pas. Je lance, et je rattrape mes erreurs.'],
+  ['Jongleur', 'Ne compte pas. Ça les fait tomber.'],
+  ['Pêcheur', 'Ça ne mord pas. Ça n’a jamais mordu. C’est un seau.'],
+  ['Pêcheur', 'J’ai pris un caillou. Je l’ai relâché. Il était trop jeune.'],
+  ['Pêcheur', 'La rivière est de l’autre côté de la montagne. Je suis patient.'],
+  ['Pêcheur', 'Le seau est vide. C’est le meilleur jour de pêche.'],
+  ['Salut', 'On salue tout ce qui passe. C’est le règlement.'],
+  ['Salut', 'Garde-à-vous depuis 1974. Le colonel n’est jamais revenu.'],
+  ['Salut', 'Bienvenue. Il n’y a rien ici. On garde le rien.'],
+  ['Salut', 'Repos. Non, garde-à-vous. Non, repos. On n’a pas tranché.'],
+  ['N’importe où', 'Vous êtes ici. Nous aussi. Personne ne sait pourquoi.'],
+  ['N’importe où', 'Ne tirez pas, on est décoratifs.'],
+  ['N’importe où', 'Le tunnel est fermé le dimanche. On ne sait pas quel jour on est.'],
+  ['N’importe où', 'Ceci n’est pas une casemate. C’est un studio avec vue.'],
+  ['N’importe où', 'On a voté. On reste.'],
+  ['N’importe où', 'Si tu lis ceci, tu voles trop lentement. Merci.'],
+];
+
+const CANONS = [
+  ['NOM', 'SOLUTION DE TIR', 'Après un abattage, le pilote « a la main » : sa solution de tir est faite. Réaliste — c’est le pilote qui chauffe, pas le canon.'],
+  ['NOM', 'CONVERGENCE', 'Les canons d’un chasseur sont harmonisés pour converger à une distance donnée. Après un abattage, on est « dans la convergence » : toutes les balles au même point.'],
+  ['NOM', 'BANDE INCENDIAIRE', 'Les bandes de munitions alternent perforantes, traçantes, incendiaires. Après un abattage, on entre dans la partie incendiaire de la bande.'],
+  ['NOM', 'ŒIL DU TIREUR', 'Le tireur qui vient de toucher voit ses traçantes et corrige : quelques secondes d’efficacité pure.'],
+  ['NOM', 'CADENCE DE COMBAT', 'Le nom le plus neutre : la cadence d’un pilote qui enchaîne, sans parler du métal.'],
+  ['NOM', 'CANONS CHAUDS (on garde)', 'C’est faux physiquement, mais c’est un mot de jeu, tout le monde comprend, et on le laisse.'],
+  ['FONCTIONNEMENT', 'Dégâts doublés, cadence inchangée', 'On garde la prime mais on n’accélère plus les canons : ce sont les impacts qui comptent double (convergence, incendiaire). Le son ne change pas.'],
+  ['FONCTIONNEMENT', 'Cadence doublée, dégâts doublés (comme aujourd’hui)', 'On ne touche à rien d’autre que le nom.'],
+  ['FONCTIONNEMENT', 'Une jauge de chaleur qui MONTE quand on tire, et qui coupe', 'Le vrai réalisme : tirer longtemps chauffe, un canon chaud s’enraye deux secondes. L’abattage ne donne rien ; la discipline de tir donne tout. C’est un autre jeu, plus dur.'],
+  ['FONCTIONNEMENT', 'Les deux : la prime d’abattage ET la chauffe qui punit les rafales longues', 'Enchaîner rapporte, arroser coûte.'],
+  ['FONCTIONNEMENT', 'L’Ancien garde sa prime dix fois plus longtemps (déjà fait)', 'Trente secondes par abattage, plafond quatre-vingt-dix : il n’a pas la cadence, il a la patience.'],
+];
+
+const cle = 'fod_planche';
+let coche = {};
+try { coche = JSON.parse(localStorage.getItem(cle) || '{}'); } catch (e) {}
+const sauve = () => { try { localStorage.setItem(cle, JSON.stringify(coche)); } catch (e) {} };
+
+function ligne(conteneur, id, titre, texte, sous) {
+  const l = document.createElement('label');
+  const c = document.createElement('input'); c.type = 'checkbox'; c.checked = !!coche[id];
+  c.onchange = () => { coche[id] = c.checked; if (!c.checked) delete coche[id]; sauve(); };
+  const d = document.createElement('div');
+  d.innerHTML = '<span class="scene">' + titre + '</span>' + texte + (sous ? '<span class="comment">' + sous + '</span>' : '');
+  l.append(c, d); conteneur.appendChild(l);
+}
+PHRASES.forEach((p, i) => ligne(document.getElementById('phrases'), 'p' + i, p[0], p[1]));
+CANONS.forEach((p, i) => ligne(document.getElementById('canons'), 'c' + i, p[0], '<b>' + p[1] + '</b>', p[2]));
+
+document.getElementById('copier').onclick = async () => {
+  const out = ['PLANCHE — MA SÉLECTION', '', 'Bonshommes :'];
+  PHRASES.forEach((p, i) => { if (coche['p' + i]) out.push('- [' + p[0] + '] ' + p[1]); });
+  out.push('', 'Canons :');
+  CANONS.forEach((p, i) => { if (coche['c' + i]) out.push('- [' + p[0] + '] ' + p[1]); });
+  const mot = document.getElementById('mot').value.trim();
+  if (mot) out.push('', 'Un mot : ' + mot);
+  const txt = out.join('\n');
+  document.getElementById('sortie').textContent = txt;
+  try { await navigator.clipboard.writeText(txt); document.getElementById('copier').textContent = 'COPIÉ'; }
+  catch (e) { document.getElementById('copier').textContent = 'SÉLECTIONNE LE TEXTE CI-DESSUS'; }
+};
+document.getElementById('vider').onclick = () => { coche = {}; sauve(); document.querySelectorAll('input[type=checkbox]').forEach(c => c.checked = false); };
+</script>
+</body>
+</html>

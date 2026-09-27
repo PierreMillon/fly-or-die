@@ -28,13 +28,31 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Au décollage, le viseur n'apparaît qu'en fin de montée → v1.86 (absent de 0 à 5,6 s, apparaît au palier à 204 m)
 - [x] L'écran de mort tient entièrement à l'écran : tous les boutons, tout l'affichage, sans défiler → v1.87 (0 débordement à 320×568, 375×667, 390×844, 430×932)
 - [x] La lune : un croissant tout noir, contour vert seulement, presque vertical (image de référence envoyée) → v1.87 (penchée de 12°, 0 cratère, 0 arc sombre)
-- [ ] Le tunnel : on GARDE l'invincibilité et la réparation dedans (on peut y rester contre les murs pour regarder les bonshommes)
-- [ ] Le tunnel : la montagne doit le cacher, on ne voit que l'entrée et la sortie (aujourd'hui le tunnel se voit à travers, « comme si la montagne était creusée un peu partout »)
-- [ ] Les bonshommes des casemates : des poses drôles (ping-pong, judo, ...)
-- [ ] Des bulles au-dessus des bonshommes, avec des phrases absurdes
-- [ ] Une page à part : la liste des phrases proposées, à cocher et à me renvoyer
-- [ ] Les portails : à fond avec le bimoteur, 11 portails à la suite et aucune accélération. Chaque portail doit TOUJOURS faire gagner de la vitesse, c'est tout l'intérêt
-- [ ] Le tonneau : le déplacement latéral de l'avion x3, et la caméra part une fraction de seconde AVANT l'avion, s'arrête à l'endroit d'arrivée, et l'avion arrive dans l'écran
+- [x] Le tunnel : on GARDE l'invincibilité et la réparation dedans (on peut y rester contre les murs pour regarder les bonshommes) → gardé, rien touché
+- [x] Le tunnel : la montagne doit le cacher, on ne voit que l'entrée et la sortie (aujourd'hui le tunnel se voit à travers, « comme si la montagne était creusée un peu partout ») → v1.88 (relief min au-dessus du boyau 360 → 382 m pour un toit à 352 ; le sol ne se perce que sur 160 m à chaque bouche)
+- [x] Les bonshommes des casemates : des poses drôles (ping-pong, judo, ...) → v1.88 (9 scènes : ping-pong, judo, échecs, yoga, poirier, guitare, jongleur, pêcheur, salut)
+- [x] Des bulles au-dessus des bonshommes, avec des phrases absurdes → v1.88 (une bulle de 30 m par casemate, lisible depuis l'autre paroi ; phrases provisoires, à trancher sur la planche)
+- [x] Une page à part : la liste des phrases proposées, à cocher et à me renvoyer → v1.88 planche.html (40 phrases, 51 cases, zéro débordement, bouton COPIER)
+- [x] Les portails : à fond avec le bimoteur, 11 portails à la suite et aucune accélération. Chaque portail doit TOUJOURS faire gagner de la vitesse, c'est tout l'intérêt → v1.88 (plafond du capital 900 retiré : 11 portails = 126 → 1341 m/s, +73 à +154 chacun)
+- [x] Le tonneau : le déplacement latéral de l'avion x3, et la caméra part une fraction de seconde AVANT l'avion, s'arrête à l'endroit d'arrivée, et l'avion arrive dans l'écran → v1.88 (435 m mesurés ; la caméra a fini à 45 % de la figure ; l'avion sort du cadre à 0,1 s et revient à 1,47 s)
+- [x] Guillotine : celle sous la montagne (le tunnel) est hors sujet, toujours valide → vérifié, le tunnel n'a jamais eu de guillotine
+- [x] Guillotine : plus de trait en plus ni de croix (moche, lourd, complexe). Le bas de la masse du haut DESCEND comme une extrusion : même nombre de sommets, la masse pleine grandit, le vide diminue → v1.88 (12 sommets déplacés par bâtiment ; arche : air 48 → 24 → 12 → clos ; tour 45 → 22 → 11 → clos)
+- [x] Le message de mort change selon la cause : vrille puis sol, mur, sol, roquette, ... → v1.88 (7 causes, titre + phrase, 0 débordement à 320×568)
+- [x] Les roquettes reçues font quatre fois plus de dégâts → v1.88 (50 → 200)
+- [x] L'Ancien au double-appui tenu : la vitesse max multipliée par trois (aujourd'hui seule la croisière de base est multipliée, le capital des portails ne l'est pas) → v1.88 (capital ×3 dans le courant : 1220 → 1500 en 4 s)
+- [x] L'Ancien au double-appui tenu : la PREMIÈRE fois, un message (« maîtrise des courants ») et un petit bruit ; les fois suivantes rien, juste l'accélération → v1.88 (message vu une fois, vide à la deuxième prise)
+- [x] L'Ancien garde les canons chauds dix fois plus longtemps → v1.88 (30 s par abattage, plafond 90)
+- [x] Rediscuter la notion de « canons chauds » : en vrai, des canons qui chauffent tirent moins vite. Trouver une notion plus réaliste, faire des propositions → propositions sur planche.html, section 2 (à cocher)
+- [x] La planche à cocher réunit les deux : les phrases des bonshommes du tunnel ET les propositions de noms et de fonctionnement réaliste des canons → v1.88 planche.html
+- [x] Par défaut, tous les avions débloqués dans le hangar du bas → v1.88 (les deux drones garés au bout du rang, tout brille)
+- [x] L'Ancien : tenu, il accélère sans fin ; relâché, il GARDE sa vitesse ; un double-appui bref (relâché tout de suite) le ralentit en 1 s. Du lent au rapide et retour, d'un geste → v1.88
+- [x] L'arrivée : aucun obstacle dans le cercle (il est posé devant des obstacles) → v1.88 (un pylône à 6 m de l'axe et une arche à 110 m déplacés hors du couloir ; le décor aléatoire évite les couloirs des deux pistes)
+- [x] L'arrivée : quelle que soit la vitesse d'arrivée, dans le cercle et dans le bon angle, on se pose et on s'arrête au bon endroit. Le frein doit être relatif à la vitesse (l'Ancien lancé a pris la piste et a continué) → v1.88 (avant : à 400/700/1100 on passait le bout de piste en l'air ; après : toucher à 230, arrêt à z=-320 devant la baie, les trois fois)
+- [x] Faucheur + suiveurs essaim : on peut mettre des essaims dans des essaims ; le Faucheur semble être le drone, et son bruit est bizarre. Le bruit doit être adapté à l'appareil → v1.88 (trois timbres : disque, lourd, essaim ; le Faucheur est bien le disque)
+- [x] L'escouade en formation d'oiseaux : nous devant au milieu (caméra inchangée), eux DERRIÈRE en triangle, un peu plus de la moitié de chacun visible à l'écran → v1.88 (mesuré : derrière à hauteur d'aile = 19 % visible et ils cachent le nôtre ; retenu ±3 / +6 / -2 m : 40 à 50 % visible aux coins du haut)
+- [x] Le menu : avec l'essaim choisi, il manque un bout du réglage, on ne peut plus choisir son avion → v1.88 (les rangs de suiveurs disent « cellule de l'essaim, imposée » ; les 7 avions restent cliquables)
+- [x] Les suiveurs : un mur leur fait des dégâts ; dans un tunnel ils se mettent DERRIÈRE nous (ou s'écartent et reviennent) ; si on fait du surplace, eux ne savent pas : ils tournent autour de nous en attendant, et peuvent prendre en chasse un ennemi proche sans trop s'éloigner → v1.88 (en file à 40 et 80 m dans le tunnel ; ronde à 110 m en surplace, 175° en 90 images ; chasse à 44 m d'un ennemi à 420 m ; 30 pv/s dans un mur, repoussés)
+- [x] Le bruit du moteur monte dans l'aigu à chaque portail enchaîné (aujourd'hui il plafonne à 320 m/s) → v1.88 (au-delà de 320, +35 % de course par doublement de vitesse)
 - [x] PAPI et tube parlent du même point → v1.85 (un PAPI par bout, à 100 m du seuil : à 300, les roues touchaient derrière le bout de piste)
 - [x] Les suiveurs ont une vie, tombent, redécollent et reviennent, et font bouclier → v1.85 (part 33,7 / 22,2 %, retour 30,5 s pour 3,3 km)
 - [x] Le drone lourd ne se répare que hors du feu → v1.85
