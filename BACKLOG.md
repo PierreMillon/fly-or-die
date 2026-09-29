@@ -53,6 +53,7 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Le menu : avec l'essaim choisi, il manque un bout du réglage, on ne peut plus choisir son avion → v1.88 (les rangs de suiveurs disent « cellule de l'essaim, imposée » ; les 7 avions restent cliquables)
 - [x] Les suiveurs : un mur leur fait des dégâts ; dans un tunnel ils se mettent DERRIÈRE nous (ou s'écartent et reviennent) ; si on fait du surplace, eux ne savent pas : ils tournent autour de nous en attendant, et peuvent prendre en chasse un ennemi proche sans trop s'éloigner → v1.88 (en file à 40 et 80 m dans le tunnel ; ronde à 110 m en surplace, 175° en 90 images ; chasse à 44 m d'un ennemi à 420 m ; 30 pv/s dans un mur, repoussés)
 - [x] Le bruit du moteur monte dans l'aigu à chaque portail enchaîné (aujourd'hui il plafonne à 320 m/s) → v1.88 (au-delà de 320, +35 % de course par doublement de vitesse)
+- [x] Une planche de comparaison pour l'escouade : un plan où l'on déplace les suiveurs derrière et de côté, et l'écran qui montre en temps réel ce que voit la caméra → v1.89 escouade.html
 - [x] PAPI et tube parlent du même point → v1.85 (un PAPI par bout, à 100 m du seuil : à 300, les roues touchaient derrière le bout de piste)
 - [x] Les suiveurs ont une vie, tombent, redécollent et reviennent, et font bouclier → v1.85 (part 33,7 / 22,2 %, retour 30,5 s pour 3,3 km)
 - [x] Le drone lourd ne se répare que hors du feu → v1.85
