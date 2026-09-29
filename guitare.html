@@ -54,6 +54,13 @@ au choix en haut ; en dessous, de quoi régler la suite d'accords et le hasard.<
 </div>
 <p class="etat" id="diag">son : pas encore démarré</p>
 
+<p class="titre">LE GESTE</p>
+<div class="rangee" id="gestes"></div>
+<p class="titre">LA BASSE</p>
+<div class="rangee" id="basses"></div>
+<p class="titre">LES TYPES D'ACCORDS — COCHE CEUX QUE TU GARDES, ÉCOUTE CHACUN</p>
+<div id="types"></div>
+<p class="titre">LA SUITE D'ACCORDS</p>
 <div class="rangee" id="moteurs"></div>
 
 <p class="titre">CE QU'ELLE JOUE, ACCORD PAR ACCORD</p>
@@ -133,7 +140,7 @@ function audio() {
 // dire cinq choses, et on en essaie cinq au hasard. La ligne dit l'état du
 // contexte, si son horloge avance, combien de notes ont été programmées, et
 // quelle version de la page on regarde — le cache d'un téléphone est têtu.
-const VERSION_PLANCHE = 'v1.47';
+const VERSION_PLANCHE = 'v1.90';
 let notesPosees = 0, appuis = 0;
 function diag() {
   const el = document.getElementById('diag');
@@ -218,10 +225,23 @@ const MOTEURS = [
 ];
 
 const V = { MOTEUR: 'hasard', PAS: 0.55, PAR_ACCORD: 4, HASARD: 0.22, ALTERATION: 0.18,
-            ETENDUE: 2, HUMAIN: 0.06, VOLUME: 0.085 };
+            ETENDUE: 2, HUMAIN: 0.06, VOLUME: 0.085,
+            // LA NOTE LA PLUS GRAVE, EN HERTZ. La basse descendait une octave sous
+            // le LA grave, à 55 Hz : un téléphone ne la rend pas, on entendait un
+            // trou. Tout ce qui tombe dessous remonte d'une octave.
+            GRAVE: 82,
+            // LE GESTE. « arpege » : les notes une à une, comme aujourd'hui.
+            // « gratte » : toutes les cordes de l'accord à la suite, très serrées,
+            // comme un accord gratté — un DO, c'est les cinq cordes qui sonnent.
+            // « mixte » : gratté à l'entrée de l'accord, puis égrené.
+            MODE: 'gratte', GRATTE: 0.035, BASSE: 'meme' };
 const DEFAUT = Object.assign({}, V);
 
 const R = [
+  { cle:'GRAVE', min:41, max:165, pas:1, nom:'NOTE LA PLUS GRAVE (Hz)',
+    note:"en dessous, la note remonte d'une octave. 55 = le LA grave sous la corde, 82 = le MI de la corde grave, 110 = le LA de la corde." },
+  { cle:'GRATTE', min:0.01, max:0.12, pas:0.005, nom:'ÉCART ENTRE DEUX CORDES GRATTÉES',
+    note:"secondes. À 0,035, cinq cordes passent en un septième de seconde : un coup de pouce." },
   { cle:'PAS', min:0.18, max:1.2, pas:0.01, nom:'TEMPS ENTRE DEUX NOTES',
     note:"secondes. Le jeu est à 0,55 aujourd'hui : une note toutes les demi-secondes." },
   { cle:'PAR_ACCORD', min:2, max:8, pas:1, nom:'NOTES PAR ACCORD',
@@ -275,8 +295,9 @@ function accordSuivant() {
     if (type === 'maj') choix.push(['maj7', 'septième majeure'], ['dom7', 'septième'],
                                    ['add9', 'neuvième ajoutée'], ['sus2', 'suspension']);
     if (type === 'dim') choix.push(['min7', 'adouci']);
-    if (choix.length) {
-      const c = choix[Math.floor(Math.random() * choix.length)];
+    const permis = choix.filter(c => !V.TYPES || V.TYPES.includes(c[0]));
+    if (permis.length) {
+      const c = permis[Math.floor(Math.random() * permis.length)];
       type = c[0]; alt = c[1];
     }
   }
@@ -298,12 +319,30 @@ const MOTIFS = [
   [0, 1, 2, 1], [0, 2, 1, 2], [0, 1, 2, 3], [3, 2, 1, 0],
   [0, 2, 3, 1], [0, 1, 3, 2], [0, 3, 1, 2], [1, 0, 2, 3],
 ];
+// LA NOTE REMONTE si elle passe sous la plus grave qu'on accepte : on garde
+// l'accord, on perd le trou.
+function remonte(demi) {
+  let f = 110 * Math.pow(2, demi / 12);
+  while (f < V.GRAVE - 0.5) { f *= 2; demi += 12; }
+  return demi;
+}
+// LES CORDES D'UN ACCORD GRATTÉ : la basse, puis les notes de l'accord sur deux
+// octaves, du grave à l'aigu, cinq ou six cordes comme sur l'instrument.
+function cordesDe(a) {
+  const inter = TYPES[a.type] || TYPES.min;
+  const c = [];
+  if (V.BASSE === 'octave') c.push(a.racine - 12); else if (V.BASSE === 'meme') c.push(a.racine);
+  for (let o = 0; o < 2; o++) for (const i of inter) c.push(a.racine + i + o * 12);
+  const out = []; for (const d of c) { const r = remonte(d); if (!out.includes(r)) out.push(r); }
+  return out.sort((x, y) => x - y).slice(0, 6);
+}
 function notesDe(a, n) {
   const inter = TYPES[a.type] || TYPES.min;
   const voix = [];
-  voix.push(a.racine - 12);                       // la basse, une octave dessous
+  if (V.BASSE === 'octave') voix.push(a.racine - 12); else voix.push(a.racine);   // la basse
   for (let o = 0; o < V.ETENDUE; o++)
     for (const i of inter) voix.push(a.racine + i + o * 12);
+  for (let k = 0; k < voix.length; k++) voix[k] = remonte(voix[k]);
   const motif = MOTIFS[Math.floor(Math.random() * MOTIFS.length)];
   const out = [];
   for (let k = 0; k < n; k++) {
@@ -321,14 +360,25 @@ function programme() {
   while (prochaine < horizon && garde++ < 40) {
     for (const a of accordSuivant()) {
       const n = V.PAR_ACCORD;
-      const notes = notesDe(a, n);
-      for (let k = 0; k < n; k++) {
-        const flotte = (Math.random() - 0.5) * 2 * V.HUMAIN;
-        const t = Math.max(actx.currentTime + 0.02, prochaine + k * V.PAS + flotte);
-        corde(110 * Math.pow(2, notes[k] / 12), t, V.PAS * 2.6,
-              V.VOLUME * (k === 0 ? 1.35 : 1));
+      const duree = n * V.PAS;
+      if (V.MODE === 'gratte' || V.MODE === 'mixte') {
+        // LE COUP DE POUCE : toutes les cordes, du grave à l'aigu, très serrées,
+        // et elles sonnent le temps de l'accord
+        const cordes = cordesDe(a);
+        const t0 = Math.max(actx.currentTime + 0.02, prochaine);
+        cordes.forEach((d, k) => corde(110 * Math.pow(2, d / 12), t0 + k * V.GRATTE + (Math.random() - 0.5) * V.HUMAIN * 0.3,
+                                       V.MODE === 'gratte' ? duree * 0.95 : V.PAS * 1.6, V.VOLUME * (k === 0 ? 1.2 : 0.9)));
       }
-      prochaine += n * V.PAS;
+      if (V.MODE === 'arpege' || V.MODE === 'mixte') {
+        const notes = notesDe(a, n);
+        for (let k = (V.MODE === 'mixte' ? 1 : 0); k < n; k++) {
+          const flotte = (Math.random() - 0.5) * 2 * V.HUMAIN;
+          const t = Math.max(actx.currentTime + 0.02, prochaine + k * V.PAS + flotte);
+          corde(110 * Math.pow(2, notes[k] / 12), t, V.PAS * 2.6,
+                V.VOLUME * (k === 0 ? 1.35 : 1));
+        }
+      }
+      prochaine += duree;
       histoire.push(a);
       if (histoire.length > 14) histoire.shift();
     }
@@ -383,6 +433,31 @@ for (const r of R) {
   zone.appendChild(d);
   boites[r.cle] = i;
 }
+// LE GESTE ET LA BASSE : deux rangées de boutons, et les types d'accords à
+// cocher — ce qui n'est pas coché ne sort jamais dans les enrichissements.
+const GESTES = [['arpege', 'ARPÈGE'], ['gratte', 'GRATTÉ'], ['mixte', 'GRATTÉ PUIS ARPÈGE']];
+const BASSES = [['octave', 'BASSE UNE OCTAVE DESSOUS'], ['meme', 'BASSE SUR LA CORDE'], ['aucune', 'SANS BASSE']];
+const rangee = (id, liste, cle) => {
+  const z = document.getElementById(id); z.innerHTML = '';
+  liste.forEach(([v, nom]) => { const b = document.createElement('button'); b.textContent = nom; b.classList.toggle('actif', V[cle] === v);
+    b.addEventListener('click', () => { V[cle] = v; [...z.children].forEach(c => c.classList.remove('actif')); b.classList.add('actif'); montre(); }); z.appendChild(b); });
+};
+rangee('gestes', GESTES, 'MODE'); rangee('basses', BASSES, 'BASSE');
+const TYPES_NOTE = { min: 'mineur', maj: 'majeur', dim: 'diminué', min7: 'mineur septième', maj7: 'septième majeure', dom7: 'septième de dominante', sus4: 'suspendu 4', sus2: 'suspendu 2', add9: 'neuvième ajoutée', m9: 'mineur neuvième' };
+V.TYPES = Object.keys(TYPES);
+{
+  const z = document.getElementById('types');
+  for (const k of Object.keys(TYPES)) {
+    const l = document.createElement('label'); l.style.cssText = 'display:flex;gap:10px;align-items:center;padding:5px 0;font-size:12px';
+    const c = document.createElement('input'); c.type = 'checkbox'; c.checked = true;
+    c.addEventListener('change', () => { V.TYPES = Object.keys(TYPES).filter(t => z.querySelector('[data-t="' + t + '"]').checked); montre(); });
+    c.dataset.t = k;
+    const b = document.createElement('button'); b.textContent = 'ÉCOUTER'; b.style.cssText = 'flex:0 0 auto;min-width:0;padding:4px 8px;font-size:10px';
+    b.addEventListener('click', () => { audio(); const a = { racine: 0, type: k }; const t0 = actx.currentTime + 0.05; cordesDe(a).forEach((d, i) => corde(110 * Math.pow(2, d / 12), t0 + i * V.GRATTE, 1.8, V.VOLUME)); });
+    l.append(c, document.createTextNode(nomDe(0, k) + '  ·  ' + TYPES_NOTE[k]), b);
+    z.appendChild(l);
+  }
+}
 const barre = document.getElementById('moteurs');
 MOTEURS.forEach(m => {
   const b = document.createElement('button');
@@ -404,7 +479,8 @@ function montre() {
     document.getElementById('v_' + r.cle).textContent =
       r.pas >= 1 ? String(Math.round(V[r.cle])) : V[r.cle].toFixed(r.pas < 0.01 ? 3 : 2);
   document.getElementById('sortie').textContent =
-    'LA GUITARE — réglé sur la page\n  MOTEUR = ' + V.MOTEUR + '\n' +
+    'LA GUITARE — réglé sur la page\n  MOTEUR = ' + V.MOTEUR + '\n  MODE = ' + V.MODE + '\n  BASSE = ' + V.BASSE
+    + '\n  TYPES = ' + (V.TYPES || []).join(', ') + '\n' +
     R.map(r => '  ' + r.cle + ' = ' + (r.pas >= 1 ? Math.round(V[r.cle]) : V[r.cle].toFixed(3))).join('\n');
 }
 

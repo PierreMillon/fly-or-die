@@ -5914,8 +5914,33 @@ function semerTousLesTraits() {
   for (let i = 0; i < N_TRAITS; i++) semerTrait(i, false);
 }
 
+// ---------------------------------------------------------------------------
+// LA CADENCE DE COMBAT, ET LA CHAUFFE. « Canons chauds » disait le contraire
+// de la physique : des canons qui chauffent s'enrayent, ils ne tirent pas plus
+// vite. La prime d'abattage s'appelle donc CADENCE DE COMBAT — c'est le
+// pilote qui enchaîne, pas le métal —, et le métal a sa propre jauge : la
+// CHAUFFE monte tant qu'on tire, redescend dès qu'on lâche, et pleine, elle
+// coupe les canons deux secondes et demie. Enchaîner rapporte, arroser coûte :
+// on est poussé à rester dans le combat, par rafales, avec des pauses.
+// ---------------------------------------------------------------------------
+const CHALEUR_MONTEE = 1 / 4.5;    // par seconde de tir : pleine en quatre secondes et demie
+const CHALEUR_DESCENTE = 1 / 3;    // par seconde sans tirer
+const CHALEUR_COUPE = 2.5;         // secondes de canons coupés, pleine
+const CHALEUR_CADENCE = 1.5;       // elle monte plus vite pendant la cadence de combat
 function updateChauffe(dt) {
   if (state.chauffe > 0) state.chauffe = Math.max(0, state.chauffe - dt);
+  if (state.tireT > 0) {
+    state.tireT -= dt;
+    state.chaleur = Math.min(1, (state.chaleur || 0) + CHALEUR_MONTEE * (state.chauffe > 0 ? CHALEUR_CADENCE : 1) * dt);
+    if (state.chaleur >= 1 && !(state.coupe > 0)) {
+      state.coupe = CHALEUR_COUPE;
+      announce(t('coupe'), t('coupeSous'));
+      SFX.cale();
+    }
+  } else {
+    state.chaleur = Math.max(0, (state.chaleur || 0) - CHALEUR_DESCENTE * dt);
+  }
+  if (state.coupe > 0) state.coupe -= dt;
 }
 
 function updateBoost(dt) {
@@ -7364,9 +7389,21 @@ function updateAerodrome(dt) {
 
 // LA MANCHE PREND LE VENT, et elle frissonne un peu : une manche à air
 // parfaitement immobile est un cône planté sur un mât.
+// ELLE VIT. Elle pendait, raide, avec un frémissement de huit centièmes de
+// radian : une manche à air est la seule chose du terrain qui BOUGE toute
+// seule, et elle ne bougeait pas. Elle bat maintenant — deux flottements qui
+// ne sont pas en phase, une ondulation de côté, un frisson — et elle pointe
+// toujours où le vent va, quel que soit le sens de la piste : le vent est le
+// même sur tout le monde, seule la piste change de cap. Au refuge, le groupe
+// qui la porte est tourné ; on retire sa rotation pour rester dans le vent.
 function poseManche(m) {
   if (!m) return;
-  m.rotation.set(Math.sin(performance.now() / 300) * 0.08 + 0.35, VENT.a, 0);
+  const t = performance.now() / 1000;
+  const bat = 0.20 + 0.16 * Math.sin(t * 2.3) + 0.10 * Math.sin(t * 3.9 + 1.3);   // elle bat
+  const ondule = 0.15 * Math.sin(t * 1.4) + 0.07 * Math.sin(t * 3.1 + 0.6);       // elle ondule de côté
+  let py = 0;
+  for (let o = m.parent; o; o = o.parent) py += o.rotation.y;
+  m.rotation.set(bat, VENT.a + ondule - py, 0.05 * Math.sin(t * 5.3));
 }
 
 function poserMecanos() {
@@ -7566,7 +7603,8 @@ const MECANO_MOT_CHANCE = 0.16;  // par seconde et par homme : un mot toutes les
 function majMotMecano(m, dt) {
   if (m.motT > 0) { m.motT -= dt; if (m.motT <= 0) m.mot = null; return; }
   if (m.mort) { m.mot = null; return; }
-  if (Math.random() < MECANO_MOT_CHANCE * dt) {
+  // ET PLUS BAVARDS TANT QU'ON N'A PAS DÉCOLLÉ : c'est le moment où on les regarde.
+  if (Math.random() < MECANO_MOT_CHANCE * (state.running ? 1 : 2.5) * dt) {
     m.mot = MECANO_MOTS[Math.floor(Math.random() * MECANO_MOTS.length)];
     m.motT = MECANO_MOT_DUREE;
   }
@@ -8056,15 +8094,39 @@ const BULLE_L = 30;      // mètres : la largeur d'une bulle
 // ping-pong, judo, échecs, yoga, poirier, guitare, jongleur, pêcheur, salut.
 // Provisoires : la planche planche.html sert à les cocher.
 const BULLES = [
-  ['On joue le point. Le perdant creuse la suite du tunnel.', 'Match point. Loser digs the rest of the tunnel.'],
-  ['Ippon. Je t’avais dit que la montagne glissait.', 'Ippon. Told you the mountain was slippery.'],
-  ['Échec au roi. Le roi est parti en 1987.', 'Check. The king left in 1987.'],
-  ['Je fais l’arbre. Ça pousse pas, mais je fais l’arbre.', 'I’m doing the tree. Nothing grows, but I’m doing the tree.'],
-  ['Vu d’ici, l’avion est à l’endroit.', 'From here, the plane is the right way up.'],
-  ['Trois accords, et tous les trois sont faux.', 'Three chords, and all three are wrong.'],
-  ['J’en avais quatre. Il y en a une qui n’est jamais redescendue.', 'I had four. One never came back down.'],
-  ['Ça ne mord pas. Ça n’a jamais mordu. C’est un seau.', 'Nothing bites. Nothing ever did. It’s a bucket.'],
-  ['On salue tout ce qui passe. C’est le règlement.', 'We salute whatever passes. Those are the rules.'],
+  // ping-pong
+  [['On joue le point. Le perdant creuse la suite du tunnel.', 'Match point. The loser digs the rest of the tunnel.']],
+  // judo
+  [['Ceinture noire de tunnel. Ça n’existe pas, mais je l’ai.', 'Black belt in tunnel. It doesn’t exist, but I have it.'],
+   ['Ce n’est pas une chute. C’est une descente contrôlée par quelqu’un d’autre.', 'It’s not a fall. It’s a controlled descent by somebody else.']],
+  // échecs
+  [['Je joue les blancs. Ils sont verts, mais je joue les blancs.', 'I play white. They’re green, but I play white.']],
+  // yoga
+  [['Je fais l’arbre. Ça pousse pas, mais je fais l’arbre.', 'I’m doing the tree. Nothing grows, but I’m doing the tree.'],
+   ['Inspire la roche. Expire la roche. Tu es la roche.', 'Breathe in the rock. Breathe out the rock. You are the rock.'],
+   ['Mon centre est quelque part sous la montagne.', 'My centre is somewhere under the mountain.']],
+  // poirier
+  [['Vu d’ici, l’avion est à l’endroit.', 'From here, the plane is the right way up.'],
+   ['Je ne tiens pas sur les mains. C’est la montagne qui est à l’envers.', 'I’m not standing on my hands. The mountain is upside down.']],
+  // guitare
+  [['Trois accords, et tous les trois sont faux.', 'Three chords, and all three are wrong.'],
+   ['Requête du public : le silence. Je travaille dessus.', 'Request from the audience: silence. I’m working on it.']],
+  // jongleur
+  [['Je ne jongle pas. Je lance, et je rattrape mes erreurs.', 'I don’t juggle. I throw, and I catch my mistakes.']],
+  // pêcheur
+  [['Ça ne mord pas. Ça n’a jamais mordu. C’est un seau.', 'Nothing bites. Nothing ever did. It’s a bucket.']],
+  // salut
+  [['On salue tout ce qui passe. C’est le règlement.', 'We salute whatever passes. Those are the rules.'],
+   ['Bienvenue. Il n’y a rien ici. On garde le rien.', 'Welcome. There is nothing here. We guard the nothing.']],
+];
+// ET CELLES QUI VONT PARTOUT : chaque casemate peut tirer l'une d'elles à la
+// place de la sienne, une fois sur trois.
+const BULLES_PARTOUT = [
+  ['Vous êtes ici. Nous aussi. Personne ne sait pourquoi.', 'You are here. So are we. Nobody knows why.'],
+  ['Ne tirez pas, on est décoratifs.', 'Don’t shoot, we’re decorative.'],
+  ['Le tunnel est fermé le dimanche. On ne sait pas quel jour on est.', 'The tunnel is closed on Sundays. We don’t know what day it is.'],
+  ['On a voté. On reste.', 'We voted. We stay.'],
+  ['Si tu lis ceci, tu voles trop lentement. Merci.', 'If you can read this, you fly too slowly. Thank you.'],
 ];
 
 const tunnelBoites = [];
@@ -8296,7 +8358,10 @@ const tunnelBoites = [];
     try { const g2 = localStorage.getItem('fod_langue'); fr = g2 ? g2 !== 'en' : (navigator.language || 'en').toLowerCase().startsWith('fr'); } catch (e2) {}
     for (let i = 0; i < SALLES.length; i++) {
       const u = SALLES[i].u, cote = SALLES[i].cote, hv = cote * (l2 + 12);
-      const ph = BULLES[i % BULLES.length];
+      // tirage à chaque partie : la phrase de la scène, ou une de partout
+      const choix = BULLES[i % BULLES.length];
+      const ph = Math.random() < 1 / 3 ? BULLES_PARTOUT[Math.floor(Math.random() * BULLES_PARTOUT.length)]
+                                     : choix[Math.floor(Math.random() * choix.length)];
       const texte = fr ? ph[0] : ph[1];
       const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256;
       const cx = cv.getContext('2d');
@@ -8690,7 +8755,7 @@ const REFUGE_VUE = 1700;         // distance à laquelle il se laisse voir
 // DEUX FOIS PLUS LENTE. À 0,22 le tour durait vingt-neuf secondes : assez vite
 // pour qu'on attende la suite. À 0,11 il en dure cinquante-sept, et l'on
 // regarde au lieu d'attendre.
-const REFUGE_TOUR = 0.11;        // radians par seconde : la caméra tourne autour
+const REFUGE_TOUR = 0.037;       // radians par seconde : la caméra tourne autour — trois fois plus lentement qu'avant
 const REFUGE_ARRET = 3.4;        // secondes de roulage avant l'immobilité
 const REFUGE_SORTIE = 1.4;       // secondes après l'arrêt avant qu'il descende
 const REFUGE_CENTRE = 11;        // mètres devant le nez : le milieu de la scène
@@ -10654,6 +10719,9 @@ const state = {
   hitFlash: 0,
   peine: 0,
   chauffe: 0,
+  chaleur: 0,         // la chauffe des canons, de zéro à un
+  coupe: 0,           // secondes de canons coupés
+  tireT: 0,           // on vient de tirer
   regime: 0,
   boostFin: 0,
   boostPortail: 0,    // secondes de poussée offertes par un portail
@@ -10837,6 +10905,9 @@ function poseAuSol() {
 function auRalenti(dt) {
   tourneHelice(3.4 * dt);
   updateMecanos(dt);
+  // la manche à air vit aussi avant le décollage : c'est là qu'on la regarde
+  VENT.a = dampAngle(VENT.a, VENT.cible, 0.3, dt);
+  poseManche(hangar.manche);
   state.screenX = window.innerWidth / 2;
   state.screenY = window.innerHeight * 0.62;
 }
@@ -11063,7 +11134,7 @@ function resetGame() {
   state.fumees.length = 0;
   state.boost = 0;
   state.boostT = 0;
-  state.chauffe = 0;
+  state.chauffe = 0; state.chaleur = 0; state.coupe = 0; state.tireT = 0;
   semerTousLesTraits();
   state.roqT = 0;
   state.gunT = 0;
@@ -11432,35 +11503,47 @@ const COUCHE_HAUT   = 1.40;    // radians : presque le zénith
 const COUCHE_BAS    = 0.10;    // on ne regarde pas sous l'horizon : on est sur le dos
 const COUCHE_FILANTE = [9, 26]; // secondes entre deux étoiles filantes
 const _reg = new THREE.Vector3();
+// ALLONGÉ, ON LE VOIT D'ABORD. La caméra fait lentement le tour de l'homme
+// couché dans l'herbe ; deux appuis, et l'on passe DANS ses yeux — les
+// étoiles, tout le ciel au doigt. Deux appuis encore, et l'on ressort. La
+// guitare vient avec : le bouton JOUER est là, allongé aussi, et l'on
+// s'écoute en regardant le ciel. Un appui bref, vu de dehors, relève.
 function coucheToi() {
   const M = state.pied;
   if (!M || state.couche) return;
-  state.couche = { yaw: M.cap, pit: 1.02, t: 0, fil: 5 + Math.random() * 8 };
+  const musique = !!(state.joue && state.joue.musique);
+  if (state.joue) { state.joue = null; if (assisG) assisG.visible = false; }
+  state.couche = { yaw: M.cap, pit: 1.02, t: 0, fil: 5 + Math.random() * 8,
+                   premiere: false, angle: M.cap + Math.PI, musique, leve: 0 };
   state.regardCiel = state.regardCiel || new THREE.Vector3(0, 1, 0);
   redecoBtn.hidden = true;
-  actionBtn.hidden = true;
-  document.body.classList.add('lit');     // le HUD et les barres se retirent
+  document.body.classList.add('lit');
+  state.action = guitare.portee ? (musique ? 'arreter' : 'jouer') : 'lever';
+  majActionBtn();
   SFX.ventDoux(false);
   SFX.ventDoux(true, true);               // le vent, et les nappes par-dessus
 }
 function releveToi() {
   if (!state.couche) return;
+  if (state.couche.musique) SFX.morceauStop();
   state.couche = null;
   document.body.classList.remove('lit');
+  // le plan proche revient à sa place : voir updateCouche
+  if (camera.near !== 3) { camera.near = 3; camera.updateProjectionMatrix(); }
   SFX.ventDoux(false);
   if (state.refuge) SFX.ventDoux(true);   // debout, il reste le vent
+  state.action = null;
   majActionBtn();
 }
 function updateCouche(dt) {
   const C = state.couche, M = state.pied;
   if (!M) { releveToi(); return; }
   C.t += dt;
+  if (C.leve && performance.now() > C.leve) { releveToi(); return; }
   const w = window.innerWidth, h = window.innerHeight;
   const ref = Math.min(w, h) * 0.42;
   const dx = aim.active ? THREE.MathUtils.clamp((aim.x - w / 2) / ref, -1, 1) : 0;
   const dy = aim.active ? THREE.MathUtils.clamp((aim.y - h / 2) / ref, -1, 1) : 0;
-  C.yaw -= dx * COUCHE_TOURNE * dt;
-  C.pit = THREE.MathUtils.clamp(C.pit - dy * COUCHE_TOURNE * dt, COUCHE_BAS, COUCHE_HAUT);
   const ySol = solSousPied(M.x, M.z);
   // il est sur le dos, la tête posée
   if (piloteG) {
@@ -11468,6 +11551,22 @@ function updateCouche(dt) {
     piloteG.position.set(M.x, ySol - 0.72, M.z);
     piloteG.rotation.set(-Math.PI / 2, M.cap, 0);
   }
+  // LE PLAN PROCHE. Couché, la tête est à trente centimètres de l'herbe et
+  // l'objectif coupait tout à trois mètres : en regardant vers le bas on
+  // voyait la couleur de fond, une bande grise, à la place du sol.
+  if (camera.near !== 0.05) { camera.near = 0.05; camera.updateProjectionMatrix(); }
+  if (!C.premiere) {
+    // DE L'EXTÉRIEUR : la caméra tourne lentement autour de lui, le doigt la
+    // fait tourner aussi, et elle s'arrête quand la musique joue
+    if (!C.musique) C.angle += REFUGE_TOUR * dt - dx * COUCHE_TOURNE * 0.6 * dt;
+    const R = 4.2;
+    camera.position.set(M.x + Math.sin(C.angle) * R, ySol + 1.7, M.z + Math.cos(C.angle) * R);
+    camera.up.set(0, 1, 0);
+    camera.lookAt(M.x, ySol + 0.2, M.z);
+    return;
+  }
+  C.yaw -= dx * COUCHE_TOURNE * dt;
+  C.pit = THREE.MathUtils.clamp(C.pit - dy * COUCHE_TOURNE * dt, COUCHE_BAS, COUCHE_HAUT);
   const cp = Math.cos(C.pit), sp = Math.sin(C.pit);
   _reg.set(Math.sin(C.yaw) * cp, sp, Math.cos(C.yaw) * cp).normalize();
   state.regardCiel.copy(_reg);
@@ -11492,11 +11591,20 @@ function updateCouche(dt) {
 // caisse posée contre lui — et la caméra fait lentement le tour, parce que
 // c'est le seul moment du jeu où l'on regarde quelqu'un plutôt que de regarder
 // à sa place. Un appui, et il se relève.
-const JOUE_TOUR = 0.16;      // rad/s : un tour complet en quarante secondes
+// ---------------------------------------------------------------------------
+// ASSIS, ON REGARDE ; ON JOUE, ÇA S'ARRÊTE. La caméra tourne trois fois plus
+// lentement qu'avant, et le doigt la fait tourner aussi : assis, on regarde
+// autour de soi. Dès qu'on joue, elle s'arrête là où elle est — on écoute. Pour
+// qu'elle reparte, on arrête de jouer. Un appui bref relève ; deux appuis
+// couchent, la guitare avec.
+// ---------------------------------------------------------------------------
+const JOUE_TOUR = 0.053;     // rad/s : un tour complet en deux minutes
 function updateJoue(dt) {
   const J = state.joue, M = state.pied;
   if (!M) { rangeGuitare(); return; }
   J.t += dt;
+  // l'appui bref : il ne relève qu'une fois passé le délai du double appui
+  if (J.leve && performance.now() > J.leve) { rangeGuitare(); return; }
   const ySol = solSousPied(M.x, M.z);
   if (piloteG) piloteG.visible = false;
   if (assisG) {
@@ -11504,9 +11612,15 @@ function updateJoue(dt) {
     assisG.position.set(M.x, ySol, M.z);
     assisG.rotation.set(0, M.cap, 0);
   }
-  const a = M.cap + Math.PI + J.t * JOUE_TOUR;
+  if (J.angle === undefined) J.angle = M.cap + Math.PI;
+  if (!J.musique) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const ref = Math.min(w, h) * 0.42;
+    const dx = aim.active ? THREE.MathUtils.clamp((aim.x - w / 2) / ref, -1, 1) : 0;
+    J.angle += JOUE_TOUR * dt - dx * COUCHE_TOURNE * 0.6 * dt;
+  }
   const R = 3.4;                        // assis, il est plus petit : on se rapproche
-  camera.position.set(M.x + Math.sin(a) * R, ySol + 1.5, M.z + Math.cos(a) * R);
+  camera.position.set(M.x + Math.sin(J.angle) * R, ySol + 1.5, M.z + Math.cos(J.angle) * R);
   camera.up.set(0, 1, 0);
   camera.lookAt(M.x, ySol + 0.45, M.z);
 }
@@ -11708,6 +11822,8 @@ function faitAction() {
     return;
   }
   if (c === 'guitare') { ouvreGuitare(); return; }
+  if (c === 'jouer' || c === 'arreter') { basculeMusique(); return; }
+  if (c === 'lever') { releveToi(); return; }
   if (c === 'descendre') { descendDeJeep(); return; }
   if (c === 'carte') { ouvreCarteMur(); return; }
   // ON MONTE DEDANS, PUISQU'IL EST LÀ. Il était garé dans l'herbe depuis trois
@@ -12101,7 +12217,7 @@ function ouvreGuitare() {
   document.getElementById('guitareJoue').hidden = false;
   // on ne propose de prendre que ce qu'on n'a pas, et de poser que ce qu'on a
   document.getElementById('guitarePrend').hidden = guitare.portee;
-  document.getElementById('guitarePose').hidden = !guitare.portee;
+  document.getElementById('guitarePose').hidden = true;   // « poser » ne faisait rien : retiré
   document.getElementById('guitareRegarde').hidden = false;
   pan.hidden = false;
   actionBtn.hidden = true;
@@ -12129,11 +12245,12 @@ function joueGuitare() {
   if (!state.pied) return;
   // on ne joue pas d'une guitare posée par terre : on la prend d'abord
   if (!guitare.portee) { guitare.portee = true; sauveGuitare(); }
-  state.joue = { t: 0 };
+  // ON S'ASSOIT D'ABORD, ON JOUE ENSUITE. Le bouton d'action fait les deux :
+  // JOUER, puis ARRÊTER.
+  state.joue = { t: 0, musique: false, leve: 0 };
   redecoBtn.hidden = true;
-  actionBtn.hidden = true;
   document.body.classList.add('lit');
-  SFX.morceau();
+  state.action = 'jouer'; majActionBtn();
 }
 function rangeGuitare() {
   if (!state.joue) return;
@@ -12141,6 +12258,17 @@ function rangeGuitare() {
   if (assisG) assisG.visible = false;
   document.body.classList.remove('lit');
   SFX.morceauStop();
+  state.action = null;
+  majActionBtn();
+}
+// JOUER OU S'ARRÊTER, assis comme allongé : la musique, et la caméra qui
+// s'immobilise avec elle.
+function basculeMusique() {
+  const S = state.joue || state.couche;
+  if (!S) return;
+  S.musique = !S.musique;
+  if (S.musique) SFX.morceau(); else SFX.morceauStop();
+  state.action = S.musique ? 'arreter' : 'jouer';
   majActionBtn();
 }
 
@@ -14112,7 +14240,7 @@ function updateLock(dt) {
   const dps = (DPS_MIN + (DPS_MAX - DPS_MIN) * charge)
             * (avion().canons === false ? 0 : 1)          // un drone n'a pas de canons
             * (pouvoirEst('salve') ? SALVE_DEGATS : 1)
-            * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1)
+            * (state.chauffe > 0 ? CHAUFFE_DEGATS : 1) * (state.coupe > 0 ? 0 : 1)
             * (state.pleiades ? PLEIADE_DEGATS : 1)
             * 1;   // l'éblouissement ne gêne plus la visée ordinaire
   // DERRIÈRE UN BÂTIMENT. Le viseur tient, la charge monte, mais les balles
@@ -14151,9 +14279,10 @@ function updateLock(dt) {
 
   // une salve part de chaque aile, d'autant plus serrée que le tir est calé
   state.gunT -= dt;
-  if (state.gunT <= 0 && !defiEst('roquettes') && avion().canons !== false) {
+  if (state.gunT <= 0 && !defiEst('roquettes') && avion().canons !== false && !(state.coupe > 0)) {
     state.gunT = SHOT_RATE * (1.6 - 0.6 * charge)
                  * (state.chauffe > 0 ? CHAUFFE_CADENCE : 1);
+    state.tireT = 0.25;                 // on tire : la chauffe monte
     for (const g of [GUN_L, GUN_R]) {
       const p = new THREE.Vector3(g.x, g.y, g.z)
         .multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
@@ -17395,10 +17524,62 @@ function project(v) {
   };
 }
 
+function dessineMotsMecanos(w, h) {
+  // CE QU'ILS PENSENT, AU-DESSUS DE LEUR TÊTE. Pas de cadre, pas de queue de
+  // bulle : le mot flotte là où il est dit, et il s'éteint. Il maigrit avec la
+  // distance comme tout le reste, et disparaît au-delà de cent mètres — de
+  // plus loin on n'entend pas quelqu'un marmonner.
+  {
+    const _mm = new THREE.Vector3();
+    hctx.save();
+    hctx.textAlign = 'center';
+    hctx.textBaseline = 'alphabetic';
+    for (const m of mecanos) {
+      if (!m.mot || m.motT <= 0 || !m.g.visible || m.mort) continue;
+      const d = m.p.distanceTo(camera.position);
+      if (d > 110) continue;
+      _mm.set(m.p.x, m.p.y + MECANO_H + 0.85, m.p.z);
+      const q = project(_mm);
+      if (!q.front) continue;
+      // il apparaît vite et s'efface doucement
+      const u = m.motT / MECANO_MOT_DUREE;
+      const f = Math.min(1, (1 - u) * 6) * Math.min(1, u * 2.4) * (1 - d / 110);
+      if (f <= 0.02) continue;
+      const taille = THREE.MathUtils.clamp(220 / Math.max(6, d), 8, 15);
+      hctx.font = taille.toFixed(1) + 'px "IBM Plex Mono", ui-monospace, monospace';
+      hctx.fillStyle = 'rgba(190,255,220,' + (0.85 * f).toFixed(3) + ')';
+      // IL NE DÉPASSE JAMAIS DE L'ÉCRAN. Les phrases se sont allongées le jour
+      // où ces hommes se sont mis à douter de l'existence du monde : une seule
+      // ligne les faisait sortir du cadre, et un texte coupé par le bord ne se
+      // lit pas. On coupe aux espaces, au plus deux lignes, sur une largeur
+      // qui laisse une marge de chaque côté.
+      const large = w - 24;
+      if (hctx.measureText(m.mot).width <= large) hctx.fillText(m.mot, q.x, q.y);
+      else {
+        const mots = m.mot.split(' ');
+        let l1 = '', l2 = '';
+        for (const mm of mots) {
+          const essai = l1 ? l1 + ' ' + mm : mm;
+          if (!l2 && hctx.measureText(essai).width <= large) l1 = essai;
+          else l2 = l2 ? l2 + ' ' + mm : mm;
+        }
+        const x = THREE.MathUtils.clamp(q.x, large / 2 + 12, w - large / 2 - 12);
+        hctx.fillText(l1, x, q.y - taille * 0.62);
+        if (l2) hctx.fillText(l2, x, q.y + taille * 0.62);
+      }
+    }
+    hctx.restore();
+  }
+
+}
+
 function drawHud() {
   const w = window.innerWidth, h = window.innerHeight;
   hctx.clearRect(0, 0, w, h);
-  if (!state.running) return;
+  // AVANT LE DÉCOLLAGE, ILS PARLENT DÉJÀ. Le cadran ne se dessine pas tant
+  // que la partie n'a pas commencé, et leurs mots vivaient dans le cadran :
+  // on les regardait réparer en silence. Les mots, eux, se dessinent toujours.
+  if (!state.running) { dessineMotsMecanos(w, h); return; }
 
   // LA SECOUSSE. Elle porte sur le HUD entier, pas sur la caméra : faire
   // trembler le monde brouillerait la visée au moment précis où elle compte,
@@ -17417,7 +17598,10 @@ function drawHud() {
   // Un instrument qui vibre dit « la machine force » ; à l'arrêt, elle ne
   // force pas.
   const auRepos = state.pose || state.roulage || state.refuge || state.auSol;
-  const ksec = (state.paused || auRepos) ? 0 : Math.max(kch, ktenu * 0.8, kcat);
+  // ET LA CADENCE DE COMBAT NE FAIT PLUS TREMBLER LE CADRAN : toute
+  // l'interface vibrait pendant des secondes, et ce n'était pas agréable. Il
+  // reste la catapulte, franche et brève, et le verrouillage tenu.
+  const ksec = (state.paused || auRepos) ? 0 : Math.max(ktenu * 0.8, kcat);
   if (ksec > 0.01) {
     const t = performance.now() / 1000;
     hctx.save();
@@ -17574,51 +17758,7 @@ function drawHud() {
     hctx.restore();
   }
 
-  // CE QU'ILS PENSENT, AU-DESSUS DE LEUR TÊTE. Pas de cadre, pas de queue de
-  // bulle : le mot flotte là où il est dit, et il s'éteint. Il maigrit avec la
-  // distance comme tout le reste, et disparaît au-delà de cent mètres — de
-  // plus loin on n'entend pas quelqu'un marmonner.
-  {
-    const _mm = new THREE.Vector3();
-    hctx.save();
-    hctx.textAlign = 'center';
-    hctx.textBaseline = 'alphabetic';
-    for (const m of mecanos) {
-      if (!m.mot || m.motT <= 0 || !m.g.visible || m.mort) continue;
-      const d = m.p.distanceTo(camera.position);
-      if (d > 110) continue;
-      _mm.set(m.p.x, m.p.y + MECANO_H + 0.85, m.p.z);
-      const q = project(_mm);
-      if (!q.front) continue;
-      // il apparaît vite et s'efface doucement
-      const u = m.motT / MECANO_MOT_DUREE;
-      const f = Math.min(1, (1 - u) * 6) * Math.min(1, u * 2.4) * (1 - d / 110);
-      if (f <= 0.02) continue;
-      const taille = THREE.MathUtils.clamp(220 / Math.max(6, d), 8, 15);
-      hctx.font = taille.toFixed(1) + 'px "IBM Plex Mono", ui-monospace, monospace';
-      hctx.fillStyle = 'rgba(190,255,220,' + (0.85 * f).toFixed(3) + ')';
-      // IL NE DÉPASSE JAMAIS DE L'ÉCRAN. Les phrases se sont allongées le jour
-      // où ces hommes se sont mis à douter de l'existence du monde : une seule
-      // ligne les faisait sortir du cadre, et un texte coupé par le bord ne se
-      // lit pas. On coupe aux espaces, au plus deux lignes, sur une largeur
-      // qui laisse une marge de chaque côté.
-      const large = w - 24;
-      if (hctx.measureText(m.mot).width <= large) hctx.fillText(m.mot, q.x, q.y);
-      else {
-        const mots = m.mot.split(' ');
-        let l1 = '', l2 = '';
-        for (const mm of mots) {
-          const essai = l1 ? l1 + ' ' + mm : mm;
-          if (!l2 && hctx.measureText(essai).width <= large) l1 = essai;
-          else l2 = l2 ? l2 + ' ' + mm : mm;
-        }
-        const x = THREE.MathUtils.clamp(q.x, large / 2 + 12, w - large / 2 - 12);
-        hctx.fillText(l1, x, q.y - taille * 0.62);
-        if (l2) hctx.fillText(l2, x, q.y + taille * 0.62);
-      }
-    }
-    hctx.restore();
-  }
+  dessineMotsMecanos(w, h);
 
   // ET CE QU'ILS PRENNENT, EN CHIFFRES. Même endroit, même règle de distance,
   // mais un cran plus bas que les mots pour ne pas se marcher dessus : le
@@ -17920,7 +18060,11 @@ function drawHud() {
                               -(cosY * ce - sinY * se) * ct)
                          .multiplyScalar(HUD_LOIN).add(camera.position));
       };
-      for (let d = -90; d <= 90; d += 10) {
+      // NI BARBE EN BAS, NI CERCLE EN HAUT. Les barreaux sous l'horizon, en
+      // pointillés, faisaient une barbe au bas de l'écran dès qu'on levait le
+      // nez ; le cercle du zénith et la croix du nadir, un ornement de plus. Il
+      // ne reste que l'horizon et les barreaux au-dessus.
+      for (let d = 0; d <= 80; d += 10) {
         // LES DEUX PÔLES. À la verticale il n'y a plus de barreau à tracer —
         // les deux bouts se confondent — mais c'est justement là qu'on perd
         // tout repère. Un cercle au zénith, une croix au nadir, comme sur un
@@ -18555,6 +18699,23 @@ function drawHud() {
   // CANONS CHAUDS. Un chiffre au-dessus de la jauge de vie dit ce qu'il reste,
   // et deux traits en chevron l'encadrent : on sait qu'on est dans la fenêtre
   // et combien de temps elle dure encore.
+  // LA CHAUFFE, SOUS LE VISEUR : un trait qui s'allonge tant qu'on tire, et
+  // le mot quand ça coupe.
+  if ((state.chaleur || 0) > 0.03 || state.coupe > 0) {
+    const cy3 = Math.min(h * 0.86, (hudBasLibre || h) - 44), lg3 = Math.min(w, h) * 0.13;
+    const kc = state.chaleur || 0;
+    hctx.save();
+    hctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+    hctx.textAlign = 'center';
+    hctx.fillStyle = 'rgba(190,255,220,' + (0.35 + 0.5 * kc).toFixed(2) + ')';
+    hctx.fillText(state.coupe > 0 ? t('coupe') : t('chaleur'), w / 2, cy3 - 4);
+    hctx.strokeStyle = 'rgba(190,255,220,' + (0.25 + 0.6 * kc).toFixed(2) + ')';
+    hctx.lineWidth = state.coupe > 0 ? 3 : 1.5;
+    hctx.beginPath();
+    hctx.moveTo(w / 2 - lg3 * kc, cy3 + 3); hctx.lineTo(w / 2 + lg3 * kc, cy3 + 3);
+    hctx.stroke();
+    hctx.restore();
+  }
   if (ksec > 0.01) {
     hctx.restore();
     // vingt-huit pixels au-dessus de la bande, et jamais plus bas que le
@@ -19037,7 +19198,7 @@ const T = {
     mortBalles: 'ABATTU', mortBallesSous: 'Trop longtemps dans son axe. Casse la ligne.',
     mortChoc: 'COLLISION', mortChocSous: 'Deux appareils au même endroit. Il n’en reste aucun.',
     mortPose: 'POSÉ TROP DUR', mortPoseSous: 'Les roues ont touché avant l’arrondi. Descends moins vite.',
-    canons: 'CANONS CHAUDS  ', boost: 'BOOST', pose: 'POSÉ',
+    canons: 'CADENCE DE COMBAT  ', chaleur: 'CHAUFFE', coupe: 'CANONS COUPÉS', coupeSous: 'Ils refroidissent. Lâche la détente deux secondes.', boost: 'BOOST', pose: 'POSÉ',
     dos: 'LUNE DANS LE DOS  ·  ILS N’Y VOIENT PLUS',
     objReussi: 'OBJECTIF DU JOUR RÉUSSI  ·  +',
     ailier: 'AILIER DÉBLOQUÉ  ·  IL VOLE AVEC TOI DÈS LA PROCHAINE PARTIE',
@@ -19057,7 +19218,7 @@ const T = {
     aPied: 'ON MARCHE',
     rembarque: 'À BORD',
     pasEncore: 'PAS ENCORE',
-    act_avion: 'REMONTER',
+    act_avion: 'REMONTER', act_jouer: 'JOUER DE LA GUITARE', act_arreter: 'ARRÊTER DE JOUER', act_lever: 'SE RELEVER',
     act_mot: 'LIRE',
     act_carte: 'REGARDER LA CARTE',
     act_guitare: 'LA GUITARE',
@@ -19188,7 +19349,7 @@ const T = {
     mortBalles: 'SHOT DOWN', mortBallesSous: 'Too long in his line. Break it.',
     mortChoc: 'COLLISION', mortChocSous: 'Two aircraft in one place. Neither is left.',
     mortPose: 'LANDED TOO HARD', mortPoseSous: 'The wheels touched before the flare. Come down slower.',
-    canons: 'HOT GUNS  ', boost: 'BOOST', pose: 'LANDING',
+    canons: 'COMBAT RATE  ', chaleur: 'HEAT', coupe: 'GUNS CUT', coupeSous: 'They are cooling. Let go of the trigger for two seconds.', boost: 'BOOST', pose: 'LANDING',
     dos: 'MOON AT YOUR BACK  ·  THEY CANNOT SEE',
     objReussi: 'TODAY’S GOAL DONE  ·  +',
     ailier: 'WINGMAN UNLOCKED  ·  HE FLIES WITH YOU FROM THE NEXT GAME',
@@ -19208,7 +19369,7 @@ const T = {
     aPied: 'ON FOOT',
     rembarque: 'ABOARD',
     pasEncore: 'NOT YET',
-    act_avion: 'GET BACK IN',
+    act_avion: 'GET BACK IN', act_jouer: 'PLAY THE GUITAR', act_arreter: 'STOP PLAYING', act_lever: 'GET UP',
     act_mot: 'READ',
     act_carte: 'LOOK AT THE MAP',
     act_guitare: 'THE GUITAR',
@@ -19936,6 +20097,13 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.90', fr: 'Les bonshommes du tunnel disent tes phrases : vingt retenues, tirées au sort par scène à chaque partie, et cinq qui vont partout.', en: 'The tunnel figures say your lines: twenty kept, drawn per scene each game, and five that go anywhere.' },
+  { v: '1.90', fr: '« Canons chauds » devient CADENCE DE COMBAT — la prime d’abattage, cadence et dégâts doublés — et le métal a sa jauge : la CHAUFFE monte tant qu’on tire, pleine elle coupe les canons deux secondes et demie, et elle redescend dès qu’on lâche. Enchaîner rapporte, arroser coûte. Et le cadran ne tremble plus.', en: '“Hot guns” becomes COMBAT RATE — the kill bonus, double rate and damage — and the metal has its gauge: HEAT rises while you fire, full it cuts the guns for two and a half seconds, and it drops as soon as you let go. Chaining pays, spraying costs. And the HUD no longer shakes.' },
+  { v: '1.90', fr: 'Avant le décollage, les mécaniciens parlent déjà au-dessus de leur tête, et plus souvent. La manche à air bat, ondule et frissonne, toujours dans le vent, sur les deux terrains.', en: 'Before takeoff the mechanics already talk above their heads, and more often. The windsock flaps, waves and shivers, always in the wind, on both fields.' },
+  { v: '1.90', fr: 'L’assiette perd sa barbe : plus de barreaux pointillés sous l’horizon, plus de cercle au zénith ni de croix au nadir.', en: 'The attitude ladder loses its beard: no dashed rungs under the horizon, no zenith circle, no nadir cross.' },
+  { v: '1.90', fr: 'Au refuge, la caméra tourne trois fois plus lentement. Assis avec la guitare, on regarde autour de soi au doigt ; JOUER la fige, ARRÊTER la relance. Deux appuis couchent, guitare comprise ; couché, on est vu de dehors, deux appuis entrent dans ses yeux, et l’on peut jouer en regardant les étoiles. Un appui bref relève. Et plus de bande grise au ras de l’herbe.', en: 'At the refuge the camera turns three times slower. Sitting with the guitar you look around with a finger; PLAY freezes it, STOP releases it. Two taps lie you down, guitar included; lying, you are seen from outside, two taps enter your eyes, and you can play while watching the stars. A short tap gets you up. And no more grey band at grass level.' },
+  { v: '1.90', fr: 'Deux planches de plus : guitare.html compare gratté et arpège, la note la plus grave, la basse et les types d’accords à cocher ; lune.html compare huit lunes et règle inclinaison, phase, contour, cendrée.', en: 'Two more benches: guitare.html compares strum and arpeggio, the lowest note, the bass and chord types to tick; lune.html compares eight moons and tunes tilt, phase, outline, earthshine.' },
+  { v: '1.90', fr: 'La guitare en main ne propose plus « poser », qui ne faisait rien.', en: 'The guitar in hand no longer offers “put down”, which did nothing.' },
   { v: '1.89', fr: 'Une planche pour l’escouade, escouade.html : on glisse les deux suiveurs sur un plan vu de dessus, et l’on voit en temps réel ce que la caméra du jeu en montre, avec la part visible de chacun. Les chiffres se copient tels quels.', en: 'A bench for the squadron, escouade.html: drag both wingmen on a top-down plan and see live what the game camera shows of them, with each one’s visible share. The numbers copy as they are.' },
   { v: '1.88', fr: 'Le double appui se mesure à l’heure du doigt, pas à celle de l’image : une image longue ne le fait plus rater.', en: 'The double tap is timed by the finger, not by the frame: a long frame no longer makes it miss.' },
   { v: '1.88', fr: 'La montagne cache le tunnel : le relief est relevé au-dessus du boyau, et le sol ne se perce plus qu’aux deux bouches. On voit l’entrée, on voit la sortie, et entre les deux il y a une montagne.', en: 'The mountain hides the tunnel: the terrain is raised over the bore, and the ground only opens at the two mouths. You see the entrance, you see the exit, and in between there is a mountain.' },
@@ -20967,9 +21135,6 @@ window.addEventListener('pointerdown', e => {
   // Deux appuis rapprochés déclenchent une figure. Laquelle dépend de l'endroit
   // visé par rapport à l'avion : au-dessus de lui, c'est un renversement ; à
   // côté, un tonneau du côté touché.
-  // IL JOUE : LE MOINDRE APPUI LE RELÈVE. Rien ne l'écrit à l'écran, et c'est
-  // le geste qu'on essaie en premier.
-  if (state.joue) { rangeGuitare(); return; }
   const side = e.clientX >= window.innerWidth / 2 ? 1 : -1;
   // L'HEURE DU DOIGT, PAS CELLE DE LA PAGE. Le double appui se mesurait à
   // l'instant où la page traitait l'événement : pendant une image longue, le
@@ -20985,8 +21150,18 @@ window.addEventListener('pointerdown', e => {
   const libre = state.running && state.spinT <= 0 && !state.fig;
   state.dbgTapDt = now - lastTapT; state.dbgTapLibre = libre;   // lu par les bancs
   if (aPied && now - lastTapT < DOUBLE_TAP && side === lastTapSide) {
-    if (state.couche) releveToi(); else coucheToi();
+    // COUCHÉ, DEUX APPUIS FONT ENTRER DANS SES YEUX, et deux autres en font
+    // sortir. Assis ou debout, deux appuis couchent. On se relève d'un appui
+    // bref, ou du bouton.
+    if (state.couche) { state.couche.premiere = !state.couche.premiere; state.couche.leve = 0; }
+    else { if (state.joue) state.joue.leve = 0; coucheToi(); }
     lastTapT = 0;
+  } else if (state.joue || (state.couche && !state.couche.premiere)) {
+    // ASSIS OU COUCHÉ VU DE DEHORS : un appui bref relève, une fois passé le
+    // délai du double appui — sinon le premier des deux appuis relèverait
+    const S = state.joue || state.couche;
+    S.tapX = e.clientX; S.tapY = e.clientY; S.tapT = now;
+    lastTapT = now; lastTapSide = side;
   } else if (libre && !aPied && now - lastTapT < DOUBLE_TAP && side === lastTapSide) {
     // la figure suit la direction du geste par rapport à l'avion : au-dessus
     // on renverse par le haut, en dessous par le bas, sur le côté on tonneau
@@ -21106,6 +21281,16 @@ function coupDeManche(e) {
 function releasePointer(e) {
   if (e.pointerType === 'mouse') return;
   state.dbgUp = (state.dbgUp || 0) + 1; state.dbgUpType = e.type;
+  // ASSIS OU COUCHÉ : le doigt levé sans avoir glissé est un appui bref, qui
+  // relèvera après le délai du double appui. Un glissé, lui, a tourné la vue.
+  {
+    const S = state.joue || (state.couche && !state.couche.premiere ? state.couche : null);
+    if (S && S.tapT) {
+      const glisse = Math.hypot(e.clientX - S.tapX, e.clientY - S.tapY) > 14 || performance.now() - S.tapT > 400;
+      if (!glisse) S.leve = performance.now() + DOUBLE_TAP + 40;
+      S.tapT = 0;
+    }
+  }
   coupDeManche(e);
   trace.length = 0;
   joy.on = false;
