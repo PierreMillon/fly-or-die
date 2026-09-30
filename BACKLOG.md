@@ -65,6 +65,9 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Allongé, vue à la première personne : en regardant vers le sol, une zone grise en bas de l'écran au lieu du noir et du sol → v1.90 (c'était le plan proche de l'objectif, à 3 m, qui coupait l'herbe à 30 cm ; il passe à 5 cm couché)
 - [x] Les manches à air bougent avec le vent (élément mobile du jeu) et soufflent toujours à peu près dans la bonne direction, quel que soit le sens de la piste → v1.90 (elle bat, ondule et frissonne ; mesuré 0,35 rad de battement ; VENT.a moins la rotation du groupe au refuge)
 - [x] Le viseur et toute l'interface vibrent quand les canons sont chauds : ce n'est pas agréable, il ne faut pas que ça vibre → v1.90 (la secousse de la cadence retirée ; restent la catapulte et le verrouillage tenu)
+- [x] La lune, d'après ta planche : penchée de 23°, phase 0,39 à la première vague et 0,05 à la dernière, contour de 4 px à 0,35 d'opacité, cendrée à 0,04, sans cratère, intérieur noir → v1.91 (ruban de 29 m à 4 500 m = 4 px)
+- [x] La musique ne marche pas sur la planche guitare (sur ton téléphone) → à diagnostiquer avec la ligne d'état de la page ; ÉCOUTER ne coche plus la case par erreur
+- [x] « Il me manque la planche avec la position des avions » → escouade.html ; et planches.html les liste toutes. Le cache pouvait servir le jeu à la place d'une planche nouvelle : corrigé v1.91
 - [x] PAPI et tube parlent du même point → v1.85 (un PAPI par bout, à 100 m du seuil : à 300, les roues touchaient derrière le bout de piste)
 - [x] Les suiveurs ont une vie, tombent, redécollent et reviennent, et font bouclier → v1.85 (part 33,7 / 22,2 %, retour 30,5 s pour 3,3 km)
 - [x] Le drone lourd ne se répare que hors du feu → v1.85

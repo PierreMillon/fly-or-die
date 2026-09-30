@@ -453,7 +453,7 @@ V.TYPES = Object.keys(TYPES);
     c.addEventListener('change', () => { V.TYPES = Object.keys(TYPES).filter(t => z.querySelector('[data-t="' + t + '"]').checked); montre(); });
     c.dataset.t = k;
     const b = document.createElement('button'); b.textContent = 'ÉCOUTER'; b.style.cssText = 'flex:0 0 auto;min-width:0;padding:4px 8px;font-size:10px';
-    b.addEventListener('click', () => { audio(); const a = { racine: 0, type: k }; const t0 = actx.currentTime + 0.05; cordesDe(a).forEach((d, i) => corde(110 * Math.pow(2, d / 12), t0 + i * V.GRATTE, 1.8, V.VOLUME)); });
+    b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); audio(); const a = { racine: 0, type: k }; const t0 = actx.currentTime + 0.05; cordesDe(a).forEach((d, i) => corde(110 * Math.pow(2, d / 12), t0 + i * V.GRATTE, 1.8, V.VOLUME)); });
     l.append(c, document.createTextNode(nomDe(0, k) + '  ·  ' + TYPES_NOTE[k]), b);
     z.appendChild(l);
   }

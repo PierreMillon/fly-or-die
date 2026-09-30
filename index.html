@@ -3813,7 +3813,8 @@ function lunePhase(vague) {
   // voyait pas.
   // Elle ne tombe jamais tout à fait à zéro : une lune invisible, c'est une
   // nuit noire, et une nuit noire n'est pas jouable.
-  return THREE.MathUtils.clamp(1 - (vague - 1) / (CHAPITRE - 1), 0.15, 1);
+  const u = THREE.MathUtils.clamp((vague - 1) / (CHAPITRE - 1), 0, 1);
+  return LUNE_F_MAX - (LUNE_F_MAX - LUNE_F_MIN) * u;
 }
 // ce qu'elle éclaire en ce moment, Berger compris
 function luneClarte() {
@@ -3839,7 +3840,16 @@ const LUNE_ARC = 64;                        // segments par arc
 // cendrée qui devine le reste du disque. Et presque vertical : douze degrés
 // de penche, les cornes vers la droite, comme la silhouette qu'on dessine.
 // ---------------------------------------------------------------------------
-const LUNE_PENCHE = -12 * Math.PI / 180;    // presque verticale, à peine penchée
+// D'APRÈS TA PLANCHE (lune.html) : penchée de 23 degrés, un croissant de 0,39
+// à la première vague et un fil de 0,05 à la dernière, un contour de quatre
+// pixels à 0,35, une lumière cendrée à peine là, pas de cratère, l'intérieur
+// noir.
+const LUNE_PENCHE = 23 * Math.PI / 180;
+const LUNE_F_MAX = 0.39;                    // la phase à la première vague
+const LUNE_F_MIN = 0.05;                    // et à la dernière
+const LUNE_TRAIT = 29;                      // mètres à 4 500 m : quatre pixels sur le téléphone de référence
+const LUNE_OPACITE = 0.35;
+const LUNE_CENDREE = 0.04;
 // LES CRATÈRES. Quatre cercles à demeure, tracés seulement quand ils tiennent
 // tout entiers dans le croissant : la phase les efface un par un, on n'a rien
 // à calculer de plus.
@@ -3890,6 +3900,8 @@ function traceLune(f) {
   arc(clair, 0, th, 2 * Math.PI - th);
   // le terminateur : la part du cercle noir qui tombe dans le clair
   arc(clair, d, Math.PI - th, Math.PI + th);
+  // et le limbe éteint, la lumière cendrée : le reste du cercle clair
+  arc(sombre, 0, -th, th);
   // plus de lumière cendrée, plus de cratères : la silhouette, et c'est tout
   for (const [cx, cy, cr] of []) {
     const x = cx * R, y = cy * R, r = cr * R;
@@ -3903,7 +3915,21 @@ function traceLune(f) {
       px = qx; py = qy;
     }
   }
-  return { clair, sombre };
+  return { clair, sombre, rubanClair: rubanDe(clair, LUNE_TRAIT), rubanSombre: rubanDe(sombre, LUNE_TRAIT) };
+}
+// LE RUBAN. WebGL ne sait pas épaissir un trait : un contour de quatre pixels
+// est une bande de triangles de vingt-neuf mètres de large, posée le long des
+// arcs, dans le plan de la lune. Chaque segment devient deux triangles.
+function rubanDe(seg, l) {
+  const out = [];
+  for (let i = 0; i + 5 < seg.length; i += 6) {
+    const x0 = seg[i], y0 = seg[i + 1], x1 = seg[i + 3], y1 = seg[i + 4];
+    const dx = x1 - x0, dy = y1 - y0, n = Math.hypot(dx, dy) || 1;
+    const nx = -dy / n * l / 2, ny = dx / n * l / 2;
+    out.push(x0 + nx, y0 + ny, 0,  x0 - nx, y0 - ny, 0,  x1 + nx, y1 + ny, 0,
+             x0 - nx, y0 - ny, 0,  x1 - nx, y1 - ny, 0,  x1 + nx, y1 + ny, 0);
+  }
+  return out;
 }
 // ON NE REFAIT LA GÉOMÉTRIE QUE QUAND LA PHASE BOUGE — une fois par vague, et
 // aux deux bouts des vingt secondes du Berger. Le reste du temps, c'est un
@@ -3913,8 +3939,8 @@ function refaitLune(f) {
   if (!luneMesh || Math.abs(f - _lunePhaseVue) < 0.003) return;
   _lunePhaseVue = f;
   const tr = traceLune(f);
-  luneMesh.geometry.dispose(); luneMesh.geometry = segGeom(tr.clair);
-  luneSombre.geometry.dispose(); luneSombre.geometry = segGeom(tr.sombre);
+  luneMesh.geometry.dispose(); luneMesh.geometry = segGeom(tr.rubanClair);
+  luneSombre.geometry.dispose(); luneSombre.geometry = segGeom(tr.rubanSombre);
 }
 function majLune(dt) {
   // LA VOÛTE SUIT LA CAMÉRA. Centrée sur l'origine du monde, elle se décalait
@@ -5733,8 +5759,8 @@ const PLEIADE_DEGATS = 1.3;
   scene.add(lunePlein);
 
   const tr0 = traceLune(1);
-  luneMesh = new THREE.LineSegments(segGeom(tr0.clair),
-    new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.6, fog: false }));
+  luneMesh = new THREE.Mesh(segGeom(tr0.rubanClair),
+    new THREE.MeshBasicMaterial({ color: COL_TEXT, transparent: true, opacity: LUNE_OPACITE, fog: false, side: THREE.DoubleSide, depthWrite: false }));
   luneMesh.frustumCulled = false;
   luneMesh.renderOrder = -1;
   scene.add(luneMesh);
@@ -5742,8 +5768,8 @@ const PLEIADE_DEGATS = 1.3;
   // LE LIMBE ÉTEINT, PRESQUE RIEN. C'est la lumière cendrée : le reste du
   // disque se devine sans s'allumer. Sans lui, un croissant fin n'est plus
   // une lune, c'est une virgule.
-  luneSombre = new THREE.LineSegments(segGeom(tr0.sombre),
-    new THREE.LineBasicMaterial({ color: COL_TEXT, transparent: true, opacity: 0.11, fog: false }));
+  luneSombre = new THREE.Mesh(segGeom(tr0.rubanSombre),
+    new THREE.MeshBasicMaterial({ color: COL_TEXT, transparent: true, opacity: LUNE_CENDREE, fog: false, side: THREE.DoubleSide, depthWrite: false }));
   luneSombre.frustumCulled = false;
   luneSombre.renderOrder = -1;
   scene.add(luneSombre);
@@ -20097,6 +20123,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.91', fr: 'La lune d’après ta planche : penchée de 23 degrés, un croissant de 0,39 à la première vague et un fil de 0,05 à la dernière, un contour de quatre pixels à 0,35 — un vrai ruban, WebGL ne sait pas épaissir un trait —, une lumière cendrée à peine là.', en: 'The moon from your bench: tilted 23 degrees, a crescent of 0.39 at the first wave and a thread of 0.05 at the last, a four-pixel outline at 0.35 — a real ribbon, WebGL cannot thicken a line — and a faint earthshine.' },
+  { v: '1.91', fr: 'Toutes les planches sur une page, planches.html. Et le cache ne les remplace plus par le jeu quand le réseau traîne : elles passent toujours par le réseau, comme les anciennes.', en: 'All the benches on one page, planches.html. And the cache no longer swaps them for the game when the network is slow: they always go through the network, like the older ones.' },
   { v: '1.90', fr: 'Les bonshommes du tunnel disent tes phrases : vingt retenues, tirées au sort par scène à chaque partie, et cinq qui vont partout.', en: 'The tunnel figures say your lines: twenty kept, drawn per scene each game, and five that go anywhere.' },
   { v: '1.90', fr: '« Canons chauds » devient CADENCE DE COMBAT — la prime d’abattage, cadence et dégâts doublés — et le métal a sa jauge : la CHAUFFE monte tant qu’on tire, pleine elle coupe les canons deux secondes et demie, et elle redescend dès qu’on lâche. Enchaîner rapporte, arroser coûte. Et le cadran ne tremble plus.', en: '“Hot guns” becomes COMBAT RATE — the kill bonus, double rate and damage — and the metal has its gauge: HEAT rises while you fire, full it cuts the guns for two and a half seconds, and it drops as soon as you let go. Chaining pays, spraying costs. And the HUD no longer shakes.' },
   { v: '1.90', fr: 'Avant le décollage, les mécaniciens parlent déjà au-dessus de leur tête, et plus souvent. La manche à air bat, ondule et frissonne, toujours dans le vent, sur les deux terrains.', en: 'Before takeoff the mechanics already talk above their heads, and more often. The windsock flaps, waves and shivers, always in the wind, on both fields.' },
