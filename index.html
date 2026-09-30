@@ -16608,16 +16608,21 @@ function blesseSuiveur(A, n) {
 // cadre sans recouvrir notre avion est juste au-dessus des épaules : trois
 // mètres de côté, six au-dessus, deux derrière — cinquante et un pour cent,
 // aux deux coins du haut. C'est le triangle vu de la pointe.
-const ESCOUADE_PLACES = [{ x: 3, y: 6, z: 2 }, { x: -3, y: 6, z: 2 }];
-// LE SECOND NIVEAU PROLONGE LE V. Derrière le suiveur de droite, ses deux
+// L'ARBRE. Six places ; chacune dit qui elle suit (−1 : nous) et où elle se
+// tient dans le repère de ce chef : x à sa droite, y au-dessus, z derrière.
+// Le second niveau prolonge le V : derrière le suiveur de droite, ses deux
 // ailiers s'écartent encore à droite ; derrière celui de gauche, à gauche.
-// Sept appareils, et sept places distinctes : (0,0), (±3,6), (±6,12), (±9,18).
-const ESCOUADE_PLACES2 = [{ x: 3, y: 6, z: 2 }, { x: 6, y: 12, z: 4 }];
-function placeSuiveur(i) {
-  if (i < 2) return ESCOUADE_PLACES[i];
-  const P = ESCOUADE_PLACES2[i % 2];
-  return { x: i < 4 ? P.x : -P.x, y: P.y, z: P.z };
-}
+// Sept appareils, sept places distinctes : (0,0), (±3,6), (±6,12), (±9,18).
+// Un chef vient toujours avant ceux qui le suivent dans la table.
+// Les planches formation.html et chaine.html exportent cette table telle quelle.
+const ESCOUADE_ARBRE = [
+  { chef: -1, x: 3, y: 6, z: 2 }, { chef: -1, x: -3, y: 6, z: 2 },
+  { chef: 0, x: 3, y: 6, z: 2 }, { chef: 0, x: 6, y: 12, z: 4 },
+  { chef: 1, x: -3, y: 6, z: 2 }, { chef: 1, x: -6, y: 12, z: 4 },
+];
+const ESCOUADE_SOUPLESSE = 3.2;   // par seconde : l'écart rejoint sa place
+const ESCOUADE_ROUTE = 150;       // mètres : au-delà, il est « en route », le nez sur sa place
+function placeSuiveur(i) { return ESCOUADE_ARBRE[i]; }
 function sauveEscouade() {
   try { localStorage.setItem('fod_escouade', JSON.stringify(escouade)); localStorage.setItem('fod_escouade2', JSON.stringify(escouade2)); } catch (e) {}
 }
@@ -16627,10 +16632,13 @@ function sauveEscouade() {
 function escouadeVoulue() {
   const v = avion().id === 'essaim' ? ['essaim', 'essaim'] : escouade.slice();
   if (avion().id !== 'essaim' && carnet.ailier && v[0] === 'aucun' && v[1] === 'aucun') v[0] = 'bimoteur';
-  for (let i = 0; i < 2; i++) {
-    const chef = v[i];
-    const subs = chef === 'aucun' ? ['aucun', 'aucun'] : chef === 'essaim' ? ['essaim', 'essaim'] : escouade2[i].slice();
-    v.push(subs[0], subs[1]);
+  // le second niveau suit l'arbre : derrière « aucun », personne ; derrière
+  // un essaim, l'essaim ; sinon ce que le menu a choisi pour ce chef
+  const rang = [0, 0];
+  for (let i = 2; i < ESCOUADE_ARBRE.length; i++) {
+    const c = ESCOUADE_ARBRE[i].chef, chef = v[c];
+    const k = c < 2 ? rang[c]++ : 0;
+    v.push(chef === 'aucun' ? 'aucun' : chef === 'essaim' ? 'essaim' : (escouade2[c] || ['aucun', 'aucun'])[k]);
   }
   return v;
 }
@@ -16680,7 +16688,7 @@ function updateEscouade(dt) {
     A.mesh.visible = true;
     // LE CHEF : nous pour les deux premiers, l'un des deux premiers pour les
     // autres — et nous encore si ce chef manque.
-    const chef = i < 2 ? null : state.escouade[i < 4 ? 0 : 1];
+    const chef = ESCOUADE_ARBRE[i].chef < 0 ? null : state.escouade[ESCOUADE_ARBRE[i].chef];
     const chefLa = chef && !chef.mort && chef.mesh.visible;
     let basePos = state.pos, baseYaw = state.yaw, baseFwd = state.forward;
     if (chefLa) {
@@ -16704,14 +16712,14 @@ function updateEscouade(dt) {
     if (chasse) _v.copy(chasse.pos).addScaledVector(_seg.subVectors(state.pos, chasse.pos).normalize(), 45);
     else { _v.set(basePos.x + _right.x * px + fwdX * (-pz), basePos.y + py, basePos.z + _right.z * px + fwdZ * (-pz)); }
     const loin = A.pos.distanceTo(_v);
-    if (loin > 150 || chasse) A.off = null;
-    if (i < 2 && figure && loin <= 150) {
+    if (loin > ESCOUADE_ROUTE || chasse) A.off = null;
+    if (i < 2 && figure && loin <= ESCOUADE_ROUTE) {
       // NOUS FAISONS UNE FIGURE, PAS EUX. Ils tiennent leur cap et leur vitesse,
       // à plat, et nous rejoignent après.
       A.off = null;
       A.pos.x += fwdX * state.speed * dt; A.pos.z += fwdZ * state.speed * dt;
       A.quat.slerp(_qLevel, 1 - Math.exp(-4 * dt));
-    } else if (loin > 150) {
+    } else if (loin > ESCOUADE_ROUTE) {
       // EN ROUTE : il vole vers sa place à sa vitesse, le nez dessus
       const vit = Math.max(ESCOUADE_VOL, state.speed * ESCOUADE_RATTRAPE);
       _seg.subVectors(_v, A.pos).normalize();
@@ -16727,7 +16735,7 @@ function updateEscouade(dt) {
         _seg.subVectors(A.pos, basePos);
         A.off = new THREE.Vector3(_seg.dot(_right), _seg.y, _seg.x * fwdX + _seg.z * fwdZ);
       }
-      const k = 1 - Math.exp(-3.2 * dt);
+      const k = 1 - Math.exp(-ESCOUADE_SOUPLESSE * dt);
       A.off.x += (px - A.off.x) * k; A.off.y += (py - A.off.y) * k; A.off.z += (-pz - A.off.z) * k;
       A.pos.set(basePos.x + _right.x * A.off.x + fwdX * A.off.z, basePos.y + A.off.y, basePos.z + _right.z * A.off.x + fwdZ * A.off.z);
       A.quat.slerp(_qLevel, 1 - Math.exp(-4 * dt));
@@ -16751,7 +16759,7 @@ function updateEscouade(dt) {
     }
     // il tire sur notre cible verrouillée — ou sur la sienne quand nous n'en
     // avons pas —, à découvert seulement, et pas en route
-    const e = loin > 150 ? null : cibleSuiveur(A);
+    const e = loin > ESCOUADE_ROUTE ? null : cibleSuiveur(A);
     if (e && !obstacleEntre(A.pos, e.pos)) {
       blesse(e, AILIER_DPS * dt);
       A.gunT -= dt;
@@ -20354,6 +20362,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.93', fr: 'Trois planches. LA FORMATION, formation.html : les sept appareils glissés sur un plan, les ailiers suivent leur chef, la caméra du jeu en montre la part visible. LA CHAÎNE, chaine.html : qui suit qui, sur trois niveaux possibles, et la souplesse de la chaîne — l’écart, le seuil de route, la vitesse de route, le rattrapage — en slalom vu de dessus avec les calculs du jeu. Les deux partagent la même table. LA MUSIQUE, musique.html : six étapes du bip au disque du refuge, ENTENDU ou RIEN à chacune, et un journal à me renvoyer.', en: 'Three benches. FORMATION, formation.html: all seven aircraft dragged on a plan, wingmen follow their leader, the game camera shows how much of each is visible. CHAIN, chaine.html: who follows whom, up to three levels, and the chain’s give — the gap, the route threshold, the route speed, the catch-up — in a top-down slalom with the game’s maths. Both share the same table. MUSIC, musique.html: six steps from a beep to the refuge record, HEARD or NOTHING at each, and a log to send me.' },
+  { v: '1.93', fr: 'Dans le jeu, l’arbre de l’escouade est une table : pour chaque place, son chef et son décalage. C’est elle que les planches exportent.', en: 'In the game, the squadron tree is a table: for each slot, its leader and its offset. That is what the benches export.' },
   { v: '1.92', fr: 'Le Faucheur piloté a la GLISSADE : double appui, il se stabilise à sa hauteur et le manche le déplace à plat, 60 m/s à fond, comme une Jeep en l’air ; relâché, il continue sur son erre une seconde ; double appui encore, il reprend sa vitesse et l’altitude redevient la tienne. La nappe est partie.', en: 'The piloted Reaper has the SLIDE: double tap, it holds its height and the stick moves it flat, 60 m/s at full stick, like a Jeep in the air; released, it coasts for a second; double tap again, it takes its speed back and altitude is yours again. The sheet is gone.' },
   { v: '1.92', fr: 'Le drone lourd verrouille jusqu’à trois adversaires, un trait entre lui et chacun, dans un filet trois fois plus large que le magnétisme (5°). Verrouillé, chacun reçoit à tour de rôle deux roquettes par seconde qui ne ratent pas — sauf une figure à l’arrivée —, et deux fois et demie plus pendant la cadence de combat. De près (350 m), une figure libère, avec 2,5 s de répit ; de loin, rien ne libère jusqu’à 1600 m. Il ne décroche jamais, ne part jamais en vrille, et ronronne : une fondamentale à 40 Hz, sans battement.', en: 'The heavy drone locks up to three foes, a line from it to each, in a net three times wider than magnetism (5°). Locked, each takes in turn two rockets per second that never miss — except a figure on arrival — and two and a half times more during combat rate. Up close (350 m) a figure frees, with a 2.5 s respite; far away nothing frees until 1600 m. It never stalls, never spins, and purrs: a 40 Hz fundamental, no beating.' },
   { v: '1.92', fr: 'L’escouade en arbre : chacun des deux suiveurs peut avoir deux ailiers derrière lui, sept appareils en V — (±3, 6), (±6, 12), (±9, 18) mètres. Le menu suit l’arbre, sous-rangs cachés quand le chef manque et imposés par l’essaim. On entend le moteur de chacun au timbre de son modèle, et leurs tirs. Pendant nos figures ils restent à plat sur leur cap ; touchés, ils font leur tonneau à eux.', en: 'The squadron as a tree: each of the two wingmen can have two wingmen of their own behind, seven aircraft in a V — (±3, 6), (±6, 12), (±9, 18) metres. The menu follows the tree, sub-rows hidden when the leader is missing and imposed by the swarm. You hear each engine in its model’s timbre, and their fire. During our figures they stay level on their heading; hit, they roll on their own.' },
