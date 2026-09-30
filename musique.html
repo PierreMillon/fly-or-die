@@ -36,14 +36,25 @@
 </head>
 <body>
 
-<h1>LA MUSIQUE — CE QUE LE TÉLÉPHONE LAISSE PASSER</h1>
-<p class="sous">Six étapes, de la plus simple à la plus complète, chacune avec un
-bouton pour dire si tu as entendu. Tout ce qui se passe s’écrit dans le journal
-en bas ; « COPIER LE JOURNAL » me l’envoie tel quel, et je saurai à quelle étape
-ça casse au lieu de deviner.</p>
+<h1>LA MUSIQUE — CHOISIR</h1>
+<p class="sous">Quatre suites d’accords, jouées par la corde du jeu. Une case par
+candidat : ce que tu coches joue au refuge, et ce que tu coches en dessous joue
+sur le trajet — une fois qu’on a joué au refuge, dehors, hors de la zone de
+combat. Plusieurs cases : tirage au sort. « COPIER MON CHOIX » m’envoie tout.</p>
 
 <p class="ligne" id="diag">pas encore démarré</p>
 
+<p class="titre">AU REFUGE</p>
+<div id="refuge"></div>
+<p class="titre">SUR LE TRAJET</p>
+<div id="trajet"></div>
+<div class="rangee" style="margin:10px 0 0"><button id="copierChoix">COPIER MON CHOIX</button><button id="stopSuite">ARRÊTER</button></div>
+<p class="etat" id="etatChoix"></p>
+
+<p class="titre" style="margin-top:28px">SI RIEN NE SORT — LE DIAGNOSTIC</p>
+<p class="sous">Six étapes, de la plus simple à la plus complète, chacune avec un
+bouton pour dire si tu as entendu. Tout s’écrit dans le journal en bas ;
+« COPIER LE JOURNAL » me l’envoie tel quel.</p>
 <div id="etapes"></div>
 
 <p class="titre">LE JOURNAL</p>
@@ -57,7 +68,7 @@ en bas ; « COPIER LE JOURNAL » me l’envoie tel quel, et je saurai à quelle 
 // même fichier muet en boucle là où la session n'existe pas, la même corde.
 // Ce qui change : chaque geste est isolé, et chacun écrit ce qu'il a fait.
 // ---------------------------------------------------------------------------
-const VERSION_PLANCHE = 'v1.93';
+const VERSION_PLANCHE = 'v1.94';
 const SILENCE_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 const MUSIQUE_URL = './sons/refuge-guitare.m4a';
 let actx = null, master = null, silence = null, musiqueEl = null, musiqueSrc = null, musiqueG = null;
@@ -109,14 +120,57 @@ function corde(f, when, dur, v) {
   lp.type = 'lowpass'; lp.frequency.setValueAtTime(2600, when); lp.frequency.exponentialRampToValueAtTime(700, when + dur);
   o.connect(g).connect(lp).connect(master); o.start(when); o.stop(when + dur + 0.05); notes++;
 }
-const TYPES = { min: [0, 3, 7], maj: [0, 4, 7], dim: [0, 3, 6] };
+const TYPES = { min: [0, 3, 7], maj: [0, 4, 7], dim: [0, 3, 6], min7: [0, 3, 7, 10], maj7: [0, 4, 7, 11], dom7: [0, 4, 7, 10], sus4: [0, 5, 7], sus2: [0, 2, 7], add9: [0, 4, 7, 14], m9: [0, 3, 7, 14] };
+const COULEURS = { min: ['min7', 'm9', 'sus4'], maj: ['maj7', 'dom7', 'add9', 'sus2'], dim: ['min7'] };
 const CYCLE = [[0, 'min'], [5, 'min'], [10, 'maj'], [3, 'maj'], [8, 'maj'], [2, 'dim'], [7, 'maj']];
+// LES QUATRE MOTEURS, comme dans le jeu (GUITARE_MOTEUR) : ils ne diffèrent
+// que par le choix de l'accord suivant.
+const MOTEURS = [
+  { id: 'cycle',  nom: 'CYCLE PUR',        note: 'la descente de quintes, du début à la fin, sans jamais dévier' },
+  { id: 'hasard', nom: 'CYCLE + HASARD',   note: 'la descente de quintes, mais de temps en temps elle saute ailleurs — c’est le jeu d’aujourd’hui' },
+  { id: 'marche', nom: 'MARCHE LIBRE',     note: 'elle va où elle veut dans la tonalité, avec un penchant pour la tonique' },
+  { id: 'colore', nom: 'CYCLE + COULEURS', note: 'le cycle, et les accords s’enrichissent : septièmes, neuvièmes, suspensions' },
+];
+let pos = 6;
+function accordSuivant(M) {
+  const hasard = M === 'cycle' || M === 'colore' ? 0 : M === 'marche' ? 0.6 : 0.22;
+  const alteration = M === 'cycle' ? 0 : M === 'colore' ? 0.55 : 0.18;
+  if (M === 'marche' && Math.random() < 0.3) pos = 0;
+  else if (Math.random() < hasard) pos = (pos + 1 + Math.floor(Math.random() * 6)) % 7;
+  else pos = (pos + 1) % 7;
+  const [r, t0] = CYCLE[pos];
+  let type = pos === 6 ? 'maj' : t0;
+  if (Math.random() < alteration) { const c = COULEURS[type]; if (c) type = c[Math.floor(Math.random() * c.length)]; }
+  return [r, type];
+}
 function cordesDe(r, type) {
   const c = [r]; for (let o = 0; o < 2; o++) for (const i of TYPES[type]) c.push(r + i + o * 12);
   const out = []; for (let d of c) { while (110 * Math.pow(2, d / 12) < 81.5) d += 12; if (!out.includes(d)) out.push(d); }
   return out.sort((a, b) => a - b).slice(0, 6);
 }
 function gratte(r, type, when) { cordesDe(r, type).forEach((d, i) => corde(110 * Math.pow(2, d / 12), when + i * 0.035, 1.8, 0.085)); }
+// L'ARPÈGE DU JEU : quatre notes égrenées par accord, la basse d'abord.
+const MOTIFS = [[0, 1, 2, 1], [0, 2, 1, 2], [0, 1, 2, 3], [3, 2, 1, 0], [0, 2, 3, 1], [0, 1, 3, 2], [0, 3, 1, 2], [1, 0, 2, 3]];
+function arpege(r, type, when) {
+  const inter = TYPES[type] || TYPES.min; const voix = [r - 12];
+  for (let o = 0; o < 2; o++) for (const i of inter) voix.push(r + i + o * 12);
+  const motif = MOTIFS[Math.floor(Math.random() * MOTIFS.length)];
+  for (let k = 0; k < 4; k++) {
+    const i = k === 0 ? 0 : 1 + (motif[k % 4] % (voix.length - 1));
+    let d = voix[Math.min(i, voix.length - 1)]; while (110 * Math.pow(2, d / 12) < 81.5) d += 12;
+    corde(110 * Math.pow(2, d / 12), when + k * 0.55 + (Math.random() - 0.5) * 0.12, 0.55 * 2.6, 0.085 * (k === 0 ? 1.35 : 1));
+  }
+}
+let suiteMoteur = null, suiteMinuteur = null, suiteProchaine = 0;
+function joueMoteur(M) {
+  arreteSuite();
+  suiteMoteur = M; pos = 6; suiteProchaine = actx.currentTime + 0.12;
+  const prog = () => { if (suiteProchaine < actx.currentTime) suiteProchaine = actx.currentTime + 0.05; let g = 0; while (suiteProchaine < actx.currentTime + 1.5 && g++ < 12) { const [r, t] = accordSuivant(M); arpege(r, t, suiteProchaine); suiteProchaine += 4 * 0.55; } };
+  prog(); suiteMinuteur = setInterval(prog, 700);
+  note('la suite « ' + M + ' » joue');
+  document.querySelectorAll('button[data-moteur]').forEach(b => b.classList.toggle('actif', b.dataset.moteur === M));
+}
+function arreteSuite() { if (suiteMinuteur) { clearInterval(suiteMinuteur); suiteMinuteur = null; note('suite arrêtée'); } suiteMoteur = null; document.querySelectorAll('button[data-moteur]').forEach(b => b.classList.remove('actif')); }
 
 // ---------------------------------------------------------------------------
 // LES ÉTAPES.
@@ -161,6 +215,34 @@ const ETAPES = [
 ];
 const CLE = 'fod_planche_musique';
 let reponses = {}; try { reponses = JSON.parse(localStorage.getItem(CLE) || '{}'); } catch (e) {}
+// LE CHOIX : une case par candidat, pour le refuge et pour le trajet.
+const CLE_CHOIX = 'fod_planche_musique_choix';
+let choix = { refuge: {}, trajet: {} }; try { const c = JSON.parse(localStorage.getItem(CLE_CHOIX) || 'null'); if (c && c.refuge && c.trajet) choix = c; } catch (e) {}
+const sauveChoix = () => { try { localStorage.setItem(CLE_CHOIX, JSON.stringify(choix)); } catch (e) {} };
+for (const ou of ['refuge', 'trajet']) {
+  const z = document.getElementById(ou);
+  MOTEURS.forEach(M => {
+    const d = document.createElement('div'); d.className = 'etape' + (choix[ou][M.id] ? ' faite' : '');
+    d.innerHTML = '<p class="nom"><b>' + M.nom + '</b></p><p class="quoi">' + M.note + '</p>';
+    const r = document.createElement('div'); r.className = 'rangee';
+    const e = document.createElement('button'); e.textContent = 'ÉCOUTER'; e.dataset.moteur = M.id;
+    let dernier = 0;
+    const va = async (ev) => { const t = Date.now(); if (t - dernier < 350) return; dernier = t; if (ev && ev.preventDefault) ev.preventDefault(); appuis++; if (!await pret()) return; joueMoteur(M.id); diag(); };
+    e.addEventListener('click', va); e.addEventListener('touchend', va);
+    const c = document.createElement('button'); c.className = 'oui' + (choix[ou][M.id] ? ' actif' : ''); c.textContent = choix[ou][M.id] ? 'GARDÉE' : 'GARDER';
+    c.addEventListener('click', () => { choix[ou][M.id] = !choix[ou][M.id]; if (!choix[ou][M.id]) delete choix[ou][M.id]; sauveChoix(); c.classList.toggle('actif', !!choix[ou][M.id]); c.textContent = choix[ou][M.id] ? 'GARDÉE' : 'GARDER'; d.classList.toggle('faite', !!choix[ou][M.id]); });
+    r.append(e, c); d.appendChild(r); z.appendChild(d);
+  });
+}
+document.getElementById('stopSuite').addEventListener('click', arreteSuite);
+document.getElementById('copierChoix').addEventListener('click', async () => {
+  const noms = ou => MOTEURS.filter(M => choix[ou][M.id]).map(M => M.nom).join(', ') || '—';
+  const txt = 'LA MUSIQUE — MON CHOIX\nAu refuge : ' + noms('refuge') + '\nSur le trajet : ' + noms('trajet') + '\n'
+    + '// GUITARE_MOTEUR_REFUGE = [' + MOTEURS.filter(M => choix.refuge[M.id]).map(M => "'" + M.id + "'").join(', ') + ']\n'
+    + '// GUITARE_MOTEUR_TRAJET = [' + MOTEURS.filter(M => choix.trajet[M.id]).map(M => "'" + M.id + "'").join(', ') + ']';
+  try { await navigator.clipboard.writeText(txt); document.getElementById('etatChoix').textContent = 'Copié. Colle-le-moi tel quel.'; }
+  catch (e) { document.getElementById('etatChoix').textContent = txt; }
+});
 const zone = document.getElementById('etapes');
 ETAPES.forEach((E, i) => {
   const d = document.createElement('div'); d.className = 'etape' + (reponses[i] ? ' faite' : '');

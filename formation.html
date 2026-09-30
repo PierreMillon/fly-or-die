@@ -73,6 +73,7 @@ planches partagent la même table.</p>
     <div class="chiffres" id="chiffres"></div>
   </div>
 </div>
+<p class="note" id="contacts" style="margin-top:8px"></p>
 
 <div class="reglage" style="margin-top:14px">
   <div class="etiquette"><span>HAUTEUR DU PREMIER NIVEAU</span><span class="valeur" id="vY1"></span></div>
@@ -132,12 +133,12 @@ function fovPourEcran(fovDessin, aspect) {
 // La table est partagée avec chaine.html par le stockage du téléphone.
 // ---------------------------------------------------------------------------
 const JEU = [
-  { chef: -1, x: 3, y: 6, z: 2 }, { chef: -1, x: -3, y: 6, z: 2 },
-  { chef: 0, x: 3, y: 6, z: 2 }, { chef: 0, x: 6, y: 12, z: 4 },
-  { chef: 1, x: -3, y: 6, z: 2 }, { chef: 1, x: -6, y: 12, z: 4 },
+  { chef: -1, x: 4, y: 6, z: 2 }, { chef: -1, x: -4, y: 6, z: 2 },
+  { chef: 0, x: 6, y: 0, z: 6 }, { chef: 0, x: 12, y: 0, z: 12 },
+  { chef: 1, x: -6, y: 0, z: 6 }, { chef: 1, x: -12, y: 0, z: 12 },
 ];
 const PLANCHES = [
-  { nom: 'JEU v1.92 : LE V', arbre: JEU },
+  { nom: 'JEU v1.94 : LE V', arbre: JEU },
   { nom: 'DIAMANT', arbre: [
     { chef: -1, x: 6, y: 4, z: 6 }, { chef: -1, x: -6, y: 4, z: 6 },
     { chef: 0, x: -6, y: 2, z: 6 }, { chef: 0, x: 6, y: 2, z: 6 },
@@ -232,12 +233,20 @@ function dessineVue() {
   document.getElementById('chiffres').innerHTML = ch.map((c, i) =>
     `<span>${NOMS[i]} : <b>${c.vis} %</b> visible, à <b>${c.d} m</b></span>`).join('');
   const vis = ch.map(c => c.vis + ' %').join(' / ');
+  // ILS NE SE TOUCHENT PAS : deux suiveurs à moins de 8 m l'un de l'autre
+  const SEP = 8, proches = [];
+  const tous = abs, noms = NOMS;
+  for (let i = 0; i < tous.length; i++) for (let j = 0; j < i; j++) {
+    const d = Math.hypot(tous[i].x - tous[j].x, tous[i].y - tous[j].y, tous[i].z - tous[j].z);
+    if (d < SEP) proches.push(noms[j] + '–' + noms[i] + ' ' + d.toFixed(1) + ' m');
+  }
+  document.getElementById('contacts').textContent = proches.length ? 'TROP PRÈS (moins de 8 m entre suiveurs) : ' + proches.join(' · ') + ' — dans le jeu ils se repousseraient.' : 'Aucun suiveur à moins de 8 m d’un autre : ils ne se touchent pas.';
   document.getElementById('sortie').textContent =
     'const ESCOUADE_ARBRE = [\n' + etat.arbre.map((P, i) => `  { chef: ${P.chef}, x: ${P.x}, y: ${P.y}, z: ${P.z} },   // ${NOMS[i]} suit ${nomChef(P.chef)}`).join('\n') + '\n];\n'
     + '// x : à droite du chef, y : au-dessus, z : derrière (+) / devant (−), en mètres\n'
     + '// absolu : ' + abs.map((A, i) => NOMS[i] + ' (' + A.x + ', ' + A.y + ', ' + A.z + ')').join(' · ') + '\n'
     + '// écran ' + w + '×' + h + ', recul ' + etat.recul + ' m, champ ' + etat.fov + '°\n'
-    + '// visible : ' + vis;
+    + '// visible : ' + vis + (proches.length ? '\n// trop près : ' + proches.join(' · ') : '');
 }
 
 // ---------------------------------------------------------------------------

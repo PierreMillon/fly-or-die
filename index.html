@@ -2245,8 +2245,10 @@ function souffle(dur, f0, f1, q, vol, sortie) {
 // Tout est compté en demi-tons depuis le la de la corde grave, celui qui vaut
 // cent dix hertz. La tonalité est la mineur.
 // ---------------------------------------------------------------------------
+const HORIZON_FANTOME = false;   // le trait en pointillés au bord quand l'horizon sort du cadre
 const GUITARE_PAS         = 0.55;   // secondes entre deux notes
 const GUITARE_PAR_ACCORD  = 4;      // notes égrenées avant de changer d'accord
+const GUITARE_MOTEUR      = 'hasard'; // cycle · hasard · marche · colore — voir musique.html
 const GUITARE_HASARD      = 0.22;   // chance de quitter la descente de quintes
 const GUITARE_ALTERATION  = 0.18;   // chance qu'un accord soit enrichi
 const GUITARE_ETENDUE     = 2;      // octaves parcourues par l'arpège
@@ -2511,7 +2513,15 @@ const SFX = {
     if (SFX._cordes.length > 400) SFX._cordes.splice(0, 200);
   },
   _accord: () => {
-    if (Math.random() < GUITARE_HASARD) {
+    // LES QUATRE MOTEURS de guitare.html : ils ne diffèrent que par le choix
+    // de l'accord suivant. « cycle » descend les quintes sans dévier ;
+    // « hasard » saute de temps en temps ; « marche » va où elle veut avec un
+    // penchant pour la tonique ; « colore » suit le cycle et enrichit.
+    const M = GUITARE_MOTEUR;
+    const hasard = M === 'cycle' || M === 'colore' ? 0 : M === 'marche' ? 0.6 : GUITARE_HASARD;
+    const alteration = M === 'cycle' ? 0 : M === 'colore' ? 0.55 : GUITARE_ALTERATION;
+    if (M === 'marche' && Math.random() < 0.3) SFX._pos = 0;           // la tonique appelle
+    else if (Math.random() < hasard) {
       // un saut, jamais un sur-place : rejouer le même degré n'est pas une
       // variation, c'est un accord tenu deux fois plus longtemps
       SFX._pos = (SFX._pos + 1 + Math.floor(Math.random() * (GUITARE_DEGRES.length - 1)))
@@ -2523,7 +2533,7 @@ const SFX = {
     // la dominante est majeure, toujours : sans sa tierce haussée, le retour
     // à la tonique ne se referme pas
     let type = d.nom === 'V' ? 'maj' : d.type;
-    if (Math.random() < GUITARE_ALTERATION) {
+    if (Math.random() < alteration) {
       const c = GUITARE_COULEURS[type];
       if (c) type = c[Math.floor(Math.random() * c.length)];
     }
@@ -8887,16 +8897,22 @@ const SALVE_CHAUFFE = 2;        // fois la chauffe gagnée par appareil abattu
 // stabilise, sa hauteur ne bouge plus, et je me déplace comme avec la Jeep ».
 // ---------------------------------------------------------------------------
 const GLISSADE_V = 60;          // m/s à plat, manche à fond
-const GLISSADE_PRISE = 2.5;     // par seconde : la vitesse suit le manche
+const GLISSADE_RECUL = 24;      // en marche arrière
+const GLISSADE_POUSSE = 40;     // m/s² : le manche en haut pousse
+const GLISSADE_FREIN = 60;      // m/s² : le manche en bas freine
 const GLISSADE_ERRE = 1.6;      // par seconde : sans manche, elle s'éteint en une seconde environ
+const GLISSADE_ROUE = 1.3;      // rad/s de braquage à pleine vitesse, comme JEEP_ROUE
+// COMME LA JEEP, EN L'AIR. Le manche en haut pousse, en bas freine puis
+// recule ; à gauche et à droite, on braque — et l'on ne braque que si l'on
+// avance, comme des roues. La hauteur ne bouge pas.
 function basculeGlissade() {
   if (state.glisse) {
-    const v = Math.hypot(state.glisse.vx, state.glisse.vz);
+    const v = Math.abs(state.glisse.v);
     state.glisse = null;
     state.speed = Math.max(SPEED_MIN, v);
     return;
   }
-  state.glisse = { y: state.pos.y, yaw: state.yaw, vx: state.forward.x * state.speed, vz: state.forward.z * state.speed, t: 0 };
+  state.glisse = { y: state.pos.y, v: state.speed, t: 0 };
   if (!decouvertes.glissade) { trouve('glissade'); announce(t('glissade'), t('glissadeSous')); SFX.cale(); }
 }
 function pouvoirEst(nom) { return !!state.pouvoir && state.pouvoir.id === nom; }
@@ -11197,6 +11213,7 @@ function resetGame() {
   state.trous = {}; state.vieMax = avion().pouvoir === 'coque' ? 150 : 100;   // la coque du bimoteur
   state.pouvoir = null; state.figEnAttente = null;
   state.courantTenu = 0; state.ralentiT = 0; state.gardeVitesse = false; state.glisse = null; state.verrous = [];
+  state.escouadeLarge = 0; if (state.musiqueTrajet) SFX.morceauStop(); state.musiqueTrajet = false;
   // LA MÉTÉO DU JOUR. Un vent par partie : on le lit en décollant, on s'en
   // souvient en revenant, et c'est ce qui fait qu'un terrain a un caractère
   // ce jour-là plutôt qu'une règle abstraite.
@@ -12353,7 +12370,7 @@ function basculeMusique() {
   const S = state.joue || state.couche;
   if (!S) return;
   S.musique = !S.musique;
-  if (S.musique) SFX.morceau(); else SFX.morceauStop();
+  if (S.musique) { SFX.morceau(); trouve('musique'); } else SFX.morceauStop();
   state.action = S.musique ? 'arreter' : 'jouer';
   majActionBtn();
 }
@@ -14918,14 +14935,14 @@ function simulate(dt) {
   // il glisse, pour qu'on le lise.
   if (state.glisse) {
     const G = state.glisse;
-    state.yaw = G.yaw; state.pitch = THREE.MathUtils.damp(state.pitch, 0, 6, dt);
-    const cy = Math.cos(G.yaw), sy = Math.sin(G.yaw);
-    const fx = -sy, fz = -cy, rx = cy, rz = -sy;              // devant, et à droite
-    const ax = aim.active ? dx : 0, az = aim.active ? -dy : 0;
-    const tx = (rx * ax + fx * az) * GLISSADE_V, tz = (rz * ax + fz * az) * GLISSADE_V;
-    const k = 1 - Math.exp(-(aim.active ? GLISSADE_PRISE : GLISSADE_ERRE) * dt);
-    G.vx += (tx - G.vx) * k; G.vz += (tz - G.vz) * k;
-    state.roll = THREE.MathUtils.damp(state.roll, -ax * 0.45, 6, dt);
+    state.pitch = THREE.MathUtils.damp(state.pitch, 0, 6, dt);
+    const gaz = aim.active ? -dy : 0, ax = aim.active ? dx : 0;
+    if (gaz > 0.05) G.v = Math.min(GLISSADE_V, G.v + GLISSADE_POUSSE * gaz * dt);
+    else if (gaz < -0.05) G.v = Math.max(-GLISSADE_RECUL, G.v - (G.v > 0 ? GLISSADE_FREIN : GLISSADE_POUSSE * 0.7) * -gaz * dt);
+    else G.v -= G.v * (1 - Math.exp(-GLISSADE_ERRE * dt));       // il s'éteint sur son erre
+    const prise = THREE.MathUtils.clamp(Math.abs(G.v) / 6, 0, 1);   // on ne braque que si l'on avance
+    state.yaw -= ax * GLISSADE_ROUE * prise * dt * Math.sign(G.v || 1);
+    state.roll = THREE.MathUtils.damp(state.roll, -ax * 0.35 * prise, 6, dt);
   }
 
   // Échange altitude / vitesse. Monter coûte de la vitesse, descendre en rend :
@@ -16235,8 +16252,8 @@ function simulate(dt) {
   if (state.glisse) {
     // LA GLISSADE : à plat, à la hauteur tenue, à la vitesse du manche
     const G = state.glisse; G.t += dt;
-    state.pos.x += G.vx * dt; state.pos.z += G.vz * dt; state.pos.y = G.y;
-    state.speed = Math.hypot(G.vx, G.vz);
+    state.pos.x += -Math.sin(state.yaw) * G.v * dt; state.pos.z += -Math.cos(state.yaw) * G.v * dt; state.pos.y = G.y;
+    state.speed = Math.abs(G.v);
     if (state.assist || state.pose || state.takeoff) basculeGlissade();   // le tube et le sol reprennent la main
   } else {
     state.pos.addScaledVector(state.forward, state.speed * dt);
@@ -16430,6 +16447,7 @@ function simulate(dt) {
   majVerrous(dt);
   coopTirsAmis(dt);
   updateEscouade(dt);
+  updateMusiqueTrajet();
   updateShots(dt);
   updateRoquettes(dt);
   updateRoqEnnemies(dt);
@@ -16612,14 +16630,20 @@ function blesseSuiveur(A, n) {
 // tient dans le repère de ce chef : x à sa droite, y au-dessus, z derrière.
 // Le second niveau prolonge le V : derrière le suiveur de droite, ses deux
 // ailiers s'écartent encore à droite ; derrière celui de gauche, à gauche.
-// Sept appareils, sept places distinctes : (0,0), (±3,6), (±6,12), (±9,18).
+// Sept appareils, sept places distinctes : (0,0), (±4,2), (±10,8), (±16,14)
+// vus de dessus, tous à six mètres au-dessus de nous — le second niveau à la
+// hauteur du premier, pour qu'on le voie. Aucune paire de suiveurs à moins de
+// 8,5 m : ils ne se touchent pas (ESCOUADE_SEPARATION).
 // Un chef vient toujours avant ceux qui le suivent dans la table.
 // Les planches formation.html et chaine.html exportent cette table telle quelle.
 const ESCOUADE_ARBRE = [
-  { chef: -1, x: 3, y: 6, z: 2 }, { chef: -1, x: -3, y: 6, z: 2 },
-  { chef: 0, x: 3, y: 6, z: 2 }, { chef: 0, x: 6, y: 12, z: 4 },
-  { chef: 1, x: -3, y: 6, z: 2 }, { chef: 1, x: -6, y: 12, z: 4 },
+  { chef: -1, x: 4, y: 6, z: 2 }, { chef: -1, x: -4, y: 6, z: 2 },
+  { chef: 0, x: 6, y: 0, z: 6 }, { chef: 0, x: 12, y: 0, z: 12 },
+  { chef: 1, x: -6, y: 0, z: 6 }, { chef: 1, x: -12, y: 0, z: 12 },
 ];
+const ESCOUADE_SEPARATION = 8;    // mètres : en deçà, deux suiveurs se repoussent (deux tiers d'une envergure ; les places sont à 8,5 m)
+const ESCOUADE_LARGE = 2.2;       // fois plus large au combat
+const ESCOUADE_COMBAT = 900;      // mètres : un adversaire plus près, c'est le combat
 const ESCOUADE_SOUPLESSE = 3.2;   // par seconde : l'écart rejoint sa place
 const ESCOUADE_ROUTE = 150;       // mètres : au-delà, il est « en route », le nez sur sa place
 function placeSuiveur(i) { return ESCOUADE_ARBRE[i]; }
@@ -16638,7 +16662,7 @@ function escouadeVoulue() {
   for (let i = 2; i < ESCOUADE_ARBRE.length; i++) {
     const c = ESCOUADE_ARBRE[i].chef, chef = v[c];
     const k = c < 2 ? rang[c]++ : 0;
-    v.push(chef === 'aucun' ? 'aucun' : chef === 'essaim' ? 'essaim' : (escouade2[c] || ['aucun', 'aucun'])[k]);
+    v.push(chef === 'aucun' ? 'aucun' : (escouade2[c] || ['aucun', 'aucun'])[k]);
   }
   return v;
 }
@@ -16662,12 +16686,25 @@ function freqMoteurDe(T, v) {
   const kv = v <= SPEED_MAX ? Math.max(0, v) / SPEED_MAX : 1 + 0.35 * Math.log2(v / SPEED_MAX);
   return T.base * 0.51 + kv * T.base * 0.63;
 }
+// LA MUSIQUE DU TRAJET. Une fois qu'on a joué au refuge, la guitare
+// accompagne le trajet : dehors, hors de la zone de combat, en vol. Elle se
+// tait dès qu'on rentre dans le disque, qu'on se pose, ou que le jeu s'arrête.
+function updateMusiqueTrajet() {
+  const veut = !!decouvertes.musique && state.running && !state.paused && !state.pose && !state.roulage
+    && !state.refuge && !state.takeoff && Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R2;
+  if (veut === !!state.musiqueTrajet) return;
+  state.musiqueTrajet = veut;
+  if (veut) SFX.morceau(); else if (!(state.joue && state.joue.musique) && !(state.couche && state.couche.musique)) SFX.morceauStop();
+}
 function updateEscouade(dt) {
   if (!state.escouade || state.escouade.length !== 6) state.escouade = [null, null, null, null, null, null];
   const voulue = escouadeVoulue();
   const enVol = state.running && !state.takeoff && !state.pose && !state.roulage && !coop.actif;
   const figure = state.spinT > 0 || !!state.fig || !!state.vrille;
   const sons = [];
+  let combat = false;
+  for (const e of state.enemies) { if (!e.kind.sol && e.hp > 0 && e.pos.distanceTo(state.pos) < ESCOUADE_COMBAT) { combat = true; break; } }
+  state.escouadeLarge = THREE.MathUtils.damp(state.escouadeLarge || 0, combat ? 1 : 0, combat ? 1.5 : 0.6, dt);
   for (let i = 0; i < 6; i++) {
     let A = state.escouade[i];
     const id = voulue[i];
@@ -16690,17 +16727,32 @@ function updateEscouade(dt) {
     // autres — et nous encore si ce chef manque.
     const chef = ESCOUADE_ARBRE[i].chef < 0 ? null : state.escouade[ESCOUADE_ARBRE[i].chef];
     const chefLa = chef && !chef.mort && chef.mesh.visible;
-    let basePos = state.pos, baseYaw = state.yaw, baseFwd = state.forward;
+    let basePos = state.pos, baseYaw = state.yaw, baseFwd = state.forward, baseQuat = state.quat;
     if (chefLa) {
-      basePos = chef.pos;
+      basePos = chef.pos; baseQuat = chef.quat;
       _baseFwd.set(0, 0, -1).applyQuaternion(chef.quat); baseFwd = _baseFwd;
       baseYaw = Math.atan2(-baseFwd.x, -baseFwd.z);
     }
     _eulLevel.set(0, baseYaw, 0); _qLevel.setFromEuler(_eulLevel);
-    const fwdX = -Math.sin(baseYaw), fwdZ = -Math.cos(baseYaw);
-    _right.set(Math.cos(baseYaw), 0, -Math.sin(baseYaw));      // la droite du cap, à plat
+    // ILS SUIVENT NOS MOUVEMENTS : le repère est celui du chef, nez et
+    // inclinaison compris — ils montent, piquent et s'inclinent avec lui.
+    // Pendant une figure seulement, le repère se met à plat : ils tiennent
+    // leur cap et nous rejoignent après. (v1.92 les tenait à plat tout le
+    // temps : ils avaient l'air figés.)
+    let fwdX, fwdZ, fwdY = 0;
+    if (figure) {
+      fwdX = -Math.sin(baseYaw); fwdZ = -Math.cos(baseYaw);
+      _right.set(Math.cos(baseYaw), 0, -Math.sin(baseYaw));      // la droite du cap, à plat
+    } else {
+      fwdX = baseFwd.x; fwdY = baseFwd.y; fwdZ = baseFwd.z;
+      _right.crossVectors(baseFwd, _up).normalize();
+    }
+    const qCible = figure ? _qLevel : baseQuat;
     const P = placeSuiveur(i);
-    let px = P.x, py = P.y, pz = P.z;
+    // SERRÉS EN CROISIÈRE, LARGES AU COMBAT : dès qu'un adversaire est à
+    // portée, la formation s'ouvre ; elle se resserre quand c'est calme.
+    const large = 1 + (ESCOUADE_LARGE - 1) * state.escouadeLarge;
+    let px = P.x * large, py = P.y, pz = P.z * large;
     if (i < 2 && dansTunnel()) { px = 0; py = 0; pz = ESCOUADE_FILE * (i + 1); }
     let chasse = null;
     if (i < 2 && pouvoirEst('surplace')) {
@@ -16710,7 +16762,7 @@ function updateEscouade(dt) {
       for (const e of state.enemies) { if (e.kind.sol || e.hp <= 0) continue; const d = e.pos.distanceTo(state.pos); if (d < dB) { dB = d; chasse = e; } }
     }
     if (chasse) _v.copy(chasse.pos).addScaledVector(_seg.subVectors(state.pos, chasse.pos).normalize(), 45);
-    else { _v.set(basePos.x + _right.x * px + fwdX * (-pz), basePos.y + py, basePos.z + _right.z * px + fwdZ * (-pz)); }
+    else { _v.set(basePos.x + _right.x * px + fwdX * (-pz), basePos.y + py + fwdY * (-pz), basePos.z + _right.z * px + fwdZ * (-pz)); }
     const loin = A.pos.distanceTo(_v);
     if (loin > ESCOUADE_ROUTE || chasse) A.off = null;
     if (i < 2 && figure && loin <= ESCOUADE_ROUTE) {
@@ -16728,7 +16780,7 @@ function updateEscouade(dt) {
       A.quat.slerp(_q, 1 - Math.exp(-4 * dt));
     } else if (chasse) {
       A.pos.lerp(_v, 1 - Math.exp(-3.2 * dt));
-      A.quat.slerp(_qLevel, 1 - Math.exp(-4 * dt));
+      A.quat.slerp(qCible, 1 - Math.exp(-4 * dt));
     } else {
       // EN PLACE : l'écart vit dans A.off, dans le repère du chef
       if (!A.off) {
@@ -16737,8 +16789,24 @@ function updateEscouade(dt) {
       }
       const k = 1 - Math.exp(-ESCOUADE_SOUPLESSE * dt);
       A.off.x += (px - A.off.x) * k; A.off.y += (py - A.off.y) * k; A.off.z += (-pz - A.off.z) * k;
-      A.pos.set(basePos.x + _right.x * A.off.x + fwdX * A.off.z, basePos.y + A.off.y, basePos.z + _right.z * A.off.x + fwdZ * A.off.z);
-      A.quat.slerp(_qLevel, 1 - Math.exp(-4 * dt));
+      A.pos.set(basePos.x + _right.x * A.off.x + fwdX * A.off.z, basePos.y + A.off.y + fwdY * A.off.z, basePos.z + _right.z * A.off.x + fwdZ * A.off.z);
+      A.quat.slerp(qCible, 1 - Math.exp(-4 * dt));
+    }
+    // ILS NE SE TOUCHENT PAS. Deux suiveurs à moins d'une envergure l'un de
+    // l'autre — en route, en formation qui s'ouvre, en tonneau d'esquive — se
+    // repoussent, chacun de la moitié de ce qui manque. L'écart tenu en repère
+    // du chef reçoit la même poussée, sinon la place le ramènerait dessus.
+    for (let j = 0; j < i; j++) {
+      const B = state.escouade[j];
+      if (!B || B.mort || !B.mesh.visible) continue;
+      _seg.subVectors(A.pos, B.pos); const d = _seg.length();
+      if (d >= ESCOUADE_SEPARATION) continue;
+      if (d < 0.01) _seg.set(i % 2 ? -1 : 1, 0, 0); else _seg.divideScalar(d);
+      const pousse = (ESCOUADE_SEPARATION - d) * 0.5;
+      A.pos.addScaledVector(_seg, pousse); B.pos.addScaledVector(_seg, -pousse);
+      if (A.off) { A.off.x += _seg.dot(_right) * pousse; A.off.y += _seg.y * pousse; A.off.z += (_seg.x * fwdX + _seg.y * fwdY + _seg.z * fwdZ) * pousse; }
+      if (B.off) { B.off.x -= _seg.dot(_right) * pousse; B.off.y -= _seg.y * pousse; B.off.z -= (_seg.x * fwdX + _seg.y * fwdY + _seg.z * fwdZ) * pousse; }
+      B.mesh.position.copy(B.pos);
     }
     // UN MUR, C'EST DES DÉGÂTS.
     if (heurteSuiveur(A)) blesseSuiveur(A, ESCOUADE_MUR * dt);
@@ -18746,7 +18814,10 @@ function drawHud() {
     const A = camera.aspect * T * _v.x, B = T * _v.y, C = _v.z;
     // B nul, c'est un tonneau à quatre-vingt-dix degrés : la droite est
     // verticale à l'écran et ne se pose contre aucun bord.
-    if (Math.abs(B) > 1e-4 && !state.pose && !state.roulage) {
+    // RETIRÉ (v1.94) : « les pointillés de l'horizon doivent partir ». Le
+    // fantôme ne se dessine plus ; la droite se calcule encore, pour le jour
+    // où l'on voudra autre chose à sa place.
+    if (HORIZON_FANTOME && Math.abs(B) > 1e-4 && !state.pose && !state.roulage) {
       const yEn = (px) => h / 2 * (1 - (C - (2 * px / w - 1) * A) / B);
       const yMid = yEn(w / 2);
       const hors = yMid < 4 ? -1 : yMid > h - 4 ? 1 : 0;
@@ -20239,7 +20310,7 @@ function majMenu() {
       const cache = chef === 'aucun';
       c2.hidden = cache; titre.hidden = cache;
       if (cache) continue;
-      if (chef === 'essaim') impose(c2, fr); else rang(c2, escouade2[i][k], id => { escouade2[i][k] = id; });
+      rang(c2, escouade2[i][k], id => { escouade2[i][k] = id; });   // derrière un essaim aussi, on choisit
     }
   }
   puces('menuTeintes', TEINTES, 'teinte:', teinteChoisie, id => { teinteChoisie = id; appliqueTeinte(); });
@@ -20362,6 +20433,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.94', fr: 'L’escouade suit nos mouvements comme avant : ils montent, piquent et s’inclinent avec nous ; ils ne se mettent à plat que pendant nos figures. Ils ne se touchent plus : à moins de 8 m deux suiveurs se repoussent, et le V est écarté pour qu’aucune paire ne soit sous 8,5 m — (±4, 2), (±10, 8), (±16, 14) vus de dessus, tous à six mètres au-dessus. Serrés en croisière, larges au combat : dès qu’un adversaire est à moins de 900 m, les écarts s’ouvrent de 2,2 fois, et se referment quand c’est calme. Derrière un essaim, le menu laisse choisir.', en: 'The squadron follows our movements as before: they climb, dive and bank with us, and only level out during our figures. They no longer touch: under 8 m two wingmen push apart, and the V is spread so no pair is under 8.5 m — (±4, 2), (±10, 8), (±16, 14) from above, all six metres above us. Tight in cruise, wide in combat: as soon as a foe is within 900 m the gaps open 2.2 times, and close when it is calm. Behind a swarm, the menu lets you choose.' },
+  { v: '1.94', fr: 'La glissade du Faucheur se pilote comme la Jeep : le manche en haut pousse (60 m/s), en bas freine puis recule (24 m/s), à gauche et à droite on braque — et l’on ne braque que si l’on avance. Lâché, il s’éteint sur son erre. La hauteur ne bouge pas.', en: 'The Reaper’s slide steers like the Jeep: stick up pushes (60 m/s), stick down brakes then reverses (24 m/s), left and right steer — and only while moving. Released, it coasts to a stop. Height stays put.' },
+  { v: '1.94', fr: 'Les pointillés de l’horizon sont partis : plus de fantôme au bord de l’écran quand l’horizon sort du cadre. Et la musique du trajet : une fois qu’on a joué au refuge, la guitare accompagne le vol dehors, hors de la zone de combat, et se tait dès qu’on rentre dans le disque. La planche musique.html fait choisir la suite d’accords pour le refuge et pour le trajet, une case par candidat, et garde le diagnostic en dessous.', en: 'The horizon dashes are gone: no more ghost line at the screen edge when the horizon leaves the frame. And the trip music: once you have played at the refuge, the guitar goes with the flight outside, away from the combat zone, and falls silent as soon as you enter the disc. The musique.html bench picks the chord suite for the refuge and for the trip, one box per candidate, and keeps the diagnostics below.' },
+  { v: '1.94', fr: 'La planche de la chaîne règle aussi l’ouverture au combat et la séparation ; celle de la formation dit quand deux suiveurs sont trop près.', en: 'The chain bench also sets the combat spread and the separation; the formation bench says when two wingmen are too close.' },
   { v: '1.93', fr: 'Trois planches. LA FORMATION, formation.html : les sept appareils glissés sur un plan, les ailiers suivent leur chef, la caméra du jeu en montre la part visible. LA CHAÎNE, chaine.html : qui suit qui, sur trois niveaux possibles, et la souplesse de la chaîne — l’écart, le seuil de route, la vitesse de route, le rattrapage — en slalom vu de dessus avec les calculs du jeu. Les deux partagent la même table. LA MUSIQUE, musique.html : six étapes du bip au disque du refuge, ENTENDU ou RIEN à chacune, et un journal à me renvoyer.', en: 'Three benches. FORMATION, formation.html: all seven aircraft dragged on a plan, wingmen follow their leader, the game camera shows how much of each is visible. CHAIN, chaine.html: who follows whom, up to three levels, and the chain’s give — the gap, the route threshold, the route speed, the catch-up — in a top-down slalom with the game’s maths. Both share the same table. MUSIC, musique.html: six steps from a beep to the refuge record, HEARD or NOTHING at each, and a log to send me.' },
   { v: '1.93', fr: 'Dans le jeu, l’arbre de l’escouade est une table : pour chaque place, son chef et son décalage. C’est elle que les planches exportent.', en: 'In the game, the squadron tree is a table: for each slot, its leader and its offset. That is what the benches export.' },
   { v: '1.92', fr: 'Le Faucheur piloté a la GLISSADE : double appui, il se stabilise à sa hauteur et le manche le déplace à plat, 60 m/s à fond, comme une Jeep en l’air ; relâché, il continue sur son erre une seconde ; double appui encore, il reprend sa vitesse et l’altitude redevient la tienne. La nappe est partie.', en: 'The piloted Reaper has the SLIDE: double tap, it holds its height and the stick moves it flat, 60 m/s at full stick, like a Jeep in the air; released, it coasts for a second; double tap again, it takes its speed back and altitude is yours again. The sheet is gone.' },

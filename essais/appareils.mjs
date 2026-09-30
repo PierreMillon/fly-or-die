@@ -64,8 +64,8 @@ for (const id of APPAREILS) {
   dit('le décollage est fini', vol.decollage === false, vol.decollage);
   dit('on est en l’air', vol.alt > 40, vol.alt + ' m');
   dit('une vague est là', vol.wave >= 1, 'vague ' + vol.wave);
-  // l'arbre de v1.92 : derrière un essaim, l'essaim s'impose — sept cellules
-  const suiveursAttendus = id === 'essaim' ? 6 : 2;
+  // l'arbre : derrière un chef, ce que le menu a choisi — rien par défaut
+  const suiveursAttendus = 2;
   dit('les suiveurs volent (' + suiveursAttendus + ')', vol.suiveurs === suiveursAttendus, vol.suiveurs);
 
   // LE POUVOIR TENU : double appui à hauteur de l'avion, et le doigt reste.
