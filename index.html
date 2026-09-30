@@ -183,12 +183,22 @@
 
   <details class="groupe">
     <summary data-en="LOOK">APPARENCE</summary>
-    <p class="aide" id="menuAvionTitre" data-en="AIRCRAFT">AVION</p>
-    <div class="puces" id="menuAvions"></div>
+    <!-- LE CHOIX D'APPAREIL SE FAIT AU HANGAR, AU NEZ : le rang reste construit ici,
+         caché, pour que le reste du menu n'ait rien à savoir. -->
+    <p class="aide" id="menuAvionTitre" data-en="AIRCRAFT" hidden>AVION</p>
+    <div class="puces" id="menuAvions" hidden></div>
     <p class="aide" id="menuSuiveur1Titre" data-en="SQUADRON · FIRST WINGMAN">ESCOUADE · PREMIER SUIVEUR</p>
     <div class="puces" id="menuSuiveur1"></div>
+    <p class="aide" id="menuSuiveur1aTitre" data-en="BEHIND THE FIRST · A">DERRIÈRE LE PREMIER · A</p>
+    <div class="puces" id="menuSuiveur1a"></div>
+    <p class="aide" id="menuSuiveur1bTitre" data-en="BEHIND THE FIRST · B">DERRIÈRE LE PREMIER · B</p>
+    <div class="puces" id="menuSuiveur1b"></div>
     <p class="aide" id="menuSuiveur2Titre" data-en="SQUADRON · SECOND WINGMAN">ESCOUADE · SECOND SUIVEUR</p>
     <div class="puces" id="menuSuiveur2"></div>
+    <p class="aide" id="menuSuiveur2aTitre" data-en="BEHIND THE SECOND · A">DERRIÈRE LE SECOND · A</p>
+    <div class="puces" id="menuSuiveur2a"></div>
+    <p class="aide" id="menuSuiveur2bTitre" data-en="BEHIND THE SECOND · B">DERRIÈRE LE SECOND · B</p>
+    <div class="puces" id="menuSuiveur2b"></div>
     <p class="aide" id="menuTeinteTitre" data-en="AIRCRAFT COLOUR">COULEUR DE L'AVION</p>
     <div class="puces" id="menuTeintes"></div>
     <p class="aide" id="menuTraineeTitre" data-en="TRAIL">TRAÎNÉE</p>
@@ -928,6 +938,10 @@ let legendesN = carnetN.legendes || 0;
 // L'ESCOUADE : les deux suiveurs choisis, par identifiant d'appareil, ou « aucun ».
 let escouade = ['aucun', 'aucun'];
 try { const e = JSON.parse(localStorage.getItem('fod_escouade') || 'null'); if (Array.isArray(e) && e.length === 2) escouade = e; } catch (e) {}
+// L'ARBRE : chacun de nos deux suiveurs peut avoir deux suiveurs à lui. Deux
+// niveaux, et l'on s'arrête là : sept appareils en tout.
+let escouade2 = [['aucun', 'aucun'], ['aucun', 'aucun']];
+try { const e = JSON.parse(localStorage.getItem('fod_escouade2') || 'null'); if (Array.isArray(e) && e.length === 2 && e.every(x => Array.isArray(x) && x.length === 2)) escouade2 = e; } catch (e) {}
 // LES VIDÉOS DÉJÀ REGARDÉES POUR OUVRIR UN APPAREIL, par identifiant.
 let avionsVideo = {};
 try { avionsVideo = JSON.parse(localStorage.getItem('fod_avion_video') || '{}') || {}; } catch (e) {}
@@ -2011,7 +2025,7 @@ const TIMBRES = {
   // l'entend comme on entend un transformateur.
   disque:  { base: 52,  ecart: 0.6, coupe: 300,  sous: 0.70, gain: 0.048 },
   // LE LOURD. Un rotor : très grave, très désaccordé, beaucoup de gras.
-  lourd:   { base: 40,  ecart: 3.4, coupe: 520,  sous: 0.60, gain: 0.066 },
+  lourd:   { base: 40,  ecart: 0.7, coupe: 380,  sous: 0.85, gain: 0.070 },   // presque à l'unisson : un ronronnement, pas un battement
   // L'ESSAIM. Un vrombissement aigu, serré, sans dessous : une cellule qui
   // vibre, pas un moteur qui tourne.
   essaim:  { base: 150, ecart: 1.4, coupe: 1600, sous: 0,    gain: 0.030 }
@@ -2272,6 +2286,32 @@ const SFX = {
   // bien que les coups se recouvrent en rafale au lieu de s'égrener.
   // Une octave plus bas, partout : le claquement passe de sec a sourd, ce qui
   // est le son d'un calibre et pas d'un jouet.
+  // LE TIR D'UN SUIVEUR, à sa distance : le même souffle, plus loin
+  tirAmi:       (pos) => { if (!actx || muet) return; const { v } = parDistance(pos); souffle(0.028, 1500, 950, 7, 0.03 * Math.min(1.2, v * 2.4)); },
+  // LES MOTEURS DES SUIVEURS : jusqu'à six voix, chacune au timbre de son
+  // modèle, à la hauteur de notre vitesse, au niveau de sa distance
+  _amis: [],
+  amis: (liste) => {
+    if (!actx || !master) return;
+    for (let i = 0; i < 6; i++) {
+      const a = liste[i]; let v = SFX._amis[i];
+      if (!a || muet) { if (v) v.g.gain.value = 0; continue; }
+      if (!v) {
+        const o1 = actx.createOscillator(), o2 = actx.createOscillator(), o3 = actx.createOscillator();
+        o1.type = 'sawtooth'; o2.type = 'sawtooth'; o3.type = 'triangle';
+        const g = actx.createGain(); g.gain.value = 0;
+        const lp = actx.createBiquadFilter(); lp.type = 'lowpass';
+        const sg = actx.createGain();
+        o1.connect(g); o2.connect(g); o3.connect(sg).connect(g); g.connect(lp).connect(master);
+        o1.start(); o2.start(); o3.start();
+        v = SFX._amis[i] = { o1, o2, o3, g, lp, sg };
+      }
+      const T = TIMBRES[a.timbre] || TIMBRES.clair;
+      v.lp.frequency.value = T.coupe; v.sg.gain.value = T.sous;
+      v.o1.frequency.value = a.f; v.o2.frequency.value = a.f + T.ecart * 0.012 * a.f; v.o3.frequency.value = a.f * 0.5;
+      v.g.gain.value = T.gain * 0.55 / (1 + a.d / 14);
+    }
+  },
   tir:          () => { souffle(0.028, 1500, 950, 7, 0.03);
                         souffle(0.085, 380, 60, 1.0, 0.10);
                         ton(95, 31, 0.075, 'square', 0.085); },
@@ -4370,7 +4410,7 @@ const AVIONS = [
   // de très loin le moins maniable — un cercle plat n'a pas d'aile pour
   // s'appuyer sur l'air. On ne le prend pas pour gagner, on le prend pour
   // savoir ce que c'était.
-  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel', timbre: 'disque', pouvoir: 'nappe', vieSuiveur: 120 },
+  { id: 'faucheur',     nom: 'LE FAUCHEUR',  en: 'THE REAPER',  vit: 1.7,  lacet: 0.45, tangage: 0.55, roquettes: 30, leurres: 0, acces: 'ciel', timbre: 'disque', pouvoir: 'glissade', vieSuiveur: 120 },
   // LES DRONES. Ils ne se pilotent pas comme des avions : aucun canon, et
   // c'est ce qui les définit.
   //   — le LOURD est lent, sans arme, porte le double de roquettes et se
@@ -4378,7 +4418,7 @@ const AVIONS = [
   //   — l'ESSAIM est trois cellules en triangle : on pilote celle du milieu,
   //     qui ne tire pas, et les deux autres tirent. Ses deux suiveurs sont
   //     imposés — c'est l'appareil lui-même.
-  { id: 'lourd',        nom: 'DRONE LOURD',  en: 'HEAVY DRONE', vit: 0.7,  lacet: 0.7,  tangage: 0.8,  roquettes: 40, leurres: 2, acces: 'libre', canons: false, timbre: 'lourd', pouvoir: 'soute', vieSuiveur: 150 },
+  { id: 'lourd',        nom: 'DRONE LOURD',  en: 'HEAVY DRONE', vit: 0.7,  lacet: 0.7,  tangage: 0.8,  roquettes: 40, leurres: 2, acces: 'libre', canons: false, timbre: 'lourd', pouvoir: 'soute', vieSuiveur: 150, verrous: 3, stable: true },
   { id: 'essaim',       nom: 'ESSAIM',       en: 'SWARM',       vit: 1.1,  lacet: 1.2,  tangage: 1.1,  roquettes: 0,  leurres: 0, acces: 'libre', canons: false, timbre: 'essaim', pouvoir: 'essaim', vieSuiveur: 30 },
 ];
 const LOURD_REPARE = 6;        // points de vie par seconde, en vol, pour le drone lourd
@@ -8837,13 +8877,34 @@ const SURPLACE_V = 30;          // m/s : la vitesse du surplace
 const SURPLACE_LACET = 3;       // fois le lacet ordinaire
 const SALVE_DEGATS = 2;         // fois les dégâts des canons
 const SALVE_CHAUFFE = 2;        // fois la chauffe gagnée par appareil abattu
-const NAPPE_V = 60;             // m/s de glissé latéral
+// ---------------------------------------------------------------------------
+// LA GLISSADE DU FAUCHEUR. Double appui : le disque se stabilise. Sa hauteur
+// ne bouge plus, et le manche le déplace à plat, comme une Jeep en l'air —
+// pousser devant, c'est avancer ; de côté, c'est glisser de côté ; le cap ne
+// change pas. Le doigt parti, il continue sur son erre une seconde. Double
+// appui encore : il reprend sa vitesse tout seul, et l'on choisit l'altitude
+// comme avec un avion. C'est ce qu'il a répondu à la planche : « il se
+// stabilise, sa hauteur ne bouge plus, et je me déplace comme avec la Jeep ».
+// ---------------------------------------------------------------------------
+const GLISSADE_V = 60;          // m/s à plat, manche à fond
+const GLISSADE_PRISE = 2.5;     // par seconde : la vitesse suit le manche
+const GLISSADE_ERRE = 1.6;      // par seconde : sans manche, elle s'éteint en une seconde environ
+function basculeGlissade() {
+  if (state.glisse) {
+    const v = Math.hypot(state.glisse.vx, state.glisse.vz);
+    state.glisse = null;
+    state.speed = Math.max(SPEED_MIN, v);
+    return;
+  }
+  state.glisse = { y: state.pos.y, yaw: state.yaw, vx: state.forward.x * state.speed, vz: state.forward.z * state.speed, t: 0 };
+  if (!decouvertes.glissade) { trouve('glissade'); announce(t('glissade'), t('glissadeSous')); SFX.cale(); }
+}
 function pouvoirEst(nom) { return !!state.pouvoir && state.pouvoir.id === nom; }
 function ouvrePouvoir(side) {
   const nom = avion().pouvoir;
   // seuls trois pouvoirs se tiennent ; la coque, la soute et l'essaim sont
   // passifs, et le courant a sa propre porte
-  if (nom !== 'surplace' && nom !== 'salve' && nom !== 'nappe') return false;
+  if (nom !== 'surplace' && nom !== 'salve') return false;
   if (!state.pouvoir) { announce(t(nom)); SFX.cale(); }
   state.dbgOuvre = (state.dbgOuvre || 0) + 1;
   state.pouvoir = { id: nom, side };
@@ -11135,7 +11196,7 @@ function resetGame() {
   state.chaine = 0; state.chaineT = 0;
   state.trous = {}; state.vieMax = avion().pouvoir === 'coque' ? 150 : 100;   // la coque du bimoteur
   state.pouvoir = null; state.figEnAttente = null;
-  state.courantTenu = 0; state.ralentiT = 0; state.gardeVitesse = false;
+  state.courantTenu = 0; state.ralentiT = 0; state.gardeVitesse = false; state.glisse = null; state.verrous = [];
   // LA MÉTÉO DU JOUR. Un vent par partie : on le lit en décollant, on s'en
   // souvient en revenant, et c'est ce qui fait qu'un terrain a un caractère
   // ce jour-là plutôt qu'une règle abstraite.
@@ -11227,8 +11288,7 @@ function coupDePied() {
   // et celles qui sont déjà en l'air perdent le fil
   for (const r of state.roqEnnemies) if (!r.perdue) { r.perdue = true; stat('roquettesEsquivees'); }
   if (state.chaine > 1) {
-    announce(t('chaine') + ' ×' + state.chaine,
-             t('chaineSous') + ' ' + Math.round(CATAPULTE * cran) + ' m/s');
+    announce(t('chaine') + ' ×' + state.chaine);
   }
   SFX.seuil();
 }
@@ -12428,7 +12488,7 @@ const RADAR_BAS = 80;        // sous cette hauteur, on passe sous les radars
 // repartir n'est pas un refuge, c'est un piège.
 const FAUCHEUR_NAPPE  = 220;    // mètres au-dessus du relief : au-dessus, il te voit
 const FAUCHEUR_BULLE  = 2600;   // mètres autour du refuge : sa nappe n'y va pas
-const FAUCHEUR_VEILLE = 3.5;    // secondes sur son écran avant qu'il se détache
+const FAUCHEUR_VEILLE = 3.0;    // secondes sur son écran avant qu'il se détache
 const FAUCHEUR_OUBLI  = 7;      // secondes hors de sa nappe avant qu'il renonce
 function vuParLeFaucheur() {
   if (!state.running || avionChoisi === 'faucheur') return false;
@@ -13690,6 +13750,75 @@ function reenter(e) {
 
 // les traçantes du joueur vivent leur vie une fois parties : elles finissent
 // leur course même si la cible est perdue entre-temps
+// ---------------------------------------------------------------------------
+// LES VERROUS DU DRONE LOURD. Il n'a pas de canons : il a trois verrous. Dès
+// que le magnétisme prend sur un adversaire, il est verrouillé, et un trait se
+// trace entre lui et nous. De près, il doit faire une figure pour s'en défaire
+// ; de loin, il a beau bouger dans tous les sens, il reste verrouillé — jusqu'à
+// sortir de portée ou tomber. Verrouillé, il reçoit deux roquettes par seconde
+// qui ne ratent pas, sauf figure de sa part à l'arrivée. La cadence de combat
+// en envoie deux fois et demie plus.
+// ---------------------------------------------------------------------------
+const VERROU_PRES = 350;          // mètres : en deçà, une figure libère
+const VERROU_PORTEE = 1600;       // au-delà, le verrou lâche
+const LOURD_ROQ_CADENCE = 0.5;    // secondes entre deux roquettes
+const LOURD_ROQ_CADENCE_X = 2.5;  // fois plus vite pendant la cadence de combat
+const VERROU_CONE = 3;            // le filet du lourd : trois fois le cône du magnétisme (≈ 5°)
+const VERROU_GRACE = 2.5;         // secondes de répit après une figure qui a libéré
+function majVerrous(dt) {
+  const n = avion().verrous;
+  if (!n) { if (state.verrous && state.verrous.length) state.verrous = []; return; }
+  if (!state.verrous) state.verrous = [];
+  if (state.assist) { state.verrous = []; return; }
+  // ceux qu'on tient encore
+  state.verrous = state.verrous.filter(e => {
+    if (e.hp <= 0 || state.enemies.indexOf(e) < 0) return false;
+    const d = e.pos.distanceTo(state.pos);
+    if (d > VERROU_PORTEE) return false;
+    if (d < VERROU_PRES && e.fig) { e.verrouGrace = VERROU_GRACE; return false; }   // il a fait une figure, de près : libre
+    return true;
+  });
+  for (const e of state.enemies) if (e.verrouGrace > 0) e.verrouGrace -= dt;
+  // ceux que le magnétisme prend : dans le cône, à portée, par ordre d'écart
+  if (state.verrous.length < n) {
+    const cand = [];
+    for (const e of state.enemies) {
+      if (e.kind.sol || e.hp <= 0 || state.verrous.includes(e) || e.fig || e.verrouGrace > 0) continue;
+      _v.subVectors(e.pos, state.pos); const d = _v.length();
+      if (d > LOCK_RANGE) continue;
+      _v.divideScalar(d || 1);
+      const ang = Math.acos(THREE.MathUtils.clamp(state.forward.dot(_v), -1, 1));
+      const ecart = ang - seuilLock(e, d) * VERROU_CONE;
+      if (ecart < 0) cand.push([ecart, e]);
+    }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [, e] of cand) { if (state.verrous.length >= n) break; state.verrous.push(e); SFX.accroche(); if (state.verrous.length === 1) announce(t('verrou'), t('roqLourdSous')); }
+  }
+  if (!state.verrous.length) { state.lock = null; state.lockCharge = 0; state.lockTenu = 0; return; }
+  // le premier verrou tient lieu de verrouillage pour le reste du jeu :
+  // l'escouade tire dessus, le cadran le montre
+  if (!state.verrous.includes(state.lock)) state.lock = state.verrous[0];
+  state.lockCharge = 1; state.lockTenu += dt;
+  // les roquettes, à tour de rôle
+  state.roqT -= dt;
+  if (state.roqT <= 0 && !defiEst('mitrailleuse') && (!avance.roquettesReelles || state.roquettesN >= 1)) {
+    state.roqT = LOURD_ROQ_CADENCE / (state.chauffe > 0 ? LOURD_ROQ_CADENCE_X : 1);
+    state.roqTour = ((state.roqTour || 0) + 1) % state.verrous.length;
+    const cible = state.verrous[state.roqTour];
+    if (cible.pos.distanceTo(state.pos) < VERROU_PORTEE) {
+      if (!(state.triche && state.triche.munitions) && avance.roquettesReelles) state.roquettesN -= 1;
+      if (state.roquettesN <= 0) announce(t('plusDeRoquettes'));
+      const g = (state.roqAile = !state.roqAile) ? GUN_L : GUN_R;
+      const p = new THREE.Vector3(g.x, g.y, g.z).multiplyScalar(PLANE_SCALE).applyQuaternion(state.quat).add(state.pos);
+      const dir0 = new THREE.Vector3().subVectors(cible.pos, p).normalize();
+      stat('roquettesTirees');
+      state.roquettes.push({ pos: p, dir: dir0, cible, t: 0, fum: 0, gauche: g === GUN_L, d0: p.distanceTo(cible.pos), infaillible: true });
+      for (let k = 0; k < 2; k++) semerFumee(p.clone().addScaledVector(dir0, -6 - k * 7), dir0);
+      SFX.roquette();
+    }
+  }
+}
+
 function updateShots(dt) {
   const pts = [];
   for (let i = state.shots.length - 1; i >= 0; i--) {
@@ -13744,7 +13873,7 @@ function updateRoquettes(dt) {
     // LEUR TONNEAU. Un appareil qui sait faire des figures voit venir la
     // roquette : à trois cents mètres il rompt d'un tour complet, et elle
     // décroche — exactement ce qu'un tonneau fait aux leurs.
-    if (!morte && r.cible.kind.leurres && (r.cible.leurresN === undefined ? (r.cible.leurresN = r.cible.kind.leurres) : r.cible.leurresN) > 0
+    if (!morte && !r.infaillible && r.cible.kind.leurres && (r.cible.leurresN === undefined ? (r.cible.leurresN = r.cible.kind.leurres) : r.cible.leurresN) > 0
         && r.pos.distanceTo(r.cible.pos) < 260) {
       // LUI AUSSI A DES LEURRES : on le voit en lâcher un, on se demande
       // pourquoi on n'en a pas — et on va chercher l'avion qui en a
@@ -13754,8 +13883,11 @@ function updateRoquettes(dt) {
     }
     if (!morte && r.cible && r.cible.kind.figures && !r.cible.fig && r.cible.figCd <= 0 && r.pos.distanceTo(r.cible.pos) < 300) {
       const c = r.cible;
-      // une roquette aux trousses : le tonneau, c'est le plus rapide
       lanceFigEnnemi(c, 'tonneau');
+      // UNE ROQUETTE INFAILLIBLE NE RATE QUE ÇA : la figure à l'arrivée
+      if (r.infaillible) { r.cible = null; stat('roquettesEsquivees'); }
+    } else if (!morte && r.infaillible && r.cible.fig && r.pos.distanceTo(r.cible.pos) < 300) {
+      r.cible = null;
     }
     if (!morte && r.cible) {
       _seg.subVectors(r.cible.pos, r.pos);
@@ -13764,7 +13896,7 @@ function updateRoquettes(dt) {
       // on tourne vers la cible sans dépasser le taux de virage
       const cosA = THREE.MathUtils.clamp(r.dir.dot(_seg), -1, 1);
       const ang = Math.acos(cosA);
-      const pas = Math.min(ang, ROQ_VIRAGE * dt);
+      const pas = Math.min(ang, ROQ_VIRAGE * (r.infaillible ? 4 : 1) * dt);
       if (ang > 1e-4) {
         _segA.crossVectors(r.dir, _seg).normalize();
         r.dir.applyAxisAngle(_segA, pas).normalize();
@@ -14280,9 +14412,10 @@ function updateLock(dt) {
     blesse(best, dps * dt);
   }
 
-  // deux roquettes après une seconde de verrouillage tenu
-  state.roqT -= dt;
-  if (state.roqT <= 0 && state.lockTenu >= ROQ_TENUE && !defiEst('mitrailleuse')
+  // deux roquettes après une seconde de verrouillage tenu — sauf le drone
+  // lourd, qui a ses verrous et sa cadence à lui (voir majVerrous)
+  if (!avion().verrous) state.roqT -= dt;
+  if (!avion().verrous && state.roqT <= 0 && state.lockTenu >= ROQ_TENUE && !defiEst('mitrailleuse')
       && best.pos.distanceTo(state.pos) < ROQ_PORTEE && (!avance.roquettesReelles || state.roquettesN >= 2)) {
     state.roqT = ROQ_RECHARGE;
     if (!(state.triche && state.triche.munitions) && avance.roquettesReelles) state.roquettesN -= 2;
@@ -14779,6 +14912,21 @@ function simulate(dt) {
   // le roulis n'a aucune autorité : il ne fait que raconter le virage
   const targetRoll = THREE.MathUtils.clamp(yawRate * ROLL_FACTOR, -1.3, 1.3);
   state.roll = THREE.MathUtils.damp(state.roll, targetRoll, 9, dt);
+  // EN GLISSADE, LE MANCHE DÉPLACE À PLAT. Le cap et la hauteur sont tenus ;
+  // le manche donne une vitesse, devant ou de côté, qui suit le doigt et
+  // s'éteint sur son erre quand il part. Le disque penche un peu du côté où
+  // il glisse, pour qu'on le lise.
+  if (state.glisse) {
+    const G = state.glisse;
+    state.yaw = G.yaw; state.pitch = THREE.MathUtils.damp(state.pitch, 0, 6, dt);
+    const cy = Math.cos(G.yaw), sy = Math.sin(G.yaw);
+    const fx = -sy, fz = -cy, rx = cy, rz = -sy;              // devant, et à droite
+    const ax = aim.active ? dx : 0, az = aim.active ? -dy : 0;
+    const tx = (rx * ax + fx * az) * GLISSADE_V, tz = (rz * ax + fz * az) * GLISSADE_V;
+    const k = 1 - Math.exp(-(aim.active ? GLISSADE_PRISE : GLISSADE_ERRE) * dt);
+    G.vx += (tx - G.vx) * k; G.vz += (tz - G.vz) * k;
+    state.roll = THREE.MathUtils.damp(state.roll, -ax * 0.45, 6, dt);
+  }
 
   // Échange altitude / vitesse. Monter coûte de la vitesse, descendre en rend :
   // c'est la pesanteur qui travaille pour ou contre, et le moteur qui ramène
@@ -15118,10 +15266,10 @@ function simulate(dt) {
   // à la verticale, on accélère tant qu'on descend, et c'est le sol qui
   // arrête, pas un réglage.
   if (state.forward.y < 0) dv = Math.max(dv, gainPesanteur * 0.7);
-  state.speed += dv * dt;
+  if (!state.glisse) state.speed += dv * dt;   // en glissade, c'est le manche qui fait la vitesse
   // Le plafond lui-même monte avec la poussée : sans cela le piqué seul
   // atteignait déjà la limite et la poursuite n'ajoutait plus rien.
-  state.speed = THREE.MathUtils.clamp(state.speed, pouvoirEst('surplace') ? SURPLACE_V : SPEED_MIN, SPEED_DUR);   // en surplace, c'est le pouvoir qui porte
+  state.speed = THREE.MathUtils.clamp(state.speed, state.glisse ? 0 : pouvoirEst('surplace') ? SURPLACE_V : SPEED_MIN, SPEED_DUR);   // en surplace, c'est le pouvoir qui porte ; en glissade, le manche
 
   // ET LE TUBE A LE DERNIER MOT SUR LA VITESSE.
   //
@@ -15800,7 +15948,7 @@ function simulate(dt) {
     state.speed += (-state.forward.y * GRAV + (CRUISE - state.speed) * THRUST) * dt;
     // même garde-fou qu'en vol libre : entrer dans la figure à cinq cents ne
     // doit pas être puni d'un coup de frein à trois cent vingt
-    state.speed = THREE.MathUtils.clamp(state.speed, pouvoirEst('surplace') ? SURPLACE_V : SPEED_MIN, SPEED_DUR);   // en surplace, c'est le pouvoir qui porte
+    state.speed = THREE.MathUtils.clamp(state.speed, state.glisse ? 0 : pouvoirEst('surplace') ? SURPLACE_V : SPEED_MIN, SPEED_DUR);   // en surplace, c'est le pouvoir qui porte ; en glissade, le manche
 
     playerMesh.position.copy(state.pos);
     playerMesh.quaternion.copy(state.quat);
@@ -16021,7 +16169,8 @@ function simulate(dt) {
     // trente-et-un degrés : on décrochait en montant normalement, ce qui n'a
     // aucun sens et rend la montée désagréable. On ne décroche plus qu'à la
     // quasi-verticale, et seulement si la vitesse est déjà tombée au plancher.
-    const cabre = state.speed <= SPEED_MIN + 2 && state.pitch > DECRO_ANGLE && !state.vrille;
+    // LE DRONE LOURD NE DÉCROCHE JAMAIS, et le Faucheur en glissade non plus
+    const cabre = state.speed <= SPEED_MIN + 2 && state.pitch > DECRO_ANGLE && !state.vrille && !avion().stable && !state.glisse;
     state.decrocheT = cabre ? state.decrocheT + dt : Math.max(0, state.decrocheT - 2 * dt);
     if (cabre && state.decrocheT >= DECRO_ALARME && state.decrocheT - dt < DECRO_ALARME) { announce(t('decrochage')); SFX.alerte(); }
     // LA POLAIRE TIENT LE PIVOT. Le décrochage reste entier — l'alarme, le nez
@@ -16082,13 +16231,16 @@ function simulate(dt) {
   state.calmeT = (state.calmeT || 0) + dt;
   if (avion().pouvoir === 'soute' && state.running && !state.pose && !state.roulage && state.calmeT > LOURD_CALME)
     state.structure = Math.min(state.vieMax, state.structure + LOURD_REPARE * dt);
-  // LA NAPPE : le disque se déporte à plat, du côté touché, sans tourner
-  if (pouvoirEst('nappe')) {
-    _right.crossVectors(state.forward, _up).normalize();
-    state.pos.addScaledVector(_right, state.pouvoir.side * NAPPE_V * dt);
-  }
   const yAvant = state.pos.y;
-  state.pos.addScaledVector(state.forward, state.speed * dt);
+  if (state.glisse) {
+    // LA GLISSADE : à plat, à la hauteur tenue, à la vitesse du manche
+    const G = state.glisse; G.t += dt;
+    state.pos.x += G.vx * dt; state.pos.z += G.vz * dt; state.pos.y = G.y;
+    state.speed = Math.hypot(G.vx, G.vz);
+    if (state.assist || state.pose || state.takeoff) basculeGlissade();   // le tube et le sol reprennent la main
+  } else {
+    state.pos.addScaledVector(state.forward, state.speed * dt);
+  }
 
   // LES ROUES TOUCHENT. C'est le seul déclencheur de l'atterrissage : plus de
   // conditions à réunir, plus de séquence qui démarre toute seule. On arrive
@@ -16275,6 +16427,7 @@ function simulate(dt) {
   if (!coop.actif || coop.hote) updateEnemies(dt);
   updateBullets(dt);
   updateLock(dt);
+  majVerrous(dt);
   coopTirsAmis(dt);
   updateEscouade(dt);
   updateShots(dt);
@@ -16389,9 +16542,10 @@ function cibleSuiveur(A) {
 // le suiveur que vise une balle adverse, ou rien : un tiers de chance chacun
 function suiveurVise() {
   if (!state.escouade) return null;
-  for (const A of state.escouade)
-    if (A && !A.mort && A.mesh.visible && Math.random() < ESCOUADE_PART) return A;
-  return null;
+  const L = state.escouade.filter(A => A && !A.mort && A.mesh.visible);
+  if (!L.length) return null;
+  // une part égale pour chacun, nous compris
+  return Math.random() < L.length / (L.length + 1) ? L[Math.floor(Math.random() * L.length)] : null;
 }
 // un suiveur touché, et ce qu'il en reste
 // LE SUIVEUR CONTRE LES MURS. Point contre boîtes : s'il est dedans, on le
@@ -16431,6 +16585,8 @@ function heurteSuiveur(A) {
 }
 function blesseSuiveur(A, n) {
   A.vie -= n;
+  // TOUCHÉ, IL ESQUIVE PARFOIS : un tonneau à lui, de son côté, sans nous
+  if (A.vie > 0 && !(A.esquive > 0) && Math.random() < 0.12) { A.esquive = 0.9; A.esquiveCote = Math.random() < 0.5 ? -1 : 1; }
   if (A.vie > 0) return;
   spawnBurst(A.pos, 8); SFX.detruit(A.pos);
   A.mort = true; A.retourT = ESCOUADE_RETOUR; A.mesh.visible = false;
@@ -16453,14 +16609,29 @@ function blesseSuiveur(A, n) {
 // mètres de côté, six au-dessus, deux derrière — cinquante et un pour cent,
 // aux deux coins du haut. C'est le triangle vu de la pointe.
 const ESCOUADE_PLACES = [{ x: 3, y: 6, z: 2 }, { x: -3, y: 6, z: 2 }];
+// LE SECOND NIVEAU PROLONGE LE V. Derrière le suiveur de droite, ses deux
+// ailiers s'écartent encore à droite ; derrière celui de gauche, à gauche.
+// Sept appareils, et sept places distinctes : (0,0), (±3,6), (±6,12), (±9,18).
+const ESCOUADE_PLACES2 = [{ x: 3, y: 6, z: 2 }, { x: 6, y: 12, z: 4 }];
+function placeSuiveur(i) {
+  if (i < 2) return ESCOUADE_PLACES[i];
+  const P = ESCOUADE_PLACES2[i % 2];
+  return { x: i < 4 ? P.x : -P.x, y: P.y, z: P.z };
+}
 function sauveEscouade() {
-  try { localStorage.setItem('fod_escouade', JSON.stringify(escouade)); } catch (e) {}
+  try { localStorage.setItem('fod_escouade', JSON.stringify(escouade)); localStorage.setItem('fod_escouade2', JSON.stringify(escouade2)); } catch (e) {}
 }
 // les appareils qu'on veut voir voler à côté de nous, place par place
+// SIX PLACES : les deux nôtres, puis les deux de chacun d'eux. Un essaim en
+// chef a toujours ses deux cellules ; un chef absent n'a personne derrière lui.
 function escouadeVoulue() {
-  if (avion().id === 'essaim') return ['essaim', 'essaim'];   // les deux autres cellules
-  const v = escouade.slice();
-  if (carnet.ailier && v[0] === 'aucun' && v[1] === 'aucun') v[0] = 'bimoteur';
+  const v = avion().id === 'essaim' ? ['essaim', 'essaim'] : escouade.slice();
+  if (avion().id !== 'essaim' && carnet.ailier && v[0] === 'aucun' && v[1] === 'aucun') v[0] = 'bimoteur';
+  for (let i = 0; i < 2; i++) {
+    const chef = v[i];
+    const subs = chef === 'aucun' ? ['aucun', 'aucun'] : chef === 'essaim' ? ['essaim', 'essaim'] : escouade2[i].slice();
+    v.push(subs[0], subs[1]);
+  }
   return v;
 }
 function noteTrou(cle) {
@@ -16470,14 +16641,28 @@ function noteTrou(cle) {
     announce(t('ailier')); SFX.bouclierOn();
   }
 }
+// ---------------------------------------------------------------------------
+// L'ESCOUADE, EN ARBRE ET LIBRE. Six places : nos deux suiveurs, puis les deux
+// de chacun. Un suiveur de second rang suit son chef comme le chef nous suit,
+// aux mêmes places. Personne ne copie nos figures : quand on part en tonneau,
+// en Immelmann ou en vrille, ils gardent leur cap et leur assiette à plat, et
+// nous rejoignent après. Touché, l'un d'eux fait parfois un tonneau à lui.
+// On entend leurs moteurs, chacun avec son timbre, et leurs tirs.
+// ---------------------------------------------------------------------------
+const _qLevel = new THREE.Quaternion(), _eulLevel = new THREE.Euler(), _baseFwd = new THREE.Vector3(), _qRoll = new THREE.Quaternion();
+function freqMoteurDe(T, v) {
+  const kv = v <= SPEED_MAX ? Math.max(0, v) / SPEED_MAX : 1 + 0.35 * Math.log2(v / SPEED_MAX);
+  return T.base * 0.51 + kv * T.base * 0.63;
+}
 function updateEscouade(dt) {
-  if (!state.escouade) state.escouade = [null, null];
+  if (!state.escouade || state.escouade.length !== 6) state.escouade = [null, null, null, null, null, null];
   const voulue = escouadeVoulue();
   const enVol = state.running && !state.takeoff && !state.pose && !state.roulage && !coop.actif;
-  for (let i = 0; i < 2; i++) {
+  const figure = state.spinT > 0 || !!state.fig || !!state.vrille;
+  const sons = [];
+  for (let i = 0; i < 6; i++) {
     let A = state.escouade[i];
     const id = voulue[i];
-    // la place change d'appareil : l'ancien mesh s'efface, le nouveau naît
     if (A && A.id !== id) { A.mesh.visible = false; scene.remove(A.mesh); A = state.escouade[i] = null; }
     if (id === 'aucun' || !enVol) { if (A) A.mesh.visible = false; continue; }
     if (!A) {
@@ -16493,28 +16678,40 @@ function updateEscouade(dt) {
       A.quat.copy(state.quat);
     }
     A.mesh.visible = true;
-    const P = ESCOUADE_PLACES[i];
+    // LE CHEF : nous pour les deux premiers, l'un des deux premiers pour les
+    // autres — et nous encore si ce chef manque.
+    const chef = i < 2 ? null : state.escouade[i < 4 ? 0 : 1];
+    const chefLa = chef && !chef.mort && chef.mesh.visible;
+    let basePos = state.pos, baseYaw = state.yaw, baseFwd = state.forward;
+    if (chefLa) {
+      basePos = chef.pos;
+      _baseFwd.set(0, 0, -1).applyQuaternion(chef.quat); baseFwd = _baseFwd;
+      baseYaw = Math.atan2(-baseFwd.x, -baseFwd.z);
+    }
+    _eulLevel.set(0, baseYaw, 0); _qLevel.setFromEuler(_eulLevel);
+    const fwdX = -Math.sin(baseYaw), fwdZ = -Math.cos(baseYaw);
+    _right.set(Math.cos(baseYaw), 0, -Math.sin(baseYaw));      // la droite du cap, à plat
+    const P = placeSuiveur(i);
     let px = P.x, py = P.y, pz = P.z;
-    // DANS LE TUNNEL, EN FILE. Le boyau fait soixante-deux mètres de large :
-    // ils se mettent derrière nous, l'un après l'autre, et ressortent en
-    // formation.
-    if (dansTunnel()) { px = 0; py = 0; pz = ESCOUADE_FILE * (i + 1); }
-    // EN SURPLACE, ILS TOURNENT. Eux ne savent pas faire du surplace : ils
-    // décrivent un cercle autour de nous en attendant qu'on reparte — et si
-    // un adversaire passe à portée, ils vont le chercher, sans s'éloigner.
+    if (i < 2 && dansTunnel()) { px = 0; py = 0; pz = ESCOUADE_FILE * (i + 1); }
     let chasse = null;
-    if (pouvoirEst('surplace')) {
+    if (i < 2 && pouvoirEst('surplace')) {
       const a = state.dureeVol * ESCOUADE_RONDE_W + i * Math.PI;
       px = Math.cos(a) * ESCOUADE_RONDE; pz = Math.sin(a) * ESCOUADE_RONDE; py = 6;
       let dB = ESCOUADE_CHASSE;
       for (const e of state.enemies) { if (e.kind.sol || e.hp <= 0) continue; const d = e.pos.distanceTo(state.pos); if (d < dB) { dB = d; chasse = e; } }
     }
-    _right.crossVectors(state.forward, _up).normalize();
     if (chasse) _v.copy(chasse.pos).addScaledVector(_seg.subVectors(state.pos, chasse.pos).normalize(), 45);
-    else { _v.copy(state.pos).addScaledVector(_right, px).addScaledVector(state.forward, -pz); _v.y += py; }
+    else { _v.set(basePos.x + _right.x * px + fwdX * (-pz), basePos.y + py, basePos.z + _right.z * px + fwdZ * (-pz)); }
     const loin = A.pos.distanceTo(_v);
     if (loin > 150 || chasse) A.off = null;
-    if (loin > 150) {
+    if (i < 2 && figure && loin <= 150) {
+      // NOUS FAISONS UNE FIGURE, PAS EUX. Ils tiennent leur cap et leur vitesse,
+      // à plat, et nous rejoignent après.
+      A.off = null;
+      A.pos.x += fwdX * state.speed * dt; A.pos.z += fwdZ * state.speed * dt;
+      A.quat.slerp(_qLevel, 1 - Math.exp(-4 * dt));
+    } else if (loin > 150) {
       // EN ROUTE : il vole vers sa place à sa vitesse, le nez dessus
       const vit = Math.max(ESCOUADE_VOL, state.speed * ESCOUADE_RATTRAPE);
       _seg.subVectors(_v, A.pos).normalize();
@@ -16523,30 +16720,35 @@ function updateEscouade(dt) {
       A.quat.slerp(_q, 1 - Math.exp(-4 * dt));
     } else if (chasse) {
       A.pos.lerp(_v, 1 - Math.exp(-3.2 * dt));
-      A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
+      A.quat.slerp(_qLevel, 1 - Math.exp(-4 * dt));
     } else {
-      // EN PLACE, ON SUIT DANS NOTRE REPÈRE. Le glissé se faisait en
-      // coordonnées du monde : à cent vingt mètres par seconde, un retard de
-      // trois dixièmes, c'est trente mètres derrière la place — derrière la
-      // caméra. On glisse donc l'ÉCART à l'avion, pas la position : la place
-      // avance avec nous, le retard ne porte que sur le changement de place.
-      // L'écart vit dans A.off, dans notre repère : il ne connaît pas notre
-      // vitesse. Recalculer l'écart depuis la position monde à chaque image
-      // revenait au même retard — mesuré, trente-quatre mètres.
+      // EN PLACE : l'écart vit dans A.off, dans le repère du chef
       if (!A.off) {
-        _seg.subVectors(A.pos, state.pos);
-        A.off = new THREE.Vector3(_seg.dot(_right), _seg.y, _seg.dot(state.forward));
+        _seg.subVectors(A.pos, basePos);
+        A.off = new THREE.Vector3(_seg.dot(_right), _seg.y, _seg.x * fwdX + _seg.z * fwdZ);
       }
       const k = 1 - Math.exp(-3.2 * dt);
       A.off.x += (px - A.off.x) * k; A.off.y += (py - A.off.y) * k; A.off.z += (-pz - A.off.z) * k;
-      A.pos.copy(state.pos).addScaledVector(_right, A.off.x).addScaledVector(state.forward, A.off.z);
-      A.pos.y += A.off.y;
-      A.quat.slerp(state.quat, 1 - Math.exp(-4 * dt));
+      A.pos.set(basePos.x + _right.x * A.off.x + fwdX * A.off.z, basePos.y + A.off.y, basePos.z + _right.z * A.off.x + fwdZ * A.off.z);
+      A.quat.slerp(_qLevel, 1 - Math.exp(-4 * dt));
     }
-    // UN MUR, C'EST DES DÉGÂTS. Un suiveur qui traverse un bâtiment ou la
-    // roche du tunnel y laisse de la vie, et il en est repoussé.
+    // UN MUR, C'EST DES DÉGÂTS.
     if (heurteSuiveur(A)) blesseSuiveur(A, ESCOUADE_MUR * dt);
     A.mesh.position.copy(A.pos); A.mesh.quaternion.copy(A.quat);
+    // SON TONNEAU À LUI, quand il vient d'être touché
+    if (A.esquive > 0) {
+      A.esquive -= dt;
+      const u = 1 - Math.max(0, A.esquive) / 0.9;
+      _qRoll.setFromAxisAngle(_baseFwd.set(0, 0, -1), A.esquiveCote * Math.PI * 2 * u);
+      A.mesh.quaternion.multiply(_qRoll);
+      A.mesh.position.addScaledVector(_right, A.esquiveCote * Math.sin(Math.PI * u) * 9);
+    }
+    // ON L'ENTEND : son moteur, avec le timbre de son modèle
+    {
+      const a = AVIONS.find(x => x.id === A.id);
+      const T = TIMBRES[(a && a.timbre) || 'clair'] || TIMBRES.clair;
+      sons.push({ timbre: (a && a.timbre) || 'clair', d: A.pos.distanceTo(camera.position), f: freqMoteurDe(T, state.speed) });
+    }
     // il tire sur notre cible verrouillée — ou sur la sienne quand nous n'en
     // avons pas —, à découvert seulement, et pas en route
     const e = loin > 150 ? null : cibleSuiveur(A);
@@ -16557,10 +16759,12 @@ function updateEscouade(dt) {
         A.gunT = 0.16;
         const d = new THREE.Vector3().subVectors(e.pos, A.pos).normalize();
         state.shots.push({ pos: A.pos.clone().addScaledVector(d, 6), dir: d, t: 0 });
+        SFX.tirAmi(A.pos);
       }
       if (e.hp <= 0) abattre(e);
     }
   }
+  SFX.amis(state.paused ? [] : sons);
 }
 // ---------------------------------------------------------------------------
 // ROULER, S'ARRÊTER DEVANT LA BAIE, ET CHOISIR SON APPAREIL AU NEZ.
@@ -18407,7 +18611,16 @@ function drawHud() {
     const onScreen = p.front && p.x > 0 && p.x < w && p.y > 0 && p.y < h;
     if (!onScreen) continue;
     const size = THREE.MathUtils.clamp(2200 / d, 12, 60);
-    const locked = state.lock === e;
+    const verrou = !!(state.verrous && state.verrous.includes(e));
+    const locked = state.lock === e || verrou;
+    // LE TRAIT DU VERROU : du drone à chacun de ses verrouillés
+    if (verrou) {
+      hctx.save();
+      hctx.strokeStyle = 'rgba(190,255,220,0.42)';
+      hctx.lineWidth = 1;
+      hctx.beginPath(); hctx.moveTo(state.screenX, state.screenY); hctx.lineTo(p.x, p.y); hctx.stroke();
+      hctx.restore();
+    }
     // Un adversaire qui vous cherche dans le soleil bat lentement : on voit
     // lequel ne vous voit pas, donc lequel on peut aborder sans risque.
     const aveugle = (e.gene || 0) > 0.03;
@@ -18614,14 +18827,23 @@ function drawHud() {
       const altSure = hauteurSol(state.pos.x, state.pos.z) + FAUCHEUR_NAPPE;
       const u = THREE.MathUtils.clamp((altSure - FLOOR) / (CEILING - FLOOR), 0, 1);
       const yy = ty1 - (ty1 - ty0) * u;
-      const a = Math.min(1, state.nappeVu) * (0.5 + 0.5 * Math.abs(Math.sin(performance.now() / 260)));
-      hctx.strokeStyle = 'rgba(255,214,102,' + a.toFixed(2) + ')';
+      // UN TRAIT ORANGE, ET LE DÉCOMPTE À CÔTÉ : trois secondes au-dessus, et
+      // il se détache ; en dessous, le compteur repart à zéro.
+      const a = Math.min(1, state.nappeVu);
+      hctx.strokeStyle = 'rgba(255,160,64,' + a.toFixed(2) + ')';
       hctx.lineWidth = 2;
       hctx.beginPath();
-      hctx.moveTo(tx - 9, yy); hctx.lineTo(tx + 3, yy);
-      hctx.moveTo(tx - 9, yy); hctx.lineTo(tx - 5, yy + 4);   // la pointe vers le bas : il faut descendre
+      hctx.moveTo(tx - 12, yy); hctx.lineTo(tx + 5, yy);
       hctx.stroke();
       hctx.lineWidth = 1.5;
+      if (state.nappeT > 0 && !state.faucheur) {
+        hctx.fillStyle = 'rgba(255,160,64,' + a.toFixed(2) + ')';
+        hctx.font = '11px "IBM Plex Mono", ui-monospace, monospace';
+        hctx.textAlign = 'right';
+        hctx.fillText(Math.max(0, FAUCHEUR_VEILLE - state.nappeT).toFixed(1), tx - 15, yy);
+        hctx.textAlign = 'left';
+        hctx.font = '9px "IBM Plex Mono", ui-monospace, monospace';
+      }
     }
     hctx.restore();
     // un simple trait qui glisse le long de la bande : le triangle d'avant se
@@ -19234,7 +19456,7 @@ const T = {
     disqueCasseSous: 'il ne se jouait qu’une fois  ·  elle l’avait écrit',
     faucheurRompt: 'LE FAUCHEUR ROMPT',
     faucheurRomptSous: 'il ne passe pas la chaîne  ·  ici, il n’y a plus de guerre',
-    courant: 'MAÎTRISE DES COURANTS', courantSous: 'L’Ancien se couche dans l’air qui passe, et l’air le porte', surplace: 'SURPLACE', salve: 'SALVE', nappe: 'NAPPE', suiveurTombe: 'SUIVEUR ABATTU  ·  IL REVIENT',
+    courant: 'MAÎTRISE DES COURANTS', courantSous: 'L’Ancien se couche dans l’air qui passe, et l’air le porte', surplace: 'SURPLACE', salve: 'SALVE', glissade: 'GLISSADE', glissadeSous: 'Le disque se stabilise : le manche le déplace à plat. Deux appuis, et il repart', verrou: 'VERROUILLÉ', roqLourdSous: 'deux roquettes par seconde, elles ne ratent pas', suiveurTombe: 'SUIVEUR ABATTU  ·  IL REVIENT',
     enJeep: 'AU VOLANT  ·  EN HAUT ON ACCÉLÈRE, EN BAS ON FREINE',
     deJeep: 'À PIED',
     act_descendre: 'DESCENDRE',
@@ -19385,7 +19607,7 @@ const T = {
     disqueCasseSous: 'it only played once  ·  she had written as much',
     faucheurRompt: 'THE REAPER BREAKS OFF',
     faucheurRomptSous: 'it does not cross the range  ·  out here there is no war',
-    courant: 'MASTERY OF THE CURRENTS', courantSous: 'The Old One lies down in the passing air, and the air carries it', surplace: 'HOVER', salve: 'VOLLEY', nappe: 'SLIP', suiveurTombe: 'WINGMAN DOWN  ·  HE WILL BE BACK',
+    courant: 'MASTERY OF THE CURRENTS', courantSous: 'The Old One lies down in the passing air, and the air carries it', surplace: 'HOVER', salve: 'VOLLEY', glissade: 'GLIDE', glissadeSous: 'The disc steadies: the stick moves it flat. Two taps, and it flies again', verrou: 'LOCKED', roqLourdSous: 'two rockets a second, and they do not miss', suiveurTombe: 'WINGMAN DOWN  ·  HE WILL BE BACK',
     enJeep: 'AT THE WHEEL  ·  UP TO ACCELERATE, DOWN TO BRAKE',
     deJeep: 'ON FOOT',
     act_descendre: 'GET OUT',
@@ -19962,7 +20184,7 @@ function majMenu() {
       const nV = videosAvion(a), vuV = Math.min(videosVues(a), nV);
       const paie = (!ouvert && nV > 0) ? '  ·  ' + (fr ? 'VIDÉO ' : 'VIDEO ') + vuV + '/' + nV : '';
       const CAP = { coque: ['COQUE', 'HULL'], salve: ['SALVE', 'VOLLEY'], surplace: ['SURPLACE', 'HOVER'],
-                    courant: ['COURANT', 'CURRENT'], nappe: ['NAPPE', 'SLIP'],
+                    courant: ['COURANT', 'CURRENT'], glissade: ['GLISSADE', 'GLIDE'],
                     soute: ['SE RÉPARE EN VOL', 'SELF-REPAIRS'], essaim: ['TROIS CELLULES', 'THREE CELLS'] }[a.pouvoir];
       b.textContent = (fr ? a.nom : a.en) + (ouvert ? '' : cle + paie)
         + (CAP ? '  ·  ' + CAP[fr ? 0 : 1] : '')
@@ -19983,24 +20205,33 @@ function majMenu() {
   // L'ESCOUADE : deux rangs, « aucun » puis chaque appareil
   // ET L'ESSAIM N'A PAS LE CHOIX : ses deux suiveurs sont ses deux autres
   // cellules. Les rangs le disent au lieu de proposer des boutons sans effet.
-  for (let i = 0; i < 2; i++) {
-    const c = document.getElementById('menuSuiveur' + (i + 1));
-    c.innerHTML = '';
-    if (avion().id === 'essaim') {
-      const b = document.createElement('button');
-      b.className = 'actif';
-      b.textContent = fr ? 'CELLULE DE L’ESSAIM  ·  IMPOSÉE' : 'SWARM CELL  ·  FIXED';
-      b.onclick = e => e.stopPropagation();
-      c.appendChild(b);
-      continue;
-    }
+  // L'ARBRE : sous chaque suiveur, ses deux suiveurs à lui — deux niveaux,
+  // sept appareils au plus. Les rangs de second niveau ne s'affichent que si
+  // le chef existe ; un essaim en chef impose ses cellules.
+  const impose = (c, fr) => { const b = document.createElement('button'); b.className = 'actif'; b.textContent = fr ? 'CELLULE DE L’ESSAIM  ·  IMPOSÉE' : 'SWARM CELL  ·  FIXED'; b.onclick = e => e.stopPropagation(); c.appendChild(b); };
+  const rang = (c, courant, applique) => {
     const choix = [{ id: 'aucun', nom: 'AUCUN', en: 'NONE' }, ...AVIONS];
     for (const a of choix) {
       const b = document.createElement('button');
-      b.className = escouade[i] === a.id ? 'actif' : '';
+      b.className = courant === a.id ? 'actif' : '';
       b.textContent = fr ? a.nom : a.en;
-      b.onclick = e => { e.stopPropagation(); escouade[i] = a.id; sauveEscouade(); majMenu(); };
+      b.onclick = e => { e.stopPropagation(); applique(a.id); sauveEscouade(); majMenu(); };
       c.appendChild(b);
+    }
+  };
+  for (let i = 0; i < 2; i++) {
+    const c = document.getElementById('menuSuiveur' + (i + 1));
+    c.innerHTML = '';
+    const chef = avion().id === 'essaim' ? 'essaim' : escouade[i];
+    if (avion().id === 'essaim') impose(c, fr); else rang(c, escouade[i], id => { escouade[i] = id; });
+    for (const [k, lettre] of [[0, 'a'], [1, 'b']]) {
+      const c2 = document.getElementById('menuSuiveur' + (i + 1) + lettre);
+      const titre = document.getElementById('menuSuiveur' + (i + 1) + lettre + 'Titre');
+      c2.innerHTML = '';
+      const cache = chef === 'aucun';
+      c2.hidden = cache; titre.hidden = cache;
+      if (cache) continue;
+      if (chef === 'essaim') impose(c2, fr); else rang(c2, escouade2[i][k], id => { escouade2[i][k] = id; });
     }
   }
   puces('menuTeintes', TEINTES, 'teinte:', teinteChoisie, id => { teinteChoisie = id; appliqueTeinte(); });
@@ -20123,6 +20354,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.92', fr: 'Le Faucheur piloté a la GLISSADE : double appui, il se stabilise à sa hauteur et le manche le déplace à plat, 60 m/s à fond, comme une Jeep en l’air ; relâché, il continue sur son erre une seconde ; double appui encore, il reprend sa vitesse et l’altitude redevient la tienne. La nappe est partie.', en: 'The piloted Reaper has the SLIDE: double tap, it holds its height and the stick moves it flat, 60 m/s at full stick, like a Jeep in the air; released, it coasts for a second; double tap again, it takes its speed back and altitude is yours again. The sheet is gone.' },
+  { v: '1.92', fr: 'Le drone lourd verrouille jusqu’à trois adversaires, un trait entre lui et chacun, dans un filet trois fois plus large que le magnétisme (5°). Verrouillé, chacun reçoit à tour de rôle deux roquettes par seconde qui ne ratent pas — sauf une figure à l’arrivée —, et deux fois et demie plus pendant la cadence de combat. De près (350 m), une figure libère, avec 2,5 s de répit ; de loin, rien ne libère jusqu’à 1600 m. Il ne décroche jamais, ne part jamais en vrille, et ronronne : une fondamentale à 40 Hz, sans battement.', en: 'The heavy drone locks up to three foes, a line from it to each, in a net three times wider than magnetism (5°). Locked, each takes in turn two rockets per second that never miss — except a figure on arrival — and two and a half times more during combat rate. Up close (350 m) a figure frees, with a 2.5 s respite; far away nothing frees until 1600 m. It never stalls, never spins, and purrs: a 40 Hz fundamental, no beating.' },
+  { v: '1.92', fr: 'L’escouade en arbre : chacun des deux suiveurs peut avoir deux ailiers derrière lui, sept appareils en V — (±3, 6), (±6, 12), (±9, 18) mètres. Le menu suit l’arbre, sous-rangs cachés quand le chef manque et imposés par l’essaim. On entend le moteur de chacun au timbre de son modèle, et leurs tirs. Pendant nos figures ils restent à plat sur leur cap ; touchés, ils font leur tonneau à eux.', en: 'The squadron as a tree: each of the two wingmen can have two wingmen of their own behind, seven aircraft in a V — (±3, 6), (±6, 12), (±9, 18) metres. The menu follows the tree, sub-rows hidden when the leader is missing and imposed by the swarm. You hear each engine in its model’s timbre, and their fire. During our figures they stay level on their heading; hit, they roll on their own.' },
+  { v: '1.92', fr: 'Sur l’altimètre, quand le Faucheur nous surveille : un simple trait orange à sa hauteur de détection, et un décompte de trois secondes à côté tant qu’on est au-dessus ; à zéro il se détache, en dessous le compteur repart. Le choix d’appareil quitte le menu : il se fait au nez, dans le hangar. Plus de mot sur les adversaires qui perdent la main au portail.', en: 'On the altimeter, while the Reaper watches: a plain orange line at its detection height, and a three-second countdown beside it while you are above; at zero it comes loose, below the counter resets. Aircraft choice leaves the menu: it is made with the nose, in the hangar. No more word about foes losing their aim at a portal.' },
   { v: '1.91', fr: 'La lune d’après ta planche : penchée de 23 degrés, un croissant de 0,39 à la première vague et un fil de 0,05 à la dernière, un contour de quatre pixels à 0,35 — un vrai ruban, WebGL ne sait pas épaissir un trait —, une lumière cendrée à peine là.', en: 'The moon from your bench: tilted 23 degrees, a crescent of 0.39 at the first wave and a thread of 0.05 at the last, a four-pixel outline at 0.35 — a real ribbon, WebGL cannot thicken a line — and a faint earthshine.' },
   { v: '1.91', fr: 'Toutes les planches sur une page, planches.html. Et le cache ne les remplace plus par le jeu quand le réseau traîne : elles passent toujours par le réseau, comme les anciennes.', en: 'All the benches on one page, planches.html. And the cache no longer swaps them for the game when the network is slow: they always go through the network, like the older ones.' },
   { v: '1.90', fr: 'Les bonshommes du tunnel disent tes phrases : vingt retenues, tirées au sort par scène à chaque partie, et cinq qui vont partout.', en: 'The tunnel figures say your lines: twenty kept, drawn per scene each game, and five that go anywhere.' },
@@ -21204,6 +21439,9 @@ window.addEventListener('pointerdown', e => {
       // renversement. Il est passé devant — pour lui, tout double appui tenu
       // cherche de l'air, et rien d'autre.
       ouvreCourant();
+    } else if (avion().pouvoir === 'glissade') {
+      // LE FAUCHEUR : deux appuis le stabilisent, deux autres le relancent
+      basculeGlissade();
     } else if (ouvrePouvoir(side)) {
       // le pouvoir est pris ; la figure attend de savoir si le doigt reste
       state.figEnAttente = { side, dy, t: now };

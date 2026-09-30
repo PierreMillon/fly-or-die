@@ -64,7 +64,9 @@ for (const id of APPAREILS) {
   dit('le décollage est fini', vol.decollage === false, vol.decollage);
   dit('on est en l’air', vol.alt > 40, vol.alt + ' m');
   dit('une vague est là', vol.wave >= 1, 'vague ' + vol.wave);
-  dit('les deux suiveurs volent', vol.suiveurs === 2, vol.suiveurs);
+  // l'arbre de v1.92 : derrière un essaim, l'essaim s'impose — sept cellules
+  const suiveursAttendus = id === 'essaim' ? 6 : 2;
+  dit('les suiveurs volent (' + suiveursAttendus + ')', vol.suiveurs === suiveursAttendus, vol.suiveurs);
 
   // LE POUVOIR TENU : double appui à hauteur de l'avion, et le doigt reste.
   // La vague est retirée d'abord : sous rendu logiciel, une image peut durer
@@ -91,11 +93,11 @@ for (const id of APPAREILS) {
   await page.waitForTimeout(80);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }], timestamp: t0 + 0.08 });
   await page.waitForTimeout(2000);
-  const tenu = await page.evaluate(() => ({ pouvoir: window.__fod.pouvoir && window.__fod.pouvoir.id,
+  const tenu = await page.evaluate(() => ({ pouvoir: window.__fod.pouvoir ? window.__fod.pouvoir.id : (window.__fod.glisse ? 'glissade' : null),
                                             courant: !!window.__fod.courant, v: Math.round(window.__fod.speed) }));
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await page.waitForTimeout(500);
-  const attendu = { pionnier: 'surplace', intercepteur: 'salve', faucheur: 'nappe' }[id];
+  const attendu = { pionnier: 'surplace', intercepteur: 'salve', faucheur: 'glissade' }[id];
   if (attendu) dit('le pouvoir ' + attendu + ' est tenu', tenu.pouvoir === attendu, tenu.pouvoir);
   if (id === 'ancien') dit('le courant est tenu', tenu.courant === true, tenu.courant);
 
@@ -110,6 +112,7 @@ for (const id of APPAREILS) {
       const s = window.__fod;
       s.enemies.forEach(e => e.mesh.parent && e.mesh.parent.remove(e.mesh)); s.enemies.length = 0;
       s.waveTimer = 1e9; s.fig = null; s.spinT = 0; s.vrille = null; s.roulage = null; s.pose = null;
+      s.glisse = null;   // la glissade du Faucheur est un interrupteur : on en sort avant de se présenter
       s.pos.set(0, 40, sens < 0 ? 700 : -1300); s.yaw = sens < 0 ? 0 : Math.PI;
       s.pitch = -0.05; s.roll = 0; s.speed = 80;
     }, sens);
