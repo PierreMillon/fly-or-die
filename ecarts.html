@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Les écarts — Fly or Die</title>
+<style>
+  :root { --bg:#04070a; --line:#46ffa0; --text:#8ffcc4; --dim:#1d4a36; --pale:#0f2a1d; --ami:#7fd8ff; --ami2:#c9a3ff; --orange:#ffb070; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; line-height:1.5; }
+  #vue { position:fixed; left:50%; transform:translateX(-50%); display:block; border:1px solid var(--dim); border-radius:4px; }
+  #cadre { position:fixed; left:0; right:0; top:0; bottom:0; z-index:-1; }
+  #plan { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:10px; width:120px; height:150px;
+    border:1px solid var(--dim); border-radius:4px; background:rgba(4,7,10,.75); }
+  #titre { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:140px; right:12px; font-size:11px; letter-spacing:.2em; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #titre b { color:var(--text); font-weight:500; letter-spacing:.24em; }
+  #chiffres { position:fixed; top:calc(32px + env(safe-area-inset-top)); left:140px; right:12px; font-size:11px; color:var(--dim); line-height:1.45; }
+  #chiffres b { color:var(--line); font-weight:500; font-variant-numeric:tabular-nums; }
+  #chiffres .mal { color:var(--orange); }
+  #bas { position:fixed; left:0; right:0; bottom:0; padding:10px 14px calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, rgba(4,7,10,.96) 70%, rgba(4,7,10,0)); }
+  .reglage { margin:0 0 6px; }
+  .etiquette { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .etiquette span:first-child { font-size:11px; letter-spacing:.12em; }
+  .valeur { color:var(--line); font-variant-numeric:tabular-nums; font-size:12px; }
+  input[type=range] { width:100%; margin:0; -webkit-appearance:none; appearance:none; background:transparent; height:30px; }
+  input[type=range]::-webkit-slider-runnable-track { height:1px; background:var(--dim); }
+  input[type=range]::-moz-range-track { height:1px; background:var(--dim); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; margin-top:-10.5px; border-radius:50%; background:var(--bg); border:1px solid var(--line); }
+  input[type=range]::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:var(--bg); border:1px solid var(--line); }
+  .rangee { display:flex; gap:8px; margin-top:4px; }
+  button { flex:1 1 auto; background:transparent; border:1px solid var(--dim); border-radius:4px; color:var(--text);
+    font-family:inherit; font-size:11px; letter-spacing:.16em; padding:10px 6px; }
+  button.actif { border-color:var(--line); color:var(--line); }
+  #etat { font-size:11px; color:var(--dim); min-height:1.3em; margin:4px 0 0; }
+  #sortie { position:fixed; left:12px; right:12px; top:50%; transform:translateY(-50%); max-height:60%; overflow:auto;
+    border:1px solid var(--line); border-radius:4px; padding:12px; background:rgba(4,7,10,.96); color:var(--line);
+    font-size:11px; line-height:1.6; white-space:pre; }
+  #sortie[hidden] { display:none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="vue"></canvas>
+<canvas id="plan" width="240" height="300"></canvas>
+<div id="titre"><b>LES ÉCARTS</b> · vue de ta place</div>
+<div id="chiffres"></div>
+<pre id="sortie" hidden></pre>
+<div id="bas">
+  <div class="reglage">
+    <div class="etiquette"><span>PREMIER RANG · ÉCART À L’AXE</span><span class="valeur" id="vE1"></span></div>
+    <input type="range" id="e1" min="2" max="30" step="0.5">
+  </div>
+  <div class="reglage">
+    <div class="etiquette"><span>SECOND RANG · ÉCART AU CENTRE</span><span class="valeur" id="vE2"></span></div>
+    <input type="range" id="e2" min="2" max="60" step="0.5">
+  </div>
+  <div class="rangee">
+    <button id="plus">PLUS : HAUTEUR, RECUL</button>
+    <button id="copier">COPIER</button>
+    <button id="remise">REMETTRE</button>
+  </div>
+  <div id="plusZone" hidden>
+    <div class="reglage" style="margin-top:6px">
+      <div class="etiquette"><span>PREMIER RANG · HAUTEUR</span><span class="valeur" id="vH1"></span></div>
+      <input type="range" id="h1" min="-12" max="12" step="0.5">
+    </div>
+    <div class="reglage">
+      <div class="etiquette"><span>CHAQUE RANG SUIVANT · HAUTEUR EN PLUS</span><span class="valeur" id="vH2"></span></div>
+      <input type="range" id="h2" min="-12" max="12" step="0.5">
+    </div>
+    <div class="reglage">
+      <div class="etiquette"><span>CHAQUE RANG · RECUL</span><span class="valeur" id="vZ"></span></div>
+      <input type="range" id="z" min="1" max="30" step="0.5">
+    </div>
+  </div>
+  <p id="etat"></p>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { PLANE_VERTS, PLANE_TRIS, PLANE_SCALE } from './avion-forme.js';
+
+// ---------------------------------------------------------------------------
+// L'AXE, ET LES ÉCARTS. La formation est en échelon, comme ta table : D suit
+// nous, D·a suit D, D·b suit D·a ; et G, G·a, G·b en miroir. Tout se règle
+// par rapport à l'axe nez-queue : le premier rang est à E1 de l'axe, le
+// second à E2, le troisième prolonge (2·E2 − E1). Chaque rang recule de Z et
+// change de hauteur de H2 par rapport au précédent ; le premier est à H1.
+// Les distances entre appareils en découlent, et s'affichent.
+// ---------------------------------------------------------------------------
+const ENVERGURE = 12, SEP = 8;
+const CAM_OFFSET = { y: 6.8 * ENVERGURE / 14.4, z: 16.0 * ENVERGURE / 14.4 };
+const CAM_DECLIN = -0.215;
+const ASPECT_REPERE = 430 / 932, FOV_H_MAX = 100 * Math.PI / 180, FOV_V_MAX = 108 * Math.PI / 180;
+function fovPourEcran(fovDessin, aspect) {
+  const rad = Math.PI / 180, vRef = fovDessin * rad;
+  if (aspect < ASPECT_REPERE) {
+    const hRef = 2 * Math.atan(Math.tan(vRef / 2) * ASPECT_REPERE);
+    return Math.min(2 * Math.atan(Math.tan(hRef / 2) / aspect), FOV_V_MAX) / rad;
+  }
+  const h = 2 * Math.atan(Math.tan(vRef / 2) * aspect);
+  if (h <= FOV_H_MAX) return fovDessin;
+  return (2 * Math.atan(Math.tan(FOV_H_MAX / 2) / aspect)) / rad;
+}
+// ta table du 1er octobre, comme point de départ
+const DEFAUT = { e1: 5, e2: 10, h1: -3.5, h2: -4.5, z: 5 };
+const CLE = 'fod_planche_ecarts';
+const etat = { ...DEFAUT };
+try { Object.assign(etat, JSON.parse(localStorage.getItem(CLE) || '{}')); } catch (e) {}
+const sauve = () => { try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch (e) {} };
+const NOMS = ['D', 'G', 'D·a', 'D·b', 'G·a', 'G·b'];
+const CHEFS = [-1, -1, 0, 2, 1, 4];
+function arbre() {
+  const e3 = 2 * etat.e2 - etat.e1;
+  return [
+    { chef: -1, x: etat.e1, y: etat.h1, z: etat.z }, { chef: -1, x: -etat.e1, y: etat.h1, z: etat.z },
+    { chef: 0, x: etat.e2 - etat.e1, y: etat.h2, z: etat.z }, { chef: 2, x: e3 - etat.e2, y: etat.h2, z: etat.z },
+    { chef: 1, x: -(etat.e2 - etat.e1), y: etat.h2, z: etat.z }, { chef: 4, x: -(e3 - etat.e2), y: etat.h2, z: etat.z },
+  ];
+}
+function absolues(A) {
+  const abs = [];
+  A.forEach((P, i) => { const C = P.chef < 0 ? { x: 0, y: 0, z: 0 } : abs[P.chef]; abs.push({ x: C.x + P.x, y: C.y + P.y, z: C.z + P.z }); });
+  return abs;
+}
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x04070a);
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.Float32BufferAttribute(PLANE_VERTS, 3));
+geo.setIndex(PLANE_TRIS);
+const aretes = new THREE.EdgesGeometry(geo, 20);
+const matPlein = new THREE.MeshBasicMaterial({ color: 0x04070a, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: 4 });
+function avion(couleur) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(geo, matPlein));
+  g.add(new THREE.LineSegments(aretes, new THREE.LineBasicMaterial({ color: couleur })));
+  g.scale.setScalar(PLANE_SCALE); scene.add(g); return g;
+}
+const nous = avion(0x46ffa0);
+const amis = NOMS.map((_, i) => avion(i < 2 ? 0x7fd8ff : 0xc9a3ff));
+{
+  const pts = [];
+  for (let i = -20; i <= 20; i++) pts.push(-400, -300, i * 20, 400, -300, i * 20, i * 20, -300, -400, i * 20, -300, 400);
+  const sol = new THREE.BufferGeometry(); sol.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  scene.add(new THREE.LineSegments(sol, new THREE.LineBasicMaterial({ color: 0x1d4a36 })));
+}
+const vue = document.getElementById('vue');
+const rendu = new THREE.WebGLRenderer({ canvas: vue, antialias: true });
+const camera = new THREE.PerspectiveCamera(69, 1, 0.5, 5000);
+geo.computeBoundingBox(); const bb = geo.boundingBox;
+function projette(g) {
+  let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
+  for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {
+    const v = new THREE.Vector3(x, y, z).multiplyScalar(PLANE_SCALE).add(g.position).project(camera);
+    if (v.z > 1) return null;
+    minx = Math.min(minx, v.x); maxx = Math.max(maxx, v.x); miny = Math.min(miny, v.y); maxy = Math.max(maxy, v.y);
+  }
+  return { minx, maxx, miny, maxy };
+}
+const cl = (a, b) => Math.max(0, Math.min(b, 1) - Math.max(a, -1));
+const partVisible = r => r ? cl(r.minx, r.maxx) * cl(r.miny, r.maxy) / ((r.maxx - r.minx) * (r.maxy - r.miny)) : 0;
+
+const plan = document.getElementById('plan'), pc = plan.getContext('2d');
+let dernierTexte = '';
+function tout() {
+  // LA VUE GARDE LE CADRE DE L'ÉCRAN, réduite pour tenir entre l'en-tête et
+  // les curseurs : rien de ce que la caméra montre n'est caché par la page.
+  const haut = document.getElementById('plan').getBoundingClientRect().bottom + 8;
+  const bas = document.getElementById('bas').getBoundingClientRect().top - 8;
+  const w = innerWidth, h = innerHeight, ech = Math.min(1, (bas - haut) / h), dpr = Math.min(2, devicePixelRatio || 1);
+  const cw = Math.round(w * ech), chh = Math.round(h * ech);
+  vue.style.top = Math.round(haut + (bas - haut - chh) / 2) + 'px'; vue.style.width = cw + 'px'; vue.style.height = chh + 'px';
+  if (vue.width !== Math.round(cw * dpr) || vue.height !== Math.round(chh * dpr)) { rendu.setPixelRatio(dpr); rendu.setSize(cw, chh, false); }
+  camera.aspect = w / h; camera.fov = fovPourEcran(69, camera.aspect); camera.updateProjectionMatrix();
+  camera.position.set(0, CAM_OFFSET.y, 17.2);
+  camera.quaternion.setFromEuler(new THREE.Euler(CAM_DECLIN, 0, 0, 'YXZ'));
+  const A = arbre(), abs = absolues(A);
+  abs.forEach((P, i) => amis[i].position.set(P.x, P.y, P.z));
+  rendu.render(scene, camera);
+  const vis = abs.map((_, i) => Math.round(partVisible(projette(amis[i])) * 100));
+  // les distances : la plus courte entre deux suiveurs, et à nous
+  let dmin = 1e9, paire = ''; const trop = [];
+  for (let i = 0; i < 6; i++) for (let j = 0; j < i; j++) {
+    const d = Math.hypot(abs[i].x - abs[j].x, abs[i].y - abs[j].y, abs[i].z - abs[j].z);
+    if (d < dmin) { dmin = d; paire = NOMS[j] + '–' + NOMS[i]; }
+    if (d < SEP) trop.push(NOMS[j] + '–' + NOMS[i] + ' ' + d.toFixed(1));
+  }
+  const dNous = Math.min(...abs.map(P => Math.hypot(P.x, P.y, P.z)));
+  document.getElementById('chiffres').innerHTML =
+    'visible : <b>' + vis.slice(0, 2).join(' / ') + ' %</b> · second <b>' + vis.slice(2).join(' / ') + ' %</b><br>'
+    + 'entre suiveurs, au plus près : <b class="' + (dmin < SEP ? 'mal' : '') + '">' + dmin.toFixed(1) + ' m</b> (' + paire + ') · à nous : <b>' + dNous.toFixed(1) + ' m</b>'
+    + (trop.length ? '<br><span class="mal">trop près (< 8 m) : ' + trop.join(' · ') + '</span>' : '<br>personne sous 8 m : ils ne se touchent pas');
+  dernierTexte = 'const ESCOUADE_ARBRE = [\n' + A.map((P, i) => `  { chef: ${P.chef}, x: ${+P.x.toFixed(1)}, y: ${+P.y.toFixed(1)}, z: ${+P.z.toFixed(1)} },   // ${NOMS[i]} suit ${P.chef < 0 ? 'nous' : NOMS[P.chef]}`).join('\n') + '\n];\n'
+    + '// écarts à l’axe : premier rang ' + etat.e1 + ' m, second ' + etat.e2 + ' m, troisième ' + (2 * etat.e2 - etat.e1) + ' m\n'
+    + '// hauteur du premier ' + etat.h1 + ' m, chaque rang suivant ' + etat.h2 + ' m, recul par rang ' + etat.z + ' m\n'
+    + '// absolu : ' + abs.map((P, i) => NOMS[i] + ' (' + +P.x.toFixed(1) + ', ' + +P.y.toFixed(1) + ', ' + +P.z.toFixed(1) + ')').join(' · ') + '\n'
+    + '// visible : ' + vis.join(' / ') + ' % · au plus près ' + dmin.toFixed(1) + ' m (' + paire + ')' + (trop.length ? ' · TROP PRÈS : ' + trop.join(' · ') : '');
+  // le plan : l'axe, nous, eux
+  pc.clearRect(0, 0, plan.width, plan.height);
+  const r = Math.max(20, ...abs.map(P => Math.max(Math.abs(P.x), Math.abs(P.z)))) * 1.25;
+  const E = plan.width * 0.48 / r, cx = plan.width / 2, cz = plan.height * 0.32;
+  pc.strokeStyle = '#1d4a36'; pc.setLineDash([3, 3]); pc.beginPath(); pc.moveTo(cx, 0); pc.lineTo(cx, plan.height); pc.stroke(); pc.setLineDash([]);
+  const sil = (x, z, c, k) => { pc.strokeStyle = c; pc.lineWidth = 1.4; pc.beginPath(); pc.moveTo(x, z - 5 * k); pc.lineTo(x + 6 * k, z + 1 * k); pc.lineTo(x + 1.5 * k, z + 1.5 * k); pc.lineTo(x + 2.5 * k, z + 5 * k); pc.lineTo(x, z + 4 * k); pc.lineTo(x - 2.5 * k, z + 5 * k); pc.lineTo(x - 1.5 * k, z + 1.5 * k); pc.lineTo(x - 6 * k, z + 1 * k); pc.closePath(); pc.stroke(); };
+  const k = Math.max(0.6, Math.min(1.6, E * 0.9));
+  sil(cx, cz, '#46ffa0', k);
+  abs.forEach((P, i) => { const C = A[i].chef < 0 ? { x: 0, z: 0 } : abs[A[i].chef]; pc.strokeStyle = '#1d4a36'; pc.lineWidth = 1; pc.beginPath(); pc.moveTo(cx + C.x * E, cz + C.z * E); pc.lineTo(cx + P.x * E, cz + P.z * E); pc.stroke(); sil(cx + P.x * E, cz + P.z * E, i < 2 ? '#7fd8ff' : '#c9a3ff', k * 0.85); });
+  pc.fillStyle = '#1d4a36'; pc.font = '10px ui-monospace, monospace'; pc.fillText('axe nez-queue', 4, plan.height - 6);
+}
+const curseur = (id, cle, fmt) => {
+  const el = document.getElementById(id); el.value = etat[cle];
+  const maj = () => { document.getElementById('v' + id[0].toUpperCase() + id.slice(1)).textContent = fmt(etat[cle]); };
+  el.addEventListener('input', () => { etat[cle] = +el.value; maj(); tout(); sauve(); });
+  maj(); return maj;
+};
+const majs = [curseur('e1', 'e1', v => v + ' m'), curseur('e2', 'e2', v => v + ' m'), curseur('h1', 'h1', v => (v > 0 ? '+' : '') + v + ' m'), curseur('h2', 'h2', v => (v > 0 ? '+' : '') + v + ' m'), curseur('z', 'z', v => v + ' m')];
+const bPlus = document.getElementById('plus'), zone = document.getElementById('plusZone');
+bPlus.addEventListener('click', () => { zone.hidden = !zone.hidden; bPlus.classList.toggle('actif', !zone.hidden); tout(); });
+const sortie = document.getElementById('sortie');
+document.getElementById('copier').addEventListener('click', async () => {
+  sortie.textContent = dernierTexte; sortie.hidden = false;
+  try { await navigator.clipboard.writeText(dernierTexte); document.getElementById('etat').textContent = 'Copié. Colle-le dans la conversation. Touche le bloc pour le fermer.'; }
+  catch (e) { document.getElementById('etat').textContent = 'Sélectionne le bloc et copie-le. Touche-le pour le fermer.'; }
+});
+sortie.addEventListener('click', () => { sortie.hidden = true; });
+document.getElementById('remise').addEventListener('click', () => { Object.assign(etat, DEFAUT); ['e1', 'e2', 'h1', 'h2', 'z'].forEach((k, i) => { document.getElementById(k).value = etat[k]; majs[i](); }); tout(); sauve(); document.getElementById('etat').textContent = 'Remis à ta table du 1er octobre.'; });
+addEventListener('resize', tout);
+tout();
+window.__planche = { etat, tout, arbre, absolues, camera, amis, partVisible, projette };
+</script>
+</body>
+</html>

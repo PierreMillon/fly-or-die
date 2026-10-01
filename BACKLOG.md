@@ -92,6 +92,7 @@ règle 1. Une nouvelle demande s'ajoute ICI et ne remplace rien.
 - [x] Derrière un essaim, le menu laisse choisir les suiveurs → v1.94 (banc : 8 boutons dans le sous-rang, plus de « cellule imposée »)
 - [x] La musique : choisir, une case par candidat, les suites de la guitare ; en vol une fois qu'on a joué au refuge, au refuge et sur le trajet → v1.94 (banc : dehors hors zone de combat la guitare tourne, dedans elle se tait, sans avoir joué au refuge rien ; musique.html : quatre suites ÉCOUTER + GARDER pour le refuge et pour le trajet, COPIER MON CHOIX ; GUITARE_MOTEUR dans le jeu, 'hasard' en attendant ton choix)
 - [x] L'ordre des modèles se choisit dans le jeu seulement (menu) → rien à faire sur les planches
+- [x] Ta table du 1er octobre (échelon D→D·a→D·b, ±5 m, −3,5 / −4,5 m, recul 5) : « pas mal, mais encore trop proches » ; refais une planche : seulement l'écart à l'axe nez-queue, et un second curseur pour l'écart du second rang au centre, page fixe sans défiler → v1.95 ecarts.html (banc : 0 px de défilement dans les deux sens ; ta table : visibles 34 / 34 %, au plus près 8,4 m D–D·a ; à 8 / 16 m : 15 %, 10,5 m ; à 12 / 24 m : 0 %, 13,8 m)
 - [x] PAPI et tube parlent du même point → v1.85 (un PAPI par bout, à 100 m du seuil : à 300, les roues touchaient derrière le bout de piste)
 - [x] Les suiveurs ont une vie, tombent, redécollent et reviennent, et font bouclier → v1.85 (part 33,7 / 22,2 %, retour 30,5 s pour 3,3 km)
 - [x] Le drone lourd ne se répare que hors du feu → v1.85

@@ -17,7 +17,7 @@
 // la page mourait sur « Importing binding name 'SOMMET' is not found ».
 //
 // Le contrôle est dans CLAUDE.md, règle 4, et il se lance.
-const VERSION = 'v1.94';
+const VERSION = 'v1.95';
 const BOITE = 'fly-or-die-' + VERSION;
 
 // Le strict nécessaire pour décoller sans réseau. Depuis que three.js vit dans
@@ -128,7 +128,7 @@ self.addEventListener('fetch', e => {
   // de pousser, toujours, sans quoi on règle une page d'hier et l'on se
   // demande pourquoi la correction n'arrive pas. Elles repartent au navigateur
   // sans qu'on s'en mêle.
-  if (/\/(decollage|platine|tonneau|guitare|montagnes|carte|constellations|ennemis|escouade|lune|planche|planches|formation|chaine|musique)\.html($|\?)/.test(r.url)) return;
+  if (/\/(decollage|platine|tonneau|guitare|montagnes|carte|constellations|ennemis|escouade|lune|planche|planches|formation|chaine|musique|ecarts)\.html($|\?)/.test(r.url)) return;
 
   if (r.mode === 'navigate') {
     e.respondWith((async () => {
