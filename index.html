@@ -4430,6 +4430,12 @@ const AVIONS = [
   //     imposés — c'est l'appareil lui-même.
   { id: 'lourd',        nom: 'DRONE LOURD',  en: 'HEAVY DRONE', vit: 0.7,  lacet: 0.7,  tangage: 0.8,  roquettes: 40, leurres: 2, acces: 'libre', canons: false, timbre: 'lourd', pouvoir: 'soute', vieSuiveur: 150, verrous: 3, stable: true },
   { id: 'essaim',       nom: 'ESSAIM',       en: 'SWARM',       vit: 1.1,  lacet: 1.2,  tangage: 1.1,  roquettes: 0,  leurres: 0, acces: 'libre', canons: false, timbre: 'essaim', pouvoir: 'essaim', vieSuiveur: 30 },
+  // LES PRISES DE GUERRE VOLENT. Le biplan et le chasseur étaient garés pâles
+  // dans le hangar, « pour qu'on les regarde » ; tu as demandé que tout ce qui
+  // est dans le hangar se pilote. Le biplan : lent et vif, quatre roquettes,
+  // une coque. Le chasseur : rapide, une salve, dix roquettes, deux leurres.
+  { id: 'biplan',       nom: 'BIPLAN',       en: 'BIPLANE',     vit: 0.75, lacet: 1.4,  tangage: 1.3,  roquettes: 4,  leurres: 0, acces: 'libre', timbre: 'profond', pouvoir: 'coque', vieSuiveur: 45 },
+  { id: 'chasseur',     nom: 'CHASSEUR',     en: 'FIGHTER',     vit: 1.15, lacet: 1.05, tangage: 1.0,  roquettes: 10, leurres: 2, acces: 'libre', timbre: 'clair', pouvoir: 'salve', vieSuiveur: 55 },
 ];
 const LOURD_REPARE = 6;        // points de vie par seconde, en vol, pour le drone lourd
 const LOURD_CALME = 4;         // secondes sans être touché avant que la soute répare
@@ -4633,7 +4639,14 @@ meshLourd.scale.setScalar(KIND_GARDIEN.echelle * ENVERGURE_JOUEUR * 1.3 / KIND_G
 const meshEssaim = solidWire(KIND_DRONE.geom, KIND_DRONE.edges, matPlayer);
 meshEssaim.scale.setScalar(KIND_DRONE.echelle * ENVERGURE_JOUEUR * 0.6 / KIND_DRONE.envergure / PLANE_SCALE);
 meshLourd.frustumCulled = meshEssaim.frustumCulled = false;
-playerMesh.add(meshInter, meshPionnier, meshAncien, meshFaucheur, meshLourd, meshEssaim);
+// le biplan et le chasseur : les silhouettes adverses, aux couleurs du joueur
+const KIND_BIPLAN = KINDS.find(x => x.nom === 'BIPLAN'), KIND_CHASSEUR = KINDS.find(x => x.nom === 'CHASSEUR');
+const meshBiplan = solidWire(KIND_BIPLAN.geom, KIND_BIPLAN.edges, matPlayer);
+meshBiplan.scale.setScalar(KIND_BIPLAN.echelle * ENVERGURE_JOUEUR * 0.8 / KIND_BIPLAN.envergure / PLANE_SCALE);
+const meshChasseur = solidWire(KIND_CHASSEUR.geom, KIND_CHASSEUR.edges, matPlayer);
+meshChasseur.scale.setScalar(KIND_CHASSEUR.echelle * ENVERGURE_JOUEUR / KIND_CHASSEUR.envergure / PLANE_SCALE);
+meshBiplan.frustumCulled = meshChasseur.frustumCulled = false;
+playerMesh.add(meshInter, meshPionnier, meshAncien, meshFaucheur, meshLourd, meshEssaim, meshBiplan, meshChasseur);
 // elle est FILLE de l'appareil : elle hérite de son échelle et de son assiette,
 // et il ne reste qu'un angle à faire avancer
 const propAncien = new THREE.LineSegments(segGeom(ANCIEN_HELICE), matPlayer);
@@ -4659,6 +4672,8 @@ function appliqueAvion() {
   meshFaucheur.visible = id === 'faucheur';
   meshLourd.visible = id === 'lourd';
   meshEssaim.visible = id === 'essaim';
+  meshBiplan.visible = id === 'biplan';
+  meshChasseur.visible = id === 'chasseur';
   // l'ancien porte la sienne ; le faucheur, l'intercepteur et les drones n'en ont pas
   if (typeof propMesh !== 'undefined')
     propMesh.visible = id === 'bimoteur' || id === 'pionnier';
@@ -6084,7 +6099,12 @@ function updateTraits(dt) {
   // Trois sources, dont la plus forte l'emporte : le régime, le nez qui pique
   // — visible avant même que la vitesse ait eu le temps de monter, ce qui est
   // tout l'intérêt — et la poursuite.
-  const kv = (state.speed - VIT_SEUIL) / (VIT_PLEIN - VIT_SEUIL);
+  // RELATIF À LA CROISIÈRE DE L'APPAREIL (v1.96). L'Ancien à sa vitesse de
+  // base — 48 m/s — ne doit presque rien montrer ; le bimoteur à 78 non plus.
+  // Le seuil est à 12 % au-dessus de la croisière de chacun, le plein à 90 %
+  // au-dessus : pour le bimoteur, 87 et 148 m/s, c'est l'ancien réglage.
+  const croisiere = CRUISE * avion().vit;
+  const kv = (state.speed - croisiere * 1.12) / (croisiere * 0.78);
   const kp = -state.forward.y * 1.7 - 0.12;
   // LA POUSSÉE SE LIT DANS L'AIR. L'attente compte autant que la poussée :
   // les traits se multiplient pendant qu'elle monte, puis retombent avec
@@ -6161,6 +6181,7 @@ const ROULAGE_M = 44;        // metres de piste pour s'arreter : trois fois moin
 // — et une phrase qui dit ce qu'il faut en penser.
 const RETOUR_DUREE = 1;
 const FREIN_FRANC = 9;       // m/s2 : le coup de frein, franc — presque un g
+const FREIN_DOUX  = 1.5;     // m/s2 : le moins qu'on freine au roulage, pour finir d'arriver
 // ET IL N'EN A PRESQUE PAS D'AUTRE. J'avais essayé de le plafonner à vingt-deux
 // — deux g, un freinage d'avion de ligne. Mesuré : arrivé à deux cent cinq,
 // il faut neuf cent cinquante mètres pour s'arrêter et il n'en reste que sept
@@ -6648,6 +6669,7 @@ const APPROCHE_VIT = Math.round(SPEED_MIN * 1.3);
 const ARRONDI_T = 1.2;                         // constante de temps de l'arrondi
 const TUBE_ROULE = 900;                        // mètres de piste où le tube tient encore
 const TUBE_V_POSE = 230;                       // m/s : au-dessus, le tube freine dans l'air
+const TUBE_ENTREE = 1.2;                       // secondes pour que la prise monte de zéro à un
 const TUBE_FREIN_AIR = 2.2;                    // par seconde : la part de l'excès reprise
 // ET LE COULOIR NE SE RESSERRE PLUS AU-DESSUS DU BITUME. L'entonnoir finit à
 // vingt-six mètres de rayon : passé le point visé, un appareil encore à vingt
@@ -6875,7 +6897,7 @@ function majTube() {
   // prennent — c'est-à-dire sur toute la longueur de piste qui reste devant.
   if (d < -TUBE_ROULE || d > TUBE_DIST || defiEst('sansPiste') || avance.sansAtterrir
       || state.pose || state.roulage || state.refuge) {
-    TUBE.tient = false;
+    TUBE.tient = false; TUBE.priseAvant = 0;
     // le trim appartient à l'approche en cours : il repart de zéro à la
     // suivante, sinon on hérite de la compensation d'une arrivée ratée
     TUBE.trim = 0; TUBE.vue = false; TUBE.ditStab = false;
@@ -6895,6 +6917,7 @@ function majTube() {
   // si l'on vient face au vent — et « l'axe » est celui de CETTE piste-là.
   const versLaPiste = state.forward.x * _tubD.x + state.forward.z * _tubD.z;
   if (versLaPiste < Math.cos(28 * Math.PI / 180)) {
+    TUBE.priseAvant = 0;
     // ET ON LE DIT. Aligné sur l'axe mais par le mauvais bout, le tube ne
     // prenait pas et rien n'expliquait pourquoi : on refaisait le tour en se
     // demandant ce qui n'allait pas. Une phrase, une fois, et la manche à air
@@ -6930,7 +6953,16 @@ function majTube() {
   // hystérésis, le moindre écart la fait clignoter.
   const marge = TUBE.tient ? r * 1.4 : r;
   const k = THREE.MathUtils.clamp((marge - TUBE.ecart) / (r * 0.35), 0, 1);
-  TUBE.prise = k;
+  // ET ELLE PREND SON TEMPS (v1.96). La prise se mesurait à l'écart seul : on
+  // franchissait la paroi et elle passait de zéro à un en quelques mètres —
+  // le cap, l'assiette et la vitesse sautaient d'un coup. Elle monte
+  // maintenant en TUBE_ENTREE secondes au plus, quelle que soit la façon dont
+  // on arrive ; elle retombe toujours aussi vite qu'avant.
+  const maintenant = performance.now();
+  const dtT = TUBE.derniere ? Math.min(0.1, (maintenant - TUBE.derniere) / 1000) : 0;
+  TUBE.derniere = maintenant;
+  TUBE.prise = Math.min(k, (TUBE.priseAvant || 0) + dtT / TUBE_ENTREE);
+  TUBE.priseAvant = TUBE.prise;
   TUBE.tient = k > 0.02;
 }
 
@@ -7338,9 +7370,13 @@ const hangar = { porteG: null, porteD: null, ouverture: 0, manche: null, vent: 0
   //
   // Elles portent donc un nom et un cercle, comme les autres. Ce qu'elles
   // disent est simplement qu'il n'y a rien à prendre.
-  for (const k of KINDS) if (!k.sol && !k.secret && k !== KINDS[2])
-    rang.push({ id: 'prise_' + k.nom, nom: k.nom, prise: true,
-                geo: k.geom, edges: k.edges, mat: matPale, ech: k.echelle * 0.9 });
+  // PLUS DE PRISES DE GUERRE : le biplan et le chasseur se pilotent (v1.96),
+  // et les silhouettes du drone et du gardien sont déjà là en drones. Tout ce
+  // qui est garé dans le hangar vole.
+  rang.push({ id: 'biplan', geo: KIND_BIPLAN.geom, edges: KIND_BIPLAN.edges, mat: matPlayer,
+              ech: KIND_BIPLAN.echelle * ENVERGURE_JOUEUR * 0.8 / KIND_BIPLAN.envergure * 0.9 });
+  rang.push({ id: 'chasseur', geo: KIND_CHASSEUR.geom, edges: KIND_CHASSEUR.edges, mat: matPlayer,
+              ech: KIND_CHASSEUR.echelle * ENVERGURE_JOUEUR / KIND_CHASSEUR.envergure * 0.9 });
   // quatre devant, le reste derriere : tout le monde est visible depuis la
   // piste des que les vantaux sont effaces
   // ON RETIENT OÙ SONT LES NÔTRES — ET ON S'ÉTAIT TROMPÉ DE RANG. Le nom
@@ -11003,10 +11039,10 @@ function poseAuSol() {
   feedTracers(enemyTracers, []);
 }
 
-// tourne tant qu'aucune partie n'est lancée : l'hélice brasse au ralenti et
-// la scène vit un peu, sans que rien ne se joue
+// tourne tant qu'aucune partie n'est lancée : la scène vit un peu — les
+// mécaniciens, la manche à air —, sans que rien ne se joue
 function auRalenti(dt) {
-  tourneHelice(3.4 * dt);
+  // l'hélice ne tourne plus à l'arrêt (v1.96) : moteur coupé, pales immobiles
   updateMecanos(dt);
   // la manche à air vit aussi avant le décollage : c'est là qu'on la regarde
   VENT.a = dampAngle(VENT.a, VENT.cible, 0.3, dt);
@@ -11481,7 +11517,7 @@ function updateRefugePose(dt) {
                       oz + Math.cos(R.angle) * rayon);
   camera.lookAt(ox, PISTE.y + 3.2, oz);
   playerMesh.position.copy(state.pos);
-  tourneHelice(0.25 * dt);       // l'hélice s'arrête presque
+  // L'HÉLICE NE TOURNE PLUS : moteur coupé, elle est immobile, comme celles du rang.
 }
 
 function quitteRefuge() {
@@ -11864,7 +11900,6 @@ function updateAPied(dt) {
   const av = dedansMaison ? 2.2 : 0;
   camera.lookAt(M.x + Math.sin(M.cap) * av, PISTE.y + PIED_VISE, M.z + Math.cos(M.cap) * av);
   playerMesh.position.copy(state.pos);
-  tourneHelice(0.05 * dt);
 
   // CE QUI SE PROPOSE. Le plus proche des points d'intérêt, s'il est à portée,
   // et l'appareil lui-même — sur lequel on peut toujours remonter.
@@ -14480,6 +14515,7 @@ function updateLock(dt) {
 // se réduit à un trait. La caméra le surplombe un peu pour montrer la voilure.
 _camDecal.dir = new THREE.Vector3();
 const camOffset = new THREE.Vector3(0, 6.8, 16.0).multiplyScalar(ENVERGURE_JOUEUR / 14.4);   // plus haut : l'avion tombe sous le pouce
+const CAM_OFFSET_Z = camOffset.z;   // le recul de base ; l'escouade peut en demander plus (ESCOUADE_FORMES)
 
 // La caméra ne se colle plus à sa place idéale : elle y est rappelée par un
 // ressort amorti et garde sa propre vitesse. Elle se comporte donc comme un
@@ -15454,23 +15490,18 @@ function simulate(dt) {
         if (u >= 1) R.retour = null;
       } else {
         const reste = (AERO.z - state.pos.z) * (R.sens < 0 ? -1 : 1);
-        if (reste > 1.5) {
-          const besoin = R.v * R.v / (2 * reste);
-          // ET AU SOL, LE FREIN N'A PLUS DE PLAFOND : ce qu'il faut pour
-          // s'arrêter devant la baie, quelle que soit la vitesse au toucher.
-          R.a = besoin < FREIN_FRANC ? 0 : Math.max(FREIN_FRANC, besoin);
-          if (R.a > 0 && !R.dit) { R.dit = true; announce(t('freinage')); }
+        if (reste > 0.5) {
+          // PROGRESSIF, ET TOUJOURS PILE DEVANT LA BAIE (v1.96). On freine
+          // dès le toucher à la décélération exacte qui annule la vitesse à
+          // l'endroit voulu — v²/2·reste, recalculée à chaque image — et le
+          // dernier pas est borné à ce qui reste : on ne dépasse jamais, quelle
+          // que soit la vitesse d'arrivée. Plus d'« atterrissage de colonel ».
+          R.a = Math.max(FREIN_DOUX, R.v * R.v / (2 * reste));
+          if (!R.dit) { R.dit = true; announce(t('freinage')); }
           R.v = Math.max(0, R.v - R.a * dt);
+          if (R.v * dt >= reste) R.v = reste / dt;
         } else {
-          // dépassé : on plante les freins, et le retour se fait d'un trait
-          R.v = Math.max(0, R.v - FREIN_MAX * dt);
-          if (R.v < 0.5) {
-            R.v = 0;
-            if (Math.abs(reste) >= 1.5) {
-              R.retour = { t: 0, x0: state.pos.x, z0: state.pos.z };
-              announce(t('poseColonel'), t('poseColonelSous'));
-            }
-          }
+          R.v = 0;
         }
         state.speed = R.v;
         // on garde l'axe, et le doigt peut encore corriger un peu
@@ -15666,7 +15697,7 @@ function simulate(dt) {
       announce(t('viePleine'), t('viePleineSous'));
       SFX.bouclierOn();
     }
-    tourneHelice(3.4 * dt);
+    // posé devant la baie, moteur coupé : l'hélice est immobile (v1.96)
     playerMesh.position.copy(state.pos);
     // LE DÉCALAGE DE CAMÉRA DOIT TOURNER AVEC LE CAP. Il était ajouté tel quel,
     // en axes du monde : posé cap au sud, l'appareil se retrouvait DEVANT sa
@@ -16262,8 +16293,15 @@ function simulate(dt) {
   // LES ROUES TOUCHENT. C'est le seul déclencheur de l'atterrissage : plus de
   // conditions à réunir, plus de séquence qui démarre toute seule. On arrive
   // au bitume, on y arrive comme on peut, et la note se lit après.
-  if (surLeBitume && yAvant > SOL_Y && state.pos.y <= SOL_Y
-      && state.running && !state.takeoff && !state.fig && state.spinT <= 0) {
+  // ET AU RAS DU BITUME AUSSI (v1.96). Le toucher ne se déclenchait qu'au
+  // FRANCHISSEMENT de la hauteur du sol : arrivé bas et vite, l'appareil
+  // était déjà collé à trois mètres au-dessus de l'herbe avant le seuil, il
+  // entrait sur la piste À cette hauteur sans jamais la franchir, et filait
+  // tout du long sans se poser. Mesuré : 230 m/s, y = 3,0 sur 900 mètres.
+  // Être au sol au-dessus du bitume suffit.
+  if (surLeBitume && state.pos.y <= SOL_Y + 0.01 && (yAvant > SOL_Y || !state.auSol)
+      && state.running && !state.takeoff && !state.fig && state.spinT <= 0
+      && !state.pose && !state.roulage) {
     toucherPiste();
   }
 
@@ -16340,6 +16378,7 @@ function simulate(dt) {
   // on retire la correction de cadrage de l'image précédente avant que le
   // ressort ne tourne : sans cela il la prendrait pour un écart à rattraper
   if (_camCadre.lengthSq()) { camera.position.sub(_camCadre); _camCadre.set(0, 0, 0); }
+  camOffset.z = THREE.MathUtils.damp(camOffset.z, CAM_OFFSET_Z + (state.reculEscouade || 0), 1.5, dt);
   _v.copy(camOffset).applyQuaternion(_qa).add(state.pos);
   // Le ressort integre la position de la camera d'une image a l'autre : ce
   // qu'on lui ajoute apres coup, il le retrouve au depart de l'image suivante
@@ -16636,17 +16675,37 @@ function blesseSuiveur(A, n) {
 // 8,5 m : ils ne se touchent pas (ESCOUADE_SEPARATION).
 // Un chef vient toujours avant ceux qui le suivent dans la table.
 // Les planches formation.html et chaine.html exportent cette table telle quelle.
+// TA TABLE DU 2 OCTOBRE : un échelon. D suit nous, D·a suit D, D·b suit D·a ;
+// G, G·a, G·b en miroir. Les places se calculent depuis LA FORME : les écarts
+// à l'axe nez-queue par rang (e), la hauteur du premier rang (h1) et de
+// chaque rang suivant (h2), le recul par rang (z). Et la forme dépend du
+// nombre de rangs présents — avec un troisième rang, le second se rapproche
+// et la caméra recule un peu (recul) : voir ecarts.html.
 const ESCOUADE_ARBRE = [
-  { chef: -1, x: 4, y: 6, z: 2 }, { chef: -1, x: -4, y: 6, z: 2 },
-  { chef: 0, x: 6, y: 0, z: 6 }, { chef: 0, x: 12, y: 0, z: 12 },
-  { chef: 1, x: -6, y: 0, z: 6 }, { chef: 1, x: -12, y: 0, z: 12 },
+  { chef: -1 }, { chef: -1 }, { chef: 0 }, { chef: 2 }, { chef: 1 }, { chef: 4 },
 ];
-const ESCOUADE_SEPARATION = 8;    // mètres : en deçà, deux suiveurs se repoussent (deux tiers d'une envergure ; les places sont à 8,5 m)
+const ESCOUADE_FORMES = {
+  1: { e: [7.5],           h1: -3.5, h2: -4.5, z: 5, recul: 0 },
+  2: { e: [7.5, 10],       h1: -3.5, h2: -4.5, z: 5, recul: 0 },
+  3: { e: [7.5, 10, 12.5], h1: -3.5, h2: -4.5, z: 5, recul: 0 },   // à régler sur ecarts.html
+};
+const ESCOUADE_NIVEAU = [1, 1, 2, 3, 2, 3];       // le rang de chaque place
+function rangsPresents() {
+  const v = escouadeVoulue(); let n = 0;
+  for (let i = 0; i < v.length; i++) if (v[i] !== 'aucun') n = Math.max(n, ESCOUADE_NIVEAU[i]);
+  return Math.max(1, n);
+}
+function formeEscouade() { return ESCOUADE_FORMES[rangsPresents()] || ESCOUADE_FORMES[3]; }
+const ESCOUADE_SEPARATION = 7;    // mètres : en deçà, deux suiveurs se repoussent (ta table les met à 7,2 m)
 const ESCOUADE_LARGE = 2.2;       // fois plus large au combat
 const ESCOUADE_COMBAT = 900;      // mètres : un adversaire plus près, c'est le combat
 const ESCOUADE_SOUPLESSE = 3.2;   // par seconde : l'écart rejoint sa place
 const ESCOUADE_ROUTE = 150;       // mètres : au-delà, il est « en route », le nez sur sa place
-function placeSuiveur(i) { return ESCOUADE_ARBRE[i]; }
+function placeSuiveur(i) {
+  const F = formeEscouade(), L = ESCOUADE_NIVEAU[i], signe = (i === 1 || i >= 4) ? -1 : 1;
+  const e = F.e[Math.min(L, F.e.length) - 1], ePrec = L > 1 ? F.e[Math.min(L - 1, F.e.length) - 1] : 0;
+  return { x: signe * (e - ePrec), y: L === 1 ? F.h1 : F.h2, z: F.z };
+}
 function sauveEscouade() {
   try { localStorage.setItem('fod_escouade', JSON.stringify(escouade)); localStorage.setItem('fod_escouade2', JSON.stringify(escouade2)); } catch (e) {}
 }
@@ -16658,11 +16717,15 @@ function escouadeVoulue() {
   if (avion().id !== 'essaim' && carnet.ailier && v[0] === 'aucun' && v[1] === 'aucun') v[0] = 'bimoteur';
   // le second niveau suit l'arbre : derrière « aucun », personne ; derrière
   // un essaim, l'essaim ; sinon ce que le menu a choisi pour ce chef
+  // LE MODÈLE VIENT DU MENU « DERRIÈRE LE PREMIER · A / B » : la racine de la
+  // place (D ou G), et son rang parmi celles qui en descendent — même en
+  // échelon, où D·b suit D·a et non D. Derrière « aucun », personne.
   const rang = [0, 0];
   for (let i = 2; i < ESCOUADE_ARBRE.length; i++) {
-    const c = ESCOUADE_ARBRE[i].chef, chef = v[c];
-    const k = c < 2 ? rang[c]++ : 0;
-    v.push(chef === 'aucun' ? 'aucun' : (escouade2[c] || ['aucun', 'aucun'])[k]);
+    let r = i; while (ESCOUADE_ARBRE[r].chef >= 2) r = ESCOUADE_ARBRE[r].chef;
+    const racine = ESCOUADE_ARBRE[r].chef, k = rang[racine]++;
+    const chef = v[ESCOUADE_ARBRE[i].chef];
+    v.push(chef === 'aucun' ? 'aucun' : (escouade2[racine] || ['aucun', 'aucun'])[k]);
   }
   return v;
 }
@@ -16705,6 +16768,8 @@ function updateEscouade(dt) {
   let combat = false;
   for (const e of state.enemies) { if (!e.kind.sol && e.hp > 0 && e.pos.distanceTo(state.pos) < ESCOUADE_COMBAT) { combat = true; break; } }
   state.escouadeLarge = THREE.MathUtils.damp(state.escouadeLarge || 0, combat ? 1 : 0, combat ? 1.5 : 0.6, dt);
+  // LA CAMÉRA RECULE AVEC LES RANGS : ce que la forme demande, en douceur
+  state.reculEscouade = enVol ? formeEscouade().recul : 0;
   for (let i = 0; i < 6; i++) {
     let A = state.escouade[i];
     const id = voulue[i];
@@ -17642,6 +17707,10 @@ function meshAmiDe(id) {
     ech = KIND_GARDIEN.echelle * ENVERGURE_JOUEUR * 1.3 / KIND_GARDIEN.envergure; }
   else if (id === 'essaim') { g = solidWire(KIND_DRONE.geom, KIND_DRONE.edges, matAmi);
     ech = KIND_DRONE.echelle * ENVERGURE_JOUEUR * 0.6 / KIND_DRONE.envergure; }
+  else if (id === 'biplan') { g = solidWire(KIND_BIPLAN.geom, KIND_BIPLAN.edges, matAmi);
+    ech = KIND_BIPLAN.echelle * ENVERGURE_JOUEUR * 0.8 / KIND_BIPLAN.envergure; }
+  else if (id === 'chasseur') { g = solidWire(KIND_CHASSEUR.geom, KIND_CHASSEUR.edges, matAmi);
+    ech = KIND_CHASSEUR.echelle * ENVERGURE_JOUEUR / KIND_CHASSEUR.envergure; }
   else return meshAmi();
   g.scale.setScalar(ech);
   g.frustumCulled = false;
@@ -20433,6 +20502,10 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.96', fr: 'Le hangar : tout ce qui y est garé se pilote. Le biplan (lent et vif, quatre roquettes, une coque) et le chasseur (rapide, une salve, dix roquettes, deux leurres) remplacent les prises de guerre pâles ; plus rien de grisé. Et à l’arrêt, moteur coupé, l’hélice ne tourne plus.', en: 'The hangar: everything parked there flies. The biplane (slow and lively, four rockets, a hull) and the fighter (fast, a volley, ten rockets, two flares) replace the pale war prizes; nothing greyed any more. And at rest, engine off, the propeller no longer turns.' },
+  { v: '1.96', fr: 'Ta table du 2 octobre est dans le jeu : un échelon, D suit nous, D·a suit D, D·b suit D·a, à 7,5 / 10 / 12,5 m de l’axe, 3,5 puis 4,5 m plus bas par rang, 5 m de recul par rang. La forme dépend du nombre de rangs présents, et la caméra peut reculer avec eux : la planche ecarts.html a trois boutons 1 / 2 / 3 RANGS, chacun avec ses écarts, et un curseur de recul de caméra. La séparation passe à 7 m.', en: 'Your table of 2 October is in the game: an echelon, D follows us, D·a follows D, D·b follows D·a, at 7.5 / 10 / 12.5 m from the axis, 3.5 then 4.5 m lower per rank, 5 m back per rank. The shape depends on how many ranks are present, and the camera can pull back with them: the ecarts.html bench has three buttons 1 / 2 / 3 RANKS, each with its own gaps, and a camera pull-back slider. Separation goes to 7 m.' },
+  { v: '1.96', fr: 'L’atterrissage : le tube prend en 1,2 s au lieu d’un coup — plus de saut de cap ni d’assiette en entrant dans le cercle, quels que soient la direction et la vitesse. Au sol, on freine dès le toucher à la décélération exacte qui arrête l’appareil devant la baie, et l’on ne dépasse jamais : plus d’« atterrissage de colonel ». Et arrivé bas et vite, l’appareil se pose au lieu de filer à trois mètres au-dessus de la piste.', en: 'Landing: the tube takes hold over 1.2 s instead of at once — no more heading or pitch jump when entering the circle, whatever your direction and speed. On the ground you brake from touchdown at the exact deceleration that stops in front of the bay, and never overshoot: no more “colonel’s landing”. And arriving low and fast, the aircraft lands instead of skimming three metres above the runway.' },
+  { v: '1.96', fr: 'Les traits de vitesse se lisent par rapport à la croisière de chaque appareil : rien à la croisière, de plus en plus au-dessus. L’Ancien à 48 m/s vole dans un air calme. Et quand on s’écrase — sol, mur, vrille, posé —, seule la cause s’affiche ; la pique ne vient que si quelqu’un nous a eus.', en: 'Speed streaks read against each aircraft’s own cruise: nothing at cruise, more and more above it. The Old One at 48 m/s flies in still air. And when you crash — ground, wall, spin, landing — only the cause shows; the jab comes only when someone got you.' },
   { v: '1.95', fr: 'Une planche fixe, ecarts.html : la vue de ta place plein écran, et deux curseurs sous le pouce — l’écart du premier rang à l’axe nez-queue, celui du second rang au centre. Les distances entre appareils et la part visible de chacun se lisent en direct, sans défiler. Elle part de ta table du 1er octobre.', en: 'A fixed bench, ecarts.html: the view from your seat full screen, and two sliders under your thumb — the first rank’s distance from the nose-to-tail axis, the second rank’s distance from the centre. Distances between aircraft and each one’s visible share read live, no scrolling. It starts from your table of 1 October.' },
   { v: '1.94', fr: 'L’escouade suit nos mouvements comme avant : ils montent, piquent et s’inclinent avec nous ; ils ne se mettent à plat que pendant nos figures. Ils ne se touchent plus : à moins de 8 m deux suiveurs se repoussent, et le V est écarté pour qu’aucune paire ne soit sous 8,5 m — (±4, 2), (±10, 8), (±16, 14) vus de dessus, tous à six mètres au-dessus. Serrés en croisière, larges au combat : dès qu’un adversaire est à moins de 900 m, les écarts s’ouvrent de 2,2 fois, et se referment quand c’est calme. Derrière un essaim, le menu laisse choisir.', en: 'The squadron follows our movements as before: they climb, dive and bank with us, and only level out during our figures. They no longer touch: under 8 m two wingmen push apart, and the V is spread so no pair is under 8.5 m — (±4, 2), (±10, 8), (±16, 14) from above, all six metres above us. Tight in cruise, wide in combat: as soon as a foe is within 900 m the gaps open 2.2 times, and close when it is calm. Behind a swarm, the menu lets you choose.' },
   { v: '1.94', fr: 'La glissade du Faucheur se pilote comme la Jeep : le manche en haut pousse (60 m/s), en bas freine puis recule (24 m/s), à gauche et à droite on braque — et l’on ne braque que si l’on avance. Lâché, il s’éteint sur son erre. La hauteur ne bouge pas.', en: 'The Reaper’s slide steers like the Jeep: stick up pushes (60 m/s), stick down brakes then reverses (24 m/s), left and right steer — and only while moving. Released, it coasts to a stop. Height stays put.' },
@@ -21365,9 +21438,13 @@ function gameOver(victoire) {
                    && manque <= Math.max(120, record.score * 0.12);
   // ET LA PHRASE PARLE DE ÇA. Puis, sous elle, la pique — on garde l'indice.
   const phraseMort = cleMort ? t(cleMort + 'Sous') : '';
+  // ET LA PIQUE NE VIENT QUE SI QUELQU'UN NOUS A EUS. Écrasé au sol, dans un
+  // mur, en vrille ou au posé, il n'y a rien à conseiller : la cause suffit.
+  const parQuelquun = !cleMort || /Roquette|Balles|Choc/.test(cleMort);
   overlayText.textContent = victoire ? t('legendeTexte')
     : deJustesse ? t('manque1') + manque + t('manque2')
-    : (phraseMort ? phraseMort + '  ·  ' : '') + pique();
+    : parQuelquun ? (phraseMort ? phraseMort + '  ·  ' : '') + pique()
+    : phraseMort;
   // QUI VOUS A EU. On sait toujours qu'on est mort, jamais de la main de qui :
   // la ligne le dit, et c'est la première chose qu'un pilote veut savoir. Le
   // faucheur a quatre mille points de structure — il se tue, mais il faut y

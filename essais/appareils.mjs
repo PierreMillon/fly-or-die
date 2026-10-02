@@ -22,7 +22,7 @@ import { chromium } from 'playwright';
 const URL = process.argv[2] || 'https://pierremillon.github.io/fly-or-die/';
 const EXEC = process.env.CHROMIUM || undefined;
 // un seul appareil en troisième argument, pour rejouer une ligne
-const APPAREILS = process.argv[3] ? [process.argv[3]] : ['bimoteur', 'intercepteur', 'pionnier', 'ancien', 'faucheur', 'lourd', 'essaim'];
+const APPAREILS = process.argv[3] ? [process.argv[3]] : ['bimoteur', 'intercepteur', 'pionnier', 'ancien', 'faucheur', 'lourd', 'essaim', 'biplan', 'chasseur'];
 const rate = [];
 
 const navigateur = await chromium.launch({
@@ -97,7 +97,7 @@ for (const id of APPAREILS) {
                                             courant: !!window.__fod.courant, v: Math.round(window.__fod.speed) }));
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await page.waitForTimeout(500);
-  const attendu = { pionnier: 'surplace', intercepteur: 'salve', faucheur: 'glissade' }[id];
+  const attendu = { pionnier: 'surplace', intercepteur: 'salve', faucheur: 'glissade', chasseur: 'salve' }[id];
   if (attendu) dit('le pouvoir ' + attendu + ' est tenu', tenu.pouvoir === attendu, tenu.pouvoir);
   if (id === 'ancien') dit('le courant est tenu', tenu.courant === true, tenu.courant);
 
@@ -152,4 +152,4 @@ for (const id of APPAREILS) {
 await navigateur.close();
 
 if (rate.length) { console.log('\nRATÉ :\n  ' + rate.join('\n  ')); process.exit(1); }
-console.log('\nles sept appareils font le tour complet sans une exception');
+console.log('\nles neuf appareils font le tour complet sans une exception');

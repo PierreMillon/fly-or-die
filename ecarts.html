@@ -15,7 +15,8 @@
     border:1px solid var(--dim); border-radius:4px; background:rgba(4,7,10,.75); }
   #titre { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:140px; right:12px; font-size:11px; letter-spacing:.2em; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #titre b { color:var(--text); font-weight:500; letter-spacing:.24em; }
-  #chiffres { position:fixed; top:calc(32px + env(safe-area-inset-top)); left:140px; right:12px; font-size:11px; color:var(--dim); line-height:1.45; }
+  #chiffres { position:fixed; top:calc(44px + env(safe-area-inset-top)); left:140px; right:12px; font-size:11px; color:var(--dim); line-height:1.45; }
+  #rangs button { flex:0 0 auto; min-width:0; padding:6px 9px; font-size:11px; }
   #chiffres b { color:var(--line); font-weight:500; font-variant-numeric:tabular-nums; }
   #chiffres .mal { color:var(--orange); }
   #bas { position:fixed; left:0; right:0; bottom:0; padding:10px 14px calc(12px + env(safe-area-inset-bottom));
@@ -47,6 +48,7 @@
 <canvas id="vue"></canvas>
 <canvas id="plan" width="240" height="300"></canvas>
 <div id="titre"><b>LES ÉCARTS</b> · vue de ta place</div>
+<div id="rangs" style="position:fixed; top:calc(10px + env(safe-area-inset-top)); right:12px; display:flex; gap:4px;"></div>
 <div id="chiffres"></div>
 <pre id="sortie" hidden></pre>
 <div id="bas">
@@ -58,8 +60,12 @@
     <div class="etiquette"><span>SECOND RANG · ÉCART AU CENTRE</span><span class="valeur" id="vE2"></span></div>
     <input type="range" id="e2" min="2" max="60" step="0.5">
   </div>
+  <div class="reglage">
+    <div class="etiquette"><span>CAMÉRA · RECUL EN PLUS</span><span class="valeur" id="vRecul"></span></div>
+    <input type="range" id="recul" min="0" max="20" step="0.5">
+  </div>
   <div class="rangee">
-    <button id="plus">PLUS : HAUTEUR, RECUL</button>
+    <button id="plus">PLUS : HAUTEUR, RECUL DES RANGS</button>
     <button id="copier">COPIER</button>
     <button id="remise">REMETTRE</button>
   </div>
@@ -92,7 +98,7 @@ import { PLANE_VERTS, PLANE_TRIS, PLANE_SCALE } from './avion-forme.js';
 // change de hauteur de H2 par rapport au précédent ; le premier est à H1.
 // Les distances entre appareils en découlent, et s'affichent.
 // ---------------------------------------------------------------------------
-const ENVERGURE = 12, SEP = 8;
+const ENVERGURE = 12, SEP = 7;
 const CAM_OFFSET = { y: 6.8 * ENVERGURE / 14.4, z: 16.0 * ENVERGURE / 14.4 };
 const CAM_DECLIN = -0.215;
 const ASPECT_REPERE = 430 / 932, FOV_H_MAX = 100 * Math.PI / 180, FOV_V_MAX = 108 * Math.PI / 180;
@@ -106,22 +112,29 @@ function fovPourEcran(fovDessin, aspect) {
   if (h <= FOV_H_MAX) return fovDessin;
   return (2 * Math.atan(Math.tan(FOV_H_MAX / 2) / aspect)) / rad;
 }
-// ta table du 1er octobre, comme point de départ
-const DEFAUT = { e1: 5, e2: 10, h1: -3.5, h2: -4.5, z: 5 };
-const CLE = 'fod_planche_ecarts';
-const etat = { ...DEFAUT };
-try { Object.assign(etat, JSON.parse(localStorage.getItem(CLE) || '{}')); } catch (e) {}
+// UNE FORME PAR NOMBRE DE RANGS. Avec un rang de plus derrière, le second
+// peut se rapprocher, et la caméra reculer un peu : chaque nombre de rangs
+// présents (1, 2 ou 3) a ses propres écarts et son recul de caméra. Le jeu
+// lit la même table (ESCOUADE_FORMES). Point de départ : ta table du 2 octobre.
+const FORME = () => ({ e1: 7.5, e2: 10, h1: -3.5, h2: -4.5, z: 5, recul: 0 });
+const DEFAUT = { rangs: 3, formes: { 1: FORME(), 2: FORME(), 3: FORME() } };
+const CLE = 'fod_planche_ecarts2';
+const etat = JSON.parse(JSON.stringify(DEFAUT));
+try { const m = JSON.parse(localStorage.getItem(CLE) || '{}'); if (m.formes) { for (const n of [1, 2, 3]) Object.assign(etat.formes[n], m.formes[n] || {}); } if (m.rangs) etat.rangs = m.rangs; } catch (e) {}
 const sauve = () => { try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch (e) {} };
+const F = () => etat.formes[etat.rangs];
+const NIVEAU = [1, 1, 2, 3, 2, 3];
 const NOMS = ['D', 'G', 'D·a', 'D·b', 'G·a', 'G·b'];
 const CHEFS = [-1, -1, 0, 2, 1, 4];
 function arbre() {
-  const e3 = 2 * etat.e2 - etat.e1;
+  const f = F(), e3 = 2 * f.e2 - f.e1;
   return [
-    { chef: -1, x: etat.e1, y: etat.h1, z: etat.z }, { chef: -1, x: -etat.e1, y: etat.h1, z: etat.z },
-    { chef: 0, x: etat.e2 - etat.e1, y: etat.h2, z: etat.z }, { chef: 2, x: e3 - etat.e2, y: etat.h2, z: etat.z },
-    { chef: 1, x: -(etat.e2 - etat.e1), y: etat.h2, z: etat.z }, { chef: 4, x: -(e3 - etat.e2), y: etat.h2, z: etat.z },
+    { chef: -1, x: f.e1, y: f.h1, z: f.z }, { chef: -1, x: -f.e1, y: f.h1, z: f.z },
+    { chef: 0, x: f.e2 - f.e1, y: f.h2, z: f.z }, { chef: 2, x: e3 - f.e2, y: f.h2, z: f.z },
+    { chef: 1, x: -(f.e2 - f.e1), y: f.h2, z: f.z }, { chef: 4, x: -(e3 - f.e2), y: f.h2, z: f.z },
   ];
 }
+const present = i => NIVEAU[i] <= etat.rangs;
 function absolues(A) {
   const abs = [];
   A.forEach((P, i) => { const C = P.chef < 0 ? { x: 0, y: 0, z: 0 } : abs[P.chef]; abs.push({ x: C.x + P.x, y: C.y + P.y, z: C.z + P.z }); });
@@ -177,29 +190,31 @@ function tout() {
   vue.style.top = Math.round(haut + (bas - haut - chh) / 2) + 'px'; vue.style.width = cw + 'px'; vue.style.height = chh + 'px';
   if (vue.width !== Math.round(cw * dpr) || vue.height !== Math.round(chh * dpr)) { rendu.setPixelRatio(dpr); rendu.setSize(cw, chh, false); }
   camera.aspect = w / h; camera.fov = fovPourEcran(69, camera.aspect); camera.updateProjectionMatrix();
-  camera.position.set(0, CAM_OFFSET.y, 17.2);
+  camera.position.set(0, CAM_OFFSET.y, 17.2 + F().recul);
   camera.quaternion.setFromEuler(new THREE.Euler(CAM_DECLIN, 0, 0, 'YXZ'));
   const A = arbre(), abs = absolues(A);
-  abs.forEach((P, i) => amis[i].position.set(P.x, P.y, P.z));
+  abs.forEach((P, i) => { amis[i].position.set(P.x, P.y, P.z); amis[i].visible = present(i); });
   rendu.render(scene, camera);
-  const vis = abs.map((_, i) => Math.round(partVisible(projette(amis[i])) * 100));
-  // les distances : la plus courte entre deux suiveurs, et à nous
+  const vis = abs.map((_, i) => present(i) ? Math.round(partVisible(projette(amis[i])) * 100) : null);
+  // les distances : la plus courte entre deux suiveurs présents, et à nous
   let dmin = 1e9, paire = ''; const trop = [];
   for (let i = 0; i < 6; i++) for (let j = 0; j < i; j++) {
+    if (!present(i) || !present(j)) continue;
     const d = Math.hypot(abs[i].x - abs[j].x, abs[i].y - abs[j].y, abs[i].z - abs[j].z);
     if (d < dmin) { dmin = d; paire = NOMS[j] + '–' + NOMS[i]; }
     if (d < SEP) trop.push(NOMS[j] + '–' + NOMS[i] + ' ' + d.toFixed(1));
   }
-  const dNous = Math.min(...abs.map(P => Math.hypot(P.x, P.y, P.z)));
+  const dNous = Math.min(...abs.filter((_, i) => present(i)).map(P => Math.hypot(P.x, P.y, P.z)));
+  const v = (a) => a.filter(x => x !== null).join(' / ');
   document.getElementById('chiffres').innerHTML =
-    'visible : <b>' + vis.slice(0, 2).join(' / ') + ' %</b> · second <b>' + vis.slice(2).join(' / ') + ' %</b><br>'
+    etat.rangs + ' rang' + (etat.rangs > 1 ? 's' : '') + ' · visible : <b>' + v(vis.slice(0, 2)) + ' %</b>' + (etat.rangs > 1 ? ' · suite <b>' + v(vis.slice(2)) + ' %</b>' : '') + ' · caméra <b>' + (17.2 + F().recul).toFixed(1) + ' m</b><br>'
     + 'entre suiveurs, au plus près : <b class="' + (dmin < SEP ? 'mal' : '') + '">' + dmin.toFixed(1) + ' m</b> (' + paire + ') · à nous : <b>' + dNous.toFixed(1) + ' m</b>'
-    + (trop.length ? '<br><span class="mal">trop près (< 8 m) : ' + trop.join(' · ') + '</span>' : '<br>personne sous 8 m : ils ne se touchent pas');
-  dernierTexte = 'const ESCOUADE_ARBRE = [\n' + A.map((P, i) => `  { chef: ${P.chef}, x: ${+P.x.toFixed(1)}, y: ${+P.y.toFixed(1)}, z: ${+P.z.toFixed(1)} },   // ${NOMS[i]} suit ${P.chef < 0 ? 'nous' : NOMS[P.chef]}`).join('\n') + '\n];\n'
-    + '// écarts à l’axe : premier rang ' + etat.e1 + ' m, second ' + etat.e2 + ' m, troisième ' + (2 * etat.e2 - etat.e1) + ' m\n'
-    + '// hauteur du premier ' + etat.h1 + ' m, chaque rang suivant ' + etat.h2 + ' m, recul par rang ' + etat.z + ' m\n'
-    + '// absolu : ' + abs.map((P, i) => NOMS[i] + ' (' + +P.x.toFixed(1) + ', ' + +P.y.toFixed(1) + ', ' + +P.z.toFixed(1) + ')').join(' · ') + '\n'
-    + '// visible : ' + vis.join(' / ') + ' % · au plus près ' + dmin.toFixed(1) + ' m (' + paire + ')' + (trop.length ? ' · TROP PRÈS : ' + trop.join(' · ') : '');
+    + (trop.length ? '<br><span class="mal">trop près (< 7 m) : ' + trop.join(' · ') + '</span>' : '<br>personne sous 7 m : ils ne se touchent pas');
+  const ligne = n => { const f = etat.formes[n]; return `  ${n}: { e: [${[f.e1, f.e2, 2 * f.e2 - f.e1].slice(0, n).join(', ')}], h1: ${f.h1}, h2: ${f.h2}, z: ${f.z}, recul: ${f.recul} },`; };
+  dernierTexte = 'const ESCOUADE_FORMES = {\n' + [1, 2, 3].map(ligne).join('\n') + '\n};\n'
+    + '// e : écarts à l’axe par rang ; h1 : hauteur du premier ; h2 : chaque rang suivant ; z : recul par rang ; recul : caméra en plus\n'
+    + '// vu avec ' + etat.rangs + ' rang(s) : ' + abs.filter((_, i) => present(i)).map((P, i) => NOMS[i] + ' (' + +P.x.toFixed(1) + ', ' + +P.y.toFixed(1) + ', ' + +P.z.toFixed(1) + ')').join(' · ') + '\n'
+    + '// visible : ' + v(vis) + ' % · au plus près ' + (dmin < 1e8 ? dmin.toFixed(1) + ' m (' + paire + ')' : '—') + (trop.length ? ' · TROP PRÈS : ' + trop.join(' · ') : '');
   // le plan : l'axe, nous, eux
   pc.clearRect(0, 0, plan.width, plan.height);
   const r = Math.max(20, ...abs.map(P => Math.max(Math.abs(P.x), Math.abs(P.z)))) * 1.25;
@@ -208,16 +223,21 @@ function tout() {
   const sil = (x, z, c, k) => { pc.strokeStyle = c; pc.lineWidth = 1.4; pc.beginPath(); pc.moveTo(x, z - 5 * k); pc.lineTo(x + 6 * k, z + 1 * k); pc.lineTo(x + 1.5 * k, z + 1.5 * k); pc.lineTo(x + 2.5 * k, z + 5 * k); pc.lineTo(x, z + 4 * k); pc.lineTo(x - 2.5 * k, z + 5 * k); pc.lineTo(x - 1.5 * k, z + 1.5 * k); pc.lineTo(x - 6 * k, z + 1 * k); pc.closePath(); pc.stroke(); };
   const k = Math.max(0.6, Math.min(1.6, E * 0.9));
   sil(cx, cz, '#46ffa0', k);
-  abs.forEach((P, i) => { const C = A[i].chef < 0 ? { x: 0, z: 0 } : abs[A[i].chef]; pc.strokeStyle = '#1d4a36'; pc.lineWidth = 1; pc.beginPath(); pc.moveTo(cx + C.x * E, cz + C.z * E); pc.lineTo(cx + P.x * E, cz + P.z * E); pc.stroke(); sil(cx + P.x * E, cz + P.z * E, i < 2 ? '#7fd8ff' : '#c9a3ff', k * 0.85); });
+  abs.forEach((P, i) => { if (!present(i)) return; const C = A[i].chef < 0 ? { x: 0, z: 0 } : abs[A[i].chef]; pc.strokeStyle = '#1d4a36'; pc.lineWidth = 1; pc.beginPath(); pc.moveTo(cx + C.x * E, cz + C.z * E); pc.lineTo(cx + P.x * E, cz + P.z * E); pc.stroke(); sil(cx + P.x * E, cz + P.z * E, i < 2 ? '#7fd8ff' : '#c9a3ff', k * 0.85); });
   pc.fillStyle = '#1d4a36'; pc.font = '10px ui-monospace, monospace'; pc.fillText('axe nez-queue', 4, plan.height - 6);
 }
 const curseur = (id, cle, fmt) => {
-  const el = document.getElementById(id); el.value = etat[cle];
-  const maj = () => { document.getElementById('v' + id[0].toUpperCase() + id.slice(1)).textContent = fmt(etat[cle]); };
-  el.addEventListener('input', () => { etat[cle] = +el.value; maj(); tout(); sauve(); });
+  const el = document.getElementById(id);
+  const maj = () => { el.value = F()[cle]; document.getElementById('v' + id[0].toUpperCase() + id.slice(1)).textContent = fmt(F()[cle]); };
+  el.addEventListener('input', () => { F()[cle] = +el.value; maj(); tout(); sauve(); });
   maj(); return maj;
 };
-const majs = [curseur('e1', 'e1', v => v + ' m'), curseur('e2', 'e2', v => v + ' m'), curseur('h1', 'h1', v => (v > 0 ? '+' : '') + v + ' m'), curseur('h2', 'h2', v => (v > 0 ? '+' : '') + v + ' m'), curseur('z', 'z', v => v + ' m')];
+const majs = [curseur('e1', 'e1', v => v + ' m'), curseur('e2', 'e2', v => v + ' m'), curseur('h1', 'h1', v => (v > 0 ? '+' : '') + v + ' m'), curseur('h2', 'h2', v => (v > 0 ? '+' : '') + v + ' m'), curseur('z', 'z', v => v + ' m'), curseur('recul', 'recul', v => '+' + v + ' m')];
+// LES RANGS : 1, 2 ou 3 présents ; chacun garde ses réglages
+const zoneRangs = document.getElementById('rangs');
+const bRangs = [1, 2, 3].map(n => { const b = document.createElement('button'); b.textContent = n + (n > 1 ? ' RANGS' : ' RANG'); b.addEventListener('click', () => { etat.rangs = n; majRangs(); majs.forEach(m => m()); tout(); sauve(); }); zoneRangs.appendChild(b); return b; });
+function majRangs() { bRangs.forEach((b, i) => b.classList.toggle('actif', i + 1 === etat.rangs)); }
+majRangs();
 const bPlus = document.getElementById('plus'), zone = document.getElementById('plusZone');
 bPlus.addEventListener('click', () => { zone.hidden = !zone.hidden; bPlus.classList.toggle('actif', !zone.hidden); tout(); });
 const sortie = document.getElementById('sortie');
@@ -227,10 +247,10 @@ document.getElementById('copier').addEventListener('click', async () => {
   catch (e) { document.getElementById('etat').textContent = 'Sélectionne le bloc et copie-le. Touche-le pour le fermer.'; }
 });
 sortie.addEventListener('click', () => { sortie.hidden = true; });
-document.getElementById('remise').addEventListener('click', () => { Object.assign(etat, DEFAUT); ['e1', 'e2', 'h1', 'h2', 'z'].forEach((k, i) => { document.getElementById(k).value = etat[k]; majs[i](); }); tout(); sauve(); document.getElementById('etat').textContent = 'Remis à ta table du 1er octobre.'; });
+document.getElementById('remise').addEventListener('click', () => { for (const n of [1, 2, 3]) etat.formes[n] = FORME(); majs.forEach(m => m()); tout(); sauve(); document.getElementById('etat').textContent = 'Remis à ta table du 2 octobre, pour les trois nombres de rangs.'; });
 addEventListener('resize', tout);
 tout();
-window.__planche = { etat, tout, arbre, absolues, camera, amis, partVisible, projette };
+window.__planche = { etat, tout, arbre, absolues, camera, amis, partVisible, projette, present };
 </script>
 </body>
 </html>
