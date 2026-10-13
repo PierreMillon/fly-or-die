@@ -15230,7 +15230,13 @@ function simulate(dt) {
     }
   }
   const air = 1 + (COURANT_GAIN - 1) * state.courantK;
-  let croisiere = CRUISE * avion().vit * (1 + (gainEff - 1) * state.boost) * (1 - 0.2 * montee)
+  // LA POUSSÉE S'APPLIQUE APRÈS LE CAPITAL (v1.98). Elle multipliait la seule
+  // croisière de base : à 300 m/s avec 222 de capital, elle ajoutait 60 — et
+  // le capital en perdait 45 pendant ce temps. « Trop loin pour le magnétisme,
+  // l'avion doit accélérer » : on ne la sentait plus. Elle multiplie maintenant
+  // la vitesse visée entière, capital compris — voir plus bas, `pousse`.
+  const pousse = 1 + (gainEff - 1) * state.boost;
+  let croisiere = CRUISE * avion().vit * (1 - 0.2 * montee)
                   * coussin * (state.assist ? APPROCHE_GAIN : 1) * air;
   // LE SURPLACE : la consigne tombe à trente, quoi que fasse le reste — et la
   // vitesse y vient franchement, sans attendre le rappel doux du capital :
@@ -15289,7 +15295,9 @@ function simulate(dt) {
   if ((state.boostAv || 0) > 0 && state.boostPortail <= 0)
     state.acquis = Math.min(ACQUIS_MAX, Math.max(state.acquis || 0, state.speed - croisiere));
   state.boostAv = state.boostPortail;
-  state.acquis = Math.max(0, (state.acquis || 0) - (state.acquis || 0) * ACQUIS_FUITE * dt);
+  // ET LE CAPITAL NE FUIT PAS PENDANT LA POURSUITE : ce qu'elle donne ne doit
+  // pas être mangé par la marée qui redescend.
+  if (state.boost < 0.5) state.acquis = Math.max(0, (state.acquis || 0) - (state.acquis || 0) * ACQUIS_FUITE * dt);
   // LE COURANT PORTE AUSSI LE CAPITAL. L'Ancien lancé par des portails tenait
   // son double appui et ne sentait presque rien : le courant multipliait la
   // croisière de base (48 → 336) et laissait le capital tel quel. « La vitesse
@@ -15301,6 +15309,7 @@ function simulate(dt) {
     state.acquis = Math.max(state.acquis || 0, state.speed - croisiere);
   }
   croisiere += state.acquis * (1 + (COURANT_CAPITAL - 1) * state.courantK);
+  croisiere *= pousse;
   // LE DOUBLE APPUI BREF RALENTIT : une seconde pour revenir à la croisière.
   if ((state.ralentiT || 0) > 0) {
     state.ralentiT -= dt;
@@ -16037,6 +16046,9 @@ function simulate(dt) {
       state.camYaw = euler.y;
       state.camRoll = euler.z;
       state.fig = null;
+      // ET ON RESSORT À LA VITESSE DE BASE, d'un coup (v1.98, ton choix :
+      // « retour immédiat »). Le capital est déjà tombé au départ de la figure.
+      state.speed = Math.min(state.speed, CRUISE * avion().vit);
       // SIX SECONDES, PAS DEUX. Il fallait tenir Vénus une seconde et demie
       // DANS une fenêtre de deux secondes : le temps de sortir de la figure et
       // de trouver l'ouest, elle était déjà fermée. La fenêtre s'ouvre
@@ -20509,6 +20521,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.98', fr: 'La poussée de poursuite se sent de nouveau, même lancé par des portails : elle multiplie toute la vitesse visée, capital compris, et le capital ne fuit plus pendant qu’elle pousse. Mesuré : à 300 m/s avec 222 de capital, 60 m/s de plus avant, 310 de plus maintenant. Et l’Immelmann rend la vitesse d’un coup : on ressort à la vitesse de base.', en: 'The pursuit push can be felt again, even after gates: it multiplies the whole target speed, capital included, and the capital no longer leaks while it pushes. Measured: at 300 m/s with 222 capital, 60 m/s more before, 310 more now. And the Immelmann gives the speed back at once: you come out at base speed.' },
   { v: '1.97', fr: 'Le bimoteur décroche toujours : la Polaire, qui interdisait la vrille, ne protège plus l’avion de base. Plus rien ne brille quand on regarde la lune : le bouclier doré est retiré. Et un Immelmann ou un renversement coûte la vitesse : le capital des portails et du courant tombe, le moteur ramène à la croisière.', en: 'The twin always stalls: the Pole Star, which forbade the spin, no longer shields the base aircraft. Nothing glows when you look at the moon any more: the golden shield is gone. And an Immelmann or a reversal costs your speed: the gate and current capital drops, the engine brings you back to cruise.' },
   { v: '1.96', fr: 'Le hangar : tout ce qui y est garé se pilote. Le biplan (lent et vif, quatre roquettes, une coque) et le chasseur (rapide, une salve, dix roquettes, deux leurres) remplacent les prises de guerre pâles ; plus rien de grisé. Et à l’arrêt, moteur coupé, l’hélice ne tourne plus.', en: 'The hangar: everything parked there flies. The biplane (slow and lively, four rockets, a hull) and the fighter (fast, a volley, ten rockets, two flares) replace the pale war prizes; nothing greyed any more. And at rest, engine off, the propeller no longer turns.' },
   { v: '1.96', fr: 'Ta table du 2 octobre est dans le jeu : un échelon, D suit nous, D·a suit D, D·b suit D·a, à 7,5 / 10 / 12,5 m de l’axe, 3,5 puis 4,5 m plus bas par rang, 5 m de recul par rang. La forme dépend du nombre de rangs présents, et la caméra peut reculer avec eux : la planche ecarts.html a trois boutons 1 / 2 / 3 RANGS, chacun avec ses écarts, et un curseur de recul de caméra. La séparation passe à 7 m.', en: 'Your table of 2 October is in the game: an echelon, D follows us, D·a follows D, D·b follows D·a, at 7.5 / 10 / 12.5 m from the axis, 3.5 then 4.5 m lower per rank, 5 m back per rank. The shape depends on how many ranks are present, and the camera can pull back with them: the ecarts.html bench has three buttons 1 / 2 / 3 RANKS, each with its own gaps, and a camera pull-back slider. Separation goes to 7 m.' },
