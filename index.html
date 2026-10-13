@@ -4008,6 +4008,7 @@ function majLune(dt) {
 // renouvelable, il devient une manoeuvre — monter cote soleil, le fixer,
 // redescendre couvert — et c'est ce qu'on voulait depuis le debut.
 const DORE_TENUE = 2.5, DORE_DUREE = 10;
+const DORE_ACTIF = false;   // le bouclier doré de la lune : retiré en v1.97
 const ETOILE_PRIME = 500, ETOILE_REPOS = 30;
 // Un peu plus vite et beaucoup plus longue : à 4 200 m, sept cents mètres de
 // traînée font neuf degrés et demi, soit un bon quart de la hauteur de l'écran.
@@ -4049,7 +4050,10 @@ function secretsLune(dt) {
       announce(t('luneMort'), t('luneMortSous'));
     }
   } else state.luneT = Math.max(0, (state.luneT || 0) - dt * 2);
-  if (enVol && !lourdeLa && eblouissement() >= 0.98) {
+  // RETIRÉ (v1.97) : « l'effet de la lumière de la lune, on l'enlève
+  // complètement, rien ne brille quand on est face à la lune ». Plus de
+  // bouclier doré à tenir la lune au centre ; le code reste derrière DORE_ACTIF.
+  if (DORE_ACTIF && enVol && !lourdeLa && eblouissement() >= 0.98) {
     state.luneDans += dt;
     if (state.luneDans >= DORE_TENUE && state.dore <= 0) {
       state.doreVague = state.wave;
@@ -16224,8 +16228,11 @@ function simulate(dt) {
     // LA POLAIRE TIENT LE PIVOT. Le décrochage reste entier — l'alarme, le nez
     // qui retombe, la vitesse perdue — mais l'appareil ne part plus en
     // autorotation. C'est le seul point fixe du ciel, et c'est ce qu'il donne.
-    if (cabre && state.decrocheT >= DECRO_VRILLE && state.pivot) state.decrocheT = 0;
-    if (cabre && state.decrocheT >= DECRO_VRILLE && !state.pivot) {
+    // SAUF L'AVION DE BASE (v1.97) : « pour l'avion de base je dois toujours
+    // pouvoir décrocher ». La Polaire protège les autres, pas le bimoteur.
+    const pivot = state.pivot && avion().id !== 'bimoteur';
+    if (cabre && state.decrocheT >= DECRO_VRILLE && pivot) state.decrocheT = 0;
+    if (cabre && state.decrocheT >= DECRO_VRILLE && !pivot) {
       state.vrille = { t: 0, side: Math.random() < 0.5 ? -1 : 1, sortie: 0 };
       state.vrilleRoll = 0; state.decrocheT = 0;
       announce(t('vrille')); SFX.alerte();
@@ -20502,6 +20509,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.97', fr: 'Le bimoteur décroche toujours : la Polaire, qui interdisait la vrille, ne protège plus l’avion de base. Plus rien ne brille quand on regarde la lune : le bouclier doré est retiré. Et un Immelmann ou un renversement coûte la vitesse : le capital des portails et du courant tombe, le moteur ramène à la croisière.', en: 'The twin always stalls: the Pole Star, which forbade the spin, no longer shields the base aircraft. Nothing glows when you look at the moon any more: the golden shield is gone. And an Immelmann or a reversal costs your speed: the gate and current capital drops, the engine brings you back to cruise.' },
   { v: '1.96', fr: 'Le hangar : tout ce qui y est garé se pilote. Le biplan (lent et vif, quatre roquettes, une coque) et le chasseur (rapide, une salve, dix roquettes, deux leurres) remplacent les prises de guerre pâles ; plus rien de grisé. Et à l’arrêt, moteur coupé, l’hélice ne tourne plus.', en: 'The hangar: everything parked there flies. The biplane (slow and lively, four rockets, a hull) and the fighter (fast, a volley, ten rockets, two flares) replace the pale war prizes; nothing greyed any more. And at rest, engine off, the propeller no longer turns.' },
   { v: '1.96', fr: 'Ta table du 2 octobre est dans le jeu : un échelon, D suit nous, D·a suit D, D·b suit D·a, à 7,5 / 10 / 12,5 m de l’axe, 3,5 puis 4,5 m plus bas par rang, 5 m de recul par rang. La forme dépend du nombre de rangs présents, et la caméra peut reculer avec eux : la planche ecarts.html a trois boutons 1 / 2 / 3 RANGS, chacun avec ses écarts, et un curseur de recul de caméra. La séparation passe à 7 m.', en: 'Your table of 2 October is in the game: an echelon, D follows us, D·a follows D, D·b follows D·a, at 7.5 / 10 / 12.5 m from the axis, 3.5 then 4.5 m lower per rank, 5 m back per rank. The shape depends on how many ranks are present, and the camera can pull back with them: the ecarts.html bench has three buttons 1 / 2 / 3 RANKS, each with its own gaps, and a camera pull-back slider. Separation goes to 7 m.' },
   { v: '1.96', fr: 'L’atterrissage : le tube prend en 1,2 s au lieu d’un coup — plus de saut de cap ni d’assiette en entrant dans le cercle, quels que soient la direction et la vitesse. Au sol, on freine dès le toucher à la décélération exacte qui arrête l’appareil devant la baie, et l’on ne dépasse jamais : plus d’« atterrissage de colonel ». Et arrivé bas et vite, l’appareil se pose au lieu de filer à trois mètres au-dessus de la piste.', en: 'Landing: the tube takes hold over 1.2 s instead of at once — no more heading or pitch jump when entering the circle, whatever your direction and speed. On the ground you brake from touchdown at the exact deceleration that stops in front of the bay, and never overshoot: no more “colonel’s landing”. And arriving low and fast, the aircraft lands instead of skimming three metres above the runway.' },
@@ -21665,6 +21673,10 @@ function lanceFigure(side, dy) {
   if (Math.abs(dy) > 50) {
     state.fig = { t: 0, side: -side, type: dy > 0 ? 'split' : 'imm',
                   base: state.quat.clone(), yaw0: state.yaw };
+    // UN DEMI-TOUR COÛTE LA VITESSE (v1.97). Immelmann ou renversement, on
+    // repart à la vitesse de base : le capital des portails et du courant
+    // tombe, et le moteur ramène à la croisière. « C'est logique. »
+    state.acquis = 0; state.gardeVitesse = false; state.courantK = 0;
     SFX.renversement();
   } else {
     state.spinT = SPIN_TIME;
