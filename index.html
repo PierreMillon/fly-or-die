@@ -4042,7 +4042,7 @@ function secretsLune(dt) {
   // « la seule défense est l'astre dans le dos » ne souffre pas d'exception.
   // Pendant la neuvième vague, la traversée ne se prend pas.
   const lourdeLa = state.enemies.some(e => e.hp > 0 && e.kind.nom === 'LOURDE');
-  if (enVol && lourdeLa && eblouissement() > LUNE_SEUIL) {
+  if (LUNE_EBLOUIT && enVol && lourdeLa && eblouissement() > LUNE_SEUIL) {
     state.luneT = (state.luneT || 0) + dt;
     if (state.luneT >= LUNE_MORT) {
       state.luneT = 0;
@@ -4295,6 +4295,11 @@ function majTraitOurse() {
   ourseTrait.material.opacity = pts.length ? 0.55 : 0;
 }
 const LUNE_CONE = Math.cos(24 * Math.PI / 180);   // au-delà, on est ébloui
+// L'ÉBLOUISSEMENT EST RETIRÉ (v1.99) : « face à la lune ou dos à la lune, ça
+// m'éblouit ; on supprime complètement cette mécanique ». Plus de voile ni de
+// bandeau quand elle est dans le dos, plus d'adversaires aveuglés, plus de
+// mort par la chenillée lourde à la regarder. Le code reste derrière ce drapeau.
+const LUNE_EBLOUIT = false;
 const LUNE_CONE_E = Math.cos(20 * Math.PI / 180); // et l'adversaire aussi
 const ESQUIVE_DUREE = [1.0, 1.6];  // secondes de dégagement quand on est visé
 const ESQUIVE_REPOS  = 0.8;        // avant de pouvoir recommencer
@@ -13124,7 +13129,7 @@ function updateEnemies(dt) {
       e.mesh.quaternion.copy(e.quat);
       e.mesh.line.material = (state.lock === e) ? matLocked : matEnemy;
       _v.multiplyScalar(-1 / dist);
-      const geneSol = e.gene = (state.pleineLune > 0) ? 1
+      const geneSol = e.gene = !LUNE_EBLOUIT ? 0 : (state.pleineLune > 0) ? 1
         : Math.max(0, (_v.dot(LUNE) - LUNE_CONE_E) / (1 - LUNE_CONE_E));
       e.reload -= dt;
       if (e.burst > 0) {
@@ -13525,7 +13530,7 @@ function updateEnemies(dt) {
     // S'il doit vous chercher dans le soleil, il tire de moins loin et doit
     // être bien mieux aligné : c'est tout l'intérêt d'attaquer avec le soleil
     // dans le dos, la plus vieille manœuvre du combat aérien.
-    const gene = e.gene = (state.pleineLune > 0) ? 1
+    const gene = e.gene = !LUNE_EBLOUIT ? 0 : (state.pleineLune > 0) ? 1
       : Math.max(0, (_v.dot(LUNE) - LUNE_CONE_E) / (1 - LUNE_CONE_E));
     e.reload -= dt;
     // Lui aussi doit prendre le temps de viser. Depuis que le joueur attend
@@ -16362,7 +16367,7 @@ function simulate(dt) {
     const t = performance.now() / 1000;
     majHalo(HALOS.bouclier, state.dore > 0 ? 0.3 + 0.7 * (state.dore / DORE_DUREE) : 0, t);
     majHalo(HALOS.dore, state.dore > 0 ? Math.min(1, state.dore / 1.5) : 0, t);
-    majHalo(HALOS.soleil, dosLune(), t);
+    majHalo(HALOS.soleil, LUNE_EBLOUIT ? dosLune() : 0, t);
     majHalo(HALOS.canons,
             state.chauffe > 0 ? Math.min(1, state.chauffe / CHAUFFE_PAR) : 0, t);
   }
@@ -18129,7 +18134,7 @@ function drawHud() {
   // c'est l'affichage d'un état qui existait déjà dans le calcul depuis la
   // v0.32 sans que rien à l'écran ne le signale — on en profitait sans
   // pouvoir le chercher.
-  const dos = dosLune();
+  const dos = LUNE_EBLOUIT ? dosLune() : 0;
   if (dos > 0.02) {
     // La condition est franche : soit l'adversaire vous cherche dans le soleil,
     // soit non. Le halo est donc déjà lisible dès qu'elle s'ouvre, et se
@@ -20521,6 +20526,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '1.99', fr: 'L’éblouissement de la lune est retiré, en entier : plus de voile ni de bandeau quand elle est dans le dos, plus d’adversaires aveuglés, plus de mort à la regarder quand la chenillée lourde est là. Et quand on s’écrase, la ligne dit « abattu par · le sol », le décor ou la piste — plus le dernier qui avait tiré.', en: 'The moon’s dazzle is gone, entirely: no veil or banner when it is at your back, no blinded foes, no death from looking at it when the heavy crawler is around. And when you crash, the line says “downed by · the ground”, the scenery or the runway — not whoever shot last.' },
   { v: '1.98', fr: 'La poussée de poursuite se sent de nouveau, même lancé par des portails : elle multiplie toute la vitesse visée, capital compris, et le capital ne fuit plus pendant qu’elle pousse. Mesuré : à 300 m/s avec 222 de capital, 60 m/s de plus avant, 310 de plus maintenant. Et l’Immelmann rend la vitesse d’un coup : on ressort à la vitesse de base.', en: 'The pursuit push can be felt again, even after gates: it multiplies the whole target speed, capital included, and the capital no longer leaks while it pushes. Measured: at 300 m/s with 222 capital, 60 m/s more before, 310 more now. And the Immelmann gives the speed back at once: you come out at base speed.' },
   { v: '1.97', fr: 'Le bimoteur décroche toujours : la Polaire, qui interdisait la vrille, ne protège plus l’avion de base. Plus rien ne brille quand on regarde la lune : le bouclier doré est retiré. Et un Immelmann ou un renversement coûte la vitesse : le capital des portails et du courant tombe, le moteur ramène à la croisière.', en: 'The twin always stalls: the Pole Star, which forbade the spin, no longer shields the base aircraft. Nothing glows when you look at the moon any more: the golden shield is gone. And an Immelmann or a reversal costs your speed: the gate and current capital drops, the engine brings you back to cruise.' },
   { v: '1.96', fr: 'Le hangar : tout ce qui y est garé se pilote. Le biplan (lent et vif, quatre roquettes, une coque) et le chasseur (rapide, une salve, dix roquettes, deux leurres) remplacent les prises de guerre pâles ; plus rien de grisé. Et à l’arrêt, moteur coupé, l’hélice ne tourne plus.', en: 'The hangar: everything parked there flies. The biplane (slow and lively, four rockets, a hull) and the fighter (fast, a volley, ten rockets, two flares) replace the pale war prizes; nothing greyed any more. And at rest, engine off, the propeller no longer turns.' },
@@ -21470,7 +21476,11 @@ function gameOver(victoire) {
   // la ligne le dit, et c'est la première chose qu'un pilote veut savoir. Le
   // faucheur a quatre mille points de structure — il se tue, mais il faut y
   // passer la vague entière.
-  const tueur = !victoire && state.dernierTireur ? state.dernierTireur : null;
+  // ÉCRASÉ, CE N'EST PAS ABATTU (v1.99). On lisait « abattu par · BIPLAN » après
+  // un crash au sol : le dernier qui avait tiré n'y était pour rien. Au sol,
+  // en vrille, dans le décor ou au posé, c'est le sol, le décor ou la piste.
+  const CRASH = { sol: ['LE SOL', 'THE GROUND'], vrille: ['LE SOL', 'THE GROUND'], decor: ['LE DÉCOR', 'THE SCENERY'], pose: ['LA PISTE', 'THE RUNWAY'] }[state.causeMort];
+  const tueur = victoire ? null : CRASH ? CRASH[langue === 'en' ? 1 : 0] : (state.dernierTireur || null);
   overlayScore.hidden = false;
   overlayScore.innerHTML = (tueur ? (langue === 'en' ? 'DOWNED BY  ·  ' : 'ABATTU PAR  ·  ')
                                     + '<b>' + tueur + '</b><br>' : '')
