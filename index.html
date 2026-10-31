@@ -983,6 +983,20 @@ const MONTEE        = 2.80;   // durée de la vague, de la rotation au palier
 const ASSIETTE      = 1.30;   // sommet de la vague, 74 degrés
 const ROUE_LEVE     = 0.10;   // assiette à partir de laquelle le train quitte le sol
 const PLEIN_GAZ     = 1.86;   // le décollage se fait à pleine puissance, pas en croisière
+// L'ARRONDI INVERSÉ (v2.00). La portance venait d'un coup dès que l'assiette
+// passait ROUE_LEVE : quatorze mètres par seconde de vertical en une image,
+// et la caméra, qui suit l'appareil, sautait avec lui. Elle vient maintenant
+// sur DECOL_ARRONDI radians d'assiette, en S — les roues quittent le sol
+// comme on quitte un plan, sans marche.
+const DECOL_ARRONDI = 0.18;   // radians d'assiette sur lesquels la portance s'installe
+// L'ASSIETTE EN SPLINE : les points (t depuis la rotation en s, assiette en
+// rad), reliés par Catmull-Rom comme la courbe de la caméra. Vide, c'est la
+// vague en cosinus d'avant. Se règle sur decollage.html.
+const DECOL_ASSIETTE_COURBE = [];
+// LA CAMÉRA TRAÎNE AUSSI EN HAUTEUR : elle rejoint la hauteur de sa place
+// à cette raideur, et pas plus vite. Quatre, c'est un quart de seconde de
+// retard vertical — on voit l'appareil monter avant de monter avec lui.
+const CAM_DECOL_VERT = 4.0;
 // ---------------------------------------------------------------------------
 // LE TONNEAU BARRIQUÉ. Ce qu'il y avait était un tonneau d'AILERON : l'avion
 // tournait sur son axe et restait dans le même plan. Celui-ci est un tonneau
@@ -1080,8 +1094,10 @@ const CAM_DECOL_COURBE = [[0, 16], [0.55, 16], [1.20, 38], [2.49, 70], [3.45, 58
 // rapproche imperceptiblement juste avant que l'appareil ne parte — et 0,4 m
 // de plus au sommet. C'est le prix d'une vitesse continue, et il se paie en
 // centimètres.
-function camDecolEcart(t) {
-  const C = CAM_DECOL_COURBE, n = C.length;
+function camDecolEcart(t) { return courbeDe(CAM_DECOL_COURBE, t); }
+// Catmull-Rom sur une table [[t, v], ...] : passe par chaque point, vitesse continue
+function courbeDe(C, t) {
+  const n = C.length;
   if (t <= C[0][0]) return C[0][1];
   if (t >= C[n - 1][0]) return C[n - 1][1];
   let i = 1;
@@ -3667,7 +3683,10 @@ const KINDS = [
     ],
     tris: [0,1,2, 0,2,3,  3,0,4,  0,1,5,  1,2,6,  2,3,7,  0,8,2],
     envergure: 6.0,   // engin compact, plus petit que tout ce qui est piloté
-    vitesse: [82, 94], virage: 0.88, vie: 80, recharge: [0.7, 1.4],
+    // PLUS VITE, MOINS DE VIRAGE (v2.00) : il tournait sur place devant nous,
+    // impossible à prendre dans le viseur. Un quart de vitesse en plus et un
+    // quart de virage en moins : son rayon de virage passe de 100 à 180 m.
+    vitesse: [105, 118], virage: 0.66, vie: 80, recharge: [0.7, 1.4],
     cone: Math.cos(14 * Math.PI / 180), portee: 1100, rafale: 4
   },
   {
@@ -5896,7 +5915,16 @@ const BOOST_PORTAIL_GAIN = 3.4;   // le coup de fouet d'un portail franchi
 // moteur met deux secondes à y aller. Un portail franchi donne donc une
 // IMPULSION — soixante mètres par seconde d'un coup, comme la catapulte d'un
 // porte-avions — et pousse quatre fois plus fort pendant qu'elle dure.
-const CATAPULTE     = 60;     // m/s ajoutés à l'instant du passage
+const CATAPULTE     = 60;     // m/s ajoutés à l'instant du passage (ancien réglage, voir PORTAIL_COUP)
+// LE PORTAIL NE CATAPULTE PLUS (v2.00). « Les boosts des portails augmentent
+// trop la vitesse. » Au passage : un petit coup, qui s'éteint, et un peu de
+// capital, qui reste — cumulatif d'un portail à l'autre. Et l'air qui file,
+// pour qu'on le voie. Plus de multiplicateur de croisière pendant deux
+// secondes.
+const PORTAIL_COUP   = 25;    // m/s de coup au passage, qui retombe
+const PORTAIL_ACQUIS = 10;    // m/s qui restent, au capital, à chaque portail
+const PORTAIL_AIR    = 1.2;   // secondes d'air qui file
+const PORTAIL_RETOMBE = 3.0;  // secondes pendant lesquelles le coup retombe franchement
 // LA CHAÎNE. Deux portails d'affilée ne doivent pas donner deux fois la même
 // chose : ils doivent donner PLUS. Chaque passage pris dans la fenêtre du
 // précédent monte d'un cran, et le cran multiplie le coup de pied comme la
@@ -6065,11 +6093,9 @@ function updateBoost(dt) {
   // un portail franchi pousse deux secondes, sans attente
   // LE PORTAIL POUSSE LE PLUS FORT : la barre saute à fond, la poussée aussi
   if (state.chaineT > 0 && (state.chaineT -= dt) <= 0) state.chaine = 0;
-  if (state.boostPortail > 0) {
-    state.boostPortail -= dt; vise = true;
-    state.boostT = Math.max(state.boostT, BOOST_ATTENTE + BOOST_MONTEE * 0.75);
-    state.boost = Math.max(state.boost, 0.95);
-  }
+  // le portail ne pousse plus la croisière (v2.00) : il ne reste que l'air qui
+  // file, lu par updateTraits
+  if (state.boostPortail > 0) state.boostPortail -= dt;
   // ELLE MONTE ET DESCEND AU MÊME RYTHME. Elle se vidait trois fois plus vite
   // qu'elle ne se remplissait : on la voyait ramper puis disparaître d'un coup.
   state.boostT = vise ? Math.min(BOOST_ATTENTE + BOOST_MONTEE, state.boostT + dt)
@@ -6098,6 +6124,10 @@ function updateTraits(dt) {
   // la Jeep à vingt mètres par seconde doit faire autant d'air que l'appareil
   // en croisière, sinon on ne verrait jamais rien. Le reste du calcul —
   // l'assiette, la poursuite, la poussée — ne concerne que l'avion.
+  // À PIED, RIEN (v2.00) : « je marche en bas, je ne devrais pas les voir ».
+  // Ils s'allumaient dès trente pour cent de la vitesse de course. La Jeep
+  // garde les siens.
+  if (state.pied) { traitsLayer.visible = false; return; }
   if (state.pied || state.jeep) {
     const plein = state.pied ? PIED_COURSE : JEEP_VMAX;
     const k2 = THREE.MathUtils.clamp((vit - plein * 0.30) / (plein * 0.70), 0, 1);
@@ -6119,8 +6149,9 @@ function updateTraits(dt) {
   // les traits se multiplient pendant qu'elle monte, puis retombent avec
   // elle. C'est la jauge de boost, et il n'y en a plus d'autre.
   const kb = Math.min(1, state.boostT / (BOOST_ATTENTE + BOOST_MONTEE));
+  const kport = Math.min(1, Math.max(0, state.boostPortail) / (PORTAIL_AIR * 0.5));   // l'air du portail
   const k = THREE.MathUtils.clamp(
-    Math.max(kv, kp, state.boost * 0.95, kb * 0.9), 0, 1);
+    Math.max(kv, kp, state.boost * 0.95, kb * 0.9, kport), 0, 1);
   // L'opacité doit partir de zéro, sinon les traits s'éteignent d'un bloc.
   // Ils apparaissaient et disparaissaient à 22 % d'opacité : au décollage,
   // la vitesse retombant sous le seuil pile au moment où l'avion se stabilise,
@@ -6229,7 +6260,7 @@ const PISTE_GARDE_Z1 = -1150;
 // se dessine sur la page d'édition et se colle ici telle quelle. L'origine est
 // le milieu de la piste ; x vers l'est, z vers le sud (le nord est en -z).
 // ---------------------------------------------------------------------------
-const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":130,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":-430,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":-560,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
+const CARTE = {"pylones":[{"x":-1115,"z":464,"sx":0.94,"sy":0.68,"sz":1.88},{"x":544,"z":1243,"sx":0.61,"sy":0.68,"sz":1.4},{"x":498,"z":263,"sx":0.8,"sy":2.61,"sz":0.91},{"x":-1301,"z":-458,"sx":1.59,"sy":1.66,"sz":0.89},{"x":-822,"z":1098,"sx":0.8,"sy":2.18,"sz":1.57},{"x":174,"z":-720,"sx":1.3,"sy":2.11,"sz":1.73},{"x":-1931,"z":130,"sx":0.61,"sy":2.18,"sz":1.4},{"x":588,"z":-61,"sx":0.98,"sy":0.64,"sz":1.62},{"x":1273,"z":137,"sx":1.23,"sy":1.62,"sz":1.6},{"x":-726,"z":220,"sx":0.89,"sy":0.82,"sz":1.95},{"x":569,"z":-535,"sx":0.63,"sy":1.11,"sz":1.67},{"x":782,"z":-883,"sx":1.3,"sy":1.58,"sz":1.08},{"x":-1005,"z":-398,"sx":1.91,"sy":0.91,"sz":1.38},{"x":-430,"z":1340,"sx":1.02,"sy":1.22,"sz":0.76},{"x":1728,"z":-612,"sx":0.74,"sy":1.78,"sz":1.66},{"x":320,"z":-1030,"sx":1.5,"sy":1.68,"sz":0.71},{"x":-1458,"z":-2349,"sx":1,"sy":0.79,"sz":1.89},{"x":-1209,"z":-1762,"sx":1.7,"sy":2.43,"sz":0.86},{"x":161,"z":-126,"sx":0.65,"sy":1.92,"sz":0.68},{"x":1362,"z":54,"sx":1.8,"sy":0.92,"sz":1.03},{"x":-1305,"z":955,"sx":1.66,"sy":0.62,"sz":1.24},{"x":2438,"z":-1297,"sx":1.64,"sy":1.12,"sz":1.02},{"x":-435,"z":-7,"sx":1.81,"sy":0.78,"sz":1.02},{"x":2085,"z":-935,"sx":1.76,"sy":1.72,"sz":0.86},{"x":2032,"z":-1858,"sx":1.86,"sy":2.79,"sz":1.12},{"x":-797,"z":-1534,"sx":1.46,"sy":1.53,"sz":1.82},{"x":895,"z":1787,"sx":0.65,"sy":1.62,"sz":0.92},{"x":-1451,"z":1324,"sx":1.83,"sy":1.04,"sz":1.85},{"x":425,"z":-32,"sx":0.75,"sy":1.48,"sz":1.53},{"x":445,"z":805,"sx":1.74,"sy":2.15,"sz":1.11},{"x":211,"z":-1747,"sx":1.69,"sy":2.01,"sz":1.48},{"x":-1298,"z":-354,"sx":1.27,"sy":1.27,"sz":0.95},{"x":2202,"z":65,"sx":0.75,"sy":2.88,"sz":0.86},{"x":-458,"z":-529,"sx":1.32,"sy":1.4,"sz":0.96}],"arches":[{"x":40,"z":-1800,"q":0},{"x":-40,"z":1160,"q":0},{"x":-732,"z":-1672,"q":0},{"x":1579,"z":692,"q":1},{"x":-427,"z":-905,"q":0},{"x":-560,"z":1444,"q":0},{"x":686,"z":1025,"q":1},{"x":433,"z":-2065,"q":0},{"x":982,"z":-618,"q":0},{"x":-561,"z":-218,"q":1},{"x":1096,"z":-258,"q":0},{"x":1735,"z":-34,"q":0},{"x":-478,"z":-1493,"q":1},{"x":810,"z":-731,"q":1}],"tours":[{"x":-1695,"z":-2182,"q":0},{"x":2017,"z":-2137,"q":0},{"x":1204,"z":836,"q":1}]};
 // ---------------------------------------------------------------------------
 // LES DEUX BÂTIMENTS À FIGURE SORTENT DE LA CARTE.
 //
@@ -11325,16 +11356,16 @@ function coupDePied() {
   // qu'une figure, et il se tente naturellement : on est catapulté, on a de la
   // vitesse, on lève les yeux.
   state.figSortie = BERGER_FENETRE;
-  state.boostPortail = 2 * cran;
   // IL AJOUTE, IL NE FIXE PAS. Le Math.min(SPEED_MAX, ...) faisait du portail
   // une consigne absolue : arriver plus vite que 320 et le franchir coûtait la
   // différence. On ajoute, point — et une chaîne prise en piqué monte aussi
   // haut que le pilote a su aller la chercher.
-  const gagne = Math.min(SPEED_DUR - state.speed, CATAPULTE * cran);
-  state.speed += gagne;
-  // et il entre au capital : la croisière monte avec nous, donc rien ne vient
-  // le reprendre deux secondes plus tard
-  state.acquis = Math.min(ACQUIS_MAX, (state.acquis || 0) + gagne);
+  const coup = Math.min(SPEED_DUR - state.speed, PORTAIL_COUP * cran);
+  state.speed += coup;
+  // un peu entre au capital, et seulement ça : le coup retombe, le capital reste
+  state.acquis = Math.min(ACQUIS_MAX, (state.acquis || 0) + PORTAIL_ACQUIS * cran);
+  state.boostPortail = PORTAIL_AIR;
+  state.portailT = PORTAIL_RETOMBE;
   state.secousse = 0.55 * Math.min(1.6, cran);
   // ON PASSE LA PORTE, ILS PERDENT LA MAIN. Traverser un portail au ras du
   // béton est le geste le plus exposé du jeu : on vole droit, lentement par
@@ -15217,7 +15248,7 @@ function simulate(dt) {
   // l'approche assistée se fait vite : de la porte à l'arrêt, le temps est
   // divisé par trois par rapport à la v0.65
   // un portail pousse bien plus fort qu'une poursuite : c'est un coup de fouet
-  const gainEff = state.boostPortail > 0 ? Math.max(gainBoost, BOOST_PORTAIL_GAIN) : gainBoost;
+  const gainEff = gainBoost;   // le portail ne multiplie plus rien (v2.00)
   const hSol = state.pos.y - SOL_Y;
   const coussin = 1 + SOL_EFFET * THREE.MathUtils.clamp(1 - hSol / SOL_EFFET_H, 0, 1);
   // LE COURANT MONTE ET DESCEND, il ne claque pas. Un vent porteur met deux
@@ -15297,8 +15328,8 @@ function simulate(dt) {
   // donc deux cents mètres par seconde sans couverture, et le moteur les
   // reprenait. On relève le compteur à l'instant où la catapulte s'éteint :
   // ce qu'elle a donné est acquis.
-  if ((state.boostAv || 0) > 0 && state.boostPortail <= 0)
-    state.acquis = Math.min(ACQUIS_MAX, Math.max(state.acquis || 0, state.speed - croisiere));
+  // (v2.00 : le coup du portail n'est plus encaissé en fin de poussée — seul
+  // PORTAIL_ACQUIS reste, posé au passage)
   state.boostAv = state.boostPortail;
   // ET LE CAPITAL NE FUIT PAS PENDANT LA POURSUITE : ce qu'elle donne ne doit
   // pas être mangé par la marée qui redescend.
@@ -15320,8 +15351,11 @@ function simulate(dt) {
     state.ralentiT -= dt;
     state.speed = THREE.MathUtils.damp(state.speed, croisiere, 4 / COURANT_FREIN, dt);
   }
-  const rappel = state.boostPortail > 0 ? THRUST * CATAPULTE_POUSSEE
+  // APRÈS UN PORTAIL, LE COUP RETOMBE (v2.00) : trois secondes de rappel
+  // plein, puis la marée lente d'habitude. Ce qui reste, c'est le capital.
+  const rappel = (state.portailT || 0) > 0 ? THRUST
                : state.speed > croisiere ? THRUST * 0.2 : THRUST;
+  if ((state.portailT || 0) > 0) state.portailT -= dt;
   // NEZ SOUS L'HORIZON, ON ACCÉLÈRE. Au-dessus de la croisière, le rappel du
   // moteur est négatif, et à faible piqué il dépassait le gain de la
   // pesanteur : on descendait EN RALENTISSANT, ce qu'aucun avion ne fait. Dès
@@ -15336,7 +15370,12 @@ function simulate(dt) {
   // longtemps ne payait donc plus. Il vaut maintenant les sept dixièmes : nez
   // à la verticale, on accélère tant qu'on descend, et c'est le sol qui
   // arrête, pas un réglage.
-  if (state.forward.y < 0) dv = Math.max(dv, gainPesanteur * 0.7);
+  // ... MAIS PAS AU-DESSUS DE LA CROISIÈRE (v2.00). Ce plancher valait aussi
+  // nez à plat — le quaternion donne un forward.y de moins un millionième —
+  // et il interdisait au moteur de reprendre quoi que ce soit : le coup d'un
+  // portail ne retombait jamais en palier (mesuré : 103 m/s pendant 5 s, pile).
+  // Sous la croisière, piquer ne ralentit jamais ; au-dessus, la marée joue.
+  if (state.forward.y < 0 && state.speed <= croisiere) dv = Math.max(dv, gainPesanteur * 0.7);
   if (!state.glisse) state.speed += dv * dt;   // en glissade, c'est le manche qui fait la vitesse
   // Le plafond lui-même monte avec la poussée : sans cela le piqué seul
   // atteignait déjà la limite et la poursuite n'ajoutait plus rien.
@@ -15844,10 +15883,14 @@ function simulate(dt) {
     // partout. L'accélération de départ tombe de 22,8 à 5,75 rad/s².
     const u = THREE.MathUtils.clamp((tv - ROULAGE) / MONTEE, 0, 1);
     const uu = u + 0.3267 * u * (1 - u);
-    state.pitch = ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
+    state.pitch = DECOL_ASSIETTE_COURBE.length >= 2
+      ? Math.max(0, courbeDe(DECOL_ASSIETTE_COURBE, tv - ROULAGE))
+      : ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
 
-    // La trajectoire découle de l'assiette au lieu de lui être imposée.
-    if (state.pitch > ROUE_LEVE) state.pos.y += state.speed * Math.sin(state.pitch) * dt;
+    // La trajectoire découle de l'assiette au lieu de lui être imposée — et la
+    // portance s'installe en S sur DECOL_ARRONDI (v2.00), pas d'un coup.
+    const lev = THREE.MathUtils.clamp((state.pitch - ROUE_LEVE) / DECOL_ARRONDI, 0, 1);
+    state.pos.y += state.speed * Math.sin(state.pitch) * dt * lev * lev * (3 - 2 * lev);
     const av = state.speed * Math.cos(state.pitch) * dt;
     state.pos.x -= sy * av;
     state.pos.z -= cy * av;
@@ -15926,6 +15969,12 @@ function simulate(dt) {
       const n = _cd.length();
       if (n > 1e-3) camera.position.copy(state.pos).addScaledVector(_cd.divideScalar(n), T.ecartVu);
       else camera.position.copy(_v);
+      // ET ELLE TRAÎNE EN HAUTEUR (v2.00) : la hauteur de sa place est une
+      // cible, qu'elle rejoint à CAM_DECOL_VERT — un retard vertical constant,
+      // du lever des roues à la remise à plat.
+      if (T.camY === undefined) T.camY = camera.position.y;
+      T.camY = THREE.MathUtils.damp(T.camY, camera.position.y, CAM_DECOL_VERT, dt);
+      camera.position.y = T.camY;
     }
     majFov(dt);
     updateTraits(dt);
@@ -20526,6 +20575,8 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '2.00', fr: 'Les portails ne catapultent plus : un petit coup au passage (25 m/s, qui retombe en trois secondes), un peu de capital qui reste (10 m/s, cumulatif), et l’air qui file. Deux portails attendent dans l’axe, un à chaque bout de piste : on comprend tout de suite qu’on peut passer. Le drone des vagues 3 et 4 va plus vite et vire moins court : son rayon passe de 100 à 160 m, on ne tourne plus en rond avec lui. En palier au-dessus de la croisière, la marée redescend enfin : un coup de portail ne restait jamais.', en: 'Gates no longer catapult: a small push through (25 m/s, gone in three seconds), a little capital that stays (10 m/s, cumulative), and air streaming past. Two gates wait on the axis, one at each runway end: you see at once that you can fly through. The wave 3 and 4 drone is faster and turns wider: its radius goes from 100 to 160 m, no more circling with it. Level above cruise, the tide finally ebbs: a gate push used to stay forever.' },
+  { v: '2.00', fr: 'Le décollage : la portance s’installe en S sur 0,18 rad d’assiette — un arrondi inversé, les roues quittent le sol sans marche — et la caméra traîne en hauteur avec un quart de seconde de retard. L’assiette peut être une spline : six points à tirer sur decollage.html, avec l’arrondi et le retard vertical en curseurs, et un bloc COPIER à me renvoyer. Et à pied, plus de traits de vitesse.', en: 'Takeoff: lift settles in an S over 0.18 rad of pitch — an inverted flare, the wheels leave the ground without a step — and the camera lags in height by a quarter second. Pitch can be a spline: six points to drag on decollage.html, with the flare and vertical lag as sliders, and a COPY block to send me. And on foot, no more speed streaks.' },
   { v: '1.99', fr: 'L’éblouissement de la lune est retiré, en entier : plus de voile ni de bandeau quand elle est dans le dos, plus d’adversaires aveuglés, plus de mort à la regarder quand la chenillée lourde est là. Et quand on s’écrase, la ligne dit « abattu par · le sol », le décor ou la piste — plus le dernier qui avait tiré.', en: 'The moon’s dazzle is gone, entirely: no veil or banner when it is at your back, no blinded foes, no death from looking at it when the heavy crawler is around. And when you crash, the line says “downed by · the ground”, the scenery or the runway — not whoever shot last.' },
   { v: '1.98', fr: 'La poussée de poursuite se sent de nouveau, même lancé par des portails : elle multiplie toute la vitesse visée, capital compris, et le capital ne fuit plus pendant qu’elle pousse. Mesuré : à 300 m/s avec 222 de capital, 60 m/s de plus avant, 310 de plus maintenant. Et l’Immelmann rend la vitesse d’un coup : on ressort à la vitesse de base.', en: 'The pursuit push can be felt again, even after gates: it multiplies the whole target speed, capital included, and the capital no longer leaks while it pushes. Measured: at 300 m/s with 222 capital, 60 m/s more before, 310 more now. And the Immelmann gives the speed back at once: you come out at base speed.' },
   { v: '1.97', fr: 'Le bimoteur décroche toujours : la Polaire, qui interdisait la vrille, ne protège plus l’avion de base. Plus rien ne brille quand on regarde la lune : le bouclier doré est retiré. Et un Immelmann ou un renversement coûte la vitesse : le capital des portails et du courant tombe, le moteur ramène à la croisière.', en: 'The twin always stalls: the Pole Star, which forbade the spin, no longer shields the base aircraft. Nothing glows when you look at the moon any more: the golden shield is gone. And an Immelmann or a reversal costs your speed: the gate and current capital drops, the engine brings you back to cruise.' },

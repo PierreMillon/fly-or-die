@@ -57,6 +57,13 @@ pour dire, seconde par seconde, à quelle distance la caméra se tient de l'avio
 <p class="note">Horizontalement le temps depuis le lâcher des freins, verticalement
 la distance. Le trait vertical est l'instant qu'on regarde en dessous.</p>
 
+<p class="titre">L'ASSIETTE — EN DEGRÉS, DEPUIS LA ROTATION</p>
+<canvas id="courbe2" width="720" height="260"></canvas>
+<p class="note">Six points reliés par une spline (Catmull-Rom, comme la courbe du
+haut) : tire-les. C'est la vague de l'appareil, l'arrondi inversé compris. Le
+bouton rend la vague en cosinus d'avant.</p>
+<div class="rangee"><button id="btnSpline" class="actif">ASSIETTE : SPLINE</button></div>
+
 <p class="titre">CE QUE ÇA DONNE, VU DE CÔTÉ</p>
 <canvas id="scene" width="720" height="360"></canvas>
 <p class="note">La piste, l'appareil, et la caméra. Le petit cadre en haut à droite
@@ -85,11 +92,13 @@ montre où l'avion tombe dans l'image.</p>
 // au caractère près.
 // ---------------------------------------------------------------------------
 const V = {
-  ATTENTE: 0.55, RAMPE: 0.55, ROULAGE: 1.4, MONTEE: 2.4,
+  ATTENTE: 0.40, RAMPE: 0.55, ROULAGE: 1.95, MONTEE: 2.80,   // les valeurs du jeu (v2.00)
   ASSIETTE: 1.30, ROUE_LEVE: 0.10, PLEIN_GAZ: 1.86, CRUISE: 78,
-  CAM_PITCH_AMORTI: 2.2, CAM_HAUT: 6.8, CAM_RECUL: 16.0
+  CAM_PITCH_AMORTI: 2.2, CAM_HAUT: 6.8, CAM_RECUL: 16.0,
+  ARRONDI: 0.18, CAM_VERT: 4.0, SPLINE: 1
 };
 const DEFAUT = Object.assign({}, V);
+// ARRONDI et CAM_VERT : les valeurs du jeu v2.00 (DECOL_ARRONDI, CAM_DECOL_VERT)
 
 // LA COURBE. Six points, l'abscisse figée, l'ordonnée à la main : c'est elle
 // qu'il dessine, et c'est elle que je relirai. Les valeurs de départ sont ce
@@ -97,9 +106,27 @@ const DEFAUT = Object.assign({}, V);
 const TMAX = 5.0, DMAX = 70;
 const DEFAUT_PTS = [
   { t: 0.00, d: 16 }, { t: 0.55, d: 16 }, { t: 1.20, d: 38 },
-  { t: 2.00, d: 46 }, { t: 3.20, d: 30 }, { t: 5.00, d: 17 }
-];
+  { t: 2.49, d: 70 }, { t: 3.45, d: 58 }, { t: 5.00, d: 58 }
+];   // CAM_DECOL_COURBE du jeu
 let PTS = DEFAUT_PTS.map(p => ({ ...p }));
+// Catmull-Rom, la même fonction que le jeu (courbeDe) : passe par chaque point,
+// vitesse continue. Les points sont {t, d}.
+function courbeDe(P, t) {
+  const n = P.length;
+  if (t <= P[0].t) return P[0].d;
+  if (t >= P[n - 1].t) return P[n - 1].d;
+  let i = 1; while (i < n - 1 && t > P[i].t) i++;
+  const p0 = P[i - 1], p1 = P[i], h = p1.t - p0.t, u = (t - p0.t) / h;
+  const pente = k => { const a = P[Math.max(0, k - 1)], b = P[Math.min(n - 1, k + 1)]; return (b.d - a.d) / (b.t - a.t); };
+  const m0 = pente(i - 1) * h, m1 = pente(i) * h, u2 = u * u, u3 = u2 * u;
+  return (2 * u3 - 3 * u2 + 1) * p0.d + (u3 - 2 * u2 + u) * m0 + (-2 * u3 + 3 * u2) * p1.d + (u3 - u2) * m1;
+}
+// L'ASSIETTE EN SPLINE : six points (t depuis la rotation, degrés), posés au
+// départ sur la vague en cosinus du jeu — même sommet, même durée.
+const PMAX = 2.8, DEGMAX = 90;
+function vagueDeg(t) { const u = Math.max(0, Math.min(1, t / V.MONTEE)); const uu = u + 0.3267 * u * (1 - u); return V.ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu)) * 57.2958; }
+function ptsVague() { return [0, 0.3, 0.7, 1.18, 1.9, 2.8].map(t => ({ t: Math.min(t, V.MONTEE), d: Math.round(vagueDeg(t)) })); }
+let PPTS = ptsVague();
 
 const R = [
   { cle:'ATTENTE',  min:0,   max:2,   pas:0.05, nom:"ATTENTE AVANT DE S'ÉBRANLER",
@@ -117,7 +144,11 @@ const R = [
   { cle:'CAM_HAUT', min:0, max:20, pas:0.2, nom:'HAUTEUR DE LA CAMÉRA',
     note:"au-dessus de l'appareil, dans son repère" },
   { cle:'CAM_RECUL', min:4, max:40, pas:0.5, nom:'RECUL AU REPOS',
-    note:"la distance qu'elle reprend une fois le vol commencé" }
+    note:"la distance qu'elle reprend une fois le vol commencé" },
+  { cle:'ARRONDI', min:0.02, max:0.6, pas:0.01, nom:"L'ARRONDI INVERSÉ",
+    note:"radians d'assiette sur lesquels la portance s'installe, en S. Petit = les roues décollent d'un coup ; grand = elles quittent le sol comme on quitte un plan" },
+  { cle:'CAM_VERT', min:0.5, max:12, pas:0.1, nom:'RETARD VERTICAL DE LA CAMÉRA',
+    note:"la raideur du rappel en hauteur : 4 c'est un quart de seconde de retard, 12 elle colle, 1 elle traîne une seconde" }
 ];
 
 // ---------------------------------------------------------------------------
@@ -144,7 +175,8 @@ function etatA(t) {
   // la même déformation du temps que le jeu, en polynôme : sommet au même
   // endroit, mais dérivable partout — u^0,8 partait à accélération infinie
   const uu = u + 0.3267 * u * (1 - u);
-  const pitch = V.ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
+  const pitch = V.SPLINE ? Math.max(0, courbeDe(PPTS, tv - V.ROULAGE) / 57.2958)
+                         : V.ASSIETTE * (0.5 - 0.5 * Math.cos(2 * Math.PI * uu));
   return { pitch, v, u, roule: true, tv };
 }
 
@@ -160,7 +192,9 @@ function trajectoire() {
       const tv = e.tv;
       if (tv < V.RAMPE * 0.66) v = e.v;
       else v = v + (pleine - v) * (1 - Math.exp(-7.2 * dt));
-      if (e.pitch > V.ROUE_LEVE) y += v * Math.sin(e.pitch) * dt;
+      // l'arrondi inversé : la portance s'installe en S sur ARRONDI radians
+      const lev = Math.max(0, Math.min(1, (e.pitch - V.ROUE_LEVE) / V.ARRONDI));
+      y += v * Math.sin(e.pitch) * dt * lev * lev * (3 - 2 * lev);
       x += v * Math.cos(e.pitch) * dt;
     }
     out.push({ t, x, y, pitch: e.pitch, v, regime: e.regime || 1 });
@@ -169,18 +203,8 @@ function trajectoire() {
 }
 let TRAJ = trajectoire();
 
-// l'écart lu sur la courbe, interpolé linéairement entre les points
-function ecartA(t) {
-  const P = PTS;
-  if (t <= P[0].t) return P[0].d;
-  for (let i = 1; i < P.length; i++) {
-    if (t <= P[i].t) {
-      const k = (t - P[i-1].t) / Math.max(1e-6, P[i].t - P[i-1].t);
-      return P[i-1].d + (P[i].d - P[i-1].d) * k;
-    }
-  }
-  return P[P.length - 1].d;
-}
+// l'écart lu sur la courbe, en spline comme le jeu (camDecolEcart)
+function ecartA(t) { return courbeDe(PTS, t); }
 
 // l'assiette de la caméra, amortie comme dans le jeu
 function camPitchSerie() {
@@ -193,6 +217,18 @@ function camPitchSerie() {
   return out;
 }
 let CAMP = camPitchSerie();
+// la hauteur de la caméra, qui traîne derrière sa place à CAM_VERT
+function camYSerie() {
+  const dt = 1 / 120, out = []; let cy = null;
+  TRAJ.forEach((e, i) => {
+    const cp = CAMP[i], ec = courbeDe(PTS, e.t);
+    const cible = e.y - Math.sin(cp) * ec + V.CAM_HAUT;
+    cy = cy === null ? cible : cy + (cible - cy) * (1 - Math.exp(-V.CAM_VERT * dt));
+    out.push(cy);
+  });
+  return out;
+}
+let CAMY = camYSerie();
 
 // ---------------------------------------------------------------------------
 // LES DEUX DESSINS
@@ -250,11 +286,11 @@ function dessineCourbe() {
 function dessineScene() {
   const w = cScene.width, h = cScene.height;
   gs.clearRect(0, 0, w, h);
-  const i = Math.min(TRAJ.length - 1, Math.round(tJeu * 120));
+  const i = Math.max(0, Math.min(TRAJ.length - 1, Math.round(tJeu * 120)));
   const A = TRAJ[i], cp = CAMP[i];
   const ec = ecartA(tJeu);
   // la caméra : derrière l'appareil le long de son axe amorti, et au-dessus
-  const cx = A.x - Math.cos(cp) * ec, cy = A.y - Math.sin(cp) * ec + V.CAM_HAUT;
+  const cx = A.x - Math.cos(cp) * ec, cy = CAMY[i];
   // cadrage : on suit l'ensemble
   const x0 = Math.min(cx, A.x) - 30, x1 = Math.max(cx, A.x) + 60;
   const ech = (w - 80) / Math.max(120, x1 - x0);
@@ -300,6 +336,7 @@ function dessineScene() {
   gs.fillText('assiette ' + Math.round(A.pitch * 57.3) + '°', 10, 48);
   gs.fillText('vitesse ' + Math.round(A.v) + ' m/s', 10, 63);
   gs.fillText('hauteur ' + Math.round(A.y) + ' m', 10, 78);
+  gs.fillText('caméra ' + cy.toFixed(1) + ' m, place ' + (A.y - Math.sin(cp) * ec + V.CAM_HAUT).toFixed(1), 10, 93);
 
   // LE PETIT CADRE : où l'avion tombe dans l'image. C'est la seule chose qui
   // compte vraiment — on ne regarde pas la caméra, on regarde ce qu'elle cadre.
@@ -318,6 +355,46 @@ function dessineScene() {
   gs.fillStyle = '#1d4a36'; gs.font = '9px "IBM Plex Mono", monospace';
   gs.fillText("dans l'image", bx + 2, by + bh + 11);
 }
+
+// ---------------------------------------------------------------------------
+// LA COURBE DE L'ASSIETTE
+// ---------------------------------------------------------------------------
+const cCourbe2 = document.getElementById('courbe2'), g2 = cCourbe2.getContext('2d');
+const X2 = t => 40 + (cCourbe2.width - 62) * (t / PMAX);
+const Y2 = d => cCourbe2.height - 30 - (cCourbe2.height - 52) * (d / DEGMAX);
+const tDe2 = px => Math.max(0, Math.min(PMAX, (px - 40) / (cCourbe2.width - 62) * PMAX));
+const dDe2 = py => Math.max(0, Math.min(DEGMAX, (cCourbe2.height - 30 - py) / (cCourbe2.height - 52) * DEGMAX));
+function dessineCourbe2() {
+  const w = cCourbe2.width, h = cCourbe2.height;
+  g2.clearRect(0, 0, w, h);
+  g2.strokeStyle = '#123'; g2.lineWidth = 1; g2.font = '10px "IBM Plex Mono", monospace'; g2.fillStyle = '#1d4a36';
+  for (let sx = 0; sx <= PMAX; sx += 0.5) { g2.beginPath(); g2.moveTo(X2(sx), 14); g2.lineTo(X2(sx), h - 30); g2.stroke(); g2.fillText(sx.toFixed(1) + ' s', X2(sx) - 10, h - 14); }
+  for (let d = 0; d <= DEGMAX; d += 30) { g2.beginPath(); g2.moveTo(38, Y2(d)); g2.lineTo(w - 20, Y2(d)); g2.stroke(); g2.fillText(d + '°', 6, Y2(d) + 3); }
+  // la vague en cosinus, pâle, pour comparer
+  g2.strokeStyle = '#1d4a36'; g2.setLineDash([2, 4]); g2.beginPath();
+  for (let i = 0; i <= 160; i++) { const t = PMAX * i / 160, x = X2(t), y = Y2(vagueDeg(t)); i ? g2.lineTo(x, y) : g2.moveTo(x, y); }
+  g2.stroke(); g2.setLineDash([]);
+  // le seuil des roues et l'arrondi
+  const r0 = V.ROUE_LEVE * 57.2958, r1 = (V.ROUE_LEVE + V.ARRONDI) * 57.2958;
+  g2.fillStyle = 'rgba(70,255,160,0.07)'; g2.fillRect(40, Y2(r1), w - 62, Y2(r0) - Y2(r1));
+  g2.fillStyle = '#1d4a36'; g2.fillText('les roues quittent le sol, en S', 44, Y2(r1) - 3);
+  if (V.SPLINE) {
+    g2.strokeStyle = '#46ffa0'; g2.lineWidth = 2; g2.beginPath();
+    for (let i = 0; i <= 160; i++) { const t = PMAX * i / 160, x = X2(t), y = Y2(Math.max(0, courbeDe(PPTS, t))); i ? g2.lineTo(x, y) : g2.moveTo(x, y); }
+    g2.stroke();
+    for (const p of PPTS) { g2.fillStyle = '#04070a'; g2.strokeStyle = '#46ffa0'; g2.lineWidth = 1.5; g2.beginPath(); g2.arc(X2(p.t), Y2(p.d), 7, 0, 6.2832); g2.fill(); g2.stroke(); }
+  }
+  const tr = tJeu - V.ATTENTE - V.ROULAGE;
+  if (tr >= 0 && tr <= PMAX) { g2.strokeStyle = 'rgba(143,252,196,0.55)'; g2.lineWidth = 1; g2.beginPath(); g2.moveTo(X2(tr), 14); g2.lineTo(X2(tr), h - 30); g2.stroke(); }
+}
+let prise2 = -1;
+function pos2(e) { const r = cCourbe2.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: (t.clientX - r.left) * cCourbe2.width / r.width, y: (t.clientY - r.top) * cCourbe2.height / r.height }; }
+function attrape2(e) { if (!V.SPLINE) return; const p = pos2(e); prise2 = -1; let best = 22 * 22; PPTS.forEach((q, i) => { const dx = X2(q.t) - p.x, dy = Y2(q.d) - p.y, d2 = dx * dx + dy * dy; if (d2 < best) { best = d2; prise2 = i; } }); if (prise2 >= 0) { e.preventDefault(); bouge2(e); } }
+function bouge2(e) { if (prise2 < 0) return; e.preventDefault(); const p = pos2(e); PPTS[prise2].d = Math.round(dDe2(p.y)); if (prise2 > 0 && prise2 < PPTS.length - 1) { const min = PPTS[prise2 - 1].t + 0.1, max = PPTS[prise2 + 1].t - 0.1; PPTS[prise2].t = Math.max(min, Math.min(max, tDe2(p.x))); } TRAJ = trajectoire(); CAMP = camPitchSerie(); CAMY = camYSerie(); montre(); }
+cCourbe2.addEventListener('pointerdown', attrape2); cCourbe2.addEventListener('pointermove', bouge2); window.addEventListener('pointerup', () => { prise2 = -1; });
+cCourbe2.addEventListener('touchstart', attrape2, { passive: false }); cCourbe2.addEventListener('touchmove', bouge2, { passive: false });
+const bSpline = document.getElementById('btnSpline');
+bSpline.addEventListener('click', () => { V.SPLINE = V.SPLINE ? 0 : 1; bSpline.classList.toggle('actif', !!V.SPLINE); bSpline.textContent = V.SPLINE ? 'ASSIETTE : SPLINE' : 'ASSIETTE : VAGUE EN COSINUS'; TRAJ = trajectoire(); CAMP = camPitchSerie(); CAMY = camYSerie(); montre(); });
 
 // ---------------------------------------------------------------------------
 // LE DOIGT SUR LA COURBE
@@ -348,6 +425,7 @@ function bouge(e) {
     const min = PTS[prise - 1].t + 0.15, max = PTS[prise + 1].t - 0.15;
     PTS[prise].t = Math.max(min, Math.min(max, tDe(p.x)));
   }
+  CAMY = camYSerie();
   montre();
 }
 function lache() { prise = -1; }
@@ -374,7 +452,7 @@ for (const r of R) {
   boites[r.cle] = s;
   s.addEventListener('input', () => {
     V[r.cle] = parseFloat(s.value);
-    TRAJ = trajectoire(); CAMP = camPitchSerie();
+    TRAJ = trajectoire(); CAMP = camPitchSerie(); CAMY = camYSerie();
     montre();
   });
 }
@@ -387,9 +465,10 @@ function montre() {
   document.getElementById('sortie').textContent =
     'DÉCOLLAGE — réglé sur la page\n' +
     R.map(r => '  ' + r.cle + ' = ' + (V[r.cle] >= 10 ? V[r.cle].toFixed(1) : V[r.cle].toFixed(2))).join('\n') +
-    '\n  ÉCART CAMÉRA (t en s, d en m)\n' +
-    PTS.map(p => '    ' + p.t.toFixed(2) + '  ->  ' + Math.round(p.d)).join('\n');
-  dessineCourbe(); dessineScene();
+    '\nconst CAM_DECOL_COURBE = [' + PTS.map(p => '[' + p.t.toFixed(2) + ', ' + Math.round(p.d) + ']').join(', ') + '];\n' +
+    'const DECOL_ASSIETTE_COURBE = [' + (V.SPLINE ? PPTS.map(p => '[' + p.t.toFixed(2) + ', ' + (p.d / 57.2958).toFixed(3) + ']').join(', ') : '') + '];' + (V.SPLINE ? '' : '   // vide : la vague en cosinus') + '\n' +
+    'const DECOL_ARRONDI = ' + V.ARRONDI.toFixed(2) + ';\nconst CAM_DECOL_VERT = ' + V.CAM_VERT.toFixed(1) + ';';
+  dessineCourbe(); dessineCourbe2(); dessineScene();
 }
 
 document.getElementById('btnJoue').addEventListener('click', () => { tJeu = 0; joue = true; });
@@ -400,8 +479,9 @@ document.getElementById('btnBoucle').addEventListener('click', e => {
 });
 document.getElementById('btnDefaut').addEventListener('click', () => {
   Object.assign(V, DEFAUT);
-  PTS = DEFAUT_PTS.map(p => ({ ...p }));
-  TRAJ = trajectoire(); CAMP = camPitchSerie();
+  PTS = DEFAUT_PTS.map(p => ({ ...p })); PPTS = ptsVague();
+  bSpline.classList.add('actif'); bSpline.textContent = 'ASSIETTE : SPLINE';
+  TRAJ = trajectoire(); CAMP = camPitchSerie(); CAMY = camYSerie();
   montre();
   document.getElementById('etat').textContent = 'Remis à ce que fait le jeu aujourd’hui.';
 });
@@ -419,16 +499,16 @@ function boucleImage(now) {
   const dt = Math.min(0.05, (now - dernier) / 1000);
   dernier = now;
   if (joue) {
-    tJeu += dt;
+    tJeu = Math.max(0, tJeu + dt);   // la première image peut avoir un dt négatif : l'horloge du rAF précède parfois performance.now()
     if (tJeu > TMAX) { if (boucle) tJeu = 0; else { tJeu = TMAX; joue = false; } }
-    dessineCourbe(); dessineScene();
+    dessineCourbe(); dessineCourbe2(); dessineScene();
   }
   requestAnimationFrame(boucleImage);
 }
 montre();
 requestAnimationFrame(boucleImage);
 document.getElementById('etat').textContent =
-  'Tire les ronds de la courbe du haut. Le reste se règle aux curseurs.';
+  'Tire les ronds des deux courbes. Le reste se règle aux curseurs. COPIER donne le bloc à me renvoyer.';
 </script>
 </body>
 </html>
