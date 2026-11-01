@@ -6124,10 +6124,6 @@ function updateTraits(dt) {
   // la Jeep à vingt mètres par seconde doit faire autant d'air que l'appareil
   // en croisière, sinon on ne verrait jamais rien. Le reste du calcul —
   // l'assiette, la poursuite, la poussée — ne concerne que l'avion.
-  // À PIED, RIEN (v2.00) : « je marche en bas, je ne devrais pas les voir ».
-  // Ils s'allumaient dès trente pour cent de la vitesse de course. La Jeep
-  // garde les siens.
-  if (state.pied) { traitsLayer.visible = false; return; }
   if (state.pied || state.jeep) {
     const plein = state.pied ? PIED_COURSE : JEEP_VMAX;
     const k2 = THREE.MathUtils.clamp((vit - plein * 0.30) / (plein * 0.70), 0, 1);
@@ -11493,6 +11489,7 @@ function entreAuRefuge() {
 // La caméra s'écarte et tourne. Très lentement : un tour en une demi-minute.
 // C'est le seul moment du jeu où l'on ne pilote pas et où rien ne presse.
 function updateRefugePose(dt) {
+  updateTraits(dt);                // posé au refuge : la couche s'éteint, au lieu de rester figée
   const R = state.refuge;
   R.t += dt;
   R.angle += REFUGE_TOUR * dt;
@@ -14778,6 +14775,7 @@ function simulate(dt) {
     updateEnemies(dt);
     updateBullets(dt);
     updateJeep(dt);
+    updateTraits(dt);              // l'air de la Jeep — et plus jamais celui du vol, figé
     updatePoste(dt);
     updateDecor(dt);
     majLune(dt);
@@ -14785,6 +14783,11 @@ function simulate(dt) {
     return;
   }
   if (state.pied) {
+    // LES TRAITS SUIVENT L'HOMME (v2.01). La boucle à pied ne les mettait
+    // jamais à jour : la couche gardait la géométrie du dernier instant de
+    // vol, et une pluie de traits de soixante-douze mètres restait figée
+    // dans le ciel pendant qu'on marchait. Mesuré : 340 points, 72 m, au sol.
+    updateTraits(dt);
     // LE MONDE NE S'ARRÊTE PAS PARCE QU'ON EST DESCENDU. Au refuge il n'y a
     // pas de vague — c'est le seul endroit du jeu qui en est exempt — mais ce
     // qui était déjà lâché continue. Et notamment la chenillée : laisser une
@@ -20575,6 +20578,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '2.01', fr: 'Les traits de la marche reviennent — c’étaient ceux du vol qu’il fallait retirer : posé au refuge, la couche gardait la pluie du dernier instant de vol, figée dans le ciel. Elle s’éteint à l’arrêt et suit l’homme ou la Jeep quand ils bougent.', en: 'The walking streaks are back — it was the flight ones that had to go: parked at the refuge, the layer kept the last instant of flight’s rain, frozen in the sky. It goes out at rest and follows the man or the Jeep when they move.' },
   { v: '2.00', fr: 'Les portails ne catapultent plus : un petit coup au passage (25 m/s, qui retombe en trois secondes), un peu de capital qui reste (10 m/s, cumulatif), et l’air qui file. Deux portails attendent dans l’axe, un à chaque bout de piste : on comprend tout de suite qu’on peut passer. Le drone des vagues 3 et 4 va plus vite et vire moins court : son rayon passe de 100 à 160 m, on ne tourne plus en rond avec lui. En palier au-dessus de la croisière, la marée redescend enfin : un coup de portail ne restait jamais.', en: 'Gates no longer catapult: a small push through (25 m/s, gone in three seconds), a little capital that stays (10 m/s, cumulative), and air streaming past. Two gates wait on the axis, one at each runway end: you see at once that you can fly through. The wave 3 and 4 drone is faster and turns wider: its radius goes from 100 to 160 m, no more circling with it. Level above cruise, the tide finally ebbs: a gate push used to stay forever.' },
   { v: '2.00', fr: 'Le décollage : la portance s’installe en S sur 0,18 rad d’assiette — un arrondi inversé, les roues quittent le sol sans marche — et la caméra traîne en hauteur avec un quart de seconde de retard. L’assiette peut être une spline : six points à tirer sur decollage.html, avec l’arrondi et le retard vertical en curseurs, et un bloc COPIER à me renvoyer. Et à pied, plus de traits de vitesse.', en: 'Takeoff: lift settles in an S over 0.18 rad of pitch — an inverted flare, the wheels leave the ground without a step — and the camera lags in height by a quarter second. Pitch can be a spline: six points to drag on decollage.html, with the flare and vertical lag as sliders, and a COPY block to send me. And on foot, no more speed streaks.' },
   { v: '1.99', fr: 'L’éblouissement de la lune est retiré, en entier : plus de voile ni de bandeau quand elle est dans le dos, plus d’adversaires aveuglés, plus de mort à la regarder quand la chenillée lourde est là. Et quand on s’écrase, la ligne dit « abattu par · le sol », le décor ou la piste — plus le dernier qui avait tiré.', en: 'The moon’s dazzle is gone, entirely: no veil or banner when it is at your back, no blinded foes, no death from looking at it when the heavy crawler is around. And when you crash, the line says “downed by · the ground”, the scenery or the runway — not whoever shot last.' },
