@@ -16599,7 +16599,7 @@ function simulate(dt) {
     if (Math.hypot(state.pos.x, state.pos.z) > TERRAIN_R3) return;
     state.waveTimer -= dt;
     if (state.waveTimer <= 0) {
-      state.waveTimer = 5.0;      // deux secondes de répit de plus : le temps de jouer avec l'avion
+      state.waveTimer = 3.0;      // deux secondes de moins entre deux vagues (v2.02)
       spawnWave();
     }
   }
@@ -20578,6 +20578,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '2.02', fr: 'Le jeu démarre tout seul : on ouvre, on décolle, sans bouton. Pour la pause, MENU. Et deux secondes de moins entre deux vagues : trois au lieu de cinq.', en: 'The game starts by itself: open it, you take off, no button. For a pause, MENU. And two seconds less between waves: three instead of five.' },
   { v: '2.01', fr: 'Les traits de la marche reviennent — c’étaient ceux du vol qu’il fallait retirer : posé au refuge, la couche gardait la pluie du dernier instant de vol, figée dans le ciel. Elle s’éteint à l’arrêt et suit l’homme ou la Jeep quand ils bougent.', en: 'The walking streaks are back — it was the flight ones that had to go: parked at the refuge, the layer kept the last instant of flight’s rain, frozen in the sky. It goes out at rest and follows the man or the Jeep when they move.' },
   { v: '2.00', fr: 'Les portails ne catapultent plus : un petit coup au passage (25 m/s, qui retombe en trois secondes), un peu de capital qui reste (10 m/s, cumulatif), et l’air qui file. Deux portails attendent dans l’axe, un à chaque bout de piste : on comprend tout de suite qu’on peut passer. Le drone des vagues 3 et 4 va plus vite et vire moins court : son rayon passe de 100 à 160 m, on ne tourne plus en rond avec lui. En palier au-dessus de la croisière, la marée redescend enfin : un coup de portail ne restait jamais.', en: 'Gates no longer catapult: a small push through (25 m/s, gone in three seconds), a little capital that stays (10 m/s, cumulative), and air streaming past. Two gates wait on the axis, one at each runway end: you see at once that you can fly through. The wave 3 and 4 drone is faster and turns wider: its radius goes from 100 to 160 m, no more circling with it. Level above cruise, the tide finally ebbs: a gate push used to stay forever.' },
   { v: '2.00', fr: 'Le décollage : la portance s’installe en S sur 0,18 rad d’assiette — un arrondi inversé, les roues quittent le sol sans marche — et la caméra traîne en hauteur avec un quart de seconde de retard. L’assiette peut être une spline : six points à tirer sur decollage.html, avec l’arrondi et le retard vertical en curseurs, et un bloc COPIER à me renvoyer. Et à pied, plus de traits de vitesse.', en: 'Takeoff: lift settles in an S over 0.18 rad of pitch — an inverted flare, the wheels leave the ground without a step — and the camera lags in height by a quarter second. Pitch can be a spline: six points to drag on decollage.html, with the flare and vertical lag as sliders, and a COPY block to send me. And on foot, no more speed streaks.' },
@@ -22440,6 +22441,13 @@ appliqueLangue();
 rendJournal();
 window.__fodReady = true;
 clearInterval(window.__fodTimer);
+// ON DÉCOLLE TOUT DE SUITE (v2.02). « Quand on ouvre le jeu, ça commence
+// directement au décollage, pas besoin d'appuyer sur démarrer ; pour la pause,
+// le bouton MENU. » Le son, lui, ne peut naître que dans un geste : le premier
+// contact, où qu'il soit, le réveille.
+for (const ev of ['pointerdown', 'touchstart', 'keydown'])
+  document.addEventListener(ev, () => audioDemarre(), { passive: true, once: true });
+if (!location.hash.includes('attendre')) decolle(false);
 </script>
 </body>
 </html>
