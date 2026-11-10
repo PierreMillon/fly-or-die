@@ -54,7 +54,8 @@ verifie('le moteur est prêt', true, 'oui');
 const expose = await page.evaluate(() => !!window.__fod);
 verifie('window.__fod est exposé', expose, expose);
 
-await page.click('#startBtn');
+// depuis v2.02 le jeu décolle tout seul au chargement : le bouton ne sert que si l'accueil est encore là
+await page.evaluate(() => { const o = document.getElementById('overlay'); if (o && !o.hidden) document.getElementById('startBtn').click(); });
 await page.waitForTimeout(9000);
 
 const e = await page.evaluate(() => {

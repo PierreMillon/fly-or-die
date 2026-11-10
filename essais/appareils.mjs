@@ -51,7 +51,8 @@ for (const id of APPAREILS) {
   }, id);
   await page.goto(URL, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction('window.__fodReady === true', null, { timeout: 30000 });
-  await page.click('#startBtn');
+  // depuis v2.02 le jeu décolle tout seul au chargement : le bouton ne sert que si l'accueil est encore là
+  await page.evaluate(() => { const o = document.getElementById('overlay'); if (o && !o.hidden) document.getElementById('startBtn').click(); });
   await page.waitForTimeout(10000);
 
   const vol = await page.evaluate(() => {

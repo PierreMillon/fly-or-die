@@ -732,7 +732,7 @@
   <p class="fin" id="installFin"></p>
 </div>
 
-<div id="overlay">
+<div id="overlay" hidden>   <!-- caché d’emblée (v2.04) : le jeu décolle seul ; un échec de démarrage ou #attendre le réaffichent -->
   <h1>FLY OR DIE</h1>
   <p id="overlayText"></p>
   <p id="overlayScore" hidden></p>
@@ -783,6 +783,8 @@
     function ecran(html, bouton) {
       var t = document.getElementById('overlayText');
       var b = document.getElementById('startBtn');
+      var o = document.getElementById('overlay');
+      if (o) o.hidden = false;          // l'accueil est caché d'emblée : une panne doit se voir
       if (t) t.innerHTML = html;
       if (b && bouton) { b.textContent = bouton; b.onclick = function () { location.reload(); }; }
     }
@@ -20578,6 +20580,7 @@ plusJamaisCase.addEventListener('change', () => {
 // ici — le detail vit dans le code et dans BACKLOG.md.
 // ---------------------------------------------------------------------------
 const JOURNAL = [
+  { v: '2.04', fr: 'Le bouton DÉCOLLER ne clignote plus au chargement : l’accueil est caché d’emblée, le jeu part sans qu’on le voie. Une panne de démarrage le réaffiche. Et les essais ne cherchent plus un bouton qui n’est plus là.', en: 'The TAKE OFF button no longer flashes at load: the home screen is hidden from the start, the game begins without showing it. A boot failure brings it back. And the tests no longer look for a button that is gone.' },
   { v: '2.03', fr: 'Une planche pour tous les jeux, friction.html : pour chacun des dix, ce qu’on voit au premier écran sur un téléphone, et des propositions pour aller droit au jeu — à cocher OUI, NON ou PEUT-ÊTRE.', en: 'A bench for all the games, friction.html: for each of the ten, what you see on the first screen on a phone, and proposals to go straight to the game — to tick YES, NO or MAYBE.' },
   { v: '2.02', fr: 'Le jeu démarre tout seul : on ouvre, on décolle, sans bouton. Pour la pause, MENU. Et deux secondes de moins entre deux vagues : trois au lieu de cinq.', en: 'The game starts by itself: open it, you take off, no button. For a pause, MENU. And two seconds less between waves: three instead of five.' },
   { v: '2.01', fr: 'Les traits de la marche reviennent — c’étaient ceux du vol qu’il fallait retirer : posé au refuge, la couche gardait la pluie du dernier instant de vol, figée dans le ciel. Elle s’éteint à l’arrêt et suit l’homme ou la Jeep quand ils bougent.', en: 'The walking streaks are back — it was the flight ones that had to go: parked at the refuge, the layer kept the last instant of flight’s rain, frozen in the sky. It goes out at rest and follows the man or the Jeep when they move.' },
@@ -22448,7 +22451,7 @@ clearInterval(window.__fodTimer);
 // contact, où qu'il soit, le réveille.
 for (const ev of ['pointerdown', 'touchstart', 'keydown'])
   document.addEventListener(ev, () => audioDemarre(), { passive: true, once: true });
-if (!location.hash.includes('attendre')) decolle(false);
+if (location.hash.includes('attendre')) overlay.hidden = false; else decolle(false);
 </script>
 </body>
 </html>
