@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>La friction — tous les jeux</title>
+<style>
+  :root { --bg:#04070a; --line:#46ffa0; --text:#8ffcc4; --dim:#1d4a36; --pale:#0f2a1d; --orange:#ffb070; --rouge:#ff7b6b; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size:14px; line-height:1.6; }
+  body { padding:18px 14px 90px; max-width:36rem; margin:0 auto; }
+  h1 { font-size:13px; letter-spacing:.24em; font-weight:500; margin:0 0 4px; }
+  h2 { font-size:12px; letter-spacing:.2em; font-weight:500; margin:34px 0 4px; color:var(--line); }
+  .sous { color:var(--dim); font-size:12px; margin:0 0 18px; }
+  .vu { color:var(--dim); font-size:12px; line-height:1.5; margin:0 0 12px; border-left:1px solid var(--dim); padding-left:10px; }
+  .vu b { color:var(--text); font-weight:500; }
+  .prop { border:1px solid var(--dim); border-radius:4px; padding:10px 12px; margin:0 0 8px; }
+  .prop p { margin:0 0 8px; }
+  .prop .n { color:var(--dim); font-size:11px; letter-spacing:.1em; margin-right:6px; }
+  .rangee { display:flex; gap:6px; }
+  button { flex:1 1 0; background:transparent; border:1px solid var(--dim); border-radius:4px; color:var(--text);
+    font-family:inherit; font-size:11px; letter-spacing:.14em; padding:9px 4px; }
+  button.oui.actif { border-color:var(--line); color:var(--line); }
+  button.non.actif { border-color:var(--rouge); color:var(--rouge); }
+  button.peut.actif { border-color:var(--orange); color:var(--orange); }
+  textarea { width:100%; min-height:3.2em; background:transparent; color:var(--text); border:1px solid var(--dim); border-radius:4px; padding:8px; font:inherit; font-size:12px; margin:4px 0 0; }
+  .barre { position:fixed; left:0; right:0; bottom:0; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); background:rgba(4,7,10,.96); border-top:1px solid var(--dim); display:flex; gap:8px; }
+  .barre button { padding:12px 6px; font-size:12px; }
+  #sortie { white-space:pre-wrap; color:var(--dim); font-size:11px; margin:14px 0 0; }
+  .etat { color:var(--dim); font-size:11px; min-height:1.3em; margin:6px 0 0; }
+  a { color:var(--text); }
+</style>
+</head>
+<body>
+<h1>LA FRICTION — DIX JEUX</h1>
+<p class="sous">Pour chaque jeu : ce que j'ai vu au premier écran, sur un téléphone, à froid,
+puis des propositions pour aller droit à ce pour quoi le jeu est fait. Coche OUI, NON ou
+PEUT-ÊTRE, écris un mot si tu veux, et « COPIER MES RÉPONSES » en bas. Ce que tu coches
+reste sur cet appareil.</p>
+<div id="jeux"></div>
+<p id="sortie"></p>
+<div class="barre"><button id="copier">COPIER MES RÉPONSES</button><button id="vider">TOUT EFFACER</button></div>
+<p class="etat" id="etat"></p>
+
+<script>
+const JEUX = [
+  { id: 'hall', nom: 'LE HALL (pierremillon.github.io)',
+    vu: 'Dix lignes, <b>neuf sans description</b> (seul Fly or Die en a une). Rien ne dit lequel on a joué la dernière fois. Le hall se recharge tout seul quand il change.',
+    props: [
+      'Une ligne de description par jeu, dans la liste : ce qu’on y fait, en huit mots.',
+      'Le dernier jeu joué remonte en tête de liste, avec « reprendre ».',
+      'Un seul appui : toucher la ligne ouvre le jeu, qui démarre tout seul (voir la règle commune).',
+    ] },
+  { id: 'fly', nom: 'I · FLY OR DIE',
+    vu: 'Depuis v2.02 : <b>0 appui</b>, on décolle au chargement. À la mort : ENCORE, PARTAGER, BESOIN D’EXPLICATIONS, RAPPORT DE VOL, « ne plus afficher », DÉFI DU JOUR, MENU, et « regarder une vidéo · reprendre ». Huit choses sur l’écran de fin.',
+    props: [
+      'À la mort, le redécollage part tout seul après trois secondes (un décompte sur ENCORE) ; ENCORE pour tout de suite.',
+      'L’écran de fin ne garde que ENCORE et MENU ; partage, rapport, explications et défi vont dans MENU.',
+      '« Regarder une vidéo · reprendre » n’apparaît qu’à partir de la vague 3 : avant, il n’y a rien à sauver.',
+    ] },
+  { id: 'kw', nom: 'II · KNIGHT WARS',
+    vu: 'Un écran-titre : titre, cheval, « À l’attaque ! », « Jouer le défi du jour », une phrase sur les factions, « Changer la carte », Réglages. Puis le choix de faction avant la bataille. <b>1 à 2 appuis</b>, un écran plein avant de jouer. La page pèse 1 Mo, les trois musiques 5,7 Mo (chargées à la demande).',
+    props: [
+      'Ouvrir directement sur la bataille, carte du jour et factions par défaut ; l’écran-titre devient le menu ⚙.',
+      '« Changer la carte » et le choix de faction : une seule porte, dans le menu, jamais sur le chemin.',
+      'Le défi du jour n’est plus un deuxième bouton : c’est la partie du jour par défaut, le libre dans le menu.',
+      'La musique d’intro (1,9 Mo) ne se charge pas avant qu’on l’ait demandée ; elle ne retarde jamais la première partie.',
+    ] },
+  { id: 'bo', nom: 'III · BASTION ORBIT',
+    vu: 'On arrive en jeu : <b>0 appui</b>. Mais une bannière de quatre lignes d’astuces à fermer, <b>huit boutons</b> en bas dès la première seconde (dont un grisé, Huile, et un à 40 qu’on ne peut pas payer), le numéro de version et un feu en haut.',
+    props: [
+      'La bannière d’astuces : une seule phrase (« glisse pour viser »), qui s’efface au premier geste.',
+      'Les boutons qu’on ne peut pas payer ou pas encore utiliser n’apparaissent qu’au moment où ils servent.',
+      'La vague 1 part toute seule, sans rien lire ni toucher ; le bouton « Vague 1 → 2 » sert seulement à presser.',
+      'Le numéro de version et le feu quittent le premier écran (dans ☰).',
+    ] },
+  { id: 'fl', nom: 'IV · FORGE LINE',
+    vu: 'On arrive en jeu : <b>0 appui</b>, la vague 1 arrive seule. Mais <b>huit boutons</b> avec sous-titres en bas (Revenu auto, Dégâts, Cadence, Forge, Réparateurs, Soldats…) alors qu’on a 20 d’or et un seul geste possible : Construire. Un ▶ en haut qui ressemble à « lecture » et veut dire « passer la vague ». v18.15 affiché.',
+    props: [
+      'Au niveau 1, un seul bouton : Construire. Les autres apparaissent quand on a de quoi les payer.',
+      'Le ▶ devient « vague suivante », ou se fond dans le compteur « Vague 1/10 ».',
+      'Une partie en cours reprend là où elle était, sans question.',
+      'Le numéro de version hors du premier écran.',
+    ] },
+  { id: 'dh', nom: 'V · DWELVE HOLLOW',
+    vu: 'On arrive en jeu : <b>0 appui</b>, le village se réveille. Mais à ×1 il ne se passe rien pendant une longue minute ; <b>sept boutons</b> en bas (×1, pause, chronique, mémoire, ⟳, lieux, et un champ « écrire une règle » en lecture seule).',
+    props: [
+      'Démarrer à ×10 : qu’il se passe quelque chose dans les dix premières secondes.',
+      'En bas, deux choses : la vitesse et la pause. Chronique, mémoire, lieux et la règle vont dans ☰.',
+      'Le champ « écrire une règle » n’apparaît que quand on peut y écrire.',
+    ] },
+  { id: 'si', nom: 'VI · SILLAGE',
+    vu: 'Un voile « clique pour commencer » : <b>1 appui</b>, avec un paragraphe de théorie (latence, futur, second axe) à lire avant, et sous le jeu un « banc d’essai — 6 commutateurs ».',
+    props: [
+      'Le premier geste de jeu (flèche ou glissement) démarre ; plus de voile, plus de clic pour commencer.',
+      'Le paragraphe de théorie passe derrière un « ? » ; il reste une ligne : « ← → · décide tôt ».',
+      'Le banc d’essai à six commutateurs devient une page à part, comme les planches de Fly or Die.',
+    ] },
+  { id: 'ss', nom: 'VII · SYSTÈME SILHOUETTE',
+    vu: 'FR / EN tout en haut, puis <b>un paragraphe de huit lignes</b> d’explication, puis sept niveaux, puis l’exercice. L’exercice est sous le pli : il faut défiler. Le niveau joué n’est pas gardé (la langue l’est).',
+    props: [
+      'L’exercice en haut, visible sans défiler ; l’explication en dessous, ou derrière « c’est quoi ? ».',
+      'On reprend au dernier niveau joué.',
+      'FR / EN dans un coin, en petit.',
+    ] },
+  { id: 'cs', nom: 'VIII · CROCOSHEEP',
+    vu: 'Un écran de bienvenue : « ajoute ton premier contact avec son code, ou partage ton lien ». Deux boutons en pointillés. Le Bot est là, mais il faut comprendre qu’on peut jouer avec lui. <b>1 appui au mieux, plusieurs pour un vrai contact.</b>',
+    props: [
+      'Ouvrir directement sur l’échange avec le Bot : un mouton à envoyer, visible, en dix secondes on a joué.',
+      'L’ajout d’un contact vient après la première partie, pas avant.',
+      'Le texte de bienvenue devient un geste : le mouton qu’on peut toucher, pas une phrase.',
+    ] },
+  { id: 'as', nom: 'IX · ALICE ET SOPHIE',
+    vu: 'Un bandeau orange (citation, titre, v2.72, menu), puis la liste des histoires : la première n’est visible qu’en bas de l’écran. Rien ne retient où l’on en était.',
+    props: [
+      'Reprendre la dernière histoire lue, à l’endroit où l’on s’était arrêté.',
+      'Le bandeau du haut plus petit : la première histoire visible sans défiler.',
+      'Le numéro de version hors du premier écran.',
+    ] },
+  { id: 'ad', nom: 'X · ATELIER DES SÉCANTES',
+    vu: 'On arrive dessus : <b>0 appui</b>, la courbe est là, les méthodes se cochent. Mais rien ne dit ce qu’on est censé faire ; on devine qu’il faut deviner.',
+    props: [
+      'Une consigne d’une ligne au-dessus de la courbe : « devine la mécanique, puis révèle ».',
+      'Rien à changer : c’est un atelier, on y touche et on voit.',
+    ] },
+  { id: 'tous', nom: 'LA RÈGLE COMMUNE',
+    vu: 'Aujourd’hui : trois jeux attendent un appui ou une lecture, cinq affichent leur numéro de version sur le premier écran, deux ont plus de sept boutons avant le premier geste.',
+    props: [
+      'Partout la même règle : le jeu démarre au chargement, le menu met en pause.',
+      'Le son se réveille au premier contact, partout (le téléphone l’exige).',
+      'Jamais de numéro de version sur le premier écran : dans le menu.',
+      'Jamais plus de trois boutons visibles avant le premier geste.',
+      'Les explications arrivent après le premier geste, jamais avant.',
+    ] },
+];
+const CLE = 'fod_planche_friction';
+let rep = {}; try { rep = JSON.parse(localStorage.getItem(CLE) || '{}'); } catch (e) {}
+const sauve = () => { try { localStorage.setItem(CLE, JSON.stringify(rep)); } catch (e) {} };
+const zone = document.getElementById('jeux');
+JEUX.forEach(J => {
+  const h = document.createElement('h2'); h.textContent = J.nom; zone.appendChild(h);
+  const v = document.createElement('p'); v.className = 'vu'; v.innerHTML = J.vu; zone.appendChild(v);
+  J.props.forEach((txt, i) => {
+    const k = J.id + '.' + i;
+    const d = document.createElement('div'); d.className = 'prop';
+    const p = document.createElement('p'); p.innerHTML = '<span class="n">' + (i + 1) + '</span>' + txt; d.appendChild(p);
+    const r = document.createElement('div'); r.className = 'rangee';
+    const bs = [['oui', 'OUI'], ['non', 'NON'], ['peut', 'PEUT-ÊTRE']].map(([c, l]) => { const b = document.createElement('button'); b.className = c + (rep[k] === c ? ' actif' : ''); b.textContent = l; b.addEventListener('click', () => { rep[k] = rep[k] === c ? undefined : c; if (!rep[k]) delete rep[k]; sauve(); bs.forEach(x => x.classList.toggle('actif', rep[k] === x.className.split(' ')[0])); }); return b; });
+    bs.forEach(b => r.appendChild(b)); d.appendChild(r); zone.appendChild(d);
+  });
+  const t = document.createElement('textarea'); t.placeholder = 'un mot sur ' + J.nom.replace(/^[IVX]+ · /, '').toLowerCase() + ' ?'; t.value = rep['mot.' + J.id] || '';
+  t.addEventListener('input', () => { rep['mot.' + J.id] = t.value; if (!t.value) delete rep['mot.' + J.id]; sauve(); });
+  zone.appendChild(t);
+});
+document.getElementById('copier').addEventListener('click', async () => {
+  const L = ['FRICTION — MES RÉPONSES'];
+  const mot = { oui: 'OUI', non: 'NON', peut: 'PEUT-ÊTRE' };
+  JEUX.forEach(J => { const lignes = J.props.map((txt, i) => rep[J.id + '.' + i] ? '  ' + mot[rep[J.id + '.' + i]] + ' — ' + txt : null).filter(Boolean); const m = rep['mot.' + J.id]; if (lignes.length || m) { L.push('', J.nom); L.push(...lignes); if (m) L.push('  un mot : ' + m); } });
+  const txt = L.join('\n'); document.getElementById('sortie').textContent = txt;
+  try { await navigator.clipboard.writeText(txt); document.getElementById('etat').textContent = 'Copié. Colle-le-moi tel quel.'; }
+  catch (e) { document.getElementById('etat').textContent = 'Sélectionne le texte ci-dessus et copie-le.'; }
+});
+document.getElementById('vider').addEventListener('click', () => { rep = {}; sauve(); document.querySelectorAll('button.actif').forEach(b => b.classList.remove('actif')); document.querySelectorAll('textarea').forEach(t => t.value = ''); document.getElementById('sortie').textContent = ''; });
+window.__planche = { JEUX, rep };
+</script>
+</body>
+</html>
